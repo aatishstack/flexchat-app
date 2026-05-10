@@ -1,6 +1,12 @@
 import { Server } from "socket.io";
 
-const messages: any[] = [];
+const messages: Record<
+  string,
+  any[]
+> = {};
+
+const onlineUsers =
+  new Set<string>();
 
 export function setupSocket(io: Server) {
 
@@ -11,30 +17,108 @@ export function setupSocket(io: Server) {
       socket.id
     );
 
-    socket.emit(
-      "load-messages",
-      messages
+    socket.on(
+      "join-chat",
+      (chatId) => {
+
+        socket.join(chatId);
+
+        if (
+          !messages[chatId]
+        ) {
+
+          messages[chatId] = [];
+        }
+
+        socket.emit(
+          "load-messages",
+          messages[chatId]
+        );
+      }
+    );
+
+    socket.on(
+      "user-online",
+      (userId) => {
+
+        onlineUsers.add(userId);
+
+        io.emit(
+          "online-users",
+          Array.from(
+            onlineUsers
+          )
+        );
+      }
     );
 
     socket.on(
       "send-message",
       (data) => {
 
-        messages.push(data);
+        const {
+          chatId,
+        } = data;
 
-        io.emit(
+        if (
+          !messages[chatId]
+        ) {
+
+          messages[chatId] = [];
+        }
+
+        messages[
+          chatId
+        ].push(data);
+
+        io.to(chatId).emit(
           "receive-message",
           data
         );
       }
     );
 
-    socket.on("disconnect", () => {
+    socket.on(
+      "typing-start",
+      ({
+        chatId,
+        userId,
+      }) => {
 
-      console.log(
-        "User disconnected:",
-        socket.id
-      );
-    });
+        socket
+          .to(chatId)
+          .emit(
+            "user-typing",
+            userId
+          );
+      }
+    );
+
+    socket.on(
+      "typing-stop",
+      ({
+        chatId,
+        userId,
+      }) => {
+
+        socket
+          .to(chatId)
+          .emit(
+            "user-stop-typing",
+            userId
+          );
+      }
+    );
+
+    socket.on(
+      "disconnect",
+      () => {
+
+        console.log(
+          "User disconnected:",
+          socket.id
+        );
+      }
+    );
   });
 }
