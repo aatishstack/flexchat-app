@@ -1,10 +1,10 @@
 import Fastify from "fastify";
-import cors from "@fastify/cors";
+import fastifyCors from "@fastify/cors";
 
 import { createServer } from "http";
 import { Server } from "socket.io";
 
-import { registerSocketHandlers } from "./modules/socket/socket";
+import { registerSocketHandlers } from "./modules/socket/socket.js";
 
 const app = Fastify({
   logger: true,
@@ -12,7 +12,7 @@ const app = Fastify({
 
 const startServer = async () => {
   try {
-    await app.register(cors, {
+    await app.register(fastifyCors as any, {
       origin: "*",
     });
 
