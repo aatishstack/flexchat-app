@@ -1,42 +1,47 @@
-import { buildApp }
-  from "./app.js";
+import Fastify from "fastify";
+import cors from "@fastify/cors";
 
-import { db }
-  from "./db/index.js";
+import { createServer } from "http";
+import { Server } from "socket.io";
 
-import { env }
-  from "./config/env.js";
+import { registerSocketHandlers } from "./modules/socket/socket";
 
-import { setupSocket }
-  from "./modules/socket/socket.js";
+const app = Fastify({
+  logger: true,
+});
 
-const start = async () => {
+const startServer = async () => {
   try {
-    await db.execute("SELECT 1");
-
-    console.log(
-      "Database connected"
-    );
-
-    const app =
-      await buildApp();
-
-    setupSocket(app.server);
-
-    await app.listen({
-      port: env.PORT,
-      host: "0.0.0.0",
+    await app.register(cors, {
+      origin: "*",
     });
 
-    console.log(
-      `Server running on port ${env.PORT}`
-    );
+    app.get("/", async () => {
+      return {
+        message: "FlexChat API Running",
+      };
+    });
 
+    const httpServer = createServer(app.server);
+
+    const io = new Server(httpServer, {
+      cors: {
+        origin: "*",
+      },
+    });
+
+    registerSocketHandlers(io);
+
+    const PORT = 5000;
+
+    httpServer.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
   } catch (error) {
-    console.error(error);
+    app.log.error(error);
 
     process.exit(1);
   }
 };
 
-start();
+startServer();
