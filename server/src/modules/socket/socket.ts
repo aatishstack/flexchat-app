@@ -1,79 +1,77 @@
-import { Server }
-from "socket.io";
+import { Server, Socket } from "socket.io";
 
-import { createMessage }
-from "../chat/chat.service.js";
+type OnlineUser = {
+  userId: string;
+  socketId: string;
+};
 
-export function setupSocket(server: any) {
+const onlineUsers = new Map<string, string>();
 
-  const io = new Server(server, {
-    cors: {
-      origin: "*",
-    },
-  });
+export const setupSocket = (io: Server) => {
+  io.on("connection", (socket: Socket) => {
+    console.log(`Socket connected: ${socket.id}`);
 
-  io.on("connection", (socket) => {
+    socket.on("user:join", (userId: string) => {
+      onlineUsers.set(userId, socket.id);
 
-    console.log(
-      "Socket connected:",
-      socket.id
-    );
+      socket.join(userId);
+
+      io.emit("presence:update", {
+        userId,
+        status: "online",
+      });
+
+      console.log(`User joined: ${userId}`);
+    });
 
     socket.on(
-      "join_conversation",
+      "message:send",
+      async (data: {
+        conversationId: string;
+        senderId: string;
+        receiverId: string;
+        content: string;
+      }) => {
+        io.to(data.receiverId).emit("message:new", {
+          ...data,
+          createdAt: new Date(),
+        });
 
-      (conversationId: string) => {
+        io.to(data.senderId).emit("message:new", {
+          ...data,
+          createdAt: new Date(),
+        });
 
-        socket.join(conversationId);
-
-        console.log(
-          `Joined: ${conversationId}`
-        );
+        console.log("Realtime message:", data.content);
       }
     );
 
-    socket.on(
-      "send_message",
+    socket.on("typing:start", (data) => {
+      io.to(data.receiverId).emit("typing:start", data);
+    });
 
-      async (data) => {
+    socket.on("typing:stop", (data) => {
+      io.to(data.receiverId).emit("typing:stop", data);
+    });
 
-        try {
+    socket.on("disconnect", () => {
+      let disconnectedUserId: string | null = null;
 
-          const {
-            conversationId,
-            senderId,
-            content,
-          } = data;
-
-          const message =
-            await createMessage(
-              conversationId,
-              senderId,
-              content
-            );
-
-          io.to(conversationId).emit(
-            "receive_message",
-            message
-          );
-
-        } catch (error) {
-
-          console.log(error);
+      onlineUsers.forEach((socketId, userId) => {
+        if (socketId === socket.id) {
+          disconnectedUserId = userId;
+          onlineUsers.delete(userId);
         }
+      });
+
+      if (disconnectedUserId) {
+        io.emit("presence:update", {
+          userId: disconnectedUserId,
+          status: "offline",
+        });
       }
-    );
 
-    socket.on(
-      "disconnect",
-
-      () => {
-
-        console.log(
-          "Socket disconnected:",
-          socket.id
-        );
-      }
-    );
+      console.log(`Socket disconnected: ${socket.id}`);
+    });
   });
-}
+};

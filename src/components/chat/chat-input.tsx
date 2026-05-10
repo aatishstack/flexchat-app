@@ -21,14 +21,14 @@ export default function ChatInput() {
   const [message, setMessage] =
     useState("");
 
-  const addMessage =
-    useChatStore(
-      (state) => state.addMessage
-    );
-
   const userId =
     useChatStore(
       (state) => state.userId
+    );
+
+  const selectedChat =
+    useChatStore(
+      (state) => state.selectedChat
     );
 
   const handleSendMessage = () => {
@@ -41,6 +41,19 @@ export default function ChatInput() {
         id: Date.now(),
 
         text: message,
+
+        userId,
+
+        chatId:
+          selectedChat,
+      }
+    );
+
+    socket.emit(
+      "typing-stop",
+      {
+        chatId:
+          selectedChat,
 
         userId,
       }
@@ -78,11 +91,40 @@ export default function ChatInput() {
         <input
           value={message}
 
-          onChange={(e) =>
-            setMessage(
-              e.target.value
-            )
-          }
+          onChange={(e) => {
+
+            const value =
+              e.target.value;
+
+            setMessage(value);
+
+            if (
+              value.trim()
+            ) {
+
+              socket.emit(
+                "typing-start",
+                {
+                  chatId:
+                    selectedChat,
+
+                  userId,
+                }
+              );
+
+            } else {
+
+              socket.emit(
+                "typing-stop",
+                {
+                  chatId:
+                    selectedChat,
+
+                  userId,
+                }
+              );
+            }
+          }}
 
           onKeyDown={(e) => {
 

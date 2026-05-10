@@ -1,14 +1,15 @@
-import type { Metadata } from "next";
-
 import "./globals.css";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import { SocketProvider } from "../components/providers/SocketProvider";
 
-import Providers from "@/components/shared/providers";
+const inter = Inter({
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
   title: "FlexChat",
-
-  description:
-    "Premium realtime messaging platform",
+  description: "Modern realtime chat application",
 };
 
 export default function RootLayout({
@@ -17,16 +18,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      suppressHydrationWarning
-    >
-      <body suppressHydrationWarning>
-
-        <Providers>
-          {children}
-        </Providers>
-
+    <html lang="en">
+      <body className={inter.className}>
+        <SocketProvider />
+        {children}
       </body>
     </html>
   );

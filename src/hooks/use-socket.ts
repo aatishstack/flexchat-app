@@ -23,9 +23,39 @@ export function useSocket() {
       (state) => state.userId
     );
 
+  const selectedChat =
+    useChatStore(
+      (state) => state.selectedChat
+    );
+
+  const typingUsers =
+    useChatStore(
+      (state) => state.typingUsers
+    );
+
+  const setTypingUsers =
+    useChatStore(
+      (state) => state.setTypingUsers
+    );
+
+  const setOnlineUsers =
+    useChatStore(
+      (state) => state.setOnlineUsers
+    );
+
   useEffect(() => {
 
     socket.connect();
+
+    socket.emit(
+      "user-online",
+      userId
+    );
+
+    socket.emit(
+      "join-chat",
+      selectedChat
+    );
 
     socket.on(
       "connect",
@@ -35,6 +65,14 @@ export function useSocket() {
           "Socket connected:",
           socket.id
         );
+      }
+    );
+
+    socket.on(
+      "online-users",
+      (users) => {
+
+        setOnlineUsers(users);
       }
     );
 
@@ -74,13 +112,52 @@ export function useSocket() {
       }
     );
 
+    socket.on(
+      "user-typing",
+      (typingUserId) => {
+
+        if (
+          typingUserId !== userId &&
+          !typingUsers.includes(
+            typingUserId
+          )
+        ) {
+
+          setTypingUsers([
+            ...typingUsers,
+            typingUserId,
+          ]);
+        }
+      }
+    );
+
+    socket.on(
+      "user-stop-typing",
+      (typingUserId) => {
+
+        setTypingUsers(
+          typingUsers.filter(
+            (id) =>
+              id !== typingUserId
+          )
+        );
+      }
+    );
+
     return () => {
+
       socket.disconnect();
+
+      socket.off();
     };
 
   }, [
     addMessage,
     setMessages,
     userId,
+    selectedChat,
+    typingUsers,
+    setTypingUsers,
+    setOnlineUsers,
   ]);
 }

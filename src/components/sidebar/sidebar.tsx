@@ -9,13 +9,28 @@ import {
 
 import ChatItem from "./chat-item";
 
-import { chats } from "@/data/chat-data";
+import { useChatStore } from "@/store/chat-store";
 
 export default function Sidebar() {
+
+  const chats =
+    useChatStore(
+      (state) => state.chats
+    );
+
+  const selectedChat =
+    useChatStore(
+      (state) => state.selectedChat
+    );
+
+  const setSelectedChat =
+    useChatStore(
+      (state) => state.setSelectedChat
+    );
+
   return (
     <aside className="sidebar-glow w-[400px] border-r border-white/10 bg-black/10 backdrop-blur-3xl flex flex-col">
 
-      {/* HEADER */}
       <div className="h-24 border-b border-white/10 px-5 flex items-center justify-between">
 
         <div>
@@ -43,7 +58,6 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* SEARCH */}
       <div className="p-4">
 
         <div className="glass rounded-[38px] px-4 py-3 flex items-center gap-3">
@@ -60,20 +74,34 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* CHATS */}
       <div className="flex-1 overflow-y-auto px-3 pb-5 space-y-3">
 
         {chats.map((chat) => (
-          <ChatItem
+
+          <div
             key={chat.id}
-            name={chat.name}
-            msg={chat.message}
-            time={chat.time}
-            unread={chat.unread}
-            active={chat.active || false}
-            online={chat.online}
-            avatar={chat.avatar}
-          />
+
+            onClick={() =>
+              setSelectedChat(
+                chat.id
+              )
+            }
+          >
+            <ChatItem
+              name={chat.name}
+              msg="Realtime chat ready 🚀"
+              time="now"
+              unread={0}
+              active={
+                selectedChat ===
+                chat.id
+              }
+              online={true}
+              avatar={
+                chat.name.charAt(0)
+              }
+            />
+          </div>
         ))}
       </div>
     </aside>
