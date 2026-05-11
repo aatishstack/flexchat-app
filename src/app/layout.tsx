@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 
 import "./globals.css";
 
-import { SocketProvider } from "../components/providers/socket-provider";
+import { SocketProvider } from "@/components/providers/socket-provider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -11,14 +11,14 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "FlexChat",
-  description: "Modern realtime chat application",
+  description: "Realtime Messaging App",
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="en">
       <body className={inter.className}>

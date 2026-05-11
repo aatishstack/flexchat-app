@@ -1,124 +1,75 @@
-import { Server } from "socket.io";
+import { Server, Socket } from "socket.io";
 
-const messages: Record<
-  string,
-  any[]
-> = {};
+const onlineUsers = new Set<string>();
 
-const onlineUsers =
-  new Set<string>();
+const roomMessages: Record<string, any[]> = {
+  global: [],
+  gaming: [],
+  coding: [],
+  music: [],
+};
 
-export function setupSocket(io: Server) {
+export const initializeSocket = (io: Server) => {
+  io.on("connection", (socket: Socket) => {
+    console.log(`Socket Connected: ${socket.id}`);
 
-  io.on("connection", (socket) => {
+    socket.on("user_online", (username: string) => {
+      onlineUsers.add(username);
 
-    console.log(
-      "User connected:",
-      socket.id
-    );
+      io.emit(
+        "online_users",
+        Array.from(onlineUsers)
+      );
+    });
 
     socket.on(
-      "join-chat",
-      (chatId) => {
-
-        socket.join(chatId);
-
-        if (
-          !messages[chatId]
-        ) {
-
-          messages[chatId] = [];
-        }
+      "join_conversation",
+      (conversationId: string) => {
+        socket.join(conversationId);
 
         socket.emit(
-          "load-messages",
-          messages[chatId]
+          "load_messages",
+          roomMessages[conversationId] || []
         );
       }
     );
 
-    socket.on(
-      "user-online",
-      (userId) => {
+    socket.on("send_message", (data: any) => {
+      const message = {
+        ...data,
+        createdAt: new Date().toISOString(),
+      };
 
-        onlineUsers.add(userId);
-
-        io.emit(
-          "online-users",
-          Array.from(
-            onlineUsers
-          )
-        );
+      if (!roomMessages[data.conversationId]) {
+        roomMessages[data.conversationId] = [];
       }
-    );
 
-    socket.on(
-      "send-message",
-      (data) => {
+      roomMessages[data.conversationId].push(
+        message
+      );
 
-        const {
-          chatId,
-        } = data;
+      io.to(data.conversationId).emit(
+        "receive_message",
+        message
+      );
+    });
 
-        if (
-          !messages[chatId]
-        ) {
+    socket.on("typing", (data: any) => {
+      socket.to(data.conversationId).emit(
+        "user_typing",
+        data
+      );
+    });
 
-          messages[chatId] = [];
-        }
+    socket.on("stop_typing", (data: any) => {
+      socket.to(data.conversationId).emit(
+        "user_stop_typing",
+        data
+      );
+    });
 
-        messages[
-          chatId
-        ].push(data);
-
-        io.to(chatId).emit(
-          "receive-message",
-          data
-        );
-      }
-    );
-
-    socket.on(
-      "typing-start",
-      ({
-        chatId,
-        userId,
-      }) => {
-
-        socket
-          .to(chatId)
-          .emit(
-            "user-typing",
-            userId
-          );
-      }
-    );
-
-    socket.on(
-      "typing-stop",
-      ({
-        chatId,
-        userId,
-      }) => {
-
-        socket
-          .to(chatId)
-          .emit(
-            "user-stop-typing",
-            userId
-          );
-      }
-    );
-
-    socket.on(
-      "disconnect",
-      () => {
-
-        console.log(
-          "User disconnected:",
-          socket.id
-        );
-      }
-    );
+    socket.on("disconnect", () => {
+      console.log(`Disconnected: ${socket.id}`);
+    });
   });
-}
+};

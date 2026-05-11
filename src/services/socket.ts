@@ -1,8 +1,21 @@
-import { io } from "socket.io-client";
+import { io, Socket } from "socket.io-client";
 
-export const socket = io(
-  "http://localhost:5000",
-  {
-    autoConnect: false,
+let socket: Socket;
+
+export const connect = () => {
+  if (!socket) {
+    socket = io("http://localhost:5000");
   }
-);
+
+  return socket;
+};
+
+export const disconnect = () => {
+  if (socket) {
+    socket.disconnect();
+  }
+};
+
+export const getSocket = () => {
+  return socket;
+};

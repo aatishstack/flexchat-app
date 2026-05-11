@@ -1,32 +1,13 @@
 import Fastify from "fastify";
-import cors from "@fastify/cors";
+import fastifyCors from "@fastify/cors";
 
-import { authRoutes } from "./modules/auth/auth.route.js";
-import { chatRoutes } from "./modules/chat/chat.route.js";
+const app = Fastify({
+  logger: true,
+});
 
-export async function buildApp() {
-  const app = Fastify({
-    logger: true,
-  });
+app.register(fastifyCors as any, {
+  origin: true,
+  credentials: true,
+});
 
-  await app.register(cors, {
-    origin: "*",
-  });
-
-  await app.register(authRoutes, {
-    prefix: "/api/auth",
-  });
-
-  await app.register(chatRoutes, {
-    prefix: "/api/chat",
-  });
-
-  app.get("/", async () => {
-    return {
-      success: true,
-      message: "FlexChat API running",
-    };
-  });
-
-  return app;
-}
+export default app;

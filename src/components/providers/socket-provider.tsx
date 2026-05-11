@@ -1,26 +1,21 @@
 "use client";
 
-import { ReactNode, useEffect } from "react";
+import { useEffect } from "react";
 
-import { useSocketStore } from "@/store/socket.store";
+import { connect, disconnect } from "../../services/socket";
 
-interface SocketProviderProps {
-  children: ReactNode;
-}
-
-export const SocketProvider = ({
+export function SocketProvider({
   children,
-}: SocketProviderProps) => {
-  const connect = useSocketStore((state) => state.connect);
-  const disconnect = useSocketStore((state) => state.disconnect);
-
+}: {
+  children: React.ReactNode;
+}) {
   useEffect(() => {
     connect();
 
     return () => {
       disconnect();
     };
-  }, [connect, disconnect]);
+  }, []);
 
   return <>{children}</>;
-};
+}

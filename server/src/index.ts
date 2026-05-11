@@ -1,47 +1,158 @@
 import Fastify from "fastify";
-import fastifyCors from "@fastify/cors";
+import cors from "@fastify/cors";
 
-import { createServer } from "http";
 import { Server } from "socket.io";
 
-import { registerSocketHandlers } from "./modules/socket/socket.js";
+import { authRoutes } from "./routes/auth.js";
 
 const app = Fastify({
   logger: true,
 });
 
-const startServer = async () => {
-  try {
-    await app.register(fastifyCors as any, {
-      origin: "*",
-    });
+await app.register(cors, {
+  origin: true,
+  credentials: true,
+});
 
-    app.get("/", async () => {
-      return {
-        message: "FlexChat API Running",
-      };
-    });
+await app.register(
+  authRoutes
+);
 
-    const httpServer = createServer(app.server);
+app.get("/", async () => {
+  return {
+    status:
+      "FlexChat Backend Running",
+  };
+});
 
-    const io = new Server(httpServer, {
-      cors: {
-        origin: "*",
+app.get(
+  "/conversations",
+  async () => {
+
+    return [
+      {
+        id: 1,
+        title: "Mayuri",
       },
-    });
-
-    registerSocketHandlers(io);
-
-    const PORT = 5000;
-
-    httpServer.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  } catch (error) {
-    app.log.error(error);
-
-    process.exit(1);
+      {
+        id: 2,
+        title: "Alex",
+      },
+      {
+        id: 3,
+        title: "Rahul",
+      },
+      {
+        id: 4,
+        title: "Sophie",
+      },
+      {
+        id: 5,
+        title: "FlexBot",
+      },
+    ];
   }
-};
+);
 
-startServer();
+app.get(
+  "/messages",
+  async () => {
+
+    return [];
+  }
+);
+
+/* SOCKET.IO */
+const io = new Server(
+  app.server,
+  {
+    cors: {
+      origin: "*",
+      credentials: true,
+    },
+  }
+);
+
+let onlineUsers = 0;
+
+io.on(
+  "connection",
+  (socket) => {
+
+    console.log(
+      "User connected:",
+      socket.id
+    );
+
+    onlineUsers++;
+
+    io.emit(
+      "online_users",
+      onlineUsers
+    );
+
+    socket.on(
+      "send_message",
+      (data) => {
+
+        socket.broadcast.emit(
+          "receive_message",
+          data
+        );
+      }
+    );
+
+    socket.on(
+      "typing",
+      () => {
+
+        socket.broadcast.emit(
+          "user_typing"
+        );
+      }
+    );
+
+    socket.on(
+      "stop_typing",
+      () => {
+
+        socket.broadcast.emit(
+          "user_stop_typing"
+        );
+      }
+    );
+
+    socket.on(
+      "disconnect",
+      () => {
+
+        onlineUsers--;
+
+        io.emit(
+          "online_users",
+          onlineUsers
+        );
+      }
+    );
+  }
+);
+
+try {
+
+  await app.listen({
+    port: 5000,
+    host: "0.0.0.0",
+  });
+
+  console.log(
+    "FlexChat Backend Running on 5000"
+  );
+
+} catch (error) {
+
+  console.error(
+    error
+  );
+
+  process.exit(1);
+}

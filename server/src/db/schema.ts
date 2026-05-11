@@ -2,86 +2,97 @@ import {
   pgTable,
   text,
   timestamp,
-  uuid,
-  boolean,
+  integer,
 } from "drizzle-orm/pg-core";
 
-export const users = pgTable("users", {
-  id: uuid("id")
-    .defaultRandom()
-    .primaryKey(),
+export const users =
+  pgTable("users", {
+    id: integer("id")
+      .primaryKey()
+      .generatedAlwaysAsIdentity(),
 
-  username: text("username")
-    .notNull()
-    .unique(),
-
-  email: text("email")
-    .notNull()
-    .unique(),
-
-  password: text("password")
-    .notNull(),
-
-  avatar: text("avatar"),
-
-  createdAt: timestamp("created_at")
-    .defaultNow()
-    .notNull(),
-});
-
-export const conversations =
-  pgTable("conversations", {
-    id: uuid("id")
-      .defaultRandom()
-      .primaryKey(),
-
-    isGroup: boolean("is_group")
-      .default(false),
-
-    createdAt: timestamp("created_at")
-      .defaultNow()
-      .notNull(),
-  });
-
-export const conversationMembers =
-  pgTable("conversation_members", {
-    id: uuid("id")
-      .defaultRandom()
-      .primaryKey(),
-
-    conversationId: uuid(
-      "conversation_id"
+    username: text(
+      "username"
     ).notNull(),
 
-    userId: uuid("user_id")
-      .notNull(),
-
-    joinedAt: timestamp("joined_at")
-      .defaultNow()
-      .notNull(),
-  });
-
-export const messages = pgTable(
-  "messages",
-  {
-    id: uuid("id")
-      .defaultRandom()
-      .primaryKey(),
-
-    conversationId: uuid(
-      "conversation_id"
+    email: text(
+      "email"
     ).notNull(),
 
-    senderId: uuid("sender_id")
-      .notNull(),
+    password: text(
+      "password"
+    ).notNull(),
 
-    content: text("content")
-      .notNull(),
+    avatar: text(
+      "avatar"
+    ),
 
     createdAt: timestamp(
       "created_at"
-    )
-      .defaultNow()
-      .notNull(),
-  }
-);
+    ).defaultNow(),
+  });
+
+export const conversations =
+  pgTable(
+    "conversations",
+    {
+      id: integer("id")
+        .primaryKey()
+        .generatedAlwaysAsIdentity(),
+
+      title: text(
+        "title"
+      ),
+
+      createdAt: timestamp(
+        "created_at"
+      ).defaultNow(),
+    }
+  );
+
+export const conversationMembers =
+  pgTable(
+    "conversation_members",
+    {
+      id: integer("id")
+        .primaryKey()
+        .generatedAlwaysAsIdentity(),
+
+      conversationId:
+        integer(
+          "conversation_id"
+        ),
+
+      userId: integer(
+        "user_id"
+      ),
+    }
+  );
+
+export const messages =
+  pgTable("messages", {
+    id: integer("id")
+      .primaryKey()
+      .generatedAlwaysAsIdentity(),
+
+    conversationId:
+      integer(
+        "conversation_id"
+      ),
+
+    senderId:
+      integer(
+        "sender_id"
+      ),
+
+    content: text(
+      "content"
+    ),
+
+    type: text("type")
+      .default("text"),
+
+    createdAt: timestamp(
+      "created_at"
+    ).defaultNow(),
+  });
