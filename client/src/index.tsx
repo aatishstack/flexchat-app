@@ -115,33 +115,9 @@ export default function AuthPage() {
 
       <div className="absolute inset-0 overflow-hidden">
 
-        <motion.div
-          animate={{
-            x: [0, 80, 0],
-            y: [0, -40, 0],
-          }}
-          transition={{
-            duration: 12,
-            repeat: Infinity,
-          }}
-          className="absolute left-[-120px] top-[-120px] h-[420px] w-[420px] rounded-full bg-purple-500/20 blur-[120px]"
-        />
+  <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
 
-        <motion.div
-          animate={{
-            x: [0, -60, 0],
-            y: [0, 40, 0],
-          }}
-          transition={{
-            duration: 14,
-            repeat: Infinity,
-          }}
-          className="absolute bottom-[-120px] right-[-120px] h-[420px] w-[420px] rounded-full bg-cyan-500/20 blur-[120px]"
-        />
-
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
-
-      </div>
+</div>
 
       <div className="relative z-10 hidden flex-1 flex-col justify-between border-r border-white/10 p-10 lg:flex">
 

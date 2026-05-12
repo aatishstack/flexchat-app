@@ -6,187 +6,145 @@ import React, {
   useState,
 } from "react";
 
-import {
-  motion,
-  AnimatePresence,
-} from "framer-motion";
-
-import axios from "axios";
-
-import Cookies from "js-cookie";
+import { motion }
+from "framer-motion";
 
 import {
-  useRouter,
-} from "next/navigation";
+  Search,
+  Menu,
+  Pin,
+  Settings,
+  User,
+} from "lucide-react";
 
-import { socket } from "@/lib/socket";
+import Cookies
+from "js-cookie";
 
-interface Message {
-  id: number;
+import { useRouter }
+from "next/navigation";
 
-  text?: string;
+import FlexDock
+from "@/components/chat/FlexDock";
 
-  image?: string;
+import ChatInput
+from "@/components/chat/ChatInput";
 
-  audio?: string;
+import { useSocketStore }
+from "@/store/socket-store";
 
-  sender: "me" | "other";
+import { useChatStore }
+from "@/store/chat-store";
 
-  time: string;
-
-  seen?: boolean;
-}
-
-interface Chat {
-  id: number;
-
-  title: string;
-}
+import { useConversationStore }
+from "@/store/conversation-store";
 
 export default function ChatPage() {
 
   const router =
     useRouter();
 
+  const {
+    socket,
+    connectSocket,
+    connected,
+  }: any =
+    useSocketStore();
+
+  const {
+    addMessage,
+    getMessages,
+  }: any =
+    useChatStore();
+
+  const {
+    conversations,
+    updateConversation,
+    incrementUnread,
+    clearUnread,
+  }: any =
+    useConversationStore();
+
   const [message, setMessage] =
     useState("");
 
-  const [typing, setTyping] =
-    useState(false);
-
-  const [onlineUsers, setOnlineUsers] =
-    useState(0);
+  const [search, setSearch] =
+    useState("");
 
   const [sidebarOpen, setSidebarOpen] =
     useState(false);
 
-  const [activeChat, setActiveChat] =
-    useState("Mayuri");
-
-  const [recording, setRecording] =
+  const [showEmojiPicker, setShowEmojiPicker] =
     useState(false);
 
-  const [messages, setMessages] =
-    useState<Message[]>([]);
+  const [replyingTo, setReplyingTo] =
+    useState<any>(null);
 
-  const [chats, setChats] =
-    useState<Chat[]>([]);
+  const [showSettings, setShowSettings] =
+    useState(false);
 
-  const mediaRecorderRef =
-    useRef<MediaRecorder | null>(
-      null
-    );
+  const [showProfile, setShowProfile] =
+    useState(false);
 
-  const audioChunksRef =
-    useRef<Blob[]>([]);
+  const [theme, setTheme] =
+    useState("cyan");
+
+  const [activeChat, setActiveChat] =
+    useState("No Conversation Selected");
+
+  const [
+    activeConversationId,
+    setActiveConversationId,
+  ] = useState(
+    "global-chat"
+  );
 
   const bottomRef =
     useRef<HTMLDivElement | null>(
       null
     );
 
-  /* AUTH CHECK */
   useEffect(() => {
 
     const token =
-      Cookies.get(
-        "flexchat_token"
+      localStorage.getItem(
+        "token"
       );
 
-    if (!token) {
+    if (
+      token &&
+      !connected
+    ) {
 
-      router.push(
-        "/auth"
+      connectSocket(
+        token
       );
     }
 
-  }, [router]);
+  }, [
+    connected,
+    connectSocket,
+  ]);
 
-  /* FETCH CHATS */
-  useEffect(() => {
+  const messages =
+    getMessages?.(
+      activeConversationId
+    ) || [];
 
-    const fetchChats =
-      async () => {
-
-        try {
-
-          const res =
-            await axios.get(
-              "http://localhost:5000/conversations"
-            );
-
-          setChats(
-            res.data
-          );
-
-        } catch (err) {
-
-          console.error(err);
-        }
-      };
-
-    fetchChats();
-
-  }, []);
-
-  /* SOCKETS */
-  useEffect(() => {
-
-    socket.on(
-      "receive_message",
-      (data: Message) => {
-
-        setMessages((prev) => [
-          ...prev,
-          data,
-        ]);
-      }
-    );
-
-    socket.on(
-      "online_users",
-      (count: number) => {
-
-        setOnlineUsers(count);
-      }
-    );
-
-    socket.on(
-      "user_typing",
-      () => {
-
-        setTyping(true);
-      }
-    );
-
-    socket.on(
-      "user_stop_typing",
-      () => {
-
-        setTyping(false);
-      }
-    );
-
-    return () => {
-
-      socket.off(
-        "receive_message"
-      );
-
-      socket.off(
-        "online_users"
-      );
-
-      socket.off(
-        "user_typing"
-      );
-
-      socket.off(
-        "user_stop_typing"
-      );
-    };
-
-  }, []);
+  const filteredConversations =
+    Array.isArray(
+      conversations
+    )
+      ? conversations.filter(
+          (
+            conversation: any
+          ) =>
+            conversation.name
+              ?.toLowerCase()
+              .includes(
+                search.toLowerCase()
+              )
+        )
+      : [];
 
   useEffect(() => {
 
@@ -203,18 +161,6 @@ export default function ChatPage() {
     setMessage(
       e.target.value
     );
-
-    socket.emit(
-      "typing"
-    );
-
-    setTimeout(() => {
-
-      socket.emit(
-        "stop_typing"
-      );
-
-    }, 1000);
   };
 
   const handleSend = () => {
@@ -222,181 +168,41 @@ export default function ChatPage() {
     if (!message.trim())
       return;
 
-    const currentTime =
-      new Date().toLocaleTimeString(
-        [],
-        {
-          hour:
-            "2-digit",
+    const newMessage = {
 
-          minute:
-            "2-digit",
-        }
-      );
-
-    const payload = {
       id: Date.now(),
 
       text: message,
 
-      sender: "me" as const,
+      sender: "me",
 
-      time: currentTime,
+      time:
+        new Date().toLocaleTimeString(),
 
-      seen: false,
+      conversationId:
+        activeConversationId,
     };
 
-    setMessages((prev) => [
-      ...prev,
-      payload,
-    ]);
+    addMessage?.(
+      newMessage
+    );
 
-    socket.emit(
+    updateConversation?.(
+      activeConversationId,
+      message
+    );
+
+    socket?.emit(
       "send_message",
-      payload
+      newMessage
     );
 
     setMessage("");
+
+    setReplyingTo(
+      null
+    );
   };
-
-  const handleImageUpload = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-
-    const file =
-      e.target.files?.[0];
-
-    if (!file) return;
-
-    const reader =
-      new FileReader();
-
-    reader.onload = () => {
-
-      const currentTime =
-        new Date().toLocaleTimeString(
-          [],
-          {
-            hour:
-              "2-digit",
-
-            minute:
-              "2-digit",
-          }
-        );
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-
-          image:
-            reader.result as string,
-
-          sender: "me",
-
-          time: currentTime,
-        },
-      ]);
-    };
-
-    reader.readAsDataURL(file);
-  };
-
-  const startRecording =
-    async () => {
-
-      try {
-
-        const stream =
-          await navigator.mediaDevices.getUserMedia(
-            {
-              audio: true,
-            }
-          );
-
-        const recorder =
-          new MediaRecorder(
-            stream
-          );
-
-        mediaRecorderRef.current =
-          recorder;
-
-        audioChunksRef.current =
-          [];
-
-        recorder.ondataavailable =
-          (
-            event
-          ) => {
-
-            audioChunksRef.current.push(
-              event.data
-            );
-          };
-
-        recorder.onstop =
-          () => {
-
-            const audioBlob =
-              new Blob(
-                audioChunksRef.current,
-                {
-                  type:
-                    "audio/webm",
-                }
-              );
-
-            const audioUrl =
-              URL.createObjectURL(
-                audioBlob
-              );
-
-            const currentTime =
-              new Date().toLocaleTimeString(
-                [],
-                {
-                  hour:
-                    "2-digit",
-
-                  minute:
-                    "2-digit",
-                }
-              );
-
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: Date.now(),
-
-                audio:
-                  audioUrl,
-
-                sender: "me",
-
-                time: currentTime,
-              },
-            ]);
-          };
-
-        recorder.start();
-
-        setRecording(true);
-
-      } catch (err) {
-
-        console.error(err);
-      }
-    };
-
-  const stopRecording =
-    () => {
-
-      mediaRecorderRef.current?.stop();
-
-      setRecording(false);
-    };
 
   const handleLogout =
     () => {
@@ -406,7 +212,7 @@ export default function ChatPage() {
       );
 
       localStorage.removeItem(
-        "flexchat_user"
+        "token"
       );
 
       router.push(
@@ -415,127 +221,22 @@ export default function ChatPage() {
     };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#07111f] text-white">
 
-      {/* MOBILE SIDEBAR */}
+    <div
+      className={`flex h-screen overflow-hidden text-white ${
+        theme === "purple"
+          ? "bg-gradient-to-br from-[#14051f] via-[#22103a] to-[#12061c]"
+          : theme === "ocean"
+          ? "bg-gradient-to-br from-[#031d33] via-[#0a2f4d] to-[#04111d]"
+          : "bg-gradient-to-br from-[#07111f] via-[#0b1730] to-[#07111f]"
+      }`}
+    >
 
-      <AnimatePresence>
+      {/* SIDEBAR */}
 
-        {sidebarOpen && (
-          <>
-            <motion.div
-              initial={{
-                opacity: 0,
-              }}
-              animate={{
-                opacity: 1,
-              }}
-              exit={{
-                opacity: 0,
-              }}
-              onClick={() =>
-                setSidebarOpen(
-                  false
-                )
-              }
-              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
-            />
-
-            <motion.div
-              initial={{
-                x: -350,
-              }}
-              animate={{
-                x: 0,
-              }}
-              exit={{
-                x: -350,
-              }}
-              className="fixed left-0 top-0 z-50 flex h-full w-[320px] flex-col border-r border-white/10 bg-[#081320] lg:hidden"
-            >
-
-              <div className="border-b border-white/10 p-5">
-
-                <div className="flex items-center justify-between">
-
-                  <div>
-
-                    <h1 className="text-2xl font-bold">
-                      FlexChat
-                    </h1>
-
-                    <p className="text-sm text-cyan-400">
-                      Mobile Premium
-                    </p>
-
-                  </div>
-
-                  <button
-                    onClick={() =>
-                      setSidebarOpen(
-                        false
-                      )
-                    }
-                    className="rounded-xl bg-white/10 px-3 py-2"
-                  >
-
-                    ✕
-
-                  </button>
-
-                </div>
-
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-3">
-
-                <div className="space-y-2">
-
-                  {Array.isArray(chats) &&
-                    chats.map(
-                      (chat: any) => (
-
-                        <button
-                          key={chat.id}
-                          onClick={() =>
-                            setActiveChat(
-                              chat.title
-                            )
-                          }
-                          className="flex w-full items-center gap-4 rounded-2xl bg-white/5 p-4 hover:bg-white/10"
-                        >
-
-                          <div className="h-12 w-12 rounded-full bg-gradient-to-r from-fuchsia-600 to-cyan-500" />
-
-                          <div className="text-left">
-
-                            <h2 className="font-semibold text-white">
-                              {chat.title}
-                            </h2>
-
-                            <p className="text-sm text-white/50">
-                              Active now
-                            </p>
-
-                          </div>
-
-                        </button>
-                      )
-                    )}
-
-                </div>
-
-              </div>
-
-            </motion.div>
-          </>
-        )}
-
-      </AnimatePresence>
-
-      {/* DESKTOP SIDEBAR */}
-
-      <div className="hidden w-[320px] flex-col border-r border-white/10 bg-black/20 lg:flex">
+      <div
+        className={`${sidebarOpen ? "flex" : "hidden"} w-[340px] border-r border-white/10 bg-white/5 backdrop-blur-2xl lg:flex lg:flex-col`}
+      >
 
         <div className="border-b border-white/10 p-5">
 
@@ -547,48 +248,99 @@ export default function ChatPage() {
             Premium Messaging
           </p>
 
+          <div className="mt-5 flex items-center gap-3 rounded-2xl bg-white/5 px-4 py-3">
+
+            <Search
+              size={18}
+              className="text-white/40"
+            />
+
+            <input
+              value={search}
+              onChange={(e) =>
+                setSearch(
+                  e.target.value
+                )
+              }
+              placeholder="Search chats..."
+              className="w-full bg-transparent text-sm outline-none placeholder:text-white/30"
+            />
+
+          </div>
+
         </div>
 
         <div className="flex-1 overflow-y-auto p-3">
 
           <div className="space-y-2">
 
-            {Array.isArray(chats) &&
-              chats.map(
-                (chat: any) => (
+            {filteredConversations.map(
+              (
+                conversation: any
+              ) => (
 
-                  <button
-                    key={chat.id}
-                    onClick={() =>
-                      setActiveChat(
-                        chat.title
-                      )
-                    }
-                    className={`flex w-full items-center gap-4 rounded-2xl p-4 transition ${
-                      activeChat ===
-                      chat.title
-                        ? "bg-cyan-500/20"
-                        : "bg-white/5 hover:bg-white/10"
-                    }`}
-                  >
+                <button
+                  key={
+                    conversation.id
+                  }
+                  onClick={() => {
 
-                    <div className="h-12 w-12 rounded-full bg-gradient-to-r from-fuchsia-600 to-cyan-500" />
+                    setActiveChat(
+                      conversation.name
+                    );
 
-                    <div className="text-left">
+                    setActiveConversationId(
+                      conversation.id
+                    );
+
+                    clearUnread?.(
+                      conversation.id
+                    );
+
+                    setSidebarOpen(
+                      false
+                    );
+                  }}
+                  className={`flex w-full items-center gap-4 rounded-3xl p-4 transition-all ${
+                    activeChat ===
+                    conversation.name
+                      ? "bg-cyan-500/20"
+                      : "bg-white/5 hover:bg-white/10"
+                  }`}
+                >
+
+                  <div className="h-14 w-14 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500" />
+
+                  <div className="flex-1 text-left">
+
+                    <div className="flex items-center justify-between">
 
                       <h2 className="font-semibold">
-                        {chat.title}
+
+                        {conversation.name}
+
                       </h2>
 
-                      <p className="text-sm text-white/50">
-                        Active now
-                      </p>
+                      <Pin
+                        size={14}
+                        className="text-white/40"
+                      />
 
                     </div>
 
-                  </button>
-                )
-              )}
+                    <p className="truncate text-sm text-white/50">
+
+                      {
+                        conversation.lastMessage
+                      }
+
+                    </p>
+
+                  </div>
+
+                </button>
+              )
+            )}
 
           </div>
 
@@ -596,190 +348,279 @@ export default function ChatPage() {
 
       </div>
 
-      {/* MAIN CHAT */}
+      {/* MAIN */}
 
       <div className="flex flex-1 flex-col">
 
+        {/* HEADER */}
+
         <div className="border-b border-white/10 p-5">
 
-          <div className="flex items-center justify-between">
+          <div className="relative flex items-center justify-between">
 
-            <div>
+            <div className="flex items-center gap-3">
 
-              <h2 className="text-2xl font-bold">
-                {activeChat}
-              </h2>
+              <button
+                onClick={() =>
+                  setSidebarOpen(
+                    !sidebarOpen
+                  )
+                }
+                className="rounded-2xl bg-white/10 p-3 lg:hidden"
+              >
 
-              <p className="text-sm text-cyan-400">
-                {onlineUsers} online
-              </p>
+                <Menu size={20} />
+
+              </button>
+
+              <div>
+
+                <h1 className="text-2xl font-bold">
+
+                  {activeChat}
+
+                </h1>
+
+                <button
+                  onClick={() =>
+                    setShowProfile(
+                      true
+                    )
+                  }
+                  className="mt-2 flex items-center gap-2 text-sm text-white/50 hover:text-cyan-300"
+                >
+
+                  <User size={15} />
+
+                  Conversation Info
+
+                </button>
+
+                <p className="mt-2 text-sm text-cyan-400">
+
+                  {connected
+                    ? "Online"
+                    : "Offline"}
+
+                </p>
+
+              </div>
 
             </div>
 
-            <button
-              onClick={
-                handleLogout
-              }
-              className="rounded-2xl bg-red-500/20 px-4 py-2 text-sm text-red-300 hover:bg-red-500/30"
-            >
+            {/* DOCK */}
 
-              Logout
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
 
-            </button>
+              <FlexDock
+                setShowProfile={
+                  setShowProfile
+                }
+                setShowSettings={
+                  setShowSettings
+                }
+                handleLogout={
+                  handleLogout
+                }
+              />
+
+            </div>
 
           </div>
 
         </div>
 
+        {/* MESSAGES */}
+
         <div className="flex-1 overflow-y-auto p-6">
 
-          {messages.length ===
-            0 && (
+          <div className="space-y-4">
 
-            <div className="flex h-full items-center justify-center text-white/40">
+            {messages.length ===
+              0 && (
 
-              Start chatting in FlexChat
+              <div className="flex h-[65vh] items-center justify-center">
 
-            </div>
-          )}
+                <div className="text-center text-white/40">
 
-          {messages.map(
-            (msg) => (
+                  <h2 className="text-3xl font-bold">
 
-              <div
-                key={msg.id}
-                className={`mb-4 flex ${
-                  msg.sender ===
-                  "me"
-                    ? "justify-end"
-                    : "justify-start"
-                }`}
-              >
+                    No Messages Yet
 
-                <div className="max-w-[320px] rounded-3xl bg-cyan-500 px-5 py-3 text-white shadow-lg">
-
-                  {msg.text && (
-                    <p>
-                      {msg.text}
-                    </p>
-                  )}
-
-                  {msg.image && (
-                    <img
-                      src={msg.image}
-                      alt="uploaded"
-                      className="rounded-2xl"
-                    />
-                  )}
-
-                  {msg.audio && (
-                    <audio
-                      controls
-                      src={msg.audio}
-                    />
-                  )}
-
-                  <div className="mt-2 text-right text-xs text-white/70">
-
-                    {msg.time}
-
-                  </div>
+                  </h2>
 
                 </div>
 
               </div>
-            )
-          )}
-
-          <div ref={bottomRef} />
-
-        </div>
-
-        {/* INPUT */}
-
-        <div className="border-t border-white/10 p-4">
-
-          {typing && (
-
-            <p className="mb-2 text-sm text-cyan-400">
-
-              typing...
-
-            </p>
-          )}
-
-          <div className="flex items-center gap-3">
-
-            <input
-              value={message}
-              onChange={
-                handleTyping
-              }
-              placeholder="Type a message..."
-              className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-5 py-4 outline-none placeholder:text-white/30"
-            />
-
-            <input
-              type="file"
-              accept="image/*"
-              onChange={
-                handleImageUpload
-              }
-              className="hidden"
-              id="imageUpload"
-            />
-
-            <label
-              htmlFor="imageUpload"
-              className="cursor-pointer rounded-2xl bg-white/10 px-4 py-4 hover:bg-white/20"
-            >
-
-              📎
-
-            </label>
-
-            {!recording ? (
-
-              <button
-                onClick={
-                  startRecording
-                }
-                className="rounded-2xl bg-white/10 px-4 py-4 hover:bg-white/20"
-              >
-
-                🎤
-
-              </button>
-
-            ) : (
-
-              <button
-                onClick={
-                  stopRecording
-                }
-                className="rounded-2xl bg-red-500 px-4 py-4"
-              >
-
-                ⏹
-
-              </button>
-
             )}
 
-            <button
-              onClick={
-                handleSend
-              }
-              className="rounded-2xl bg-cyan-500 px-6 py-4 font-semibold text-black hover:bg-cyan-400"
-            >
+            {messages.map(
+              (
+                msg: any
+              ) => (
 
-              Send
+                <div
+                  key={msg.id}
+                  className={`flex ${
+                    msg.sender ===
+                    "me"
+                      ? "justify-end"
+                      : "justify-start"
+                  }`}
+                >
 
-            </button>
+                  <motion.div
+                    whileHover={{
+                      scale: 1.01,
+                    }}
+                    className={`max-w-[340px] rounded-3xl px-5 py-4 shadow-xl ${
+                      msg.sender ===
+                      "me"
+                        ? "bg-cyan-500 text-black"
+                        : "bg-white/10 text-white"
+                    }`}
+                  >
+
+                    <p className="text-sm leading-relaxed">
+
+                      {msg.text}
+
+                    </p>
+
+                  </motion.div>
+
+                </div>
+              )
+            )}
+
+            <div ref={bottomRef} />
 
           </div>
 
         </div>
+
+        {/* SETTINGS */}
+
+        {showSettings && (
+
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md">
+
+            <div className="w-[420px] rounded-3xl border border-white/10 bg-[#0f172a] p-6">
+
+              <div className="mb-6 flex items-center justify-between">
+
+                <h2 className="text-2xl font-bold">
+
+                  Settings
+
+                </h2>
+
+                <button
+                  onClick={() =>
+                    setShowSettings(
+                      false
+                    )
+                  }
+                >
+
+                  ✕
+
+                </button>
+
+              </div>
+
+              <div className="space-y-4">
+
+                {[
+                  "cyan",
+                  "purple",
+                  "ocean",
+                ].map(
+                  (
+                    item
+                  ) => (
+
+                    <button
+                      key={item}
+                      onClick={() =>
+                        setTheme(
+                          item
+                        )
+                      }
+                      className="flex w-full items-center justify-between rounded-2xl bg-white/5 px-5 py-4 capitalize"
+                    >
+
+                      {item}
+
+                      {theme ===
+                        item && "✓"}
+
+                    </button>
+                  )
+                )}
+
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* PROFILE */}
+
+        {showProfile && (
+
+          <div className="absolute inset-y-0 right-0 z-50 w-[380px] border-l border-white/10 bg-[#0f172a]/95 p-6 backdrop-blur-2xl">
+
+            <div className="flex items-center justify-between">
+
+              <h2 className="text-2xl font-bold">
+
+                Profile
+
+              </h2>
+
+              <button
+                onClick={() =>
+                  setShowProfile(
+                    false
+                  )
+                }
+              >
+
+                ✕
+
+              </button>
+
+            </div>
+
+            <div className="mt-8 flex flex-col items-center">
+
+              <div className="h-28 w-28 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500" />
+
+              <h3 className="mt-5 text-2xl font-bold">
+
+                {activeChat}
+
+              </h3>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* INPUT */}
+
+        <ChatInput
+          message={message}
+          setMessage={setMessage}
+          handleSend={handleSend}
+          handleTyping={handleTyping}
+          replyingTo={replyingTo}
+          setReplyingTo={setReplyingTo}
+          showEmojiPicker={showEmojiPicker}
+          setShowEmojiPicker={setShowEmojiPicker}
+        />
 
       </div>
 

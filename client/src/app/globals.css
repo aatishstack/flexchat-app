@@ -28,6 +28,17 @@ body {
     );
 }
 
+/* FLEXCHAT SOFT BACKGROUND FIX */
+
+.absolute.rounded-full {
+
+  opacity: 0.08 !important;
+
+  filter: blur(120px) !important;
+
+  pointer-events: none !important;
+}
+
 ::-webkit-scrollbar {
   width: 5px;
 }
@@ -50,4 +61,10 @@ button {
 
 button {
   cursor: pointer;
+}
+/* HIDE FLOATING BACKGROUND BLOBS */
+
+div[class*="absolute"][class*="blur"] {
+
+  display: none !important;
 }

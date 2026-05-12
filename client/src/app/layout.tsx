@@ -2,31 +2,13 @@
 
 import { useEffect, useState } from "react";
 
+import { motion } from "framer-motion";
+
 import PageTransition from "@/components/layout/PageTransition";
 
 import AppLoader from "@/components/layout/AppLoader";
 
-import CursorAura from "@/components/layout/CursorAura";
-
-import HoloTrail from "@/components/layout/HoloTrail";
-
 import LiveToasts from "@/components/layout/LiveToasts";
-
-import ParticleStorm from "@/components/layout/ParticleStorm";
-
-import LiquidGlass from "@/components/layout/LiquidGlass";
-
-import EdgeLighting from "@/components/layout/EdgeLighting";
-
-import AuroraLights from "@/components/layout/AuroraLights";
-
-import CyberScanner from "@/components/layout/CyberScanner";
-
-import AIOrb from "@/components/layout/AIOrb";
-
-import ParallaxBackground from "@/components/layout/ParallaxBackground";
-
-import MagneticButton from "@/components/ui/MagneticButton";
 
 import "./globals.css";
 
@@ -35,56 +17,99 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+
   const [loading, setLoading] =
     useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 2200);
 
-    return () => clearTimeout(timer);
+    const timer =
+      setTimeout(() => {
+
+        setLoading(false);
+
+      }, 2200);
+
+    return () =>
+      clearTimeout(timer);
+
   }, []);
 
   return (
+
     <html lang="en">
+
       <body className="overflow-hidden bg-[#050510] text-white antialiased">
-        {/* BACKGROUND */}
-        <AuroraLights />
 
-        <ParallaxBackground />
+        {/* SOFT PARTICLES */}
 
-        {/* FX */}
-        <LiquidGlass />
+        <div className="pointer-events-none fixed inset-0 overflow-hidden">
 
-        <ParticleStorm />
+          {[...Array(18)].map(
+            (_, index) => (
 
-        <CyberScanner />
+              <motion.div
+                key={index}
+                animate={{
+                  y: [
+                    0,
+                    -80,
+                    0,
+                  ],
+                  x: [
+                    0,
+                    30,
+                    0,
+                  ],
+                }}
+                transition={{
+                  duration:
+                    10 +
+                    index,
+                  repeat:
+                    Infinity,
+                  ease:
+                    "easeInOut",
+                }}
+                className="absolute rounded-full bg-cyan-400/10 blur-xl"
+                style={{
+                  width:
+                    6 +
+                    index * 2,
+                  height:
+                    6 +
+                    index * 2,
+                  left: `${(index * 5.2) % 100}%`,
+                  top: `${(index * 7.4) % 100}%`,
+                }}
+              />
+            )
+          )}
 
-        <EdgeLighting />
+        </div>
 
-        {/* CURSOR */}
-        <HoloTrail />
+        {/* SUBTLE GRID */}
 
-        <CursorAura />
-
-        {/* AI */}
-        <AIOrb />
+        <div className="pointer-events-none fixed inset-0 opacity-[0.03] bg-[linear-gradient(rgba(255,255,255,0.6)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.6)_1px,transparent_1px)] bg-[size:70px_70px]" />
 
         {/* STARTUP */}
+
         <AppLoader loading={loading} />
 
         {/* LIVE */}
+
         <LiveToasts />
 
         {/* APP */}
+
         <PageTransition>
+
           {children}
+
         </PageTransition>
 
-        {/* FLOAT */}
-        
       </body>
+
     </html>
   );
 }

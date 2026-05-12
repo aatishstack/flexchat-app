@@ -1,160 +1,97 @@
 "use client";
 
-import { create } from "zustand";
+import { create }
+  from "zustand";
 
-import { io, Socket } from "socket.io-client";
+interface Message {
 
-type Message = {
-  id: string;
-
-  conversationId: string;
-
-  senderId: string;
+  id: number;
 
   text?: string;
 
-  createdAt: string;
-};
+  image?: string;
 
-type ChatStore = {
-  socket: Socket | null;
+  audio?: string;
 
-  connected: boolean;
+  sender: string;
 
-  messages: Message[];
+  time: string;
 
-  connectSocket: (
-    userId: string
-  ) => void;
+  status?: "sending" | "sent";
 
-  disconnectSocket: () => void;
+  conversationId: string;
+}
 
-  sendMessage: (
-    data: {
-      conversationId: string;
+interface ChatStore {
 
-      senderId: string;
+  messages:
+    Record<
+      string,
+      Message[]
+    >;
 
-      text: string;
-    }
-  ) => void;
+  addMessage:
+    (
+      message: Message
+    ) => void;
 
-  addMessage: (
-    message: Message
-  ) => void;
-};
+  getMessages:
+    (
+      conversationId:
+        string
+    ) => Message[];
+}
 
 export const useChatStore =
   create<ChatStore>(
-    (set, get) => ({
-      socket: null,
+    (
+      set,
+      get
+    ) => ({
 
-      connected: false,
+      messages: {},
 
-      messages: [],
+      addMessage:
+        (
+          message
+        ) =>
 
-      connectSocket: (
-        userId
-      ) => {
-        if (get().socket) return;
+          set(
+            (
+              state
+            ) => ({
 
-        const socket = io(
-          "http://localhost:5000",
-          {
-            auth: {
-              userId,
-            },
+              messages: {
 
-            transports: [
-              "websocket",
-            ],
-          }
-        );
+                ...state.messages,
 
-        socket.on(
-          "connect",
-          () => {
-            console.log(
-              "Socket connected"
-            );
+                [
+                  message.conversationId
+                ]: [
 
-            socket.emit(
-              "join_conversation",
-              "global-room"
-            );
+                  ...(
+                    state.messages[
+                      message.conversationId
+                    ] || []
+                  ),
 
-            set({
-              connected: true,
-            });
-          }
-        );
+                  message,
+                ],
+              },
+            })
+          ),
 
-        socket.on(
-          "disconnect",
-          () => {
-            console.log(
-              "Socket disconnected"
-            );
+      getMessages:
+        (
+          conversationId
+        ) => {
 
-            set({
-              connected: false,
-            });
-          }
-        );
-
-        socket.on(
-          "receive_message",
-          (message) => {
-            console.log(
-              "Received:",
-              message
-            );
-
-            get().addMessage(
-              message
-            );
-          }
-        );
-
-        set({
-          socket,
-        });
-      },
-
-      disconnectSocket: () => {
-        get().socket?.disconnect();
-
-        set({
-          socket: null,
-
-          connected: false,
-        });
-      },
-
-      addMessage: (
-        message
-      ) => {
-        set({
-          messages: [
-            ...get().messages,
-
-            message,
-          ],
-        });
-      },
-
-      sendMessage: (
-        data
-      ) => {
-        console.log(
-          "Sending:",
-          data
-        );
-
-        get().socket?.emit(
-          "send_message",
-          data
-        );
-      },
+          return (
+            get()
+              .messages[
+              conversationId
+            ] || []
+          );
+        },
     })
   );

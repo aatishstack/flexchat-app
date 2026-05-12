@@ -12,13 +12,36 @@ import {
 
 import { useState } from "react";
 
+import { useRouter } from "next/navigation";
+
+import { useSocketStore } from "@/store/socket-store";
+
 export default function AuthPage() {
+
+  const router = useRouter();
+
+  const { connectSocket } =
+    useSocketStore();
 
   const [isLogin, setIsLogin] =
     useState(true);
 
   const [showPassword, setShowPassword] =
     useState(false);
+
+  async function handleAuthSuccess() {
+
+    const fakeToken = "flexchat_demo_token";
+
+    localStorage.setItem(
+      "token",
+      fakeToken
+    );
+
+    connectSocket(fakeToken);
+
+    router.push("/chat");
+  }
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#07070a] text-white">
@@ -329,6 +352,8 @@ export default function AuthPage() {
 
                 {/* Submit */}
                 <motion.button
+                  type="button"
+                  onClick={handleAuthSuccess}
                   whileTap={{ scale: 0.98 }}
                   whileHover={{ scale: 1.01 }}
                   className="flex h-14 w-full items-center justify-center rounded-2xl bg-purple-600 font-medium text-white shadow-lg shadow-purple-600/20 transition-all duration-300 hover:bg-purple-500"
