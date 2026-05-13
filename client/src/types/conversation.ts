@@ -11,6 +11,8 @@ export interface Conversation {
 
   unreadCount?: number;
 
+  pinned?: boolean;
+
   folder?:
     | "all"
     | "work"

@@ -8,13 +8,11 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
-
     "typeRoots": [
       "./node_modules/@types",
       "./src/types"
     ]
   },
-
   "exclude": [
     "dist",
     "node_modules"

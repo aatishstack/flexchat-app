@@ -73,6 +73,10 @@ export default function ChatSidebar() {
                     0
                   ? "groups"
                   : "all",
+
+              pinned:
+                index === 0 ||
+                index === 2,
             })
           );
 
@@ -129,6 +133,28 @@ export default function ChatSidebar() {
               .includes(
                 search.toLowerCase()
               )
+        )
+        .sort(
+          (
+            a,
+            b
+          ) => {
+            if (
+              a.pinned &&
+              !b.pinned
+            ) {
+              return -1;
+            }
+
+            if (
+              !a.pinned &&
+              b.pinned
+            ) {
+              return 1;
+            }
+
+            return 0;
+          }
         );
     }, [
       conversations,
@@ -255,10 +281,18 @@ export default function ChatSidebar() {
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-3">
-                      <h3 className="truncate font-semibold text-white">
-                        {conversation.name ||
-                          "Untitled"}
-                      </h3>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <h3 className="truncate font-semibold text-white">
+                          {conversation.name ||
+                            "Untitled"}
+                        </h3>
+
+                        {conversation.pinned && (
+                          <span className="text-xs">
+                            📌
+                          </span>
+                        )}
+                      </div>
 
                       <span className="text-xs text-zinc-500">
                         now
