@@ -2,14 +2,25 @@
 
 import {
   Bot,
-  Users,
-  Phone,
-  Bell,
-  CircleDot,
-  User,
   Palette,
+  User,
+  Users,
   LogOut,
+  Sparkles,
+  Settings,
+  Bookmark,
 } from "lucide-react";
+
+import {
+  motion,
+  AnimatePresence,
+} from "framer-motion";
+
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 interface Props {
   setShowProfile?: any;
@@ -23,128 +34,347 @@ export default function FlexDock({
   handleLogout,
 }: Props) {
 
-  const handleAction = (
-    label: string
+  const [
+    open,
+    setOpen,
+  ] = useState(false);
+
+  const dockRef =
+    useRef<any>(null);
+
+  useEffect(() => {
+
+    const handleClickOutside =
+      (
+        event: MouseEvent
+      ) => {
+
+        if (
+          dockRef.current &&
+          !dockRef.current.contains(
+            event.target
+          )
+        ) {
+
+          setOpen(false);
+        }
+      };
+
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside
+    );
+
+    return () => {
+
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside
+      );
+    };
+
+  }, []);
+
+  const handleSafeAction = (
+    callback?: any
   ) => {
 
-    alert(
-      `${label} panel coming soon`
-    );
+    setOpen(false);
+
+    if (callback) {
+
+      callback();
+    }
   };
+
+  const items = [
+
+    {
+      label: "AI Assistant",
+      icon: Bot,
+      action: () =>
+        alert(
+          "AI Assistant coming soon"
+        ),
+    },
+
+    {
+      label: "Themes",
+      icon: Palette,
+      action: () => {
+
+        if (
+          setShowSettings
+        ) {
+
+          setShowSettings(
+            true
+          );
+
+        } else {
+
+          alert(
+            "Themes panel coming soon"
+          );
+        }
+      },
+    },
+
+    {
+      label: "Profile",
+      icon: User,
+      action: () => {
+
+        if (
+          setShowProfile
+        ) {
+
+          setShowProfile(
+            true
+          );
+
+        } else {
+
+          alert(
+            "Profile panel coming soon"
+          );
+        }
+      },
+    },
+
+    {
+      label: "Friends",
+      icon: Users,
+      action: () =>
+        alert(
+          "Friends system coming soon"
+        ),
+    },
+
+    {
+      label: "Saved Messages",
+      icon: Bookmark,
+      action: () =>
+        alert(
+          "Saved messages coming soon"
+        ),
+    },
+
+    {
+      label: "Premium",
+      icon: Sparkles,
+      action: () =>
+        alert(
+          "Premium features coming soon"
+        ),
+    },
+
+    {
+      label: "Settings",
+      icon: Settings,
+      action: () => {
+
+        if (
+          setShowSettings
+        ) {
+
+          setShowSettings(
+            true
+          );
+
+        } else {
+
+          alert(
+            "Settings panel coming soon"
+          );
+        }
+      },
+    },
+
+    {
+      label: "Logout",
+      icon: LogOut,
+      action: handleLogout
+        ? handleLogout
+        : () =>
+            alert(
+              "Logout not connected"
+            ),
+      danger: true,
+    },
+  ];
 
   return (
 
-    <div className="flex items-center gap-3 rounded-[28px] border border-white/10 bg-black/40 px-4 py-4 shadow-2xl backdrop-blur-3xl">
+    <div
+      ref={dockRef}
+      className="relative z-[999999]"
+    >
 
-      {/* AI */}
+      {/* SETTINGS BUTTON */}
 
-      <button
+      <motion.button
+
+        whileHover={{
+          scale: 1.06,
+        }}
+
+        whileTap={{
+          scale: 0.94,
+        }}
+
         onClick={() =>
-          handleAction("AI")
-        }
-        className="rounded-2xl p-4 text-white/60 transition hover:bg-cyan-500/20 hover:text-cyan-300"
-      >
-
-        <Bot size={24} />
-
-      </button>
-
-      {/* FRIENDS */}
-
-      <button
-        onClick={() =>
-          handleAction(
-            "Friends"
+          setOpen(
+            (prev) =>
+              !prev
           )
         }
-        className="rounded-2xl p-4 text-white/60 transition hover:bg-cyan-500/20 hover:text-cyan-300"
+
+        className="group relative flex h-[50px] w-[50px] items-center justify-center rounded-2xl border border-white/10 bg-[#0d1626] shadow-[0_0_25px_rgba(0,0,0,0.35)] transition-all duration-300 hover:border-cyan-400/30 hover:bg-[#13233c]"
       >
 
-        <Users size={24} />
+        {/* GLOW */}
 
-      </button>
+        <div className="absolute inset-0 rounded-2xl bg-cyan-400/0 transition-all duration-300 group-hover:bg-cyan-400/10" />
 
-      {/* CALLS */}
+        {/* ICON */}
 
-      <button
-        onClick={() =>
-          handleAction("Calls")
-        }
-        className="rounded-2xl p-4 text-white/60 transition hover:bg-cyan-500/20 hover:text-cyan-300"
-      >
+        <Settings
+          size={22}
+          strokeWidth={2.2}
+          className="relative z-10 text-cyan-300 transition-all duration-300 group-hover:text-cyan-200"
+        />
 
-        <Phone size={24} />
+      </motion.button>
 
-      </button>
+      {/* PANEL */}
 
-      {/* ALERTS */}
+      <AnimatePresence>
 
-      <button
-        onClick={() =>
-          handleAction(
-            "Alerts"
-          )
-        }
-        className="rounded-2xl p-4 text-white/60 transition hover:bg-cyan-500/20 hover:text-cyan-300"
-      >
+        {open && (
 
-        <Bell size={24} />
+          <motion.div
 
-      </button>
+            initial={{
+              opacity: 0,
+              y: 12,
+              scale: 0.96,
+            }}
 
-      {/* STATUS */}
+            animate={{
+              opacity: 1,
+              y: 0,
+              scale: 1,
+            }}
 
-      <button
-        onClick={() =>
-          handleAction(
-            "Status"
-          )
-        }
-        className="rounded-2xl p-4 text-white/60 transition hover:bg-cyan-500/20 hover:text-cyan-300"
-      >
+            exit={{
+              opacity: 0,
+              y: 12,
+              scale: 0.96,
+            }}
 
-        <CircleDot size={24} />
+            transition={{
+              duration: 0.16,
+            }}
 
-      </button>
+            className="absolute right-0 top-[68px] z-[9999999] w-[285px] overflow-hidden rounded-[32px] border border-white/10 bg-[#08111f]/96 p-3 shadow-[0_30px_90px_rgba(0,0,0,0.72)] backdrop-blur-3xl"
+          >
 
-      <div className="mx-1 h-8 w-px bg-white/10" />
+            {/* HEADER */}
 
-      {/* PROFILE */}
+            <div className="mb-3 rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-4">
 
-      <button
-        onClick={() =>
-          setShowProfile?.(true)
-        }
-        className="rounded-2xl p-4 text-white/60 transition hover:bg-white/10 hover:text-white"
-      >
+              <p className="text-xs uppercase tracking-[0.22em] text-cyan-300/70">
 
-        <User size={22} />
+                Flex Settings
 
-      </button>
+              </p>
 
-      {/* THEMES */}
+              <h2 className="mt-2 text-lg font-bold text-white">
 
-      <button
-        onClick={() =>
-          setShowSettings?.(true)
-        }
-        className="rounded-2xl p-4 text-white/60 transition hover:bg-cyan-500/20 hover:text-cyan-300"
-      >
+                Control Center
 
-        <Palette size={22} />
+              </h2>
 
-      </button>
+            </div>
 
-      {/* LOGOUT */}
+            {/* ITEMS */}
 
-      <button
-        onClick={handleLogout}
-        className="rounded-2xl p-4 text-red-300 transition hover:bg-red-500/20"
-      >
+            <div className="space-y-1">
 
-        <LogOut size={22} />
+              {items.map(
+                (
+                  item,
+                  index
+                ) => {
 
-      </button>
+                  const Icon =
+                    item.icon;
+
+                  return (
+
+                    <motion.button
+
+                      key={index}
+
+                      whileHover={{
+                        x: 4,
+                      }}
+
+                      whileTap={{
+                        scale: 0.98,
+                      }}
+
+                      onClick={() =>
+                        handleSafeAction(
+                          item.action
+                        )
+                      }
+
+                      className={`flex w-full items-center gap-4 rounded-2xl px-4 py-3 text-left transition-all duration-200 ${
+                        item.danger
+                          ? "text-red-300 hover:bg-red-500/10"
+                          : "text-white/75 hover:bg-white/5 hover:text-white"
+                      }`}
+                    >
+
+                      <div
+                        className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
+                          item.danger
+                            ? "bg-red-500/10"
+                            : "bg-white/[0.04]"
+                        }`}
+                      >
+
+                        <Icon
+                          size={19}
+                        />
+
+                      </div>
+
+                      <div>
+
+                        <p className="text-sm font-medium">
+
+                          {
+                            item.label
+                          }
+
+                        </p>
+
+                      </div>
+
+                    </motion.button>
+                  );
+                }
+              )}
+
+            </div>
+
+          </motion.div>
+        )}
+
+      </AnimatePresence>
 
     </div>
   );

@@ -1,34 +1,108 @@
-import { Server as HttpServer } from "http";
-import { Server } from "socket.io";
+import {
+  Server,
+} from "socket.io";
 
-import { verifySocketToken } from "./auth.js";
-import { registerSocketEvents } from "./events.js";
+import {
+  authenticateSocket,
+} from "./socket-auth.js";
 
-export function createSocketServer(server: HttpServer) {
-  const io = new Server(server, {
-    cors: {
-      origin: "http://localhost:3000",
-      credentials: true,
-    },
-  });
+import {
+  SOCKET_EVENTS,
+} from "./socket-events.js";
 
-  io.use(async (socket, next) => {
-    const token = socket.handshake.auth.token;
+import {
+  onlineUsers,
+} from "./socket-store.js";
 
-    const user = await verifySocketToken(token);
+import {
+  registerMessageHandlers,
+} from "./handlers/message.handler.js";
 
-    if (!user) {
-      return next(new Error("Unauthorized"));
+import {
+  registerTypingHandlers,
+} from "./handlers/typing.handler.js";
+
+export function setupSocket(
+  server: any
+) {
+  const io = new Server(
+    server,
+    {
+      cors: {
+        origin: "*",
+      },
     }
+  );
 
-    socket.data.user = user;
+  io.on(
+    SOCKET_EVENTS.CONNECTION,
+    async (socket) => {
+      const authenticated =
+        await authenticateSocket(
+          socket
+        );
 
-    next();
-  });
+      if (
+        !authenticated
+      ) {
+        socket.disconnect();
 
-  io.on("connection", (socket) => {
-    registerSocketEvents(io, socket);
-  });
+        return;
+      }
+
+      const userId =
+        socket.data.user.id;
+
+      onlineUsers.set(
+        userId,
+        socket.id
+      );
+
+      io.emit(
+        SOCKET_EVENTS.ONLINE_USERS,
+        Array.from(
+          onlineUsers.keys()
+        )
+      );
+
+      socket.on(
+        SOCKET_EVENTS.JOIN_CONVERSATION,
+        (
+          conversationId
+        ) => {
+          socket.join(
+            conversationId
+          );
+        }
+      );
+
+      registerMessageHandlers(
+        io,
+        socket
+      );
+
+      registerTypingHandlers(
+        io,
+        socket
+      );
+
+      socket.on(
+        SOCKET_EVENTS.DISCONNECT,
+        () => {
+          onlineUsers.delete(
+            userId
+          );
+
+          io.emit(
+            SOCKET_EVENTS.ONLINE_USERS,
+            Array.from(
+              onlineUsers.keys()
+            )
+          );
+        }
+      );
+    }
+  );
 
   return io;
 }

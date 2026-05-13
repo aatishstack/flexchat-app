@@ -2,8 +2,10 @@ import "fastify";
 
 declare module "fastify" {
   interface FastifyRequest {
-    user: {
-      userId: string;
+    user?: {
+      id: string;
     };
   }
 }
+
+export {};

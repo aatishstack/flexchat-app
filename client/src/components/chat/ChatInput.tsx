@@ -7,6 +7,10 @@ import {
   Send,
 } from "lucide-react";
 
+import { useRef } from "react";
+
+import { useSocketStore } from "@/store/socket-store";
+
 interface Props {
   message: string;
   setMessage: any;
@@ -16,6 +20,7 @@ interface Props {
   setReplyingTo: any;
   showEmojiPicker: boolean;
   setShowEmojiPicker: any;
+  conversationId: string;
 }
 
 export default function ChatInput({
@@ -27,7 +32,17 @@ export default function ChatInput({
   setReplyingTo,
   showEmojiPicker,
   setShowEmojiPicker,
+  conversationId,
 }: Props) {
+
+  const socket = useSocketStore(
+    (s) => s.socket
+  );
+
+  const typingTimeout =
+    useRef<NodeJS.Timeout | null>(
+      null
+    );
 
   return (
 
@@ -94,9 +109,41 @@ export default function ChatInput({
 
         <input
           value={message}
-          onChange={
-            handleTyping
-          }
+          onChange={(e) => {
+
+            setMessage(
+              e.target.value
+            );
+
+            handleTyping(e);
+
+            socket?.emit(
+              "typing:start",
+              {
+                conversationId,
+              }
+            );
+
+            if (
+              typingTimeout.current
+            ) {
+              clearTimeout(
+                typingTimeout.current
+              );
+            }
+
+            typingTimeout.current =
+              setTimeout(() => {
+
+                socket?.emit(
+                  "typing:stop",
+                  {
+                    conversationId,
+                  }
+                );
+
+              }, 1200);
+          }}
           placeholder="Type a message..."
           className="flex-1 bg-transparent text-[15px] text-white outline-none placeholder:text-white/30"
         />
@@ -146,4 +193,4 @@ export default function ChatInput({
 
     </div>
   );
-} 
+}

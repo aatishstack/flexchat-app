@@ -2,104 +2,322 @@
 
 import { create } from "zustand";
 
-import {
-  io,
-  Socket,
-} from "socket.io-client";
+import { socket } from "@/socket/socket";
 
-type SocketStore = {
-  socket: Socket | null;
+import { SOCKET_EVENTS } from "@/socket/socket-events";
 
-  connected: boolean;
+export interface Message {
+  id: string;
+
+  text: string;
+
+  senderId: string;
+
+  conversationId: string;
+
+  status:
+    | "sending"
+    | "sent"
+    | "delivered"
+    | "read";
+
+  createdAt?: string;
+
+  attachment?: string;
+
+  audio?: string;
+
+  reactions?: {
+    emoji: string;
+
+    count: number;
+  }[];
+
+  replyTo?: {
+    id: string;
+
+    text: string;
+  };
+}
+
+interface SocketState {
+  isConnected: boolean;
+
+  isConnecting: boolean;
+
+  onlineUsers: string[];
+
+  typingUsers: string[];
+
+  messages: Message[];
 
   connectSocket: (
     token: string
   ) => void;
 
   disconnectSocket: () => void;
-};
+
+  setOnlineUsers: (
+    users: string[]
+  ) => void;
+
+  setTypingUsers: (
+    users: string[]
+  ) => void;
+
+  addMessage: (
+    message: Message
+  ) => void;
+
+  setMessages: (
+    messages: Message[]
+  ) => void;
+
+  updateMessageStatus: (
+    id: string,
+
+    status:
+      | "sent"
+      | "delivered"
+      | "read"
+  ) => void;
+
+  joinConversation: (
+    conversationId: string
+  ) => void;
+
+  sendMessage: (
+    data: {
+      conversationId: string;
+
+      text: string;
+
+      attachment?: string | null;
+
+      audio?: string | null;
+
+      replyTo?: {
+        id: string;
+
+        text: string;
+      };
+    }
+  ) => void;
+
+  startTyping: (
+    conversationId: string
+  ) => void;
+
+  stopTyping: (
+    conversationId: string
+  ) => void;
+}
 
 export const useSocketStore =
-  create<SocketStore>((set, get) => ({
+  create<SocketState>(
+    (set) => ({
+      isConnected: false,
 
-    socket: null,
+      isConnecting: false,
 
-    connected: false,
+      onlineUsers: [],
 
-    connectSocket: (token) => {
+      typingUsers: [],
 
-      const existingSocket =
-        get().socket;
+      messages: [],
 
-      if (
-        existingSocket?.connected
-      ) {
-        return;
-      }
-
-      const socket = io(
-        "http://localhost:5000",
-        {
-          auth: {
-            token,
-          },
-
-          transports: [
-            "websocket",
-          ],
-
-          reconnection: true,
-
-          reconnectionAttempts: 10,
-
-          reconnectionDelay: 1000,
+      connectSocket: (
+        token
+      ) => {
+        if (
+          socket.connected
+        ) {
+          return;
         }
-      );
 
-      socket.on(
-        "connect",
+        set({
+          isConnecting: true,
+        });
+
+        socket.auth = {
+          token,
+        };
+
+        socket.connect();
+      },
+
+      disconnectSocket:
         () => {
-
-          console.log(
-            "Socket connected"
-          );
+          socket.disconnect();
 
           set({
-            connected: true,
+            isConnected: false,
           });
-        }
-      );
+        },
 
-      socket.on(
-        "disconnect",
-        () => {
+      setOnlineUsers:
+        (
+          users
+        ) =>
+          set({
+            onlineUsers:
+              users,
+          }),
 
-          console.log(
-            "Socket disconnected"
+      setTypingUsers:
+        (
+          users
+        ) =>
+          set({
+            typingUsers:
+              users,
+          }),
+
+      addMessage:
+        (
+          message
+        ) =>
+          set(
+            (
+              state
+            ) => ({
+              messages:
+                [
+                  ...state.messages,
+                  message,
+                ],
+            })
+          ),
+
+      setMessages:
+        (
+          messages
+        ) =>
+          set({
+            messages,
+          }),
+
+      updateMessageStatus:
+        (
+          id,
+          status
+        ) =>
+          set(
+            (
+              state
+            ) => ({
+              messages:
+                state.messages.map(
+                  (
+                    message
+                  ) =>
+                    message.id ===
+                    id
+                      ? {
+                          ...message,
+                          status,
+                        }
+                      : message
+                ),
+            })
+          ),
+
+      joinConversation:
+        (
+          conversationId
+        ) => {
+          socket.emit(
+            SOCKET_EVENTS.JOIN_CONVERSATION,
+            {
+              conversationId,
+            }
+          );
+        },
+
+      sendMessage:
+        (
+          data
+        ) => {
+          const optimisticMessage: Message =
+            {
+              id:
+                crypto.randomUUID(),
+
+              text:
+                data.text,
+
+              attachment:
+                data.attachment ||
+                undefined,
+
+              audio:
+                data.audio ||
+                undefined,
+
+              reactions: [],
+
+              replyTo:
+                data.replyTo ||
+                undefined,
+
+              conversationId:
+                data.conversationId,
+
+              senderId:
+                "me",
+
+              status:
+                "sending",
+
+              createdAt:
+                new Date().toISOString(),
+            };
+
+          set(
+            (
+              state
+            ) => ({
+              messages:
+                [
+                  ...state.messages,
+                  optimisticMessage,
+                ],
+            })
           );
 
-          set({
-            connected: false,
-          });
-        }
-      );
+          socket.emit(
+            SOCKET_EVENTS.SEND_MESSAGE,
+            {
+              ...data,
 
-      set({
-        socket,
-      });
-    },
+              tempId:
+                optimisticMessage.id,
+            }
+          );
+        },
 
-    disconnectSocket: () => {
+      startTyping:
+        (
+          conversationId
+        ) => {
+          socket.emit(
+            SOCKET_EVENTS.START_TYPING,
+            {
+              conversationId,
+            }
+          );
+        },
 
-      const socket =
-        get().socket;
-
-      socket?.disconnect();
-
-      set({
-        socket: null,
-
-        connected: false,
-      });
-    },
-  }));
+      stopTyping:
+        (
+          conversationId
+        ) => {
+          socket.emit(
+            SOCKET_EVENTS.STOP_TYPING,
+            {
+              conversationId,
+            }
+          );
+        },
+    })
+  );

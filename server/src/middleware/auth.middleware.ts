@@ -3,41 +3,49 @@ import {
   FastifyRequest,
 } from "fastify";
 
-import { verifyToken }
-  from "../lib/jwt.js";
+import {
+  verifyToken,
+} from "../lib/jwt.js";
 
 export async function authMiddleware(
-  request: FastifyRequest & {
-    user?: {
-      userId: string;
-    };
-  },
-
+  request: FastifyRequest,
   reply: FastifyReply
 ) {
   try {
     const authHeader =
-      request.headers.authorization;
+      request.headers
+        .authorization;
 
-    if (!authHeader) {
-      return reply.status(401).send({
-        success: false,
-        message: "Unauthorized",
-      });
+    if (
+      !authHeader
+    ) {
+      return reply
+        .status(401)
+        .send({
+          message:
+            "Unauthorized",
+        });
     }
 
     const token =
-      authHeader.split(" ")[1];
+      authHeader.replace(
+        "Bearer ",
+        ""
+      );
 
     const decoded =
-      verifyToken(token);
+      verifyToken(
+        token
+      );
 
-    request.user = decoded;
-
-  } catch (error) {
-    return reply.status(401).send({
-      success: false,
-      message: "Invalid token",
-    });
+    request.user =
+      decoded;
+  } catch {
+    return reply
+      .status(401)
+      .send({
+        message:
+          "Invalid token",
+      });
   }
 }

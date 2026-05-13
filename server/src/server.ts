@@ -1,43 +1,95 @@
-import dotenv from "dotenv";
+import path from "path";
 
-dotenv.config();
+import Fastify from "fastify";
+
+import cors from "@fastify/cors";
+
+import multipart from "@fastify/multipart";
+
+import FastifyStatic from "@fastify/static";
 
 import { createServer } from "http";
 
-import { Server } from "socket.io";
+import { setupSocket } from "./socket/index.js";
 
-import { buildApp } from "./app";
+import { authRoutes } from "./routes/auth.route.js";
 
-import { setupSocket } from "./socket";
+import { userRoutes } from "./routes/user.route.js";
 
-async function startServer() {
+import { messageRoutes } from "./routes/messages.route.js";
 
-  const app = await buildApp();
+import { conversationRoutes } from "./routes/conversation.route.js";
 
-  const httpServer =
-    createServer(app.server);
+import { uploadRoutes } from "./routes/upload.route.js";
 
-  const io = new Server(
-    httpServer,
-    {
-      cors: {
-        origin: "*",
-      },
-    }
+const app = Fastify({
+  logger: true,
+});
+
+await app.register(cors, {
+  origin: true,
+
+  credentials: true,
+});
+
+await app.register(
+  multipart
+);
+
+await app.register(
+  FastifyStatic,
+  {
+    root: path.join(
+      process.cwd(),
+      "uploads"
+    ),
+
+    prefix:
+      "/uploads/",
+  }
+);
+
+await app.register(
+  authRoutes
+);
+
+await app.register(
+  userRoutes
+);
+
+await app.register(
+  messageRoutes
+);
+
+await app.register(
+  conversationRoutes
+);
+
+await app.register(
+  uploadRoutes
+);
+
+app.get("/", async () => {
+  return {
+    message:
+      "FlexChat API running",
+  };
+});
+
+const server =
+  createServer(
+    app.server
   );
 
-  setupSocket(io);
+setupSocket(server);
 
-  const PORT = Number(
-    process.env.PORT || 5000
-  );
+const PORT = 5000;
 
-  httpServer.listen(PORT, () => {
-
+server.listen(
+  PORT,
+  () => {
     console.log(
-      `🚀 FlexChat backend running on port ${PORT}`
+      `FlexChat server running on ${PORT}`
     );
-  });
-}
-
-startServer();
+  }
+);
