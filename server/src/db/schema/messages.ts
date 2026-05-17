@@ -53,11 +53,25 @@ export const messages =
         table.conversationId,
         table.createdAt
       ),
+      conversationCreatedAtIdIdx: index(
+        "messages_conversation_created_at_id_idx"
+      ).on(
+        table.conversationId,
+        table.createdAt,
+        table.id
+      ),
       conversationStatusIdx: index(
         "messages_conversation_status_idx"
       ).on(
         table.conversationId,
         table.status
+      ),
+      conversationUnreadIdx: index(
+        "messages_conversation_unread_idx"
+      ).on(
+        table.conversationId,
+        table.status,
+        table.senderId
       ),
     })
   );

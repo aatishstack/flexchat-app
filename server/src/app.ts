@@ -75,6 +75,9 @@ export async function buildApp() {
 
   await app.register(cors, {
     credentials: true,
+    exposedHeaders: [
+      "x-next-cursor",
+    ],
     origin: (origin, callback) => {
       callback(null, isAllowedOrigin(origin));
     },

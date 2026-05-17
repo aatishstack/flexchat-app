@@ -9,6 +9,8 @@ export interface Conversation {
 
   latestMessage?: string;
 
+  lastActivityAt?: string;
+
   memberIds?: string[];
 
   unreadCount?: number;

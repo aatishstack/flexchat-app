@@ -2,8 +2,42 @@ import { api } from "./api";
 
 import { Conversation } from "@/types/conversation";
 
-export async function getConversations() {
-  const response = await api.get<Conversation[]>("/conversations");
+export interface GetConversationsOptions {
+  limit?: number;
+  cursor?: string;
+}
 
-  return response.data;
+export interface ConversationPage {
+  conversations: Conversation[];
+  nextCursor?: string;
+}
+
+export async function getConversationPage(
+  options: GetConversationsOptions = {}
+): Promise<ConversationPage> {
+  const response =
+    await api.get<Conversation[]>("/conversations", {
+      params: {
+        limit:
+          options.limit ?? 200,
+        cursor:
+          options.cursor,
+      },
+    });
+
+  return {
+    conversations:
+      response.data,
+    nextCursor:
+      response.headers["x-next-cursor"],
+  };
+}
+
+export async function getConversations(
+  options: GetConversationsOptions = {}
+) {
+  const page =
+    await getConversationPage(options);
+
+  return page.conversations;
 }
