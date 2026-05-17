@@ -9,6 +9,8 @@ export interface Conversation {
 
   latestMessage?: string;
 
+  memberIds?: string[];
+
   unreadCount?: number;
 
   pinned?: boolean;

@@ -31,6 +31,20 @@ import { useConversationStore } from "@/stores/conversation.store";
 
 const VIRTUAL_WINDOW_SIZE = 120;
 
+function hasOnlinePeer(
+  memberIds: string[] | undefined,
+  onlineUsers: string[],
+  currentUserId?: string
+) {
+  return (
+    memberIds?.some(
+      (memberId) =>
+        memberId !== currentUserId &&
+        onlineUsers.includes(memberId)
+    ) ?? false
+  );
+}
+
 function formatMessageTime(createdAt?: string) {
   if (!createdAt) {
     return "";
@@ -192,8 +206,13 @@ export default function ChatConversation() {
   );
 
   const isOnline =
-    !!activeConversation?.id &&
-    onlineUsers.includes(activeConversation.id);
+    activeConversation
+      ? hasOnlinePeer(
+          activeConversation.memberIds,
+          onlineUsers,
+          user?.id
+        )
+      : false;
 
   useEffect(() => {
     if (!conversationId) {
@@ -414,7 +433,9 @@ export default function ChatConversation() {
                 ? "typing..."
                 : isOnline
                 ? "Online"
-                : "Realtime ready"}
+                : isConnected
+                  ? "Realtime ready"
+                  : "Reconnecting..."}
             </p>
           </div>
         </div>

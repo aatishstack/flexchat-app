@@ -19,6 +19,13 @@ type MessageReceipt = {
   status?: "sent" | "delivered" | "read";
 };
 
+type TypingUsersPayload =
+  | string[]
+  | {
+      conversationId?: string;
+      users?: string[];
+    };
+
 export default function SocketProvider({
   children,
 }: {
@@ -63,13 +70,20 @@ export default function SocketProvider({
       socketState.flushPendingMessages();
     }
 
-    function onDisconnect() {
+    function onDisconnect(reason: string) {
       resetPendingMessageFlights();
 
       useSocketStore.setState({
         isConnected: false,
         isConnecting: false,
+        typingUsers: [],
       });
+
+      if (reason === "io server disconnect") {
+        setConnectionError(
+          "Realtime disconnected by server"
+        );
+      }
     }
 
     function onConnectError(error: Error) {
@@ -127,8 +141,23 @@ export default function SocketProvider({
       }
     }
 
-    function onTypingUsers(users: string[]) {
-      setTypingUsers(users);
+    function onTypingUsers(payload: TypingUsersPayload) {
+      if (Array.isArray(payload)) {
+        setTypingUsers(payload);
+        return;
+      }
+
+      const activeConversationId =
+        useSocketStore.getState().activeConversationId;
+
+      if (
+        payload.conversationId &&
+        payload.conversationId !== activeConversationId
+      ) {
+        return;
+      }
+
+      setTypingUsers(payload.users ?? []);
     }
 
     function onMessageDelivered(receipt: MessageReceipt) {
@@ -147,6 +176,19 @@ export default function SocketProvider({
       );
     }
 
+    function onReconnectAttempt() {
+      useSocketStore.setState({
+        isConnecting: true,
+        connectionError: null,
+      });
+    }
+
+    function onReconnectFailed() {
+      setConnectionError(
+        "Realtime reconnect failed"
+      );
+    }
+
     socket.on(SOCKET_EVENTS.CONNECT, onConnect);
     socket.on(SOCKET_EVENTS.DISCONNECT, onDisconnect);
     socket.on(SOCKET_EVENTS.CONNECT_ERROR, onConnectError);
@@ -155,6 +197,8 @@ export default function SocketProvider({
     socket.on(SOCKET_EVENTS.TYPING_USERS, onTypingUsers);
     socket.on(SOCKET_EVENTS.MESSAGE_DELIVERED, onMessageDelivered);
     socket.on(SOCKET_EVENTS.MESSAGE_SEEN, onMessageSeen);
+    socket.io.on("reconnect_attempt", onReconnectAttempt);
+    socket.io.on("reconnect_failed", onReconnectFailed);
 
     return () => {
       socket.off(SOCKET_EVENTS.CONNECT, onConnect);
@@ -165,6 +209,8 @@ export default function SocketProvider({
       socket.off(SOCKET_EVENTS.TYPING_USERS, onTypingUsers);
       socket.off(SOCKET_EVENTS.MESSAGE_DELIVERED, onMessageDelivered);
       socket.off(SOCKET_EVENTS.MESSAGE_SEEN, onMessageSeen);
+      socket.io.off("reconnect_attempt", onReconnectAttempt);
+      socket.io.off("reconnect_failed", onReconnectFailed);
     };
   }, [
     addMessage,

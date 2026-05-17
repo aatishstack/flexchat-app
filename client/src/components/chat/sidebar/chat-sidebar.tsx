@@ -15,8 +15,23 @@ import {
 
 import { getConversations } from "@/services/conversation.service";
 import { useSocketStore } from "@/store/socket-store";
+import { useAuthStore } from "@/stores/auth.store";
 import { useConversationStore } from "@/stores/conversation.store";
 import { Conversation } from "@/types/conversation";
+
+function hasOnlinePeer(
+  conversation: Conversation,
+  onlineUsers: string[],
+  currentUserId?: string
+) {
+  return (
+    conversation.memberIds?.some(
+      (memberId) =>
+        memberId !== currentUserId &&
+        onlineUsers.includes(memberId)
+    ) ?? false
+  );
+}
 
 export default function ChatSidebar() {
   const [search, setSearch] = useState("");
@@ -39,6 +54,9 @@ export default function ChatSidebar() {
   );
   const onlineUsers = useSocketStore(
     (state) => state.onlineUsers
+  );
+  const currentUserId = useAuthStore(
+    (state) => state.user?.id
   );
 
   useEffect(() => {
@@ -225,8 +243,10 @@ export default function ChatSidebar() {
                 activeConversation?.id ===
                 conversation.id;
               const isOnline =
-                onlineUsers.includes(
-                  conversation.id
+                hasOnlinePeer(
+                  conversation,
+                  onlineUsers,
+                  currentUserId
                 );
 
               return (

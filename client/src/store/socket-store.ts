@@ -185,8 +185,9 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   connectSocket: (token) => {
     const nextToken = token?.trim();
 
-    if (!nextToken) {
+  if (!nextToken) {
       set({
+        token: null,
         isConnecting: false,
         connectionError: "Missing socket auth token",
       });
@@ -219,7 +220,10 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       return;
     }
 
-    if (socket.connected && currentToken !== nextToken) {
+    if (
+      (socket.connected || socket.active) &&
+      currentToken !== nextToken
+    ) {
       socket.disconnect();
     }
 
@@ -270,7 +274,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
   setOnlineUsers: (users) =>
     set({
-      onlineUsers: users,
+      onlineUsers: Array.from(new Set(users)),
     }),
 
   setTypingUsers: (users) =>
@@ -470,8 +474,29 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   },
 
   joinConversation: (conversationId) => {
+    const previousConversationId =
+      get().activeConversationId;
+
+    if (
+      previousConversationId &&
+      previousConversationId !== conversationId &&
+      socket.connected
+    ) {
+      socket.emit(SOCKET_EVENTS.STOP_TYPING, {
+        conversationId: previousConversationId,
+      });
+
+      socket.emit(SOCKET_EVENTS.LEAVE_CONVERSATION, {
+        conversationId: previousConversationId,
+      });
+    }
+
     set({
       activeConversationId: conversationId,
+      typingUsers:
+        previousConversationId === conversationId
+          ? get().typingUsers
+          : [],
     });
 
     if (!socket.connected) {
@@ -527,6 +552,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
     const optimisticMessage: Message = {
       id: tempId,
+      tempId,
       text,
       attachment: data.attachment ?? null,
       audio: data.audio ?? null,

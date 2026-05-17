@@ -11,29 +11,74 @@ type TypingPayload = {
 
 const typingMap = new Map<
   string,
-  Set<string>
+  Map<string, Set<string>>
 >();
 
 function getConversationTypingUsers(
   conversationId: string
 ) {
   return Array.from(
-    typingMap.get(conversationId) ?? []
+    typingMap.get(conversationId)?.keys() ?? []
   );
 }
 
-function removeUserFromAllTypingRooms(
-  userId: string
+function emitTypingUsers(
+  io: Server,
+  conversationId: string
+) {
+  io.to(conversationId).emit(
+    SOCKET_EVENTS.TYPING_USERS,
+    {
+      conversationId,
+      users:
+        getConversationTypingUsers(conversationId),
+    }
+  );
+}
+
+function removeSocketFromTypingRoom(
+  conversationId: string,
+  userId: string,
+  socketId: string
+) {
+  const roomTyping =
+    typingMap.get(conversationId);
+
+  const userSockets =
+    roomTyping?.get(userId);
+
+  userSockets?.delete(socketId);
+
+  if (userSockets && !userSockets.size) {
+    roomTyping?.delete(userId);
+  }
+
+  if (roomTyping && !roomTyping.size) {
+    typingMap.delete(conversationId);
+  }
+}
+
+function removeSocketFromAllTypingRooms(
+  userId: string,
+  socketId: string
 ) {
   const changedRooms: string[] = [];
 
-  typingMap.forEach((users, roomId) => {
-    if (users.delete(userId)) {
-      changedRooms.push(roomId);
-    }
+  typingMap.forEach((_users, roomId) => {
+    const before =
+      getConversationTypingUsers(roomId).join(",");
 
-    if (!users.size) {
-      typingMap.delete(roomId);
+    removeSocketFromTypingRoom(
+      roomId,
+      userId,
+      socketId
+    );
+
+    const after =
+      getConversationTypingUsers(roomId).join(",");
+
+    if (before !== after) {
+      changedRooms.push(roomId);
     }
   });
 
@@ -55,15 +100,17 @@ export function registerTypingHandlers(
 
       const typingUsers =
         typingMap.get(conversationId) ??
+        new Map<string, Set<string>>();
+
+      const userSockets =
+        typingUsers.get(userId) ??
         new Set<string>();
 
-      typingUsers.add(userId);
+      userSockets.add(socket.id);
+      typingUsers.set(userId, userSockets);
       typingMap.set(conversationId, typingUsers);
 
-      socket.to(conversationId).emit(
-        SOCKET_EVENTS.TYPING_USERS,
-        getConversationTypingUsers(conversationId)
-      );
+      emitTypingUsers(io, conversationId);
     }
   );
 
@@ -74,36 +121,22 @@ export function registerTypingHandlers(
         return;
       }
 
-      const typingUsers =
-        typingMap.get(conversationId);
-
-      typingUsers?.delete(userId);
-
-      if (
-        typingUsers &&
-        !typingUsers.size
-      ) {
-        typingMap.delete(
-          conversationId
-        );
-      }
-
-      socket.to(conversationId).emit(
-        SOCKET_EVENTS.TYPING_USERS,
-        getConversationTypingUsers(conversationId)
+      removeSocketFromTypingRoom(
+        conversationId,
+        userId,
+        socket.id
       );
+
+      emitTypingUsers(io, conversationId);
     }
   );
 
   socket.on(SOCKET_EVENTS.DISCONNECT, () => {
     const changedRooms =
-      removeUserFromAllTypingRooms(userId);
+      removeSocketFromAllTypingRooms(userId, socket.id);
 
     changedRooms.forEach((conversationId) => {
-      io.to(conversationId).emit(
-        SOCKET_EVENTS.TYPING_USERS,
-        getConversationTypingUsers(conversationId)
-      );
+      emitTypingUsers(io, conversationId);
     });
   });
 }
