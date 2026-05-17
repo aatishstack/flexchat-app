@@ -13,17 +13,45 @@ export interface Message {
     | "sending"
     | "sent"
     | "delivered"
-    | "read";
+    | "read"
+    | "failed";
 
   createdAt?: string;
+
+  attachment?: string | null;
+
+  audio?: string | null;
+
+  tempId?: string;
+
+  optimistic?: boolean;
+
+  replyTo?: {
+    id: string;
+    text: string;
+  };
+}
+
+export interface GetMessagesOptions {
+  limit?: number;
+  before?: string;
 }
 
 export async function getMessages(
-  conversationId: string
+  conversationId: string,
+  options: GetMessagesOptions = {}
 ): Promise<Message[]> {
   const response =
     await api.get<Message[]>(
-      `/messages/${conversationId}`
+      `/messages/${conversationId}`,
+      {
+        params: {
+          limit:
+            options.limit ?? 120,
+          before:
+            options.before,
+        },
+      }
     );
 
   return response.data;

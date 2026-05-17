@@ -4,72 +4,73 @@ import { create } from "zustand";
 
 import { Conversation } from "@/types/conversation";
 
+type ConversationPatch = Pick<
+  Conversation,
+  "latestMessage" | "unreadCount"
+>;
+
 interface ConversationState {
-  conversations:
-    Conversation[];
-
-  activeConversation:
-    Conversation | null;
-
-  setConversations: (
-    conversations: Conversation[]
+  activeConversationId: string | null;
+  conversationPatches: Record<
+    string,
+    Partial<ConversationPatch>
+  >;
+  setActiveConversationId: (
+    conversationId: string
   ) => void;
-
   setActiveConversation: (
     conversation: Conversation
   ) => void;
-
   updateConversationMessage: (
     conversationId: string,
-
     message: string,
-
     options?: {
       unread?: boolean;
+      unreadCount?: number;
     }
   ) => void;
-
   markConversationRead: (
     conversationId: string
   ) => void;
+  resetConversationState: () => void;
 }
 
 export const useConversationStore =
   create<ConversationState>(
     (set) => ({
-      conversations: [],
+      activeConversationId: null,
+      conversationPatches: {},
 
-      activeConversation:
-        null,
-
-      setConversations:
-        (
-          conversations
-        ) =>
-          set({
-            conversations,
-          }),
+      setActiveConversationId:
+        (conversationId) =>
+          set((state) => ({
+            activeConversationId:
+              conversationId,
+            conversationPatches: {
+              ...state.conversationPatches,
+              [conversationId]: {
+                ...state.conversationPatches[
+                  conversationId
+                ],
+                unreadCount: 0,
+              },
+            },
+          })),
 
       setActiveConversation:
-        (
-          conversation
-        ) =>
+        (conversation) =>
           set((state) => ({
-            activeConversation: {
-              ...conversation,
-              unreadCount: 0,
-            },
-            conversations:
-              state.conversations.map(
-                (item) =>
-                  item.id ===
+            activeConversationId:
+              conversation.id,
+            conversationPatches: {
+              ...state.conversationPatches,
+              [conversation.id]: {
+                ...state.conversationPatches[
                   conversation.id
-                    ? {
-                        ...item,
-                        unreadCount: 0,
-                      }
-                    : item
-              ),
+                ],
+                unreadCount: 0,
+              },
+            },
           })),
 
       updateConversationMessage:
@@ -78,95 +79,53 @@ export const useConversationStore =
           message,
           options
         ) =>
-          set(
-            (
-              state
-            ) => ({
-              conversations:
-                [
-                  ...state.conversations
-                    .map(
-                      (
-                        conversation
-                      ) => {
-                        if (
-                          conversation.id !==
-                          conversationId
-                        ) {
-                          return conversation;
-                        }
-
-                        return {
-                          ...conversation,
-
-                          latestMessage:
-                            message,
-
-                          unreadCount:
-                            options?.unread
-                              ? (conversation.unreadCount ??
-                                  0) + 1
-                              : conversation.unreadCount,
-                        };
-                      }
-                    )
-                    .sort(
-                      (
-                        a,
-                        b
-                      ) =>
-                        a.id ===
-                        conversationId
-                          ? -1
-                          : b.id ===
-                              conversationId
-                            ? 1
-                            : 0
-                    ),
-                ],
-              activeConversation:
-                state.activeConversation?.id ===
+          set((state) => {
+            const currentPatch =
+              state.conversationPatches[
                 conversationId
-                  ? {
-                      ...state.activeConversation,
-                      latestMessage:
-                        message,
-                      unreadCount:
-                        options?.unread
-                          ? (state
-                              .activeConversation
-                              .unreadCount ??
-                              0) + 1
-                          : state
-                              .activeConversation
-                              .unreadCount,
-                    }
-                  : state.activeConversation,
-            })
-          ),
+              ] ?? {};
+            const currentUnread =
+              currentPatch.unreadCount ?? 0;
+            const nextUnreadCount =
+              options?.unreadCount ??
+              (options?.unread
+                ? currentUnread + 1
+                : currentPatch.unreadCount);
+
+            return {
+              conversationPatches: {
+                ...state.conversationPatches,
+                [conversationId]: {
+                  ...currentPatch,
+                  latestMessage:
+                    message,
+                  unreadCount:
+                    nextUnreadCount,
+                },
+              },
+            };
+          }),
 
       markConversationRead:
         (conversationId) =>
           set((state) => ({
-            conversations:
-              state.conversations.map(
-                (conversation) =>
-                  conversation.id ===
+            conversationPatches: {
+              ...state.conversationPatches,
+              [conversationId]: {
+                ...state.conversationPatches[
                   conversationId
-                    ? {
-                        ...conversation,
-                        unreadCount: 0,
-                      }
-                    : conversation
-              ),
-            activeConversation:
-              state.activeConversation?.id ===
-              conversationId
-                ? {
-                    ...state.activeConversation,
-                    unreadCount: 0,
-                  }
-                : state.activeConversation,
+                ],
+                unreadCount: 0,
+              },
+            },
           })),
+
+      resetConversationState:
+        () =>
+          set({
+            activeConversationId:
+              null,
+            conversationPatches: {},
+          }),
     })
   );

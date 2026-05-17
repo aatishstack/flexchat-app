@@ -1,14 +1,20 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 
 import {
   TOKEN_CHANGE_EVENT,
   TOKEN_KEY,
   tokenStorage,
 } from "@/lib/token";
+import { queryClient } from "@/lib/query-client";
 
 import { useAuthStore } from "@/stores/auth.store";
+import { useConversationStore } from "@/stores/conversation.store";
 
 import { getCurrentUser } from "@/services/auth.service";
 
@@ -49,10 +55,20 @@ export default function AuthProvider({
         state.disconnectSocket
     );
 
+  const resetClientSessionState =
+    useCallback(() => {
+      queryClient.clear();
+      useConversationStore
+        .getState()
+        .resetConversationState();
+    }, []);
+
   const hydrateVersionRef =
     useRef(0);
 
   useEffect(() => {
+    let disposed = false;
+
     async function hydrate(
       tokenOverride?: string | null
     ) {
@@ -62,6 +78,11 @@ export default function AuthProvider({
       hydrateVersionRef.current =
         hydrateVersion;
 
+      const isCurrentHydration = () =>
+        !disposed &&
+        hydrateVersionRef.current ===
+          hydrateVersion;
+
       try {
         const token =
           tokenOverride === undefined
@@ -69,11 +90,13 @@ export default function AuthProvider({
             : tokenOverride;
 
         if (!token) {
+          if (!isCurrentHydration()) {
+            return;
+          }
+
+          resetClientSessionState();
           disconnectSocket();
           logout();
-          setHydrated(
-            true
-          );
 
           return;
         }
@@ -81,38 +104,57 @@ export default function AuthProvider({
         const user =
           await getCurrentUser();
 
-        if (
-          hydrateVersionRef.current !==
-          hydrateVersion
-        ) {
+        if (!isCurrentHydration()) {
           return;
+        }
+
+        const activeToken =
+          tokenStorage.get();
+
+        if (!activeToken) {
+          resetClientSessionState();
+          disconnectSocket();
+          logout();
+
+          return;
+        }
+
+        const currentUser =
+          useAuthStore.getState().user;
+
+        if (
+          currentUser &&
+          currentUser.id !== user.id
+        ) {
+          resetClientSessionState();
         }
 
         setAuth({
           user,
-          token,
+          token: activeToken,
         });
 
         connectSocket(
-          token
+          activeToken
         );
       } catch {
-        if (
-          hydrateVersionRef.current !==
-          hydrateVersion
-        ) {
+        if (!isCurrentHydration()) {
           return;
         }
 
         tokenStorage.remove();
 
+        resetClientSessionState();
+
         disconnectSocket();
 
         logout();
       } finally {
-        setHydrated(
-          true
-        );
+        if (isCurrentHydration()) {
+          setHydrated(
+            true
+          );
+        }
       }
     }
 
@@ -156,6 +198,8 @@ export default function AuthProvider({
     );
 
     return () => {
+      disposed = true;
+
       window.removeEventListener(
         "storage",
         handleStorage
@@ -170,6 +214,7 @@ export default function AuthProvider({
     connectSocket,
     disconnectSocket,
     logout,
+    resetClientSessionState,
     setAuth,
     setHydrated,
   ]);

@@ -9,20 +9,18 @@ import {
 export async function authenticateSocket(
   socket: Socket
 ) {
+  const token =
+    socket.handshake.auth
+      ?.token ??
+    socket.handshake.headers
+      .authorization
+      ?.replace("Bearer ", "");
+
+  if (!token) {
+    return false;
+  }
+
   try {
-    const token =
-      socket.handshake.auth
-        ?.token ??
-      socket.handshake.headers
-        .authorization
-        ?.replace("Bearer ", "");
-
-    if (!token) {
-      throw new Error(
-        "Unauthorized"
-      );
-    }
-
     const decoded =
       verifyToken(
         token
@@ -35,11 +33,7 @@ export async function authenticateSocket(
       };
 
     return true;
-  } catch (error) {
-    console.error(
-      error
-    );
-
+  } catch {
     return false;
   }
 }

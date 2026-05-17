@@ -2,9 +2,7 @@ import "dotenv/config";
 
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET =
-  process.env.JWT_SECRET ??
-  "flexchat_local_dev_secret";
+import { env } from "../config/env.js";
 
 export interface JwtPayload {
   id: string;
@@ -15,7 +13,7 @@ export function signToken(
 ) {
   return jwt.sign(
     payload,
-    JWT_SECRET,
+    env.JWT_SECRET,
     {
       expiresIn: "7d",
     }
@@ -35,6 +33,6 @@ export function verifyToken(
 ) {
   return jwt.verify(
     token,
-    JWT_SECRET
+    env.JWT_SECRET
   ) as JwtPayload;
 }

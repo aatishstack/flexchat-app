@@ -7,15 +7,26 @@ import {
 
 import { useMemo } from "react";
 
+import { useConversationsQuery } from "@/hooks/queries/use-conversations-query";
+
 import { useConversationStore } from "@/stores/conversation.store";
 
 import { useGlobalSearchStore } from "@/store/global-search-store";
 
 export default function GlobalSearch() {
-  const conversations =
+  const conversationsQuery =
+    useConversationsQuery();
+
+  const conversationPatches =
     useConversationStore(
       (state) =>
-        state.conversations
+        state.conversationPatches
+    );
+
+  const setActiveConversation =
+    useConversationStore(
+      (state) =>
+        state.setActiveConversation
     );
 
   const open =
@@ -42,6 +53,30 @@ export default function GlobalSearch() {
         state.setQuery
     );
 
+  const conversations =
+    useMemo(
+      () =>
+        (conversationsQuery.data ?? []).map(
+          (conversation) => {
+            const patch =
+              conversationPatches[
+                conversation.id
+              ];
+
+            return patch
+              ? {
+                  ...conversation,
+                  ...patch,
+                }
+              : conversation;
+          }
+        ),
+      [
+        conversationsQuery.data,
+        conversationPatches,
+      ]
+    );
+
   const filtered =
     useMemo(() => {
       return conversations.filter(
@@ -62,8 +97,8 @@ export default function GlobalSearch() {
   }
 
   return (
-    <div className="absolute inset-0 z-[120] flex items-start justify-center bg-black/70 pt-24 backdrop-blur-xl">
-      <div className="w-full max-w-3xl rounded-3xl border border-white/10 bg-[#111827] shadow-2xl">
+    <div className="fixed inset-0 z-[220] flex items-start justify-center bg-black/70 px-3 pt-[calc(5rem+env(safe-area-inset-top))] backdrop-blur-xl">
+      <div className="w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-[#111827] shadow-2xl">
         <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
           <Search
             size={20}
@@ -103,6 +138,12 @@ export default function GlobalSearch() {
                 key={
                   conversation.id
                 }
+                onClick={() => {
+                  setActiveConversation(
+                    conversation
+                  );
+                  setOpen(false);
+                }}
                 className="flex w-full items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.03] p-4 text-left transition-all hover:bg-white/[0.05]"
               >
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-lg font-bold text-white">
@@ -128,7 +169,8 @@ export default function GlobalSearch() {
             )
           )}
 
-          {!filtered.length && (
+          {!filtered.length &&
+            !conversationsQuery.isLoading && (
             <div className="py-16 text-center text-zinc-500">
               No conversations found
             </div>

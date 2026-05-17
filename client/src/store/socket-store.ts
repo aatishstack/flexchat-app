@@ -2,6 +2,8 @@
 
 import { create } from "zustand";
 
+import { queryClient } from "@/lib/query-client";
+import { queryKeys } from "@/lib/query-keys";
 import { socket } from "@/socket/socket";
 import { SOCKET_EVENTS } from "@/socket/socket-events";
 
@@ -48,6 +50,7 @@ type PendingMessage = SendMessageInput & {
   tempId: string;
   attempts: number;
   inFlight: boolean;
+  createdAt: number;
 };
 
 type ServerMessageAck = {
@@ -70,17 +73,13 @@ interface SocketState {
   onlineUsers: string[];
   typingUsers: string[];
   messages: Message[];
+  messagesByConversation: Record<string, Message[]>;
   connectSocket: (token?: string | null) => void;
   disconnectSocket: () => void;
   setOnlineUsers: (users: string[]) => void;
   setTypingUsers: (users: string[]) => void;
   setConnectionError: (message: string | null) => void;
   addMessage: (message: Message) => void;
-  setMessages: (messages: Message[]) => void;
-  setConversationMessages: (
-    conversationId: string,
-    messages: Message[]
-  ) => void;
   updateMessageStatus: (
     id: string,
     status: MessageStatus,
@@ -99,6 +98,11 @@ interface SocketState {
 
 const ACK_TIMEOUT_MS = 9000;
 const MAX_RETRY_ATTEMPTS = 3;
+const MAX_EPHEMERAL_MESSAGES_PER_CONVERSATION =
+  160;
+const MAX_PENDING_MESSAGES = 80;
+const PENDING_MESSAGE_TTL_MS =
+  5 * 60 * 1000;
 
 const pendingMessages = new Map<
   string,
@@ -119,6 +123,60 @@ function clearRetryTimer(tempId: string) {
   }
 }
 
+function failPendingMessage(
+  tempId: string,
+  updateMessageStatus: (
+    id: string,
+    status: MessageStatus
+  ) => void
+) {
+  pendingMessages.delete(tempId);
+  clearRetryTimer(tempId);
+  updateMessageStatus(tempId, "failed");
+}
+
+function prunePendingMessages(
+  updateMessageStatus: (
+    id: string,
+    status: MessageStatus
+  ) => void
+) {
+  const now = Date.now();
+
+  pendingMessages.forEach((pending, tempId) => {
+    if (
+      now - pending.createdAt >
+      PENDING_MESSAGE_TTL_MS
+    ) {
+      failPendingMessage(
+        tempId,
+        updateMessageStatus
+      );
+    }
+  });
+
+  while (
+    pendingMessages.size >
+    MAX_PENDING_MESSAGES
+  ) {
+    const oldest = Array.from(
+      pendingMessages.values()
+    ).sort(
+      (left, right) =>
+        left.createdAt - right.createdAt
+    )[0];
+
+    if (!oldest) {
+      return;
+    }
+
+    failPendingMessage(
+      oldest.tempId,
+      updateMessageStatus
+    );
+  }
+}
+
 function sortMessages(messages: Message[]) {
   return [...messages].sort((a, b) => {
     const left = a.createdAt
@@ -130,6 +188,32 @@ function sortMessages(messages: Message[]) {
 
     return left - right;
   });
+}
+
+function trimEphemeralMessages(messages: Message[]) {
+  const byConversation = new Map<
+    string,
+    Message[]
+  >();
+
+  messages.forEach((message) => {
+    const conversationMessages =
+      byConversation.get(message.conversationId) ??
+      [];
+
+    conversationMessages.push(message);
+    byConversation.set(
+      message.conversationId,
+      conversationMessages
+    );
+  });
+
+  return Array.from(byConversation.values()).flatMap(
+    (conversationMessages) =>
+      sortMessages(conversationMessages).slice(
+        -MAX_EPHEMERAL_MESSAGES_PER_CONVERSATION
+      )
+  );
 }
 
 const normalizeMessages = (
@@ -147,28 +231,163 @@ const normalizeMessages = (
   );
 
   if (existingIndex === -1) {
-    return sortMessages([
-      ...currentMessages,
-      incomingMessage,
-    ]);
+    return trimEphemeralMessages(
+      sortMessages([
+        ...currentMessages,
+        incomingMessage,
+      ])
+    );
   }
 
-  return sortMessages(
-    currentMessages.map((message, index) =>
-      index === existingIndex
-        ? {
-            ...message,
-            ...incomingMessage,
-            optimistic: false,
-            status:
-              incomingMessage.status === "sending"
-                ? "sent"
-                : incomingMessage.status,
-          }
-        : message
+  return trimEphemeralMessages(
+    sortMessages(
+      currentMessages.map((message, index) =>
+        index === existingIndex
+          ? {
+              ...message,
+              ...incomingMessage,
+              optimistic: false,
+              status:
+                incomingMessage.status === "sending"
+                  ? "sent"
+                  : incomingMessage.status,
+            }
+          : message
+      )
     )
   );
 };
+
+function normalizeMessageBuckets(
+  buckets: Record<string, Message[]>,
+  incomingMessage: Message
+) {
+  return {
+    ...buckets,
+    [incomingMessage.conversationId]: normalizeMessages(
+      buckets[incomingMessage.conversationId] ?? [],
+      incomingMessage
+    ),
+  };
+}
+
+function updateMessageStatusInList(
+  messages: Message[] | undefined,
+  id: string,
+  status: MessageStatus,
+  serverId?: string
+) {
+  if (!messages) {
+    return messages;
+  }
+
+  let changed = false;
+
+  const nextMessages = messages.map((message) => {
+    const matches =
+      message.id === id ||
+      message.id === serverId ||
+      message.tempId === id;
+
+    if (!matches) {
+      return message;
+    }
+
+    changed = true;
+
+    return {
+      ...message,
+      id: serverId ?? message.id,
+      status,
+      optimistic:
+        status === "sending" ||
+        status === "failed",
+    };
+  });
+
+  return changed
+    ? sortMessages(nextMessages)
+    : messages;
+}
+
+function updateMessageStatusBuckets(
+  buckets: Record<string, Message[]>,
+  id: string,
+  status: MessageStatus,
+  serverId?: string
+) {
+  let changed = false;
+  const nextBuckets: Record<string, Message[]> = {};
+
+  Object.entries(buckets).forEach(
+    ([conversationId, messages]) => {
+      const nextMessages =
+        updateMessageStatusInList(
+          messages,
+          id,
+          status,
+          serverId
+        ) ?? [];
+
+      if (nextMessages !== messages) {
+        changed = true;
+        nextBuckets[conversationId] =
+          trimEphemeralMessages(nextMessages);
+        return;
+      }
+
+      nextBuckets[conversationId] = messages;
+    }
+  );
+
+  return changed ? nextBuckets : buckets;
+}
+
+function setCachedConversationMessage(
+  conversationId: string,
+  message: Message
+) {
+  queryClient.setQueryData<Message[]>(
+    queryKeys.messages.list(conversationId),
+    (currentMessages) =>
+      normalizeMessages(
+        currentMessages ?? [],
+        message
+      )
+  );
+}
+
+function setCachedMessageStatus(
+  id: string,
+  status: MessageStatus,
+  serverId?: string
+) {
+  queryClient.setQueriesData<Message[]>(
+    {
+      queryKey: ["messages"],
+    },
+    (messages) => {
+      const nextMessages =
+        updateMessageStatusInList(
+          messages,
+          id,
+          status,
+          serverId
+        );
+
+      return nextMessages?.map((message) =>
+        message.id === id ||
+        message.id === serverId ||
+        message.tempId === id
+          ? {
+              ...message,
+              optimistic: false,
+            }
+          : message
+      );
+    }
+  );
+}
 
 export const useSocketStore = create<SocketState>((set, get) => ({
   socket,
@@ -181,13 +400,18 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   onlineUsers: [],
   typingUsers: [],
   messages: [],
+  messagesByConversation: {},
 
   connectSocket: (token) => {
     const nextToken = token?.trim();
 
-  if (!nextToken) {
+    if (!nextToken) {
+      socket.disconnect();
+      socket.auth = {};
+
       set({
         token: null,
+        isConnected: false,
         isConnecting: false,
         connectionError: "Missing socket auth token",
       });
@@ -258,6 +482,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       onlineUsers: [],
       typingUsers: [],
       messages: [],
+      messagesByConversation: {},
     });
   },
 
@@ -291,50 +516,43 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   addMessage: (message) =>
     set((state) => ({
       messages: normalizeMessages(state.messages, message),
-    })),
-
-  setMessages: (messages) =>
-    set({
-      messages: sortMessages(messages),
-    }),
-
-  setConversationMessages: (conversationId, messages) =>
-    set((state) => ({
-      messages: sortMessages([
-        ...state.messages.filter(
-          (message) => message.conversationId !== conversationId
-        ),
-        ...messages,
-        ...state.messages.filter(
-          (message) =>
-            message.conversationId === conversationId &&
-            (message.status === "sending" ||
-              message.status === "failed")
-        ),
-      ]),
-    })),
-
-  updateMessageStatus: (id, status, serverId) =>
-    set((state) => ({
-      messages: sortMessages(
-        state.messages.map((message) =>
-          message.id === id ||
-          message.id === serverId ||
-          message.tempId === id
-            ? {
-                ...message,
-                id: serverId ?? message.id,
-                status,
-                optimistic:
-                  status === "sending" ||
-                  status === "failed",
-              }
-            : message
-        )
+      messagesByConversation: normalizeMessageBuckets(
+        state.messagesByConversation,
+        message
       ),
     })),
 
+  updateMessageStatus: (id, status, serverId) =>
+    {
+      setCachedMessageStatus(
+        id,
+        status,
+        serverId
+      );
+
+      set((state) => ({
+        messages: trimEphemeralMessages(
+          updateMessageStatusInList(
+            state.messages,
+            id,
+            status,
+            serverId
+          ) ?? []
+        ),
+        messagesByConversation: updateMessageStatusBuckets(
+          state.messagesByConversation,
+          id,
+          status,
+          serverId
+        ),
+      }));
+    },
+
   flushPendingMessages: () => {
+    prunePendingMessages(
+      get().updateMessageStatus
+    );
+
     if (!socket.connected) {
       return;
     }
@@ -415,6 +633,19 @@ export const useSocketStore = create<SocketState>((set, get) => ({
             );
 
             if (ack.message) {
+              setCachedConversationMessage(
+                pending.conversationId,
+                {
+                  ...ack.message,
+                  tempId: pending.tempId,
+                  status:
+                    ack.message.status ===
+                    "sending"
+                      ? "sent"
+                      : ack.message.status,
+                }
+              );
+
               get().addMessage({
                 ...ack.message,
                 tempId: pending.tempId,
@@ -464,6 +695,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       tempId,
       attempts: 0,
       inFlight: false,
+      createdAt: Date.now(),
     });
 
     get().updateMessageStatus(
@@ -571,14 +803,30 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       tempId,
       attempts: 0,
       inFlight: false,
+      createdAt: Date.now(),
     });
 
+    prunePendingMessages(
+      get().updateMessageStatus
+    );
+
     set((state) => ({
-      messages: sortMessages([
-        ...state.messages,
-        optimisticMessage,
-      ]),
+      messages: trimEphemeralMessages(
+        sortMessages([
+          ...state.messages,
+          optimisticMessage,
+        ])
+      ),
+      messagesByConversation: normalizeMessageBuckets(
+        state.messagesByConversation,
+        optimisticMessage
+      ),
     }));
+
+    setCachedConversationMessage(
+      data.conversationId,
+      optimisticMessage
+    );
 
     get().flushPendingMessages();
   },

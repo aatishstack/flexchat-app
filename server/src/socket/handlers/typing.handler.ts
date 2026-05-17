@@ -3,16 +3,90 @@ import {
   Socket,
 } from "socket.io";
 
+import { z } from "zod";
+
+import { isConversationMember } from "../../lib/conversation-access.js";
 import { SOCKET_EVENTS } from "../socket-events.js";
 
 type TypingPayload = {
   conversationId?: string;
 };
 
+const typingPayloadSchema = z.object({
+  conversationId:
+    z.string().trim().min(1).max(128),
+});
+
 const typingMap = new Map<
   string,
   Map<string, Set<string>>
 >();
+
+const TYPING_TTL_MS = 6_000;
+
+const typingExpiryTimers = new Map<
+  string,
+  ReturnType<typeof setTimeout>
+>();
+
+function typingTimerKey(
+  conversationId: string,
+  userId: string,
+  socketId: string
+) {
+  return `${conversationId}:${userId}:${socketId}`;
+}
+
+function clearTypingExpiry(
+  conversationId: string,
+  userId: string,
+  socketId: string
+) {
+  const key = typingTimerKey(
+    conversationId,
+    userId,
+    socketId
+  );
+  const timer =
+    typingExpiryTimers.get(key);
+
+  if (!timer) {
+    return;
+  }
+
+  clearTimeout(timer);
+  typingExpiryTimers.delete(key);
+}
+
+function scheduleTypingExpiry(
+  io: Server,
+  conversationId: string,
+  userId: string,
+  socketId: string
+) {
+  clearTypingExpiry(
+    conversationId,
+    userId,
+    socketId
+  );
+
+  const key = typingTimerKey(
+    conversationId,
+    userId,
+    socketId
+  );
+  const timer = setTimeout(() => {
+    removeSocketFromTypingRoom(
+      conversationId,
+      userId,
+      socketId
+    );
+    emitTypingUsers(io, conversationId);
+  }, TYPING_TTL_MS);
+
+  timer.unref?.();
+  typingExpiryTimers.set(key, timer);
+}
 
 function getConversationTypingUsers(
   conversationId: string
@@ -41,6 +115,12 @@ function removeSocketFromTypingRoom(
   userId: string,
   socketId: string
 ) {
+  clearTypingExpiry(
+    conversationId,
+    userId,
+    socketId
+  );
+
   const roomTyping =
     typingMap.get(conversationId);
 
@@ -85,6 +165,46 @@ function removeSocketFromAllTypingRooms(
   return changedRooms;
 }
 
+async function canAccessConversation(
+  socket: Socket,
+  userId: string,
+  conversationId: string
+) {
+  try {
+    const allowed =
+      await isConversationMember(
+        userId,
+        conversationId
+      );
+
+    if (!allowed) {
+      socket.emit(
+        SOCKET_EVENTS.CONVERSATION_ERROR,
+        {
+          conversationId,
+          message:
+            "Conversation unavailable",
+        }
+      );
+    }
+
+    return allowed;
+  } catch (error) {
+    console.error(error);
+
+    socket.emit(
+      SOCKET_EVENTS.CONVERSATION_ERROR,
+      {
+        conversationId,
+        message:
+          "Conversation unavailable",
+      }
+    );
+
+    return false;
+  }
+}
+
 export function registerTypingHandlers(
   io: Server,
   socket: Socket
@@ -93,8 +213,25 @@ export function registerTypingHandlers(
 
   socket.on(
     SOCKET_EVENTS.START_TYPING,
-    ({ conversationId }: TypingPayload) => {
-      if (!conversationId) {
+    async (payload: TypingPayload) => {
+      const parsedPayload =
+        typingPayloadSchema.safeParse(payload);
+
+      if (!parsedPayload.success) {
+        return;
+      }
+
+      const { conversationId } =
+        parsedPayload.data;
+
+      const allowed =
+        await canAccessConversation(
+          socket,
+          userId,
+          conversationId
+        );
+
+      if (!allowed) {
         return;
       }
 
@@ -109,6 +246,12 @@ export function registerTypingHandlers(
       userSockets.add(socket.id);
       typingUsers.set(userId, userSockets);
       typingMap.set(conversationId, typingUsers);
+      scheduleTypingExpiry(
+        io,
+        conversationId,
+        userId,
+        socket.id
+      );
 
       emitTypingUsers(io, conversationId);
     }
@@ -116,8 +259,25 @@ export function registerTypingHandlers(
 
   socket.on(
     SOCKET_EVENTS.STOP_TYPING,
-    ({ conversationId }: TypingPayload) => {
-      if (!conversationId) {
+    async (payload: TypingPayload) => {
+      const parsedPayload =
+        typingPayloadSchema.safeParse(payload);
+
+      if (!parsedPayload.success) {
+        return;
+      }
+
+      const { conversationId } =
+        parsedPayload.data;
+
+      const allowed =
+        await canAccessConversation(
+          socket,
+          userId,
+          conversationId
+        );
+
+      if (!allowed) {
         return;
       }
 

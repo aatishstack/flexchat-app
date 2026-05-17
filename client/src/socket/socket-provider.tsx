@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { useQueryClient } from "@tanstack/react-query";
+
 import { socket } from "./socket";
 import { SOCKET_EVENTS } from "./socket-events";
 
@@ -11,7 +13,9 @@ import {
 } from "@/store/socket-store";
 import { useAuthStore } from "@/stores/auth.store";
 import { useConversationStore } from "@/stores/conversation.store";
+import { queryKeys } from "@/lib/query-keys";
 import { tokenStorage } from "@/lib/token";
+import type { Conversation } from "@/types/conversation";
 
 type MessageReceipt = {
   messageId: string;
@@ -26,11 +30,139 @@ type TypingUsersPayload =
       users?: string[];
     };
 
+type ConversationErrorPayload = {
+  conversationId?: string;
+  message?: string;
+};
+
+type ConversationUpdatedPayload = {
+  conversationId?: string;
+  messageId?: string;
+  latestMessage?: string;
+  senderId?: string;
+  createdAt?: string;
+};
+
+const CONVERSATION_UPDATE_DEDUPE_TTL_MS =
+  2 * 60 * 1000;
+
+const recentConversationUpdates = new Map<
+  string,
+  number
+>();
+
+function hasSeenConversationUpdate(
+  messageId?: string
+) {
+  if (!messageId) {
+    return false;
+  }
+
+  const now = Date.now();
+
+  recentConversationUpdates.forEach(
+    (expiresAt, key) => {
+      if (expiresAt <= now) {
+        recentConversationUpdates.delete(key);
+      }
+    }
+  );
+
+  if (recentConversationUpdates.has(messageId)) {
+    return true;
+  }
+
+  recentConversationUpdates.set(
+    messageId,
+    now + CONVERSATION_UPDATE_DEDUPE_TTL_MS
+  );
+
+  return false;
+}
+
+function sortMessages(messages: Message[]) {
+  return [...messages].sort((left, right) => {
+    const leftTime = left.createdAt
+      ? new Date(left.createdAt).getTime()
+      : 0;
+    const rightTime = right.createdAt
+      ? new Date(right.createdAt).getTime()
+      : 0;
+
+    return leftTime - rightTime;
+  });
+}
+
+function mergeMessage(
+  messages: Message[] | undefined,
+  incoming: Message
+) {
+  const currentMessages =
+    messages ?? [];
+  const existingIndex =
+    currentMessages.findIndex(
+      (message) =>
+        message.id === incoming.id ||
+        (!!message.tempId &&
+          message.tempId === incoming.id) ||
+        (!!incoming.tempId &&
+          (message.id === incoming.tempId ||
+            message.tempId === incoming.tempId))
+    );
+
+  if (existingIndex === -1) {
+    return sortMessages([
+      ...currentMessages,
+      incoming,
+    ]);
+  }
+
+  return sortMessages(
+    currentMessages.map((message, index) =>
+      index === existingIndex
+        ? {
+            ...message,
+            ...incoming,
+            optimistic: false,
+          }
+        : message
+    )
+  );
+}
+
+function updateCachedMessageStatus(
+  messages: Message[] | undefined,
+  receipt: MessageReceipt,
+  fallbackStatus: Message["status"]
+) {
+  if (!messages) {
+    return messages;
+  }
+
+  return messages.map((message) =>
+    message.id === receipt.messageId ||
+    message.id === receipt.serverId ||
+    message.tempId === receipt.messageId
+      ? {
+          ...message,
+          id:
+            receipt.serverId ??
+            message.id,
+          status:
+            receipt.status ??
+            fallbackStatus,
+          optimistic: false,
+        }
+      : message
+  );
+}
+
 export default function SocketProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const queryClient = useQueryClient();
   const setOnlineUsers = useSocketStore(
     (state) => state.setOnlineUsers
   );
@@ -68,6 +200,20 @@ export default function SocketProvider({
 
       socketState.rejoinActiveConversation();
       socketState.flushPendingMessages();
+
+      void queryClient.refetchQueries({
+        queryKey:
+          queryKeys.conversations.all,
+      });
+
+      if (socketState.activeConversationId) {
+        void queryClient.refetchQueries({
+          queryKey:
+            queryKeys.messages.list(
+              socketState.activeConversationId
+            ),
+        });
+      }
     }
 
     function onDisconnect(reason: string) {
@@ -113,10 +259,21 @@ export default function SocketProvider({
         useAuthStore.getState().user?.id;
       const activeConversationId =
         useConversationStore.getState()
-          .activeConversation?.id;
+          .activeConversationId;
       const isRemoteMessage =
         message.senderId !== "me" &&
         message.senderId !== currentUserId;
+
+      queryClient.setQueryData<Message[]>(
+        queryKeys.messages.list(
+          message.conversationId
+        ),
+        (currentMessages) =>
+          mergeMessage(
+            currentMessages,
+            message
+          )
+      );
 
       addMessage(message);
       updateConversationMessage(
@@ -141,6 +298,83 @@ export default function SocketProvider({
       }
     }
 
+    function onConversationUpdated(
+      payload: ConversationUpdatedPayload
+    ) {
+      if (
+        !payload.conversationId ||
+        !payload.messageId
+      ) {
+        return;
+      }
+
+      if (
+        hasSeenConversationUpdate(
+          payload.messageId
+        )
+      ) {
+        return;
+      }
+
+      const currentUserId =
+        useAuthStore.getState().user?.id;
+      const activeConversationId =
+        useConversationStore.getState()
+          .activeConversationId;
+      const latestMessage =
+        payload.latestMessage ?? "";
+      const isRemoteMessage =
+        !!payload.senderId &&
+        payload.senderId !== currentUserId;
+      const conversationIsActive =
+        activeConversationId ===
+        payload.conversationId;
+      const shouldIncrementUnread =
+        isRemoteMessage &&
+        !conversationIsActive;
+      let nextUnreadCount:
+        | number
+        | undefined;
+
+      queryClient.setQueryData<Conversation[]>(
+        queryKeys.conversations.all,
+        (conversations) =>
+          conversations?.map((conversation) => {
+            if (
+              conversation.id !==
+              payload.conversationId
+            ) {
+              return conversation;
+            }
+
+            nextUnreadCount =
+              conversationIsActive
+                ? 0
+                : shouldIncrementUnread
+                  ? (conversation.unreadCount ?? 0) + 1
+                  : conversation.unreadCount;
+
+            return {
+              ...conversation,
+              latestMessage,
+              unreadCount:
+                nextUnreadCount,
+            };
+          })
+      );
+
+      updateConversationMessage(
+        payload.conversationId,
+        latestMessage,
+        {
+          unread:
+            shouldIncrementUnread,
+          unreadCount:
+            nextUnreadCount,
+        }
+      );
+    }
+
     function onTypingUsers(payload: TypingUsersPayload) {
       if (Array.isArray(payload)) {
         setTypingUsers(payload);
@@ -161,6 +395,18 @@ export default function SocketProvider({
     }
 
     function onMessageDelivered(receipt: MessageReceipt) {
+      queryClient.setQueriesData<Message[]>(
+        {
+          queryKey: ["messages"],
+        },
+        (messages) =>
+          updateCachedMessageStatus(
+            messages,
+            receipt,
+            "delivered"
+          )
+      );
+
       updateMessageStatus(
         receipt.messageId,
         receipt.status ?? "delivered",
@@ -169,6 +415,18 @@ export default function SocketProvider({
     }
 
     function onMessageSeen(receipt: MessageReceipt) {
+      queryClient.setQueriesData<Message[]>(
+        {
+          queryKey: ["messages"],
+        },
+        (messages) =>
+          updateCachedMessageStatus(
+            messages,
+            receipt,
+            "read"
+          )
+      );
+
       updateMessageStatus(
         receipt.messageId,
         "read",
@@ -189,14 +447,35 @@ export default function SocketProvider({
       );
     }
 
+    function onConversationError(
+      payload: ConversationErrorPayload
+    ) {
+      const activeConversationId =
+        useSocketStore.getState().activeConversationId;
+
+      if (
+        payload.conversationId &&
+        payload.conversationId === activeConversationId
+      ) {
+        setTypingUsers([]);
+      }
+
+      setConnectionError(
+        payload.message ??
+          "Conversation unavailable"
+      );
+    }
+
     socket.on(SOCKET_EVENTS.CONNECT, onConnect);
     socket.on(SOCKET_EVENTS.DISCONNECT, onDisconnect);
     socket.on(SOCKET_EVENTS.CONNECT_ERROR, onConnectError);
     socket.on(SOCKET_EVENTS.ONLINE_USERS, onOnlineUsers);
     socket.on(SOCKET_EVENTS.RECEIVE_MESSAGE, onReceiveMessage);
+    socket.on(SOCKET_EVENTS.CONVERSATION_UPDATED, onConversationUpdated);
     socket.on(SOCKET_EVENTS.TYPING_USERS, onTypingUsers);
     socket.on(SOCKET_EVENTS.MESSAGE_DELIVERED, onMessageDelivered);
     socket.on(SOCKET_EVENTS.MESSAGE_SEEN, onMessageSeen);
+    socket.on(SOCKET_EVENTS.CONVERSATION_ERROR, onConversationError);
     socket.io.on("reconnect_attempt", onReconnectAttempt);
     socket.io.on("reconnect_failed", onReconnectFailed);
 
@@ -206,14 +485,17 @@ export default function SocketProvider({
       socket.off(SOCKET_EVENTS.CONNECT_ERROR, onConnectError);
       socket.off(SOCKET_EVENTS.ONLINE_USERS, onOnlineUsers);
       socket.off(SOCKET_EVENTS.RECEIVE_MESSAGE, onReceiveMessage);
+      socket.off(SOCKET_EVENTS.CONVERSATION_UPDATED, onConversationUpdated);
       socket.off(SOCKET_EVENTS.TYPING_USERS, onTypingUsers);
       socket.off(SOCKET_EVENTS.MESSAGE_DELIVERED, onMessageDelivered);
       socket.off(SOCKET_EVENTS.MESSAGE_SEEN, onMessageSeen);
+      socket.off(SOCKET_EVENTS.CONVERSATION_ERROR, onConversationError);
       socket.io.off("reconnect_attempt", onReconnectAttempt);
       socket.io.off("reconnect_failed", onReconnectFailed);
     };
   }, [
     addMessage,
+    queryClient,
     resetPendingMessageFlights,
     setConnectionError,
     setOnlineUsers,

@@ -3,8 +3,17 @@ import {
   Socket,
 } from "socket.io";
 
+import {
+  sql,
+} from "drizzle-orm";
+import { z } from "zod";
+
 import { db } from "../../db/index.js";
 import { messages } from "../../db/schema/messages.js";
+import {
+  getConversationMembers,
+  isConversationMember,
+} from "../../lib/conversation-access.js";
 import { SOCKET_EVENTS } from "../socket-events.js";
 
 type ConversationPayload = {
@@ -54,33 +63,157 @@ type MessageReceiptPayload =
     messageId?: string;
   };
 
+type MessageReceiptsPayload =
+  ConversationPayload & {
+    messageIds?: string[];
+  };
+
+type ConversationUpdatedPayload = {
+  conversationId: string;
+  messageId: string;
+  latestMessage: string;
+  senderId: string;
+  createdAt: string;
+};
+
+const conversationIdSchema =
+  z.string().trim().min(1).max(128);
+const messageIdSchema =
+  z.string().trim().min(1).max(128);
+
+const sendMessagePayloadSchema = z.object({
+  conversationId:
+    conversationIdSchema,
+  tempId:
+    z.string().max(128).optional(),
+  text:
+    z.string().max(4000).optional(),
+  attachment:
+    z.string().url().nullable().optional(),
+  audio:
+    z.string().url().nullable().optional(),
+  replyTo:
+    z
+      .object({
+        id: z.string().max(128),
+        text: z.string().max(500),
+      })
+      .optional(),
+});
+
+const receiptPayloadSchema = z.object({
+  conversationId:
+    conversationIdSchema,
+  messageId:
+    messageIdSchema,
+});
+
+const receiptBatchPayloadSchema = z.object({
+  conversationId:
+    conversationIdSchema,
+  messageIds:
+    z
+      .array(messageIdSchema)
+      .min(1)
+      .max(100),
+});
+
 const MESSAGE_DEDUPE_TTL_MS =
-  2 * 60 * 1000;
+  10 * 60 * 1000;
+
+const MAX_RECENT_CLIENT_MESSAGES = 5000;
+
+type RecentClientMessage = {
+  message: SocketMessage;
+  expiresAt: number;
+};
 
 const recentClientMessages = new Map<
   string,
-  SocketMessage
+  RecentClientMessage
+>();
+
+const inFlightClientMessages = new Map<
+  string,
+  Promise<SocketMessage>
 >();
 
 function getConversationId(
   payload: ConversationPayload | string
 ) {
-  if (typeof payload === "string") {
-    return payload;
-  }
+  const rawConversationId =
+    typeof payload === "string"
+      ? payload
+      : payload.conversationId;
 
-  return payload.conversationId;
+  const parsedConversationId =
+    conversationIdSchema.safeParse(
+      rawConversationId
+    );
+
+  return parsedConversationId.success
+    ? parsedConversationId.data
+    : null;
 }
 
 function getDedupeKey(
   userId: string,
+  conversationId: string,
   tempId?: string
 ) {
   if (!tempId) {
     return null;
   }
 
-  return `${userId}:${tempId}`;
+  return `${userId}:${conversationId}:${tempId}`;
+}
+
+function pruneRecentClientMessages() {
+  const now = Date.now();
+
+  recentClientMessages.forEach(
+    (entry, key) => {
+      if (entry.expiresAt <= now) {
+        recentClientMessages.delete(key);
+      }
+    }
+  );
+
+  while (
+    recentClientMessages.size >
+    MAX_RECENT_CLIENT_MESSAGES
+  ) {
+    const oldestKey =
+      recentClientMessages.keys().next().value;
+
+    if (!oldestKey) {
+      return;
+    }
+
+    recentClientMessages.delete(oldestKey);
+  }
+}
+
+function getRecentClientMessage(key: string | null) {
+  if (!key) {
+    return null;
+  }
+
+  pruneRecentClientMessages();
+
+  const entry =
+    recentClientMessages.get(key);
+
+  if (!entry) {
+    return null;
+  }
+
+  if (entry.expiresAt <= Date.now()) {
+    recentClientMessages.delete(key);
+    return null;
+  }
+
+  return entry.message;
 }
 
 function rememberClientMessage(
@@ -91,11 +224,189 @@ function rememberClientMessage(
     return;
   }
 
-  recentClientMessages.set(key, message);
+  pruneRecentClientMessages();
 
-  setTimeout(() => {
-    recentClientMessages.delete(key);
-  }, MESSAGE_DEDUPE_TTL_MS).unref?.();
+  recentClientMessages.set(key, {
+    message,
+    expiresAt:
+      Date.now() + MESSAGE_DEDUPE_TTL_MS,
+  });
+}
+
+function emitConversationError(
+  socket: Socket,
+  conversationId: string,
+  message = "Conversation unavailable"
+) {
+  socket.emit(
+    SOCKET_EVENTS.CONVERSATION_ERROR,
+    {
+      conversationId,
+      message,
+    }
+  );
+}
+
+async function canAccessConversation(
+  socket: Socket,
+  userId: string,
+  conversationId: string
+) {
+  try {
+    const allowed =
+      await isConversationMember(
+        userId,
+        conversationId
+      );
+
+    if (!allowed) {
+      emitConversationError(
+        socket,
+        conversationId
+      );
+    }
+
+    return allowed;
+  } catch (error) {
+    console.error(error);
+
+    emitConversationError(
+      socket,
+      conversationId
+    );
+
+    return false;
+  }
+}
+
+async function persistMessageStatuses(
+  conversationId: string,
+  messageIds: string[],
+  status: "delivered" | "read",
+  actorUserId: string
+) {
+  if (!messageIds.length) {
+    return;
+  }
+
+  await db.execute(sql`
+    update messages
+    set status = ${status}
+    where conversation_id = ${conversationId}
+      and sender_id <> ${actorUserId}
+      and id in (${sql.join(
+        messageIds.map((messageId) => sql`${messageId}`),
+        sql`, `
+      )})
+  `);
+}
+
+async function persistSocketMessage(
+  userId: string,
+  messageData: z.infer<typeof sendMessagePayloadSchema>,
+  text: string
+) {
+  const createdAt = new Date();
+  const message = {
+    id: crypto.randomUUID(),
+    text,
+    attachment:
+      messageData.attachment ?? null,
+    audio:
+      messageData.audio ?? null,
+    senderId: userId,
+    conversationId: messageData.conversationId,
+    status: "sent" as const,
+    createdAt,
+  };
+
+  await db.insert(messages).values(message);
+
+  return {
+    ...message,
+    createdAt: createdAt.toISOString(),
+    tempId: messageData.tempId,
+    replyTo: messageData.replyTo,
+  } satisfies SocketMessage;
+}
+
+function acknowledgeSentMessage(
+  socket: Socket,
+  ack: SendMessageAck | undefined,
+  message: SocketMessage,
+  tempId?: string
+) {
+  if (typeof ack === "function") {
+    ack({
+      ok: true,
+      message,
+      messageId:
+        tempId ?? message.id,
+      serverId:
+        message.id,
+      status: "sent",
+    });
+  }
+
+  socket.emit(
+    SOCKET_EVENTS.MESSAGE_DELIVERED,
+    {
+      messageId:
+        tempId ?? message.id,
+      serverId: message.id,
+      status: "sent",
+    }
+  );
+}
+
+async function emitConversationUpdated(
+  io: Server,
+  message: SocketMessage
+) {
+  const members =
+    await getConversationMembers([
+      message.conversationId,
+    ]);
+
+  const payload: ConversationUpdatedPayload = {
+    conversationId:
+      message.conversationId,
+    messageId:
+      message.id,
+    latestMessage:
+      getMessagePreview(message),
+    senderId:
+      message.senderId,
+    createdAt:
+      message.createdAt,
+  };
+
+  members.forEach((member) => {
+    io.to(`user:${member.userId}`).emit(
+      SOCKET_EVENTS.CONVERSATION_UPDATED,
+      payload
+    );
+  });
+}
+
+function getMessagePreview(message: {
+  text?: string;
+  attachment?: string | null;
+  audio?: string | null;
+}) {
+  if (message.text?.trim()) {
+    return message.text;
+  }
+
+  if (message.audio) {
+    return "Voice message";
+  }
+
+  if (message.attachment) {
+    return "Attachment";
+  }
+
+  return "New message";
 }
 
 export function registerMessageHandlers(
@@ -106,11 +417,22 @@ export function registerMessageHandlers(
 
   socket.on(
     SOCKET_EVENTS.JOIN_CONVERSATION,
-    (payload: ConversationPayload | string) => {
+    async (payload: ConversationPayload | string) => {
       const conversationId =
         getConversationId(payload);
 
       if (!conversationId) {
+        return;
+      }
+
+      const allowed =
+        await canAccessConversation(
+          socket,
+          userId,
+          conversationId
+        );
+
+      if (!allowed) {
         return;
       }
 
@@ -146,19 +468,47 @@ export function registerMessageHandlers(
         }
       };
 
-      if (!data.conversationId) {
+      const parsedData =
+        sendMessagePayloadSchema.safeParse(data);
+
+      if (!parsedData.success) {
         acknowledge({
           ok: false,
           error:
-            "Missing conversation",
+            "Invalid message payload",
         });
 
         return;
       }
 
-      const text = data.text?.trim() ?? "";
+      const messageData =
+        parsedData.data;
 
-      if (!text && !data.attachment && !data.audio) {
+      const allowed =
+        await canAccessConversation(
+          socket,
+          userId,
+          messageData.conversationId
+        );
+
+      if (!allowed) {
+        acknowledge({
+          ok: false,
+          error:
+            "Conversation unavailable",
+        });
+
+        return;
+      }
+
+      const text =
+        messageData.text?.trim() ?? "";
+
+      if (
+        !text &&
+        !messageData.attachment &&
+        !messageData.audio
+      ) {
         acknowledge({
           ok: false,
           error:
@@ -169,56 +519,53 @@ export function registerMessageHandlers(
       }
 
       const dedupeKey =
-        getDedupeKey(userId, data.tempId);
+        getDedupeKey(
+          userId,
+          messageData.conversationId,
+          messageData.tempId
+        );
       const duplicateMessage =
-        dedupeKey
-          ? recentClientMessages.get(
-              dedupeKey
-            )
-          : null;
+        getRecentClientMessage(dedupeKey);
 
       if (duplicateMessage) {
-        acknowledge({
-          ok: true,
-          message:
-            duplicateMessage,
-          messageId:
-            data.tempId ??
-            duplicateMessage.id,
-          serverId:
-            duplicateMessage.id,
-          status: "sent",
-        });
-
-        socket.emit(
-          SOCKET_EVENTS.MESSAGE_DELIVERED,
-          {
-            messageId:
-              data.tempId ??
-              duplicateMessage.id,
-            serverId:
-              duplicateMessage.id,
-            status: "sent",
-          }
+        acknowledgeSentMessage(
+          socket,
+          ack,
+          duplicateMessage,
+          messageData.tempId
         );
 
         return;
       }
 
-      const createdAt = new Date();
-      const message = {
-        id: crypto.randomUUID(),
-        text,
-        attachment: data.attachment ?? null,
-        audio: data.audio ?? null,
-        senderId: userId,
-        conversationId: data.conversationId,
-        status: "sent" as const,
-        createdAt,
-      };
+      const existingFlight =
+        dedupeKey
+          ? inFlightClientMessages.get(
+              dedupeKey
+            )
+          : null;
+      const ownsPersistence =
+        !existingFlight;
+      const messagePromise =
+        existingFlight ??
+        persistSocketMessage(
+          userId,
+          messageData,
+          text
+        );
+
+      if (dedupeKey && ownsPersistence) {
+        inFlightClientMessages.set(
+          dedupeKey,
+          messagePromise
+        );
+      }
+
+      let socketMessage: SocketMessage;
 
       try {
-        await db.insert(messages).values(message);
+        socketMessage =
+          await messagePromise;
       } catch (error) {
         console.error(error);
 
@@ -229,68 +576,102 @@ export function registerMessageHandlers(
         });
 
         return;
+      } finally {
+        if (
+          dedupeKey &&
+          inFlightClientMessages.get(
+            dedupeKey
+          ) === messagePromise
+        ) {
+          inFlightClientMessages.delete(
+            dedupeKey
+          );
+        }
       }
-
-      const socketMessage: SocketMessage = {
-        ...message,
-        createdAt: createdAt.toISOString(),
-        tempId: data.tempId,
-        replyTo: data.replyTo,
-      };
 
       rememberClientMessage(
         dedupeKey,
         socketMessage
       );
 
-      io.to(data.conversationId).emit(
-        SOCKET_EVENTS.RECEIVE_MESSAGE,
-        socketMessage
+      if (ownsPersistence) {
+        io.to(messageData.conversationId).emit(
+          SOCKET_EVENTS.RECEIVE_MESSAGE,
+          socketMessage
+        );
+
+        socket.to(messageData.conversationId).emit(
+          SOCKET_EVENTS.MESSAGE_DELIVERED,
+          {
+            messageId: socketMessage.id,
+            status: "delivered",
+          }
+        );
+      }
+
+      acknowledgeSentMessage(
+        socket,
+        ack,
+        socketMessage,
+        messageData.tempId
       );
 
-      acknowledge({
-        ok: true,
-        message:
-          socketMessage,
-        messageId:
-          data.tempId ?? message.id,
-        serverId: message.id,
-        status: "sent",
-      });
-
-      socket.emit(
-        SOCKET_EVENTS.MESSAGE_DELIVERED,
-        {
-          messageId: data.tempId ?? message.id,
-          serverId: message.id,
-          status: "sent",
-        }
-      );
-
-      socket.to(data.conversationId).emit(
-        SOCKET_EVENTS.MESSAGE_DELIVERED,
-        {
-          messageId: message.id,
-          status: "delivered",
-        }
-      );
+      if (ownsPersistence) {
+        void emitConversationUpdated(
+          io,
+          socketMessage
+        ).catch((error) => {
+          console.error(
+            "Failed to emit conversation update",
+            error
+          );
+        });
+      }
     }
   );
 
   socket.on(
     SOCKET_EVENTS.MESSAGE_DELIVERED,
-    (payload: MessageReceiptPayload) => {
-      if (
-        !payload.conversationId ||
-        !payload.messageId
-      ) {
+    async (payload: MessageReceiptPayload) => {
+      const parsedPayload =
+        receiptPayloadSchema.safeParse(payload);
+
+      if (!parsedPayload.success) {
         return;
       }
 
-      socket.to(payload.conversationId).emit(
+      const receipt =
+        parsedPayload.data;
+
+      const allowed =
+        await canAccessConversation(
+          socket,
+          userId,
+          receipt.conversationId
+        );
+
+      if (!allowed) {
+        return;
+      }
+
+      try {
+        await persistMessageStatuses(
+          receipt.conversationId,
+          [receipt.messageId],
+          "delivered",
+          userId
+        );
+      } catch (error) {
+        console.error(
+          "Failed to persist delivered receipt",
+          error
+        );
+      }
+
+      socket.to(receipt.conversationId).emit(
         SOCKET_EVENTS.MESSAGE_DELIVERED,
         {
-          messageId: payload.messageId,
+          messageId: receipt.messageId,
           status: "delivered",
         }
       );
@@ -299,21 +680,102 @@ export function registerMessageHandlers(
 
   socket.on(
     SOCKET_EVENTS.MARK_MESSAGE_SEEN,
-    (payload: MessageReceiptPayload) => {
-      if (
-        !payload.conversationId ||
-        !payload.messageId
-      ) {
+    async (payload: MessageReceiptPayload) => {
+      const parsedPayload =
+        receiptPayloadSchema.safeParse(payload);
+
+      if (!parsedPayload.success) {
         return;
       }
 
-      socket.to(payload.conversationId).emit(
+      const receipt =
+        parsedPayload.data;
+
+      const allowed =
+        await canAccessConversation(
+          socket,
+          userId,
+          receipt.conversationId
+        );
+
+      if (!allowed) {
+        return;
+      }
+
+      try {
+        await persistMessageStatuses(
+          receipt.conversationId,
+          [receipt.messageId],
+          "read",
+          userId
+        );
+      } catch (error) {
+        console.error(
+          "Failed to persist read receipt",
+          error
+        );
+      }
+
+      socket.to(receipt.conversationId).emit(
         SOCKET_EVENTS.MESSAGE_SEEN,
         {
-          messageId: payload.messageId,
+          messageId: receipt.messageId,
           status: "read",
         }
       );
+    }
+  );
+
+  socket.on(
+    SOCKET_EVENTS.MARK_MESSAGES_SEEN,
+    async (payload: MessageReceiptsPayload) => {
+      const parsedPayload =
+        receiptBatchPayloadSchema.safeParse(payload);
+
+      if (!parsedPayload.success) {
+        return;
+      }
+
+      const receipt =
+        parsedPayload.data;
+      const messageIds = Array.from(
+        new Set(receipt.messageIds)
+      );
+
+      const allowed =
+        await canAccessConversation(
+          socket,
+          userId,
+          receipt.conversationId
+        );
+
+      if (!allowed) {
+        return;
+      }
+
+      try {
+        await persistMessageStatuses(
+          receipt.conversationId,
+          messageIds,
+          "read",
+          userId
+        );
+      } catch (error) {
+        console.error(
+          "Failed to persist read receipts",
+          error
+        );
+      }
+
+      messageIds.forEach((messageId) => {
+        socket.to(receipt.conversationId).emit(
+          SOCKET_EVENTS.MESSAGE_SEEN,
+          {
+            messageId,
+            status: "read",
+          }
+        );
+      });
     }
   );
 }

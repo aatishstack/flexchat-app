@@ -1,4 +1,5 @@
 import {
+  index,
   pgTable,
   text,
   timestamp,
@@ -44,5 +45,19 @@ export const messages =
         )
           .defaultNow()
           .notNull(),
-    }
+    },
+    (table) => ({
+      conversationCreatedAtIdx: index(
+        "messages_conversation_created_at_idx"
+      ).on(
+        table.conversationId,
+        table.createdAt
+      ),
+      conversationStatusIdx: index(
+        "messages_conversation_status_idx"
+      ).on(
+        table.conversationId,
+        table.status
+      ),
+    })
   );

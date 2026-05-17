@@ -57,7 +57,7 @@ export default function MobileNotificationSheet({
               opacity: 0,
             }}
             onClick={onClose}
-            className="fixed inset-0 z-[180] bg-black/60 backdrop-blur-md xl:hidden"
+            className="fixed inset-0 z-[230] bg-black/60 backdrop-blur-md xl:hidden"
           />
 
           {/* SHEET */}
@@ -92,7 +92,7 @@ export default function MobileNotificationSheet({
               stiffness: 240,
               damping: 26,
             }}
-            className="fixed bottom-0 left-0 right-0 z-[190] h-[82vh] overflow-hidden rounded-t-[36px] border-t border-white/10 bg-[#0B111C]/95 shadow-2xl backdrop-blur-3xl xl:hidden"
+            className="fixed bottom-0 left-0 right-0 z-[240] flex h-[min(82dvh,720px)] flex-col overflow-hidden rounded-t-[36px] border-t border-white/10 bg-[#0B111C]/95 shadow-2xl backdrop-blur-3xl xl:hidden"
           >
             {/* HANDLE */}
             <div className="flex justify-center pt-3">
@@ -126,7 +126,7 @@ export default function MobileNotificationSheet({
             </div>
 
             {/* LIST */}
-            <div className="space-y-4 overflow-y-auto px-5 pb-20">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pb-[calc(1rem+env(safe-area-inset-bottom))]">
               {notifications.map(
                 (
                   item,

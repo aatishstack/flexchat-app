@@ -1,91 +1,16 @@
-import path from "path";
-
-import Fastify from "fastify";
-
-import cors from "@fastify/cors";
-
-import multipart from "@fastify/multipart";
-
-import FastifyStatic from "@fastify/static";
-
+import { buildApp } from "./app.js";
+import { env } from "./config/env.js";
 import { setupSocket } from "./socket/index.js";
 
-import { authRoutes } from "./routes/auth.route.js";
+const app = await buildApp();
 
-import { userRoutes } from "./routes/user.route.js";
-
-import { messageRoutes } from "./routes/messages.route.js";
-
-import { conversationRoutes } from "./routes/conversation.route.js";
-
-import { uploadRoutes } from "./routes/upload.route.js";
-
-const app = Fastify({
-  logger: true,
-});
-
-await app.register(cors, {
-  origin: true,
-
-  credentials: true,
-});
-
-await app.register(
-  multipart
-);
-
-await app.register(
-  FastifyStatic,
-  {
-    root: path.join(
-      process.cwd(),
-      "uploads"
-    ),
-
-    prefix:
-      "/uploads/",
-  }
-);
-
-await app.register(
-  authRoutes
-);
-
-await app.register(
-  userRoutes
-);
-
-await app.register(
-  messageRoutes
-);
-
-await app.register(
-  conversationRoutes
-);
-
-await app.register(
-  uploadRoutes
-);
-
-app.get("/", async () => {
-  return {
-    message:
-      "FlexChat API running",
-  };
-});
-
-setupSocket(
-  app.server
-);
-
-const PORT = 5000;
+setupSocket(app.server);
 
 await app.listen({
-  port: PORT,
-
-  host: "0.0.0.0",
+  port: env.PORT,
+  host: env.HOST,
 });
 
-console.log(
-  `FlexChat server running on ${PORT}`
+app.log.info(
+  `FlexChat server running on ${env.HOST}:${env.PORT}`
 );

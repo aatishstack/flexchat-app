@@ -23,7 +23,7 @@ export default function ChatShell({
     useState(false);
 
   return (
-    <main className="flex h-screen overflow-hidden bg-[#070B14] text-white">
+    <main className="flex h-full min-h-0 w-full overflow-hidden bg-[#070B14] text-white">
       {/* Mobile Sidebar */}
       <div
         className={`fixed inset-0 z-50 transition-all lg:hidden ${
@@ -33,7 +33,7 @@ export default function ChatShell({
         }`}
       >
         <div
-          className={`absolute left-0 top-0 h-full w-[320px] transition-transform duration-300 ${
+          className={`absolute left-0 top-0 h-full w-[min(88vw,340px)] transition-transform duration-300 ${
             open
               ? "translate-x-0"
               : "-translate-x-full"
@@ -46,7 +46,7 @@ export default function ChatShell({
           onClick={() =>
             setOpen(false)
           }
-          className="absolute right-5 top-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl"
+          className="absolute right-5 top-[calc(1rem+env(safe-area-inset-top))] flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl"
         >
           <X size={22} />
         </button>
@@ -60,7 +60,7 @@ export default function ChatShell({
       {/* Chat */}
       <div className="relative flex flex-1 flex-col">
         {/* Mobile Topbar */}
-        <div className="flex h-16 items-center border-b border-white/10 bg-black/20 px-5 backdrop-blur-xl lg:hidden">
+        <div className="flex min-h-16 items-center border-b border-white/10 bg-black/20 px-5 pt-[env(safe-area-inset-top)] backdrop-blur-xl lg:hidden">
           <button
             onClick={() =>
               setOpen(true)

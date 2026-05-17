@@ -6,6 +6,8 @@ import bcrypt from "bcrypt";
 
 import { eq } from "drizzle-orm";
 
+import { z } from "zod";
+
 import { db } from "../db/index.js";
 
 import { users } from "../db/schema/users.js";
@@ -23,6 +25,32 @@ const blockedDomains = new Set([
 
 const emailRegex =
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const registerBodySchema = z.object({
+  username:
+    z.string().trim().min(1).max(32),
+  email:
+    z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email()
+      .max(254),
+  password:
+    z.string().min(8).max(128),
+});
+
+const loginBodySchema = z.object({
+  email:
+    z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email()
+      .max(254),
+  password:
+    z.string().min(1).max(128),
+});
 
 function publicUser(user: {
   id: string;
@@ -47,38 +75,25 @@ export async function authRoutes(
       request,
       reply
     ) => {
-      const body =
-        request.body as {
-          username: string;
+      const parsedBody =
+        registerBodySchema.safeParse(
+          request.body
+        );
 
-          email: string;
-
-          password: string;
-        };
-
-      const username =
-        body.username?.trim();
-
-      const email =
-        body.email
-          ?.trim()
-          .toLowerCase();
-
-      const password =
-        body.password ?? "";
-
-      if (
-        !username ||
-        !email ||
-        !password
-      ) {
+      if (!parsedBody.success) {
         return reply
           .status(400)
           .send({
             message:
-              "All fields are required",
+              "Invalid registration request",
           });
       }
+
+      const {
+        username,
+        email,
+        password,
+      } = parsedBody.data;
 
       if (
         !emailRegex.test(email)
@@ -211,32 +226,24 @@ export async function authRoutes(
       request,
       reply
     ) => {
-      const body =
-        request.body as {
-          email: string;
+      const parsedBody =
+        loginBodySchema.safeParse(
+          request.body
+        );
 
-          password: string;
-        };
-
-      const email =
-        body.email
-          ?.trim()
-          .toLowerCase();
-
-      const password =
-        body.password ?? "";
-
-      if (
-        !email ||
-        !password
-      ) {
+      if (!parsedBody.success) {
         return reply
           .status(400)
           .send({
             message:
-              "All fields are required",
+              "Invalid login request",
           });
       }
+
+      const {
+        email,
+        password,
+      } = parsedBody.data;
 
       const foundUser =
         await db

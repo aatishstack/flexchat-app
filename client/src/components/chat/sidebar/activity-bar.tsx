@@ -40,7 +40,7 @@ export default function ActivityBar() {
             opacity: 0,
             y: -20,
           }}
-          className="fixed left-1/2 top-5 z-[150] flex -translate-x-1/2 items-center gap-4 rounded-full border border-white/10 bg-[#0B111C]/90 px-6 py-3 shadow-2xl backdrop-blur-xl"
+          className="fixed left-1/2 top-[calc(1rem+env(safe-area-inset-top))] z-[130] flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-[#0B111C]/90 px-4 py-3 shadow-2xl backdrop-blur-xl sm:gap-4 sm:px-6"
         >
           <div className="h-3 w-3 animate-pulse rounded-full bg-green-500 shadow-lg shadow-green-500/50" />
 
@@ -48,9 +48,9 @@ export default function ActivityBar() {
             12 users active now
           </p>
 
-          <div className="h-5 w-px bg-white/10" />
+          <div className="hidden h-5 w-px bg-white/10 sm:block" />
 
-          <p className="text-sm text-zinc-400">
+          <p className="hidden text-sm text-zinc-400 sm:block">
             FlexChat Realtime Connected
           </p>
         </motion.div>

@@ -34,7 +34,7 @@ export default function MobileAISheet({
               opacity: 0,
             }}
             onClick={onClose}
-            className="fixed inset-0 z-[180] bg-black/60 backdrop-blur-md xl:hidden"
+            className="fixed inset-0 z-[230] bg-black/60 backdrop-blur-md xl:hidden"
           />
 
           {/* SHEET */}
@@ -69,7 +69,7 @@ export default function MobileAISheet({
               stiffness: 240,
               damping: 26,
             }}
-            className="fixed bottom-0 left-0 right-0 z-[190] h-[88vh] overflow-hidden rounded-t-[36px] border-t border-white/10 bg-[#0B111C]/95 shadow-2xl backdrop-blur-3xl xl:hidden"
+            className="fixed bottom-0 left-0 right-0 z-[240] flex h-[min(88dvh,760px)] flex-col overflow-hidden rounded-t-[36px] border-t border-white/10 bg-[#0B111C]/95 shadow-2xl backdrop-blur-3xl xl:hidden"
           >
             {/* HANDLE */}
             <div className="flex justify-center pt-3">
@@ -103,7 +103,7 @@ export default function MobileAISheet({
             </div>
 
             {/* CONTENT */}
-            <div className="space-y-5 overflow-y-auto px-5 pb-40">
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 pb-6">
               <div className="rounded-[32px] border border-purple-500/20 bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10 p-5">
                 <h3 className="mb-2 text-lg font-semibold text-white">
                   Smart Suggestions
@@ -139,7 +139,7 @@ export default function MobileAISheet({
             </div>
 
             {/* INPUT */}
-            <div className="absolute bottom-0 left-0 right-0 border-t border-white/10 bg-[#0B111C]/95 p-4 backdrop-blur-2xl">
+            <div className="shrink-0 border-t border-white/10 bg-[#0B111C]/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur-2xl">
               <div className="flex items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] px-4">
                 <input
                   placeholder="Ask Flex AI..."

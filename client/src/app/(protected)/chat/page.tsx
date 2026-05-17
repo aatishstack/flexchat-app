@@ -14,25 +14,85 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 
 import ChatShell from "../../../components/chat/chat-shell";
 import ChatSidebar from "../../../components/chat/sidebar/chat-sidebar";
 import ChatConversation from "../../../components/chat/conversation/chat-conversation";
-import NotificationPanel from "../../../components/chat/sidebar/notification-panel";
 import GlobalSearch from "../../../components/chat/sidebar/global-search";
-import DiscoverPanel from "../../../components/chat/conversation/discover-panel";
 import { useGlobalSearchStore } from "../../../store/global-search-store";
 import LiveToast from "../../../components/chat/sidebar/live-toast";
-import ActiveNowPanel from "../../../components/chat/sidebar/active-now-panel";
 import ActivityBar from "../../../components/chat/sidebar/activity-bar";
 
-import FloatingRoot from "../../../components/chat/floating/floating-root";
+const ActiveNowPanel = dynamic(
+  () =>
+    import(
+      "../../../components/chat/sidebar/active-now-panel"
+    ),
+  {
+    ssr: false,
+  }
+);
 
-import IncomingCallPopup from "../../../components/chat/floating/incoming-call-popup";
+const DiscoverPanel = dynamic(
+  () =>
+    import(
+      "../../../components/chat/conversation/discover-panel"
+    ),
+  {
+    ssr: false,
+  }
+);
 
-import MobileAISheet from "../../../components/chat/mobile/mobile-ai-sheet";
+const FloatingRoot = dynamic(
+  () =>
+    import(
+      "../../../components/chat/floating/floating-root"
+    ),
+  {
+    ssr: false,
+  }
+);
 
-import MobileNotificationSheet from "../../../components/chat/mobile/mobile-notification-sheet";
+const IncomingCallPopup = dynamic(
+  () =>
+    import(
+      "../../../components/chat/floating/incoming-call-popup"
+    ),
+  {
+    ssr: false,
+  }
+);
+
+const MobileAISheet = dynamic(
+  () =>
+    import(
+      "../../../components/chat/mobile/mobile-ai-sheet"
+    ),
+  {
+    ssr: false,
+  }
+);
+
+const MobileNotificationSheet = dynamic(
+  () =>
+    import(
+      "../../../components/chat/mobile/mobile-notification-sheet"
+    ),
+  {
+    ssr: false,
+  }
+);
+
+const NotificationPanel = dynamic(
+  () =>
+    import(
+      "../../../components/chat/sidebar/notification-panel"
+    ),
+  {
+    ssr: false,
+  }
+);
 
 export default function ChatPage() {
   const [aiOpen, setAiOpen] =
@@ -84,7 +144,7 @@ export default function ChatPage() {
   ]);
 
   return (
-    <div className="relative h-screen overflow-hidden bg-gradient-to-br from-[#050816] via-[#0B1020] to-[#111827] text-white">
+    <div className="relative h-dvh overflow-hidden bg-gradient-to-br from-[#050816] via-[#0B1020] to-[#111827] text-white">
       {/* SEARCH */}
       <GlobalSearch />
 
@@ -106,7 +166,6 @@ export default function ChatPage() {
       <div className="flex h-full w-full overflow-hidden">
         {/* CHAT AREA */}
         <motion.div
-          layout
           transition={{
             type: "spring",
             stiffness: 260,
@@ -254,7 +313,7 @@ export default function ChatPage() {
               stiffness: 260,
               damping: 28,
             }}
-            className="fixed right-4 top-20 z-50 hidden h-[620px] w-[340px] overflow-hidden rounded-[32px] border border-white/10 bg-[#0B111C]/95 shadow-2xl backdrop-blur-2xl xl:flex"
+            className="fixed right-4 top-20 z-[180] hidden h-[620px] w-[340px] overflow-hidden rounded-[32px] border border-white/10 bg-[#0B111C]/95 shadow-2xl backdrop-blur-2xl xl:flex"
           >
             <NotificationPanel />
           </motion.aside>

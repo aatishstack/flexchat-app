@@ -26,7 +26,7 @@ export default function FloatingRoot({
 }: Props) {
   return (
     <div
-      className={`pointer-events-none fixed inset-x-0 bottom-3 z-[140] flex justify-center px-3 pb-[max(env(safe-area-inset-bottom),0px)] sm:bottom-5 xl:justify-end ${
+      className={`pointer-events-none fixed inset-x-0 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-[140] flex justify-center px-3 lg:bottom-5 lg:pb-[max(env(safe-area-inset-bottom),0px)] xl:justify-end ${
         aiOpen
           ? "xl:pr-[404px]"
           : "xl:pr-6"

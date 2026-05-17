@@ -6,16 +6,16 @@
     "dev": "next dev",
     "build": "node --max-old-space-size=3072 ./node_modules/next/dist/bin/next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:realtime": "playwright test --config=playwright.config.ts"
   },
   "dependencies": {
-    "@fastify/multipart": "^10.0.0",
     "@hookform/resolvers": "^5.2.2",
+    "@tanstack/react-query": "^5.100.10",
     "axios": "^1.16.0",
     "clsx": "^2.1.1",
     "emoji-picker-react": "^4.19.1",
     "framer-motion": "^12.38.0",
-    "js-cookie": "^3.0.5",
     "lucide-react": "^1.14.0",
     "next": "16.2.6",
     "react": "^19.2.4",
@@ -28,8 +28,8 @@
     "zustand": "^5.0.13"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
-    "@types/js-cookie": "^3.0.6",
     "@types/node": "^20",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

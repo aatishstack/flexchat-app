@@ -20,6 +20,9 @@ export const SOCKET_EVENTS = {
   RECEIVE_MESSAGE:
     "receive_message",
 
+  CONVERSATION_UPDATED:
+    "conversation_updated",
+
   MESSAGE_DELIVERED:
     "message_delivered",
 
@@ -28,6 +31,9 @@ export const SOCKET_EVENTS = {
 
   MARK_MESSAGE_SEEN:
     "mark_message_seen",
+
+  MARK_MESSAGES_SEEN:
+    "mark_messages_seen",
 
   START_TYPING:
     "start_typing",
@@ -40,4 +46,7 @@ export const SOCKET_EVENTS = {
 
   ONLINE_USERS:
     "online_users",
+
+  CONVERSATION_ERROR:
+    "conversation_error",
 } as const;

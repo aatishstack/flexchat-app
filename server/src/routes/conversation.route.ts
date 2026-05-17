@@ -1,10 +1,39 @@
 import { FastifyInstance } from "fastify";
 
+import {
+  desc,
+  inArray,
+} from "drizzle-orm";
+
 import { db } from "../db/index.js";
 
 import { conversations } from "../db/schema/conversations.js";
-import { conversationMembers } from "../db/schema/conversation-members.js";
+import { messages } from "../db/schema/messages.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
+import {
+  getConversationMembers,
+  getUserConversationIds,
+} from "../lib/conversation-access.js";
+
+function getMessagePreview(message: {
+  text?: string;
+  attachment?: string | null;
+  audio?: string | null;
+}) {
+  if (message.text?.trim()) {
+    return message.text;
+  }
+
+  if (message.audio) {
+    return "Voice message";
+  }
+
+  if (message.attachment) {
+    return "Attachment";
+  }
+
+  return "New message";
+}
 
 export async function conversationRoutes(app: FastifyInstance) {
   app.get(
@@ -25,21 +54,42 @@ export async function conversationRoutes(app: FastifyInstance) {
           });
         }
 
-        const data = await db.select().from(conversations);
-        let memberRows: (typeof conversationMembers.$inferSelect)[] = [];
+        const conversationIds =
+          await getUserConversationIds(userId);
 
-        try {
-          memberRows = await db.select().from(conversationMembers);
-        } catch (error) {
-          app.log.warn(
-            {
-              error,
-            },
-            "Conversation members unavailable"
-          );
+        if (!conversationIds.length) {
+          return [];
         }
 
+        const data = await db
+          .select()
+          .from(conversations)
+          .where(
+            inArray(
+              conversations.id,
+              conversationIds
+            )
+          );
+        const memberRows =
+          await getConversationMembers(
+            conversationIds
+          );
+        const messageRows = await db
+          .select()
+          .from(messages)
+          .where(
+            inArray(
+              messages.conversationId,
+              conversationIds
+            )
+          )
+          .orderBy(
+            desc(messages.createdAt)
+          );
+
         const membersByConversation = new Map<string, string[]>();
+        const latestMessageByConversation = new Map<string, string>();
+        const unreadCountsByConversation = new Map<string, number>();
 
         memberRows.forEach((member) => {
           const members =
@@ -49,21 +99,41 @@ export async function conversationRoutes(app: FastifyInstance) {
           membersByConversation.set(member.conversationId, members);
         });
 
-        const userConversationIds = new Set(
-          memberRows
-            .filter((member) => member.userId === userId)
-            .map((member) => member.conversationId)
-        );
+        messageRows.forEach((message) => {
+          if (
+            !latestMessageByConversation.has(
+              message.conversationId
+            )
+          ) {
+            latestMessageByConversation.set(
+              message.conversationId,
+              getMessagePreview(message)
+            );
+          }
 
-        const scopedData =
-          userConversationIds.size > 0
-            ? data.filter((conversation) =>
-                userConversationIds.has(conversation.id)
-              )
-            : data;
+          if (
+            message.senderId !== userId &&
+            message.status !== "read"
+          ) {
+            unreadCountsByConversation.set(
+              message.conversationId,
+              (unreadCountsByConversation.get(
+                message.conversationId
+              ) ?? 0) + 1
+            );
+          }
+        });
 
-        return scopedData.map((conversation) => ({
+        return data.map((conversation) => ({
           ...conversation,
+          latestMessage:
+            latestMessageByConversation.get(
+              conversation.id
+            ),
+          unreadCount:
+            unreadCountsByConversation.get(
+              conversation.id
+            ) ?? 0,
           memberIds:
             membersByConversation.get(conversation.id) ?? [],
         }));

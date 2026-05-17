@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 
 import "./globals.css";
 
+import AuthRouteGate from "@/components/auth/auth-route-gate";
+
 import AuthProvider from "@/providers/auth-provider";
+
+import QueryProvider from "@/providers/query-provider";
 
 import SocketProvider from "@/socket/socket-provider";
 
@@ -21,11 +25,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-[#070B14] text-white antialiased">
-        <SocketProvider>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
-        </SocketProvider>
+        <QueryProvider>
+          <SocketProvider>
+            <AuthProvider>
+              <AuthRouteGate>
+                {children}
+              </AuthRouteGate>
+            </AuthProvider>
+          </SocketProvider>
+        </QueryProvider>
       </body>
     </html>
   );
