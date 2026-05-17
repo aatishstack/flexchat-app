@@ -10,6 +10,11 @@ import {
   useState,
 } from "react";
 
+import {
+  Sparkles,
+  X,
+} from "lucide-react";
+
 import ChatShell from "../../../components/chat/chat-shell";
 import ChatSidebar from "../../../components/chat/sidebar/chat-sidebar";
 import ChatConversation from "../../../components/chat/conversation/chat-conversation";
@@ -24,8 +29,6 @@ import ActivityBar from "../../../components/chat/sidebar/activity-bar";
 import FloatingRoot from "../../../components/chat/floating/floating-root";
 
 import IncomingCallPopup from "../../../components/chat/floating/incoming-call-popup";
-
-import MiniCallIsland from "../../../components/chat/floating/mini-call-island";
 
 import MobileAISheet from "../../../components/chat/mobile/mobile-ai-sheet";
 
@@ -90,9 +93,6 @@ export default function ChatPage() {
 
       {/* INCOMING CALL */}
       <IncomingCallPopup />
-
-      {/* ACTIVE CALL ISLAND */}
-      <MiniCallIsland />
 
       {/* ACTIVITY */}
       <ActivityBar />
@@ -173,7 +173,7 @@ export default function ChatPage() {
                         }}
                         className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-purple-500 via-fuchsia-500 to-indigo-500 text-2xl shadow-2xl shadow-purple-500/30"
                       >
-                        ✨
+                        <Sparkles size={24} />
                       </motion.div>
 
                       <div>
@@ -195,7 +195,7 @@ export default function ChatPage() {
                       }
                       className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-white transition hover:bg-white/[0.08]"
                     >
-                      ✕
+                      <X size={18} />
                     </button>
                   </div>
                 </div>
@@ -220,7 +220,7 @@ export default function ChatPage() {
                     />
 
                     <button className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-500 shadow-lg shadow-purple-500/30">
-                      ✨
+                      <Sparkles size={18} />
                     </button>
                   </div>
                 </div>

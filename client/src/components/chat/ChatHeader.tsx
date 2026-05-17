@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import {
   Phone,
   ShieldCheck,
@@ -36,11 +38,14 @@ export default function ChatHeader({
     );
 
   const isTyping =
-    typingUsers[userId];
+    typingUsers.includes(
+      userId
+    );
 
   const isOnline =
-    onlineUsers[userId]
-      ?.status === "online";
+    onlineUsers.includes(
+      userId
+    );
 
   return (
 

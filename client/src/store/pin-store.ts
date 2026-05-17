@@ -4,15 +4,21 @@ import { create } from "zustand";
 
 interface PinState {
   pinned:
-    any[];
+    PinnedMessage[];
 
   pin: (
-    message: any
+    message: PinnedMessage
   ) => void;
 
   unpin: (
     id: string
   ) => void;
+}
+
+interface PinnedMessage {
+  id: string;
+  text?: string;
+  createdAt?: string;
 }
 
 export const usePinStore =

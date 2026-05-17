@@ -22,7 +22,15 @@ interface ConversationState {
   updateConversationMessage: (
     conversationId: string,
 
-    message: string
+    message: string,
+
+    options?: {
+      unread?: boolean;
+    }
+  ) => void;
+
+  markConversationRead: (
+    conversationId: string
   ) => void;
 }
 
@@ -46,15 +54,29 @@ export const useConversationStore =
         (
           conversation
         ) =>
-          set({
-            activeConversation:
-              conversation,
-          }),
+          set((state) => ({
+            activeConversation: {
+              ...conversation,
+              unreadCount: 0,
+            },
+            conversations:
+              state.conversations.map(
+                (item) =>
+                  item.id ===
+                  conversation.id
+                    ? {
+                        ...item,
+                        unreadCount: 0,
+                      }
+                    : item
+              ),
+          })),
 
       updateConversationMessage:
         (
           conversationId,
-          message
+          message,
+          options
         ) =>
           set(
             (
@@ -66,16 +88,27 @@ export const useConversationStore =
                     .map(
                       (
                         conversation
-                      ) =>
-                        conversation.id ===
-                        conversationId
-                          ? {
-                              ...conversation,
+                      ) => {
+                        if (
+                          conversation.id !==
+                          conversationId
+                        ) {
+                          return conversation;
+                        }
 
-                              latestMessage:
-                                message,
-                            }
-                          : conversation
+                        return {
+                          ...conversation,
+
+                          latestMessage:
+                            message,
+
+                          unreadCount:
+                            options?.unread
+                              ? (conversation.unreadCount ??
+                                  0) + 1
+                              : conversation.unreadCount,
+                        };
+                      }
                     )
                     .sort(
                       (
@@ -91,7 +124,49 @@ export const useConversationStore =
                             : 0
                     ),
                 ],
+              activeConversation:
+                state.activeConversation?.id ===
+                conversationId
+                  ? {
+                      ...state.activeConversation,
+                      latestMessage:
+                        message,
+                      unreadCount:
+                        options?.unread
+                          ? (state
+                              .activeConversation
+                              .unreadCount ??
+                              0) + 1
+                          : state
+                              .activeConversation
+                              .unreadCount,
+                    }
+                  : state.activeConversation,
             })
           ),
+
+      markConversationRead:
+        (conversationId) =>
+          set((state) => ({
+            conversations:
+              state.conversations.map(
+                (conversation) =>
+                  conversation.id ===
+                  conversationId
+                    ? {
+                        ...conversation,
+                        unreadCount: 0,
+                      }
+                    : conversation
+              ),
+            activeConversation:
+              state.activeConversation?.id ===
+              conversationId
+                ? {
+                    ...state.activeConversation,
+                    unreadCount: 0,
+                  }
+                : state.activeConversation,
+          })),
     })
   );

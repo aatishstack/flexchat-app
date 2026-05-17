@@ -1,5 +1,30 @@
-const TOKEN_KEY =
+export const TOKEN_KEY =
   "flexchat_token";
+
+export const TOKEN_CHANGE_EVENT =
+  "flexchat:token-change";
+
+function emitTokenChange(
+  token: string | null
+) {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(
+      TOKEN_CHANGE_EVENT,
+      {
+        detail: {
+          token,
+        },
+      }
+    )
+  );
+}
 
 export const tokenStorage =
   {
@@ -30,6 +55,10 @@ export const tokenStorage =
         TOKEN_KEY,
         token
       );
+
+      emitTokenChange(
+        token
+      );
     },
 
     remove() {
@@ -42,6 +71,10 @@ export const tokenStorage =
 
       localStorage.removeItem(
         TOKEN_KEY
+      );
+
+      emitTokenChange(
+        null
       );
     },
 

@@ -19,14 +19,22 @@ import {
   useState,
 } from "react";
 
+import { useMusicStore } from "../../../store/music-store";
+
 export default function DynamicMusicIsland() {
   const [
     expanded,
     setExpanded,
   ] = useState(false);
+  const {
+    playing,
+    song,
+    artist,
+    toggle,
+  } = useMusicStore();
 
   const timerRef =
-    useRef<NodeJS.Timeout | null>(
+    useRef<ReturnType<typeof setTimeout> | null>(
       null
     );
 
@@ -87,7 +95,7 @@ export default function DynamicMusicIsland() {
         transition={{
           duration: 0.25,
         }}
-        className="relative z-[150] flex h-14 w-14 items-center justify-center rounded-full border border-purple-500/30 bg-gradient-to-br from-purple-500/20 to-fuchsia-500/20 text-white shadow-2xl shadow-purple-500/30 backdrop-blur-2xl"
+        className="relative z-[150] flex h-12 w-12 items-center justify-center rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/20 to-fuchsia-500/20 text-white shadow-2xl shadow-purple-500/30 backdrop-blur-2xl sm:h-14 sm:w-14"
       >
         <motion.div
           animate={{
@@ -138,26 +146,26 @@ export default function DynamicMusicIsland() {
             initial={{
               opacity: 0,
               scale: 0.7,
-              y: 40,
+              y: 12,
             }}
             animate={{
               opacity: 1,
               scale: 1,
-              y: -120,
+              y: 0,
             }}
             exit={{
               opacity: 0,
               scale: 0.7,
-              y: 20,
+              y: 12,
             }}
             transition={{
               type: "spring",
               stiffness: 260,
               damping: 22,
             }}
-            className="absolute bottom-0 right-0 z-[160]"
+            className="absolute bottom-[calc(100%+0.75rem)] right-0 z-[160]"
           >
-            <div className="relative w-[310px] overflow-hidden rounded-[32px] border border-purple-500/20 bg-black/60 shadow-2xl shadow-purple-500/30 backdrop-blur-3xl">
+            <div className="relative w-[min(calc(100vw-1.5rem),310px)] overflow-hidden rounded-[28px] border border-purple-500/20 bg-[#12091f]/95 shadow-2xl shadow-purple-500/30 backdrop-blur-3xl">
               {/* GLOW */}
               <div className="pointer-events-none absolute inset-0 rounded-[32px] bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10" />
 
@@ -169,11 +177,11 @@ export default function DynamicMusicIsland() {
                   </p>
 
                   <h3 className="mt-1 text-sm font-semibold text-white">
-                    After Dark
+                    {song}
                   </h3>
 
                   <p className="text-xs text-zinc-500">
-                    Mr.Kitty
+                    {artist}
                   </p>
                 </div>
 
@@ -248,11 +256,14 @@ export default function DynamicMusicIsland() {
                   whileTap={{
                     scale: 0.9,
                   }}
+                  onClick={toggle}
                   className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-fuchsia-500 text-white shadow-xl shadow-purple-500/30"
                 >
-                  <Pause
-                    size={24}
-                  />
+                  {playing ? (
+                    <Pause size={24} />
+                  ) : (
+                    <Music2 size={24} />
+                  )}
                 </motion.button>
 
                 <button className="text-white/70 transition hover:text-white">

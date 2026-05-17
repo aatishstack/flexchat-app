@@ -12,7 +12,10 @@ export async function authenticateSocket(
   try {
     const token =
       socket.handshake.auth
-        ?.token;
+        ?.token ??
+      socket.handshake.headers
+        .authorization
+        ?.replace("Bearer ", "");
 
     if (!token) {
       throw new Error(

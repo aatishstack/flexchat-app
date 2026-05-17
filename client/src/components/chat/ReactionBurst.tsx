@@ -1,18 +1,45 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import {
+  AnimatePresence,
+  motion,
+} from "framer-motion";
 
 type Props = {
   trigger: boolean;
 };
 
-const emojis = [
-  "🔥",
-  "😭",
-  "😈",
-  "✨",
-  "⚡",
-  "💜",
+const burstPaths = [
+  {
+    emoji: "!",
+    x: -110,
+    y: -120,
+  },
+  {
+    emoji: "+",
+    x: -66,
+    y: -168,
+  },
+  {
+    emoji: "*",
+    x: -22,
+    y: -136,
+  },
+  {
+    emoji: "!",
+    x: 22,
+    y: -188,
+  },
+  {
+    emoji: "+",
+    x: 66,
+    y: -144,
+  },
+  {
+    emoji: "*",
+    x: 110,
+    y: -176,
+  },
 ];
 
 export default function ReactionBurst({
@@ -22,9 +49,9 @@ export default function ReactionBurst({
     <AnimatePresence>
       {trigger && (
         <div className="pointer-events-none absolute inset-0 z-[999]">
-          {emojis.map((emoji, index) => (
+          {burstPaths.map((path, index) => (
             <motion.div
-              key={index}
+              key={`${path.emoji}-${index}`}
               initial={{
                 opacity: 0,
                 scale: 0,
@@ -34,10 +61,8 @@ export default function ReactionBurst({
               animate={{
                 opacity: [0, 1, 1, 0],
                 scale: [0, 1.3, 1],
-                x:
-                  Math.random() * 220 - 110,
-                y:
-                  -Math.random() * 220,
+                x: path.x,
+                y: path.y,
               }}
               exit={{
                 opacity: 0,
@@ -46,9 +71,9 @@ export default function ReactionBurst({
                 duration: 1.2,
                 delay: index * 0.04,
               }}
-              className="absolute left-1/2 top-1/2 text-3xl"
+              className="absolute left-1/2 top-1/2 text-3xl text-cyan-200"
             >
-              {emoji}
+              {path.emoji}
             </motion.div>
           ))}
         </div>

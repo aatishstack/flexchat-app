@@ -13,33 +13,25 @@ import { useMusicStore } from "@/store/music-store";
 export default function MusicPlayer() {
   const playing =
     useMusicStore(
-      (
-        state: any
-      ) =>
+      (state) =>
         state.playing
     );
 
   const song =
     useMusicStore(
-      (
-        state: any
-      ) =>
+      (state) =>
         state.song
     );
 
   const artist =
     useMusicStore(
-      (
-        state: any
-      ) =>
+      (state) =>
         state.artist
     );
 
   const toggle =
     useMusicStore(
-      (
-        state: any
-      ) =>
+      (state) =>
         state.toggle
     );
 

@@ -11,10 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 function AuthScreenLoader() {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#070B14]">
-      {/* Glow */}
       <div className="absolute h-[400px] w-[400px] rounded-full bg-purple-600/20 blur-3xl" />
-
-      {/* Grid */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px]" />
 
       <motion.div
@@ -63,15 +60,13 @@ export default function ProtectedLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-
-  const {
-    status,
-    isHydrated,
-    isAuthenticated,
-  } = useAuth();
+  const { status, isHydrated, isAuthenticated } =
+    useAuth();
 
   useEffect(() => {
-    if (!isHydrated) return;
+    if (!isHydrated) {
+      return;
+    }
 
     if (!isAuthenticated) {
       router.replace("/auth");

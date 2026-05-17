@@ -66,6 +66,9 @@ export const useAuthStore =
 
           isAuthenticated:
             true,
+
+          isHydrated:
+            true,
         }),
 
       logout: () =>
@@ -76,6 +79,9 @@ export const useAuthStore =
 
           isAuthenticated:
             false,
+
+          isHydrated:
+            true,
         }),
     })
   );

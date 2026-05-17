@@ -164,6 +164,7 @@ export async function authRoutes(
           await db
             .insert(users)
             .values({
+              id: crypto.randomUUID(),
               username,
               email,
               password:

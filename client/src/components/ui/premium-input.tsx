@@ -4,8 +4,8 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-interface PremiumInputProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {}
+type PremiumInputProps =
+  React.InputHTMLAttributes<HTMLInputElement>;
 
 const PremiumInput = React.forwardRef<
   HTMLInputElement,

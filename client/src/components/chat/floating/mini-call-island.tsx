@@ -10,6 +10,7 @@ import {
   MicOff,
   PhoneOff,
   Video,
+  VideoOff,
 } from "lucide-react";
 
 import {
@@ -17,235 +18,205 @@ import {
   useState,
 } from "react";
 
+import { useCallStore } from "../../../store/call-store";
+
 export default function MiniCallIsland() {
-  const [
-    expanded,
-    setExpanded,
-  ] = useState(true);
+  const {
+    status,
+    caller,
+    isMuted,
+    isVideoEnabled,
+    acceptCall,
+    minimizeCall,
+    endCall,
+    toggleMute,
+    toggleVideo,
+  } = useCallStore();
 
-  const [
-    muted,
-    setMuted,
-  ] = useState(false);
+  const [seconds, setSeconds] =
+    useState(0);
 
-  const [
-    seconds,
-    setSeconds,
-  ] = useState(0);
+  const isVisible =
+    status === "active" ||
+    status === "minimized" ||
+    status === "ringing";
+  const expanded =
+    status === "active" ||
+    status === "ringing";
 
   useEffect(() => {
+    if (status !== "active") {
+      return;
+    }
+
     const interval =
       setInterval(() => {
         setSeconds(
-          (
-            prev
-          ) => prev + 1
+          (prev) => prev + 1
         );
       }, 1000);
 
     return () =>
-      clearInterval(
-        interval
-      );
-  }, []);
+      clearInterval(interval);
+  }, [status]);
+
+  if (!isVisible) {
+    return null;
+  }
 
   const minutes =
-    Math.floor(
-      seconds / 60
-    );
-
+    Math.floor(seconds / 60);
   const remainingSeconds =
     seconds % 60;
+  const callLabel =
+    status === "ringing"
+      ? "Calling"
+      : "Live call";
 
   return (
     <div className="relative">
-      {/* COLLAPSED */}
-      {!expanded && (
-        <motion.button
-          whileTap={{
-            scale: 0.94,
+      <motion.button
+        whileTap={{
+          scale: 0.94,
+        }}
+        onClick={acceptCall}
+        className="flex h-12 w-12 items-center justify-center rounded-2xl border border-green-400/20 bg-gradient-to-br from-green-500/20 to-emerald-500/20 shadow-2xl shadow-green-500/20 backdrop-blur-2xl sm:h-14 sm:w-14"
+        aria-label="Open call controls"
+      >
+        <motion.div
+          animate={{
+            scale: [1, 1.12, 1],
           }}
-          onClick={() =>
-            setExpanded(true)
-          }
-          className="flex h-14 w-14 items-center justify-center rounded-full border border-green-400/20 bg-gradient-to-br from-green-500/20 to-emerald-500/20 shadow-2xl shadow-green-500/20 backdrop-blur-2xl"
-        >
-          <motion.div
-            animate={{
-              scale: [
-                1,
-                1.12,
-                1,
-              ],
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-            }}
-            className="h-3 w-3 rounded-full bg-green-400"
-          />
-        </motion.button>
-      )}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+          }}
+          className="h-3 w-3 rounded-full bg-green-400"
+        />
+      </motion.button>
 
-      {/* EXPANDED */}
       <AnimatePresence>
         {expanded && (
           <motion.div
-            drag
-            dragElastic={0.12}
-            dragMomentum={false}
-            whileDrag={{
-              scale: 1.03,
-            }}
             initial={{
               opacity: 0,
-              scale: 0.7,
-              y: 20,
+              scale: 0.92,
+              y: 12,
             }}
             animate={{
               opacity: 1,
               scale: 1,
-              y: -120,
+              y: 0,
             }}
             exit={{
               opacity: 0,
-              scale: 0.7,
+              scale: 0.92,
+              y: 12,
             }}
             transition={{
               type: "spring",
-              stiffness: 240,
-              damping: 22,
+              stiffness: 260,
+              damping: 24,
             }}
-            className="absolute bottom-0 right-0 z-[180]"
+            className="absolute bottom-[calc(100%+0.75rem)] right-0 z-[180]"
           >
-            <div className="relative w-[320px] overflow-hidden rounded-[34px] border border-green-400/20 bg-black/60 shadow-2xl shadow-green-500/20 backdrop-blur-3xl">
-              {/* GLOW */}
-              <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-emerald-500/10" />
+            <div className="relative w-[min(calc(100vw-1.5rem),320px)] overflow-hidden rounded-[28px] border border-green-400/20 bg-[#07120f]/95 shadow-2xl shadow-green-500/20 backdrop-blur-3xl">
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-green-500/10 to-emerald-500/10" />
 
-              {/* HEADER */}
               <div className="relative z-10 flex items-center justify-between px-5 pt-5">
                 <div>
-                  <p className="text-xs text-zinc-400">
-                    LIVE CALL
+                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-400">
+                    {callLabel}
                   </p>
 
                   <h3 className="mt-1 text-sm font-semibold text-white">
-                    Mayuri
+                    {caller}
                   </h3>
 
                   <p className="text-xs text-green-400">
-                    {minutes}
-                    :
+                    {minutes}:
                     {remainingSeconds
                       .toString()
-                      .padStart(
-                        2,
-                        "0"
-                      )}
+                      .padStart(2, "0")}
                   </p>
                 </div>
 
-                {/* WAVE */}
                 <div className="flex items-end gap-1">
                   {Array.from({
                     length: 5,
-                  }).map(
-                    (
-                      _,
-                      index
-                    ) => (
-                      <motion.div
-                        key={index}
-                        animate={{
-                          height: [
-                            10,
-                            24,
-                            12,
-                            20,
-                            10,
-                          ],
-                        }}
-                        transition={{
-                          duration:
-                            1 +
-                            index *
-                              0.1,
-                          repeat:
-                            Infinity,
-                        }}
-                        className="w-1 rounded-full bg-green-400"
-                      />
-                    )
-                  )}
+                  }).map((_, index) => (
+                    <motion.div
+                      key={index}
+                      animate={{
+                        height: [
+                          10,
+                          24,
+                          12,
+                          20,
+                          10,
+                        ],
+                      }}
+                      transition={{
+                        duration:
+                          1 + index * 0.1,
+                        repeat: Infinity,
+                      }}
+                      className="w-1 rounded-full bg-green-400"
+                    />
+                  ))}
                 </div>
               </div>
 
-              {/* AVATAR */}
               <div className="relative z-10 mt-5 flex justify-center">
                 <motion.div
                   animate={{
-                    scale: [
-                      1,
-                      1.04,
-                      1,
-                    ],
+                    scale: [1, 1.04, 1],
                   }}
                   transition={{
                     duration: 2,
                     repeat: Infinity,
                   }}
-                  className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-emerald-500 text-2xl font-semibold text-white shadow-2xl shadow-green-500/30"
+                  className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-emerald-500 text-2xl font-semibold text-white shadow-2xl shadow-green-500/30 sm:h-24 sm:w-24"
                 >
-                  M
+                  {caller
+                    .charAt(0)
+                    .toUpperCase()}
 
                   <motion.div
                     animate={{
-                      scale: [
-                        1,
-                        1.2,
-                        1,
-                      ],
-                      opacity: [
-                        0.4,
-                        0,
-                        0.4,
-                      ],
+                      scale: [1, 1.2, 1],
+                      opacity: [0.4, 0, 0.4],
                     }}
                     transition={{
                       duration: 2,
-                      repeat:
-                        Infinity,
+                      repeat: Infinity,
                     }}
                     className="absolute inset-0 rounded-full border border-green-400"
                   />
                 </motion.div>
               </div>
 
-              {/* CONTROLS */}
-              <div className="relative z-10 flex items-center justify-center gap-5 p-6">
+              <div className="relative z-10 flex items-center justify-center gap-4 p-5 sm:gap-5 sm:p-6">
                 <motion.button
                   whileTap={{
                     scale: 0.92,
                   }}
-                  onClick={() =>
-                    setMuted(
-                      !muted
-                    )
-                  }
+                  onClick={toggleMute}
                   className={
-                    muted
-                      ? "flex h-14 w-14 items-center justify-center rounded-full bg-red-500/20 text-red-400"
-                      : "flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-white"
+                    isMuted
+                      ? "flex h-12 w-12 items-center justify-center rounded-full bg-red-500/20 text-red-300 sm:h-14 sm:w-14"
+                      : "flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white sm:h-14 sm:w-14"
+                  }
+                  aria-label={
+                    isMuted
+                      ? "Unmute"
+                      : "Mute"
                   }
                 >
-                  {muted ? (
-                    <MicOff
-                      size={22}
-                    />
+                  {isMuted ? (
+                    <MicOff size={22} />
                   ) : (
-                    <Mic
-                      size={22}
-                    />
+                    <Mic size={22} />
                   )}
                 </motion.button>
 
@@ -253,32 +224,39 @@ export default function MiniCallIsland() {
                   whileTap={{
                     scale: 0.92,
                   }}
-                  className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-rose-500 text-white shadow-xl shadow-red-500/30"
+                  onClick={endCall}
+                  className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-rose-500 text-white shadow-xl shadow-red-500/30 sm:h-16 sm:w-16"
+                  aria-label="End call"
                 >
-                  <PhoneOff
-                    size={24}
-                  />
+                  <PhoneOff size={24} />
                 </motion.button>
 
                 <motion.button
                   whileTap={{
                     scale: 0.92,
                   }}
-                  className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-white"
+                  onClick={toggleVideo}
+                  className={
+                    isVideoEnabled
+                      ? "flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white sm:h-14 sm:w-14"
+                      : "flex h-12 w-12 items-center justify-center rounded-full bg-red-500/20 text-red-300 sm:h-14 sm:w-14"
+                  }
+                  aria-label={
+                    isVideoEnabled
+                      ? "Disable video"
+                      : "Enable video"
+                  }
                 >
-                  <Video
-                    size={22}
-                  />
+                  {isVideoEnabled ? (
+                    <Video size={22} />
+                  ) : (
+                    <VideoOff size={22} />
+                  )}
                 </motion.button>
               </div>
 
-              {/* MINIMIZE */}
               <button
-                onClick={() =>
-                  setExpanded(
-                    false
-                  )
-                }
+                onClick={minimizeCall}
                 className="absolute right-4 top-4 z-20 rounded-full bg-white/5 px-3 py-1 text-xs text-zinc-300 transition hover:bg-white/10"
               >
                 Minimize

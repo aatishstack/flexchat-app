@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import {
   Maximize2,
   Mic,
@@ -43,6 +45,7 @@ export default function VideoCallScreen() {
       {/* Remote */}
       <img
         src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1200"
+        alt="Remote caller"
         className="absolute inset-0 h-full w-full object-cover"
       />
 
@@ -89,6 +92,7 @@ export default function VideoCallScreen() {
         >
           <img
             src="https://i.pravatar.cc/500?img=12"
+            alt="Self preview"
             className="h-[220px] w-[170px] object-cover"
           />
         </motion.div>

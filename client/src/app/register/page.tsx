@@ -11,16 +11,24 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import axios from "axios";
 
 import {
   registerSchema,
   type RegisterInput,
 } from "../../lib/validations/auth";
 
-import { api } from "../../lib/api";
+import { register as registerUser } from "@/services/auth.service";
+import { tokenStorage } from "@/lib/token";
+import { useAuthStore } from "@/stores/auth.store";
+import { useSocketStore } from "@/store/socket-store";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const setAuth =
+    useAuthStore((state) => state.setAuth);
+  const connectSocket =
+    useSocketStore((state) => state.connectSocket);
 
   const [showPassword, setShowPassword] =
     useState(false);
@@ -49,16 +57,25 @@ export default function RegisterPage() {
       setServerError("");
 
       const response =
-        await api.post("/register", data);
+        await registerUser(data);
 
-      console.log(response.data);
+      tokenStorage.set(response.token);
+
+      setAuth({
+        user: response.user,
+        token: response.token,
+      });
+
+      connectSocket(response.token);
 
       router.push("/chat");
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       setServerError(
-        error?.response?.data?.message ||
-          "Something went wrong"
+        axios.isAxiosError(error)
+          ? error.response?.data?.message ||
+              "Something went wrong"
+          : "Something went wrong"
       );
     } finally {
       setLoading(false);

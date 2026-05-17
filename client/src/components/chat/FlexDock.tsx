@@ -20,12 +20,17 @@ import {
   useEffect,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
 
 interface Props {
-  setShowProfile?: any;
-  setShowSettings?: any;
-  handleLogout?: any;
+  setShowProfile?: (
+    value: boolean
+  ) => void;
+  setShowSettings?: (
+    value: boolean
+  ) => void;
+  handleLogout?: () => void;
 }
 
 export default function FlexDock({
@@ -40,7 +45,7 @@ export default function FlexDock({
   ] = useState(false);
 
   const dockRef =
-    useRef<any>(null);
+    useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
 
@@ -51,6 +56,7 @@ export default function FlexDock({
 
         if (
           dockRef.current &&
+          event.target instanceof Node &&
           !dockRef.current.contains(
             event.target
           )
@@ -76,7 +82,7 @@ export default function FlexDock({
   }, []);
 
   const handleSafeAction = (
-    callback?: any
+    callback?: () => void
   ) => {
 
     setOpen(false);
@@ -87,7 +93,12 @@ export default function FlexDock({
     }
   };
 
-  const items = [
+  const items: {
+    label: string;
+    icon: typeof Bot;
+    action: () => void;
+    danger?: boolean;
+  }[] = [
 
     {
       label: "AI Assistant",
@@ -223,12 +234,15 @@ export default function FlexDock({
           scale: 0.94,
         }}
 
-        onClick={() =>
+        onClick={(
+          event: ReactMouseEvent<HTMLButtonElement>
+        ) => {
+          event.stopPropagation();
           setOpen(
             (prev) =>
               !prev
-          )
-        }
+          );
+        }}
 
         className="group relative flex h-[50px] w-[50px] items-center justify-center rounded-2xl border border-white/10 bg-[#0d1626] shadow-[0_0_25px_rgba(0,0,0,0.35)] transition-all duration-300 hover:border-cyan-400/30 hover:bg-[#13233c]"
       >

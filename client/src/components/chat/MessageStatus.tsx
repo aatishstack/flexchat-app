@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  AlertCircle,
+  Check,
+  CheckCheck,
+} from "lucide-react";
+
 import { motion } from "framer-motion";
 
 type Props = {
@@ -7,7 +13,8 @@ type Props = {
     | "sending"
     | "sent"
     | "delivered"
-    | "read";
+    | "read"
+    | "failed";
 };
 
 export default function MessageStatus({
@@ -24,43 +31,42 @@ export default function MessageStatus({
           repeat: Infinity,
           ease: "linear",
         }}
-        className="h-4 w-4 rounded-full border border-white/30 border-t-cyan-300"
+        className="h-3.5 w-3.5 rounded-full border border-white/30 border-t-cyan-300"
       />
     );
   }
 
   if (status === "sent") {
     return (
-      <span className="text-xs text-white/40">
-        ✓
-      </span>
+      <Check
+        size={14}
+        className="text-white/55"
+      />
     );
   }
 
   if (status === "delivered") {
     return (
-      <span className="text-xs text-white/60">
-        ✓✓
-      </span>
+      <CheckCheck
+        size={14}
+        className="text-white/70"
+      />
+    );
+  }
+
+  if (status === "failed") {
+    return (
+      <AlertCircle
+        size={14}
+        className="text-red-200"
+      />
     );
   }
 
   return (
-    <motion.span
-      initial={{
-        opacity: 0.6,
-      }}
-      animate={{
-        opacity: 1,
-      }}
-      transition={{
-        duration: 1,
-        repeat: Infinity,
-        repeatType: "reverse",
-      }}
-      className="text-xs text-cyan-300"
-    >
-      ✓✓
-    </motion.span>
+    <CheckCheck
+      size={14}
+      className="text-cyan-300"
+    />
   );
 }

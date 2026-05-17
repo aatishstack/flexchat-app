@@ -11,6 +11,30 @@ import { db } from "../db/index.js";
 import { users } from "../db/schema/users.js";
 
 import { signToken } from "../lib/jwt.js";
+import { authMiddleware } from "../middleware/auth.middleware.js";
+
+const blockedDomains = new Set([
+  "tempmail.com",
+  "10minutemail.com",
+  "guerrillamail.com",
+  "yopmail.com",
+  "fakeinbox.com",
+]);
+
+const emailRegex =
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function publicUser(user: {
+  id: string;
+  username: string;
+  email: string;
+}) {
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+  };
+}
 
 export async function authRoutes(
   app: FastifyInstance
@@ -32,6 +56,64 @@ export async function authRoutes(
           password: string;
         };
 
+      const username =
+        body.username?.trim();
+
+      const email =
+        body.email
+          ?.trim()
+          .toLowerCase();
+
+      const password =
+        body.password ?? "";
+
+      if (
+        !username ||
+        !email ||
+        !password
+      ) {
+        return reply
+          .status(400)
+          .send({
+            message:
+              "All fields are required",
+          });
+      }
+
+      if (
+        !emailRegex.test(email)
+      ) {
+        return reply
+          .status(400)
+          .send({
+            message:
+              "Invalid email address",
+          });
+      }
+
+      const domain =
+        email.split("@")[1];
+
+      if (
+        blockedDomains.has(domain)
+      ) {
+        return reply
+          .status(400)
+          .send({
+            message:
+              "Temporary emails are not allowed",
+          });
+      }
+
+      if (password.length < 8) {
+        return reply
+          .status(400)
+          .send({
+            message:
+              "Password must be at least 8 characters",
+          });
+      }
+
       const existingUser =
         await db
           .select()
@@ -41,7 +123,7 @@ export async function authRoutes(
           .where(
             eq(
               users.email,
-              body.email
+              email
             )
           );
 
@@ -56,9 +138,33 @@ export async function authRoutes(
           });
       }
 
+      const existingUsername =
+        await db
+          .select()
+          .from(
+            users
+          )
+          .where(
+            eq(
+              users.username,
+              username
+            )
+          );
+
+      if (
+        existingUsername.length
+      ) {
+        return reply
+          .status(400)
+          .send({
+            message:
+              "Username already taken",
+          });
+      }
+
       const hashedPassword =
         await bcrypt.hash(
-          body.password,
+          password,
           10
         );
 
@@ -67,10 +173,10 @@ export async function authRoutes(
           crypto.randomUUID(),
 
         username:
-          body.username,
+          username,
 
         email:
-          body.email,
+          email,
 
         password:
           hashedPassword,
@@ -91,16 +197,8 @@ export async function authRoutes(
       return {
         token,
 
-        user: {
-          id:
-            newUser.id,
-
-          username:
-            newUser.username,
-
-          email:
-            newUser.email,
-        },
+        user:
+          publicUser(newUser),
       };
     }
   );
@@ -120,6 +218,26 @@ export async function authRoutes(
           password: string;
         };
 
+      const email =
+        body.email
+          ?.trim()
+          .toLowerCase();
+
+      const password =
+        body.password ?? "";
+
+      if (
+        !email ||
+        !password
+      ) {
+        return reply
+          .status(400)
+          .send({
+            message:
+              "All fields are required",
+          });
+      }
+
       const foundUser =
         await db
           .select()
@@ -129,7 +247,7 @@ export async function authRoutes(
           .where(
             eq(
               users.email,
-              body.email
+              email
             )
           );
 
@@ -147,7 +265,7 @@ export async function authRoutes(
 
       const validPassword =
         await bcrypt.compare(
-          body.password,
+          password,
           user.password
         );
 
@@ -170,15 +288,66 @@ export async function authRoutes(
       return {
         token,
 
-        user: {
-          id: user.id,
+        user:
+          publicUser(user),
+      };
+    }
+  );
 
-          username:
-            user.username,
+  app.post(
+    "/auth/refresh",
+    {
+      preHandler:
+        authMiddleware,
+    },
+    async (
+      request,
+      reply
+    ) => {
+      const userId =
+        request.user?.id;
 
-          email:
-            user.email,
-        },
+      if (!userId) {
+        return reply
+          .status(401)
+          .send({
+            message:
+              "Unauthorized",
+          });
+      }
+
+      const foundUser =
+        await db
+          .select()
+          .from(
+            users
+          )
+          .where(
+            eq(
+              users.id,
+              userId
+            )
+          );
+
+      const user =
+        foundUser[0];
+
+      if (!user) {
+        return reply
+          .status(404)
+          .send({
+            message:
+              "User not found",
+          });
+      }
+
+      return {
+        token:
+          signToken({
+            id: user.id,
+          }),
+        user:
+          publicUser(user),
       };
     }
   );

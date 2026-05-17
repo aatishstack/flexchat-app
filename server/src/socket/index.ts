@@ -1,108 +1,64 @@
-import {
-  Server,
-} from "socket.io";
+import type { Server as HttpServer } from "http";
 
-import {
-  authenticateSocket,
-} from "./socket-auth.js";
+import { Server } from "socket.io";
 
+import { authenticateSocket } from "./socket-auth.js";
+import { SOCKET_EVENTS } from "./socket-events.js";
 import {
-  SOCKET_EVENTS,
-} from "./socket-events.js";
-
-import {
-  onlineUsers,
+  addOnlineSocket,
+  getOnlineUserIds,
+  removeOnlineSocket,
 } from "./socket-store.js";
+import { registerMessageHandlers } from "./handlers/message.handler.js";
+import { registerTypingHandlers } from "./handlers/typing.handler.js";
 
-import {
-  registerMessageHandlers,
-} from "./handlers/message.handler.js";
+export function setupSocket(server: HttpServer) {
+  const io = new Server(server, {
+    cors: {
+      origin: true,
+      credentials: true,
+    },
+    connectionStateRecovery: {
+      maxDisconnectionDuration: 2 * 60 * 1000,
+      skipMiddlewares: false,
+    },
+  });
 
-import {
-  registerTypingHandlers,
-} from "./handlers/typing.handler.js";
+  io.use(async (socket, next) => {
+    const authenticated =
+      await authenticateSocket(socket);
 
-export function setupSocket(
-  server: any
-) {
-  const io = new Server(
-    server,
-    {
-      cors: {
-        origin: "*",
-      },
+    if (!authenticated) {
+      next(new Error("Unauthorized"));
+      return;
     }
-  );
 
-  io.on(
-    SOCKET_EVENTS.CONNECTION,
-    async (socket) => {
-      const authenticated =
-        await authenticateSocket(
-          socket
-        );
+    next();
+  });
 
-      if (
-        !authenticated
-      ) {
-        socket.disconnect();
+  io.on(SOCKET_EVENTS.CONNECTION, (socket) => {
+    const userId = socket.data.user.id as string;
 
-        return;
-      }
+    addOnlineSocket(userId, socket.id);
+    socket.join(`user:${userId}`);
 
-      const userId =
-        socket.data.user.id;
+    io.emit(
+      SOCKET_EVENTS.ONLINE_USERS,
+      getOnlineUserIds()
+    );
 
-      onlineUsers.set(
-        userId,
-        socket.id
-      );
+    registerMessageHandlers(io, socket);
+    registerTypingHandlers(io, socket);
+
+    socket.on(SOCKET_EVENTS.DISCONNECT, () => {
+      removeOnlineSocket(socket.id);
 
       io.emit(
         SOCKET_EVENTS.ONLINE_USERS,
-        Array.from(
-          onlineUsers.keys()
-        )
+        getOnlineUserIds()
       );
-
-      socket.on(
-        SOCKET_EVENTS.JOIN_CONVERSATION,
-        (
-          conversationId
-        ) => {
-          socket.join(
-            conversationId
-          );
-        }
-      );
-
-      registerMessageHandlers(
-        io,
-        socket
-      );
-
-      registerTypingHandlers(
-        io,
-        socket
-      );
-
-      socket.on(
-        SOCKET_EVENTS.DISCONNECT,
-        () => {
-          onlineUsers.delete(
-            userId
-          );
-
-          io.emit(
-            SOCKET_EVENTS.ONLINE_USERS,
-            Array.from(
-              onlineUsers.keys()
-            )
-          );
-        }
-      );
-    }
-  );
+    });
+  });
 
   return io;
 }

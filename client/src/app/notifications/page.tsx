@@ -7,12 +7,8 @@ import {
   ArrowLeft,
   Bell,
   MessageCircle,
-  Phone,
-  Users,
   Sparkles,
-  Heart,
   BadgeCheck,
-  Video,
   ShieldCheck,
   Check,
 } from "lucide-react";

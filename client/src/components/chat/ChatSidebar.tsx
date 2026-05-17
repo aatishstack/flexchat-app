@@ -2,10 +2,19 @@
 
 interface Props {
   activeChat?: string;
-  setActiveChat?: any;
+  setActiveChat?: (
+    value: string
+  ) => void;
 }
 
-const chats: any[] = [];
+type SidebarChat = {
+  id: string;
+  name: string;
+  message: string;
+  online?: boolean;
+};
+
+const chats: SidebarChat[] = [];
 
 export default function ChatSidebar({
   activeChat,

@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node --max-old-space-size=3072 ./node_modules/next/dist/bin/next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@fastify/multipart": "^10.0.0",

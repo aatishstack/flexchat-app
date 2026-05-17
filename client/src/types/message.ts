@@ -2,7 +2,8 @@ export type MessageStatus =
   | "sending"
   | "sent"
   | "delivered"
-  | "read";
+  | "read"
+  | "failed";
 
 export interface Message {
   id: string;

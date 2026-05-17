@@ -1,7 +1,8 @@
 import jwt from "jsonwebtoken";
 
 const JWT_SECRET =
-  process.env.JWT_SECRET!;
+  process.env.JWT_SECRET ??
+  "flexchat_local_dev_secret";
 
 export interface JwtPayload {
   id: string;
@@ -17,6 +18,14 @@ export function signToken(
       expiresIn: "7d",
     }
   );
+}
+
+export function generateToken(
+  userId: string
+) {
+  return signToken({
+    id: userId,
+  });
 }
 
 export function verifyToken(

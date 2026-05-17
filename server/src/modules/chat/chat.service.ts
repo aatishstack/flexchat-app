@@ -13,26 +13,28 @@ export async function createConversation(
   currentUserId: string,
   targetUserId: string
 ) {
+  const conversationId =
+    crypto.randomUUID();
+
   const newConversation =
     await db
       .insert(conversations)
       .values({
-        isGroup: false,
+        id: conversationId,
       })
       .returning();
-
-  const conversationId =
-    newConversation[0].id;
 
   await db
     .insert(conversationMembers)
     .values([
       {
+        id: crypto.randomUUID(),
         conversationId,
         userId: currentUserId,
       },
 
       {
+        id: crypto.randomUUID(),
         conversationId,
         userId: targetUserId,
       },
@@ -50,9 +52,10 @@ export async function createMessage(
     await db
       .insert(messages)
       .values({
+        id: crypto.randomUUID(),
         conversationId,
         senderId,
-        content,
+        text: content,
       })
       .returning();
 

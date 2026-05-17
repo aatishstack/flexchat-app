@@ -3,6 +3,7 @@
 import { ReactNode, useEffect } from "react";
 
 import { useSocketStore } from "@/store/socket-store";
+import { tokenStorage } from "@/lib/token";
 
 interface Props {
   children: ReactNode;
@@ -20,12 +21,19 @@ export const SocketProvider = ({
   );
 
   useEffect(() => {
-    connectSocket();
+    const token = tokenStorage.get();
+
+    if (token) {
+      connectSocket(token);
+    }
 
     return () => {
       disconnectSocket();
     };
-  }, []);
+  }, [
+    connectSocket,
+    disconnectSocket,
+  ]);
 
   return <>{children}</>;
 };

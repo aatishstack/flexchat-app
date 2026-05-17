@@ -1,151 +1,180 @@
 "use client";
 
-import {
-  useEffect,
-} from "react";
+import { useEffect } from "react";
 
 import { socket } from "./socket";
-
 import { SOCKET_EVENTS } from "./socket-events";
 
-import { useSocketStore } from "@/store/socket-store";
-
+import {
+  Message,
+  useSocketStore,
+} from "@/store/socket-store";
+import { useAuthStore } from "@/stores/auth.store";
 import { useConversationStore } from "@/stores/conversation.store";
+import { tokenStorage } from "@/lib/token";
+
+type MessageReceipt = {
+  messageId: string;
+  serverId?: string;
+  status?: "sent" | "delivered" | "read";
+};
 
 export default function SocketProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const setOnlineUsers =
-    useSocketStore(
-      (state) =>
-        state.setOnlineUsers
-    );
-
-  const addMessage =
-    useSocketStore(
-      (state) =>
-        state.addMessage
-    );
-
-  const setTypingUsers =
-    useSocketStore(
-      (state) =>
-        state.setTypingUsers
-    );
-
-  const updateMessageStatus =
-    useSocketStore(
-      (state) =>
-        state.updateMessageStatus
-    );
-
-  const updateConversationMessage =
-    useConversationStore(
-      (state) =>
-        state.updateConversationMessage
-    );
+  const setOnlineUsers = useSocketStore(
+    (state) => state.setOnlineUsers
+  );
+  const addMessage = useSocketStore(
+    (state) => state.addMessage
+  );
+  const setTypingUsers = useSocketStore(
+    (state) => state.setTypingUsers
+  );
+  const updateMessageStatus = useSocketStore(
+    (state) => state.updateMessageStatus
+  );
+  const setConnectionError = useSocketStore(
+    (state) => state.setConnectionError
+  );
+  const resetPendingMessageFlights = useSocketStore(
+    (state) => state.resetPendingMessageFlights
+  );
+  const updateConversationMessage = useConversationStore(
+    (state) => state.updateConversationMessage
+  );
 
   useEffect(() => {
     function onConnect() {
-      useSocketStore.setState({
+      useSocketStore.setState((state) => ({
         isConnected: true,
+        isConnecting: false,
+        connectionVersion:
+          state.connectionVersion + 1,
+        connectionError: null,
+      }));
 
+      const socketState =
+        useSocketStore.getState();
+
+      socketState.rejoinActiveConversation();
+      socketState.flushPendingMessages();
+    }
+
+    function onDisconnect() {
+      resetPendingMessageFlights();
+
+      useSocketStore.setState({
+        isConnected: false,
         isConnecting: false,
       });
     }
 
-    function onDisconnect() {
-      useSocketStore.setState({
-        isConnected: false,
-      });
+    function onConnectError(error: Error) {
+      setConnectionError(error.message);
+
+      if (
+        error.message
+          .toLowerCase()
+          .includes("unauthorized")
+      ) {
+        tokenStorage.remove();
+        useSocketStore
+          .getState()
+          .disconnectSocket();
+        useAuthStore
+          .getState()
+          .logout();
+      }
     }
 
-    socket.on(
-      SOCKET_EVENTS.CONNECT,
-      onConnect
-    );
+    function onOnlineUsers(users: string[]) {
+      setOnlineUsers(users);
+    }
 
-    socket.on(
-      SOCKET_EVENTS.DISCONNECT,
-      onDisconnect
-    );
+    function onReceiveMessage(message: Message) {
+      const currentUserId =
+        useAuthStore.getState().user?.id;
+      const activeConversationId =
+        useConversationStore.getState()
+          .activeConversation?.id;
+      const isRemoteMessage =
+        message.senderId !== "me" &&
+        message.senderId !== currentUserId;
 
-    socket.on(
-      SOCKET_EVENTS.ONLINE_USERS,
-
-      (
-        users
-      ) => {
-        setOnlineUsers(
-          users
-        );
-      }
-    );
-
-    socket.on(
-      SOCKET_EVENTS.RECEIVE_MESSAGE,
-
-      (
-        message
-      ) => {
-        if (
-          message.tempId
-        ) {
-          updateMessageStatus(
-            message.tempId,
-            "sent"
-          );
+      addMessage(message);
+      updateConversationMessage(
+        message.conversationId,
+        message.text,
+        {
+          unread:
+            isRemoteMessage &&
+            activeConversationId !==
+              message.conversationId,
         }
+      );
 
-        addMessage(
-          message
-        );
-
-        updateConversationMessage(
-          message.conversationId,
-          message.text
-        );
+      if (
+        socket.connected &&
+        isRemoteMessage
+      ) {
+        socket.emit(SOCKET_EVENTS.MESSAGE_DELIVERED, {
+          messageId: message.id,
+          conversationId: message.conversationId,
+        });
       }
-    );
+    }
 
-    socket.on(
-      SOCKET_EVENTS.TYPING_USERS,
+    function onTypingUsers(users: string[]) {
+      setTypingUsers(users);
+    }
 
-      (
-        users
-      ) => {
-        setTypingUsers(
-          users
-        );
-      }
-    );
+    function onMessageDelivered(receipt: MessageReceipt) {
+      updateMessageStatus(
+        receipt.messageId,
+        receipt.status ?? "delivered",
+        receipt.serverId
+      );
+    }
+
+    function onMessageSeen(receipt: MessageReceipt) {
+      updateMessageStatus(
+        receipt.messageId,
+        "read",
+        receipt.serverId
+      );
+    }
+
+    socket.on(SOCKET_EVENTS.CONNECT, onConnect);
+    socket.on(SOCKET_EVENTS.DISCONNECT, onDisconnect);
+    socket.on(SOCKET_EVENTS.CONNECT_ERROR, onConnectError);
+    socket.on(SOCKET_EVENTS.ONLINE_USERS, onOnlineUsers);
+    socket.on(SOCKET_EVENTS.RECEIVE_MESSAGE, onReceiveMessage);
+    socket.on(SOCKET_EVENTS.TYPING_USERS, onTypingUsers);
+    socket.on(SOCKET_EVENTS.MESSAGE_DELIVERED, onMessageDelivered);
+    socket.on(SOCKET_EVENTS.MESSAGE_SEEN, onMessageSeen);
 
     return () => {
-      socket.off(
-        SOCKET_EVENTS.CONNECT,
-        onConnect
-      );
-
-      socket.off(
-        SOCKET_EVENTS.DISCONNECT,
-        onDisconnect
-      );
-
-      socket.off(
-        SOCKET_EVENTS.ONLINE_USERS
-      );
-
-      socket.off(
-        SOCKET_EVENTS.RECEIVE_MESSAGE
-      );
-
-      socket.off(
-        SOCKET_EVENTS.TYPING_USERS
-      );
+      socket.off(SOCKET_EVENTS.CONNECT, onConnect);
+      socket.off(SOCKET_EVENTS.DISCONNECT, onDisconnect);
+      socket.off(SOCKET_EVENTS.CONNECT_ERROR, onConnectError);
+      socket.off(SOCKET_EVENTS.ONLINE_USERS, onOnlineUsers);
+      socket.off(SOCKET_EVENTS.RECEIVE_MESSAGE, onReceiveMessage);
+      socket.off(SOCKET_EVENTS.TYPING_USERS, onTypingUsers);
+      socket.off(SOCKET_EVENTS.MESSAGE_DELIVERED, onMessageDelivered);
+      socket.off(SOCKET_EVENTS.MESSAGE_SEEN, onMessageSeen);
     };
-  }, []);
+  }, [
+    addMessage,
+    resetPendingMessageFlights,
+    setConnectionError,
+    setOnlineUsers,
+    setTypingUsers,
+    updateConversationMessage,
+    updateMessageStatus,
+  ]);
 
   return children;
 }

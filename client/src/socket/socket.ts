@@ -1,16 +1,15 @@
 import { io } from "socket.io-client";
 
-export const socket = io(
-  process.env.NEXT_PUBLIC_SOCKET_URL!,
-  {
-    autoConnect: false,
+const SOCKET_URL =
+  process.env.NEXT_PUBLIC_SOCKET_URL ??
+  "http://localhost:5000";
 
-    transports: ["websocket"],
-
-    reconnection: true,
-
-    reconnectionAttempts: Infinity,
-
-    reconnectionDelay: 2000,
-  }
-);
+export const socket = io(SOCKET_URL, {
+  autoConnect: false,
+  transports: ["websocket", "polling"],
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 500,
+  reconnectionDelayMax: 5000,
+  timeout: 10000,
+});

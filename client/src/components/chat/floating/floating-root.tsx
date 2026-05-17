@@ -1,30 +1,21 @@
 "use client";
 
+import {
+  Bell,
+  Sparkles,
+} from "lucide-react";
+
+import { motion } from "framer-motion";
+
 import DynamicMusicIsland from "./dynamic-music-island";
-
+import MiniCallIsland from "./mini-call-island";
 import VoiceRoomOrb from "./voice-room-orb";
-
-import {
-  motion,
-} from "framer-motion";
-
-import {
-  useEffect,
-  useState,
-} from "react";
 
 type Props = {
   aiOpen: boolean;
-
-  setAiOpen: (
-    value: boolean
-  ) => void;
-
+  setAiOpen: (value: boolean) => void;
   notificationsOpen: boolean;
-
-  setNotificationsOpen: (
-    value: boolean
-  ) => void;
+  setNotificationsOpen: (value: boolean) => void;
 };
 
 export default function FloatingRoot({
@@ -33,129 +24,76 @@ export default function FloatingRoot({
   notificationsOpen,
   setNotificationsOpen,
 }: Props) {
-  const [
-    position,
-    setPosition,
-  ] = useState({
-    x: 0,
-    y: 0,
-  });
-
-  const [
-    mounted,
-    setMounted,
-  ] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return null;
-  }
-
-  function snapToEdge(
-    x: number,
-    y: number
-  ) {
-    const screenWidth =
-      window.innerWidth;
-
-    const snappedX =
-      x >
-      screenWidth / 2 - 100
-        ? 0
-        : -20;
-
-    setPosition({
-      x: snappedX,
-      y,
-    });
-  }
-
   return (
-    <motion.div
-      drag
-      dragMomentum
-      dragElastic={0.12}
-      whileDrag={{
-        scale: 1.04,
-      }}
-      dragTransition={{
-        bounceStiffness: 180,
-        bounceDamping: 18,
-      }}
-      onDragEnd={(
-        _,
-        info
-      ) => {
-        snapToEdge(
-          info.point.x,
-          info.point.y
-        );
-      }}
-      animate={{
-        x: position.x,
-        y: position.y,
-      }}
-      transition={{
-        type: "spring",
-        stiffness: 220,
-        damping: 22,
-      }}
-      className="fixed bottom-8 right-4 z-[140] flex flex-col items-center gap-4 xl:right-[400px]"
+    <div
+      className={`pointer-events-none fixed inset-x-0 bottom-3 z-[140] flex justify-center px-3 pb-[max(env(safe-area-inset-bottom),0px)] sm:bottom-5 xl:justify-end ${
+        aiOpen
+          ? "xl:pr-[404px]"
+          : "xl:pr-6"
+      }`}
     >
-      {/* VOICE ROOM */}
-      <div>
+      <motion.div
+        initial={{
+          opacity: 0,
+          y: 18,
+          scale: 0.96,
+        }}
+        animate={{
+          opacity: 1,
+          y: 0,
+          scale: 1,
+        }}
+        transition={{
+          type: "spring",
+          stiffness: 260,
+          damping: 26,
+        }}
+        className="pointer-events-auto flex max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-[24px] border border-white/10 bg-[#08111f]/92 p-2 shadow-[0_20px_70px_rgba(0,0,0,0.45)] backdrop-blur-3xl sm:gap-3 sm:rounded-[28px]"
+      >
+        <MiniCallIsland />
         <VoiceRoomOrb />
-      </div>
-
-      {/* MUSIC */}
-      <div>
         <DynamicMusicIsland />
-      </div>
 
-      {/* NOTIFICATION */}
-      <motion.button
-        whileHover={{
-          scale: 1.05,
-        }}
-        whileTap={{
-          scale: 0.96,
-        }}
-        onClick={() =>
-          setNotificationsOpen(
-            !notificationsOpen
-          )
-        }
-        className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-2xl shadow-2xl backdrop-blur-2xl transition hover:bg-white/[0.1]"
-      >
-        🔔
+        <motion.button
+          whileHover={{
+            scale: 1.05,
+          }}
+          whileTap={{
+            scale: 0.96,
+          }}
+          onClick={() =>
+            setNotificationsOpen(
+              !notificationsOpen
+            )
+          }
+          aria-label="Notifications"
+          className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white shadow-xl backdrop-blur-2xl transition hover:bg-white/[0.1] sm:h-14 sm:w-14"
+        >
+          <Bell size={20} />
 
-        <div className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-red-500 shadow-lg shadow-red-500/60" />
-      </motion.button>
+          <div className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-red-500 shadow-lg shadow-red-500/60" />
+        </motion.button>
 
-      {/* AI */}
-      <motion.button
-        whileHover={{
-          scale: 1.05,
-        }}
-        whileTap={{
-          scale: 0.96,
-        }}
-        onClick={() =>
-          setAiOpen(
-            !aiOpen
-          )
-        }
-        className={
-          aiOpen
-            ? "flex h-14 w-14 items-center justify-center rounded-full border border-purple-400/40 bg-gradient-to-br from-purple-600 via-fuchsia-600 to-indigo-600 text-2xl text-white shadow-2xl shadow-purple-600/40 backdrop-blur-2xl transition"
-            : "flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-2xl text-white shadow-2xl backdrop-blur-2xl transition hover:bg-white/[0.1]"
-        }
-      >
-        ✨
-      </motion.button>
-    </motion.div>
+        <motion.button
+          whileHover={{
+            scale: 1.05,
+          }}
+          whileTap={{
+            scale: 0.96,
+          }}
+          onClick={() =>
+            setAiOpen(!aiOpen)
+          }
+          aria-label="Flex AI"
+          className={
+            aiOpen
+              ? "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-purple-400/40 bg-gradient-to-br from-purple-600 via-fuchsia-600 to-indigo-600 text-white shadow-2xl shadow-purple-600/40 backdrop-blur-2xl transition sm:h-14 sm:w-14"
+              : "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white shadow-xl backdrop-blur-2xl transition hover:bg-white/[0.1] sm:h-14 sm:w-14"
+          }
+        >
+          <Sparkles size={20} />
+        </motion.button>
+      </motion.div>
+    </div>
   );
 }

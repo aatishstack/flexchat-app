@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-} from "react";
-
-import { tokenStorage } from "@/lib/token";
-
 import { useAuthStore } from "@/stores/auth.store";
-
-import { getCurrentUser } from "@/services/auth.service";
 
 export function useAuth() {
   const user =
@@ -33,59 +25,6 @@ export function useAuth() {
         state.isHydrated
     );
 
-  const setAuth =
-    useAuthStore(
-      (state) =>
-        state.setAuth
-    );
-
-  const setHydrated =
-    useAuthStore(
-      (state) =>
-        state.setHydrated
-    );
-
-  const logout =
-    useAuthStore(
-      (state) =>
-        state.logout
-    );
-
-  useEffect(() => {
-    async function hydrate() {
-      try {
-        const token =
-          tokenStorage.get();
-
-        if (!token) {
-          setHydrated(
-            true
-          );
-
-          return;
-        }
-
-        const user =
-          await getCurrentUser();
-
-        setAuth({
-          user,
-          token,
-        });
-      } catch {
-        tokenStorage.remove();
-
-        logout();
-      } finally {
-        setHydrated(
-          true
-        );
-      }
-    }
-
-    hydrate();
-  }, []);
-
   return {
     user,
 
@@ -94,5 +33,11 @@ export function useAuth() {
     isAuthenticated,
 
     isHydrated,
+
+    status: isHydrated
+      ? isAuthenticated
+        ? "authenticated"
+        : "unauthenticated"
+      : "loading",
   };
 }

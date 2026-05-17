@@ -5,20 +5,20 @@ import {
 
 import { eq } from "drizzle-orm";
 
-import { db } from "../../db";
-import { users } from "../../db/schema";
+import { db } from "../../db/index.js";
+import { users } from "../../db/schema.js";
 
 import {
   hashPassword,
   comparePassword,
-} from "../../utils/hash";
+} from "../../utils/hash.js";
 
-import { generateToken } from "../../lib/jwt";
+import { generateToken } from "../../lib/jwt.js";
 
 import {
   registerSchema,
   loginSchema,
-} from "./auth.schema";
+} from "./auth.schema.js";
 
 export async function registerController(
   request: FastifyRequest,
@@ -35,6 +35,7 @@ export async function registerController(
       await db
         .insert(users)
         .values({
+          id: crypto.randomUUID(),
           username: body.username,
           email: body.email,
           password: hashedPassword,

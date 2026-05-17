@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify";
 
-import { userRoutes } from "../modules/user/user.routes";
-import { chatRoutes } from "../modules/chat/chat.routes";
+import { userRoutes } from "../modules/user/user.routes.js";
+import { chatRoutes } from "../modules/chat/chat.route.js";
 
 export async function registerRoutes(
   app: FastifyInstance

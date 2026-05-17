@@ -7,9 +7,7 @@ import { useActiveStore } from "@/store/active-store";
 export default function ActiveNowPanel() {
   const users =
     useActiveStore(
-      (
-        state: any
-      ) =>
+      (state) =>
         state.users
     );
 
@@ -28,7 +26,7 @@ export default function ActiveNowPanel() {
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {users.map(
           (
-            user: any
+            user
           ) => (
             <motion.div
               key={user.id}

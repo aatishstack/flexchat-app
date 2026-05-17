@@ -14,11 +14,14 @@ import {
 import {
   useEffect,
   useRef,
+  type KeyboardEvent,
 } from "react";
 
 interface Props {
   message: string;
-  setMessage: any;
+  setMessage: (
+    value: string
+  ) => void;
   handleSend: () => void;
 }
 
@@ -29,7 +32,7 @@ export default function MessageInput({
 }: Props) {
 
   const textareaRef =
-    useRef<any>(null);
+    useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
 
@@ -47,7 +50,7 @@ export default function MessageInput({
   }, [message]);
 
   const handleKeyDown = (
-    e: any
+    e: KeyboardEvent<HTMLTextAreaElement>
   ) => {
 
     if (

@@ -2,13 +2,14 @@
 
 import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
+import type { UseFormRegisterReturn } from "react-hook-form";
 
 interface Props {
   label: string;
   type?: string;
   placeholder: string;
   error?: string;
-  register: any;
+  register: UseFormRegisterReturn;
 }
 
 export default function AuthInput({

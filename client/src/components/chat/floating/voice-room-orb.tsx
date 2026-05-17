@@ -44,7 +44,7 @@ export default function VoiceRoomOrb() {
         onClick={
           toggleExpanded
         }
-        className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-cyan-400/20 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 shadow-2xl shadow-cyan-500/20 backdrop-blur-2xl"
+        className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 shadow-2xl shadow-cyan-500/20 backdrop-blur-2xl sm:h-14 sm:w-14"
       >
         {/* ACTIVE RING */}
         <motion.div
@@ -84,26 +84,26 @@ export default function VoiceRoomOrb() {
             initial={{
               opacity: 0,
               scale: 0.8,
-              y: 20,
+              y: 12,
             }}
             animate={{
               opacity: 1,
               scale: 1,
-              y: -120,
+              y: 0,
             }}
             exit={{
               opacity: 0,
               scale: 0.7,
-              y: 20,
+              y: 12,
             }}
             transition={{
               type: "spring",
               stiffness: 260,
               damping: 22,
             }}
-            className="absolute bottom-0 right-0 z-[160]"
+            className="absolute bottom-[calc(100%+0.75rem)] right-0 z-[160]"
           >
-            <div className="w-[320px] overflow-hidden rounded-[32px] border border-cyan-400/20 bg-black/60 shadow-2xl shadow-cyan-500/20 backdrop-blur-3xl">
+            <div className="w-[min(calc(100vw-1.5rem),320px)] overflow-hidden rounded-[28px] border border-cyan-400/20 bg-[#06131d]/95 shadow-2xl shadow-cyan-500/20 backdrop-blur-3xl">
               {/* HEADER */}
               <div className="flex items-center justify-between px-5 pt-5">
                 <div>

@@ -9,7 +9,17 @@ import {
 
 import { motion } from "framer-motion";
 
-const bars = Array.from({ length: 20 });
+const bars = Array.from(
+  {
+    length: 20,
+  },
+  (_, index) => ({
+    id: index,
+    low: 20 + (index % 5) * 4,
+    high: 42 + (index % 7) * 9,
+    duration: 0.8 + (index % 6) * 0.12,
+  })
+);
 
 export default function LiveCallCard() {
   return (
@@ -140,18 +150,18 @@ export default function LiveCallCard() {
 
       {/* WAVEFORM */}
       <div className="relative mt-12 flex h-32 items-end justify-center gap-[6px] overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.03] px-8 py-6">
-        {bars.map((_, index) => (
+        {bars.map((bar) => (
           <motion.div
-            key={index}
+            key={bar.id}
             animate={{
               height: [
-                `${Math.random() * 20 + 20}px`,
-                `${Math.random() * 90 + 30}px`,
-                `${Math.random() * 20 + 20}px`,
+                `${bar.low}px`,
+                `${bar.high}px`,
+                `${bar.low}px`,
               ],
             }}
             transition={{
-              duration: Math.random() * 1 + 0.8,
+              duration: bar.duration,
               repeat: Infinity,
               ease: "easeInOut",
             }}
