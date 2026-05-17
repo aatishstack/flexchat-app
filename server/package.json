@@ -8,7 +8,8 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "db:migrate:commercial": "tsx src/scripts/apply-commercial-migrations.ts"
   },
   "keywords": [],
   "author": "",

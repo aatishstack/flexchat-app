@@ -23,6 +23,11 @@ import { useConversationStore } from "@/stores/conversation.store";
 import { queryKeys } from "@/lib/query-keys";
 import { tokenStorage } from "@/lib/token";
 import { useNotificationStore } from "@/store/notification-store";
+import {
+  useCallStore,
+  type CallSession,
+} from "@/store/call-store";
+import type { Story } from "@/types/story";
 
 type MessageReceipt = {
   messageId: string;
@@ -48,6 +53,31 @@ type ConversationUpdatedPayload = {
   latestMessage?: string;
   senderId?: string;
   createdAt?: string;
+};
+
+type StoryViewedPayload = {
+  storyId?: string;
+  viewerId?: string;
+  viewedAt?: string;
+};
+
+type CallLifecyclePayload = {
+  callId?: string;
+  reason?: string;
+};
+
+type CallSignalRelayPayload = {
+  callId?: string;
+  signal?: {
+    type: "offer" | "answer" | "candidate";
+    description?: RTCSessionDescriptionInit;
+    candidate?: RTCIceCandidateInit;
+  };
+};
+
+type CallErrorPayload = {
+  callId?: string;
+  message?: string;
 };
 
 const CONVERSATION_UPDATE_DEDUPE_TTL_MS =
@@ -197,6 +227,9 @@ export default function SocketProvider({
           .includes("unauthorized")
       ) {
         tokenStorage.remove();
+        useCallStore
+          .getState()
+          .resetCall();
         useSocketStore
           .getState()
           .disconnectSocket();
@@ -442,6 +475,103 @@ export default function SocketProvider({
       );
     }
 
+    function onStoryCreated(story: Story) {
+      if (!story?.id) {
+        return;
+      }
+
+      queryClient.setQueryData<Story[]>(
+        queryKeys.stories.all,
+        (stories) => [
+          story,
+          ...(stories ?? []).filter(
+            (item) => item.id !== story.id
+          ),
+        ]
+      );
+    }
+
+    function onStoryViewed(
+      payload: StoryViewedPayload
+    ) {
+      if (!payload.storyId) {
+        return;
+      }
+
+      queryClient.setQueryData<Story[]>(
+        queryKeys.stories.all,
+        (stories) =>
+          stories?.map((story) =>
+            story.id === payload.storyId
+              ? {
+                  ...story,
+                  viewed:
+                    payload.viewerId ===
+                    useAuthStore.getState().user?.id
+                      ? true
+                      : story.viewed,
+                }
+              : story
+          ) ?? []
+      );
+    }
+
+    function onCallIncoming(
+      call: CallSession
+    ) {
+      useCallStore
+        .getState()
+        .handleIncomingCall(call);
+    }
+
+    function onCallAccepted(
+      call: CallSession
+    ) {
+      useCallStore
+        .getState()
+        .handleCallAccepted(call);
+    }
+
+    function onCallRejected(
+      payload: CallLifecyclePayload
+    ) {
+      useCallStore
+        .getState()
+        .handleCallRejected(payload);
+    }
+
+    function onCallCanceled(
+      payload: CallLifecyclePayload
+    ) {
+      useCallStore
+        .getState()
+        .handleCallCanceled(payload);
+    }
+
+    function onCallEnded(
+      payload: CallLifecyclePayload
+    ) {
+      useCallStore
+        .getState()
+        .handleCallEnded(payload);
+    }
+
+    function onCallSignalRelay(
+      payload: CallSignalRelayPayload
+    ) {
+      useCallStore
+        .getState()
+        .handleCallSignal(payload);
+    }
+
+    function onCallError(
+      payload: CallErrorPayload
+    ) {
+      useCallStore
+        .getState()
+        .handleCallError(payload);
+    }
+
     socket.on(SOCKET_EVENTS.CONNECT, onConnect);
     socket.on(SOCKET_EVENTS.DISCONNECT, onDisconnect);
     socket.on(SOCKET_EVENTS.CONNECT_ERROR, onConnectError);
@@ -452,6 +582,15 @@ export default function SocketProvider({
     socket.on(SOCKET_EVENTS.MESSAGE_DELIVERED, onMessageDelivered);
     socket.on(SOCKET_EVENTS.MESSAGE_SEEN, onMessageSeen);
     socket.on(SOCKET_EVENTS.CONVERSATION_ERROR, onConversationError);
+    socket.on(SOCKET_EVENTS.STORY_CREATED, onStoryCreated);
+    socket.on(SOCKET_EVENTS.STORY_VIEWED, onStoryViewed);
+    socket.on(SOCKET_EVENTS.CALL_INCOMING, onCallIncoming);
+    socket.on(SOCKET_EVENTS.CALL_ACCEPTED, onCallAccepted);
+    socket.on(SOCKET_EVENTS.CALL_REJECTED, onCallRejected);
+    socket.on(SOCKET_EVENTS.CALL_CANCELED, onCallCanceled);
+    socket.on(SOCKET_EVENTS.CALL_ENDED, onCallEnded);
+    socket.on(SOCKET_EVENTS.CALL_SIGNAL_RELAY, onCallSignalRelay);
+    socket.on(SOCKET_EVENTS.CALL_ERROR, onCallError);
     socket.io.on("reconnect_attempt", onReconnectAttempt);
     socket.io.on("reconnect_failed", onReconnectFailed);
 
@@ -466,6 +605,15 @@ export default function SocketProvider({
       socket.off(SOCKET_EVENTS.MESSAGE_DELIVERED, onMessageDelivered);
       socket.off(SOCKET_EVENTS.MESSAGE_SEEN, onMessageSeen);
       socket.off(SOCKET_EVENTS.CONVERSATION_ERROR, onConversationError);
+      socket.off(SOCKET_EVENTS.STORY_CREATED, onStoryCreated);
+      socket.off(SOCKET_EVENTS.STORY_VIEWED, onStoryViewed);
+      socket.off(SOCKET_EVENTS.CALL_INCOMING, onCallIncoming);
+      socket.off(SOCKET_EVENTS.CALL_ACCEPTED, onCallAccepted);
+      socket.off(SOCKET_EVENTS.CALL_REJECTED, onCallRejected);
+      socket.off(SOCKET_EVENTS.CALL_CANCELED, onCallCanceled);
+      socket.off(SOCKET_EVENTS.CALL_ENDED, onCallEnded);
+      socket.off(SOCKET_EVENTS.CALL_SIGNAL_RELAY, onCallSignalRelay);
+      socket.off(SOCKET_EVENTS.CALL_ERROR, onCallError);
       socket.io.off("reconnect_attempt", onReconnectAttempt);
       socket.io.off("reconnect_failed", onReconnectFailed);
     };

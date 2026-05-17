@@ -12,7 +12,9 @@ html,
 body {
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: #050510;
   font-family:
     Inter,
@@ -26,17 +28,6 @@ body {
       rgba(124, 58, 237, 0.14),
       transparent 28%
     );
-}
-
-/* FLEXCHAT SOFT BACKGROUND FIX */
-
-.absolute.rounded-full {
-
-  opacity: 0.08 !important;
-
-  filter: blur(120px) !important;
-
-  pointer-events: none !important;
 }
 
 ::-webkit-scrollbar {
@@ -62,9 +53,18 @@ button {
 button {
   cursor: pointer;
 }
-/* HIDE FLOATING BACKGROUND BLOBS */
 
-div[class*="absolute"][class*="blur"] {
+button:disabled {
+  cursor: not-allowed;
+}
 
-  display: none !important;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

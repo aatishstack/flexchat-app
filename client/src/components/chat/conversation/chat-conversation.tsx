@@ -13,8 +13,10 @@ import {
 import {
   FileText,
   ImageIcon,
+  Phone,
   RefreshCw,
   SendHorizonal,
+  Video,
 } from "lucide-react";
 
 import {
@@ -33,6 +35,7 @@ import {
   Message,
   useSocketStore,
 } from "@/store/socket-store";
+import { useCallStore } from "@/store/call-store";
 import { updateConversationInQueryCache } from "@/lib/conversation-query-cache";
 import type { ConversationQueryCache } from "@/lib/conversation-query-cache";
 import { queryKeys } from "@/lib/query-keys";
@@ -530,6 +533,9 @@ export default function ChatConversation() {
   const markConversationRead = useConversationStore(
     (state) => state.markConversationRead
   );
+  const startCall = useCallStore(
+    (state) => state.startCall
+  );
 
   const handleRetryMessage = useCallback(
     (messageId: string) => {
@@ -640,6 +646,11 @@ export default function ChatConversation() {
   const showInitialMessageSkeleton =
     messagesQuery.isLoading &&
     !visibleMessages.length;
+  const callTargetUserId =
+    activeConversation?.memberIds?.find(
+      (memberId) =>
+        memberId !== user?.id
+    );
 
   useEffect(() => {
     if (!conversationId) {
@@ -947,9 +958,26 @@ export default function ChatConversation() {
     stopActiveTyping(conversationId);
   }
 
+  function handleStartCall(
+    kind: "voice" | "video"
+  ) {
+    if (
+      !conversationId ||
+      !callTargetUserId
+    ) {
+      return;
+    }
+
+    void startCall({
+      conversationId,
+      targetUserId: callTargetUserId,
+      kind,
+    });
+  }
+
   if (!activeConversation) {
     return (
-      <section className="flex h-full flex-col items-center justify-center bg-[#070B14] px-6 text-center">
+      <section className="flex h-full flex-col items-center justify-center bg-transparent px-6 text-center">
         <div className="max-w-sm rounded-[32px] border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-purple-950/20 backdrop-blur-2xl">
           <h2 className="text-xl font-semibold text-white">
             Select a conversation
@@ -963,8 +991,10 @@ export default function ChatConversation() {
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-col bg-[#070B14]">
-      <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-4 sm:px-6 sm:py-5">
+    <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_50%_0%,rgba(168,85,247,0.10),transparent_32%),linear-gradient(180deg,rgba(8,17,31,0.72),rgba(5,8,18,0.92))]">
+      <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.7)_1px,transparent_0)] [background-size:24px_24px]" />
+
+      <div className="relative z-10 flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#08111f]/62 px-4 py-4 shadow-lg shadow-black/10 backdrop-blur-2xl sm:px-6 sm:py-5">
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-base font-bold text-white sm:h-14 sm:w-14 sm:text-lg">
             {activeConversation.name?.charAt(0) ?? "F"}
@@ -994,12 +1024,38 @@ export default function ChatConversation() {
             </p>
           </div>
         </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              handleStartCall("voice")
+            }
+            disabled={!callTargetUserId}
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-200 transition hover:border-purple-400/30 hover:bg-purple-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Start voice call"
+          >
+            <Phone size={18} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              handleStartCall("video")
+            }
+            disabled={!callTargetUserId}
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-200 transition hover:border-purple-400/30 hover:bg-purple-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Start video call"
+          >
+            <Video size={18} />
+          </button>
+        </div>
       </div>
 
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="min-h-0 flex-1 touch-pan-y overscroll-contain overflow-y-auto scroll-pb-28 px-3 py-4 sm:px-6 sm:py-6"
+        className="relative z-10 min-h-0 flex-1 touch-pan-y overscroll-contain overflow-y-auto scroll-pb-28 px-3 py-4 sm:px-6 sm:py-6"
       >
         {showInitialMessageSkeleton ? (
           <MessageSkeleton />
@@ -1098,7 +1154,7 @@ export default function ChatConversation() {
         )}
       </div>
 
-      <div className="shrink-0 border-t border-white/10 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-xl sm:p-5 sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
+      <div className="relative z-10 shrink-0 border-t border-white/10 bg-[#08111f]/72 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-18px_60px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:p-5 sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
         <div className="flex items-end gap-2 sm:gap-3">
           <input
             ref={fileInputRef}

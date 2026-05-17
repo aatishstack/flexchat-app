@@ -49,4 +49,49 @@ export const SOCKET_EVENTS = {
 
   CONVERSATION_ERROR:
     "conversation_error",
+
+  STORY_CREATED:
+    "story_created",
+
+  STORY_VIEWED:
+    "story_viewed",
+
+  CALL_INVITE:
+    "call_invite",
+
+  CALL_INCOMING:
+    "call_incoming",
+
+  CALL_ACCEPT:
+    "call_accept",
+
+  CALL_ACCEPTED:
+    "call_accepted",
+
+  CALL_REJECT:
+    "call_reject",
+
+  CALL_REJECTED:
+    "call_rejected",
+
+  CALL_CANCEL:
+    "call_cancel",
+
+  CALL_CANCELED:
+    "call_canceled",
+
+  CALL_END:
+    "call_end",
+
+  CALL_ENDED:
+    "call_ended",
+
+  CALL_SIGNAL:
+    "call_signal",
+
+  CALL_SIGNAL_RELAY:
+    "call_signal_relay",
+
+  CALL_ERROR:
+    "call_error",
 } as const;

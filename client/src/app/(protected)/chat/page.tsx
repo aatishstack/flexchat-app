@@ -71,6 +71,16 @@ const NotificationPanel = dynamic(
   }
 );
 
+const CallLayer = dynamic(
+  () =>
+    import(
+      "../../../components/chat/calls/call-layer"
+    ),
+  {
+    ssr: false,
+  }
+);
+
 export default function ChatPage() {
   const [
     notificationsOpen,
@@ -129,7 +139,7 @@ export default function ChatPage() {
             "1rem",
         } as CSSProperties
       }
-      className="relative h-dvh overflow-hidden bg-gradient-to-br from-[#050816] via-[#0B1020] to-[#111827] text-white"
+      className="relative h-dvh overflow-hidden bg-[radial-gradient(circle_at_18%_0%,rgba(168,85,247,0.18),transparent_30%),radial-gradient(circle_at_86%_18%,rgba(6,182,212,0.08),transparent_24%),linear-gradient(135deg,#050816_0%,#090d19_48%,#0b1020_100%)] text-white"
     >
       {/* SEARCH */}
       <GlobalSearch />
@@ -139,11 +149,6 @@ export default function ChatPage() {
 
       {/* ACTIVITY */}
       <ActivityBar />
-
-      {/* GLOW EFFECTS */}
-      <div className="pointer-events-none absolute left-[-120px] top-[-120px] h-[300px] w-[300px] rounded-full bg-purple-600/20 blur-[120px]" />
-
-      <div className="pointer-events-none absolute bottom-[-120px] right-[-120px] h-[300px] w-[300px] rounded-full bg-fuchsia-600/20 blur-[120px]" />
 
       {/* MAIN */}
       <div className="flex h-full w-full overflow-hidden">
@@ -226,6 +231,8 @@ export default function ChatPage() {
           setNotificationsOpen(false)
         }
       />
+
+      <CallLayer />
     </div>
   );
 }

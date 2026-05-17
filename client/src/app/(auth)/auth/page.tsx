@@ -115,10 +115,10 @@ export default function AuthPage() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#07070a] text-white">
+    <main className="relative min-h-dvh overflow-y-auto overflow-x-hidden bg-[#07070a] text-white">
       <AuthBackground />
 
-      <div className="relative z-10 grid min-h-screen lg:grid-cols-2">
+      <div className="relative z-10 grid min-h-dvh lg:grid-cols-2">
         <div className="relative hidden overflow-hidden border-r border-white/10 lg:flex">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 via-transparent to-fuchsia-500/10" />
 
@@ -149,7 +149,7 @@ export default function AuthPage() {
           </div>
         </div>
 
-        <div className="flex items-center justify-center px-5 py-8 sm:px-8">
+        <div className="flex min-h-dvh items-center justify-center px-5 py-[calc(2rem+env(safe-area-inset-top))] pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-8">
           <motion.div
             initial={{
               opacity: 0,

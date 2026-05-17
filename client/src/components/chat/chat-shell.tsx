@@ -23,7 +23,7 @@ export default function ChatShell({
     useState(false);
 
   return (
-    <main className="flex h-full min-h-0 w-full overflow-hidden bg-[#070B14] text-white">
+    <main className="flex h-full min-h-0 w-full overflow-hidden bg-transparent text-white">
       {/* Mobile Sidebar */}
       <div
         className={`fixed inset-0 z-50 transition-all lg:hidden ${
@@ -33,7 +33,7 @@ export default function ChatShell({
         }`}
       >
         <div
-          className={`absolute left-0 top-0 h-full w-[min(88vw,340px)] transition-transform duration-300 ${
+          className={`absolute left-0 top-0 h-full w-[min(90vw,360px)] transition-transform duration-300 ${
             open
               ? "translate-x-0"
               : "-translate-x-full"
@@ -60,7 +60,7 @@ export default function ChatShell({
       {/* Chat */}
       <div className="relative flex flex-1 flex-col">
         {/* Mobile Topbar */}
-        <div className="flex min-h-16 items-center border-b border-white/10 bg-black/20 px-5 pt-[env(safe-area-inset-top)] backdrop-blur-xl lg:hidden">
+        <div className="flex min-h-16 items-center border-b border-white/10 bg-[#08111f]/80 px-5 pt-[env(safe-area-inset-top)] shadow-lg shadow-black/20 backdrop-blur-2xl lg:hidden">
           <button
             onClick={() =>
               setOpen(true)

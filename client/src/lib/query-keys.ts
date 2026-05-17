@@ -17,6 +17,9 @@ export const queryKeys = {
         conversationId,
       ] as const,
   },
+  stories: {
+    all: ["stories"] as const,
+  },
   users: {
     discover: (query: string) =>
       [

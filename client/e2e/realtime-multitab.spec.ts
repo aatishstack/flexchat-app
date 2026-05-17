@@ -282,6 +282,15 @@ test("logout synchronizes across same-user tabs", async ({
     )
     .first()
     .click();
+  await expect(
+    aliceChat.page.getByText("Log out?")
+  ).toBeVisible();
+  await aliceChat.page
+    .getByRole("button", {
+      name: "Log out",
+      exact: true,
+    })
+    .click();
 
   await expect(aliceChat.page).toHaveURL(
     /\/auth$/,

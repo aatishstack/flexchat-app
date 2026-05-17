@@ -14,6 +14,8 @@ import {
 } from "./socket-store.js";
 import { registerMessageHandlers } from "./handlers/message.handler.js";
 import { registerTypingHandlers } from "./handlers/typing.handler.js";
+import { registerCallHandlers } from "./handlers/call.handler.js";
+import { setSocketServer } from "./socket-hub.js";
 
 export function setupSocket(server: HttpServer) {
   const io = new Server(server, {
@@ -28,6 +30,8 @@ export function setupSocket(server: HttpServer) {
       skipMiddlewares: false,
     },
   });
+
+  setSocketServer(io);
   const presenceCleanupTimer = setInterval(() => {
     const changedUserIds =
       removeMissingOnlineSockets(
@@ -74,6 +78,7 @@ export function setupSocket(server: HttpServer) {
 
     registerMessageHandlers(io, socket);
     registerTypingHandlers(io, socket);
+    registerCallHandlers(io, socket);
 
     socket.on(SOCKET_EVENTS.DISCONNECT, () => {
       removeOnlineSocket(socket.id);

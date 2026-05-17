@@ -43,8 +43,8 @@ export default function ActiveNowPanel() {
     onlineUsersQuery.data ?? [];
 
   return (
-    <aside className="hidden h-full w-[320px] border-l border-white/10 bg-[#0B111C] xl:flex xl:flex-col">
-      <div className="border-b border-white/10 p-5">
+    <aside className="hidden h-full w-[320px] border-l border-white/10 bg-[#08111f]/82 shadow-2xl shadow-black/20 backdrop-blur-3xl xl:flex xl:flex-col">
+      <div className="border-b border-white/10 bg-white/[0.02] p-5">
         <h2 className="text-xl font-semibold text-white">
           Active Now
         </h2>
@@ -98,7 +98,7 @@ export default function ActiveNowPanel() {
               opacity: 1,
               x: 0,
             }}
-            className="flex items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.03] p-4"
+            className="flex items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.045] p-4 shadow-lg shadow-black/10"
           >
             <div className="relative">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-lg font-bold text-white">

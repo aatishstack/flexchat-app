@@ -121,8 +121,8 @@ export default function DiscoverPanel() {
     startConversation.variables;
 
   return (
-    <aside className="hidden w-[320px] border-r border-white/10 bg-[#0B111C] xl:flex xl:flex-col">
-      <div className="border-b border-white/10 p-5">
+    <aside className="hidden w-[320px] border-r border-white/10 bg-[#08111f]/82 shadow-2xl shadow-black/20 backdrop-blur-3xl xl:flex xl:flex-col">
+      <div className="border-b border-white/10 bg-white/[0.02] p-5">
         <h2 className="text-xl font-semibold text-white">
           Discover
         </h2>
@@ -203,7 +203,7 @@ export default function DiscoverPanel() {
                 opacity: 1,
                 y: 0,
               }}
-              className="flex items-center justify-between gap-3 rounded-3xl border border-white/10 bg-white/[0.03] p-4"
+              className="flex items-center justify-between gap-3 rounded-3xl border border-white/10 bg-white/[0.045] p-4 shadow-lg shadow-black/10"
             >
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-base font-bold text-white">

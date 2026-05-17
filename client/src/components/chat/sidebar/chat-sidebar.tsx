@@ -10,16 +10,23 @@ import {
 } from "react";
 
 import {
+  AlertTriangle,
   LogOut,
   MessageCircle,
   Pin,
   Search,
 } from "lucide-react";
+import {
+  AnimatePresence,
+  motion,
+} from "framer-motion";
 import { useRouter } from "next/navigation";
 
 import { useConversationsQuery } from "@/hooks/queries/use-conversations-query";
+import StoryTray from "@/components/chat/stories/story-tray";
 import { queryClient } from "@/lib/query-client";
 import { tokenStorage } from "@/lib/token";
+import { useCallStore } from "@/store/call-store";
 import { useSocketStore } from "@/store/socket-store";
 import { useAuthStore } from "@/stores/auth.store";
 import { useConversationStore } from "@/stores/conversation.store";
@@ -203,6 +210,10 @@ export default function ChatSidebar() {
   const [search, setSearch] = useState("");
   const [activeFolder, setActiveFolder] =
     useState("all");
+  const [
+    logoutConfirmOpen,
+    setLogoutConfirmOpen,
+  ] = useState(false);
   const deferredSearch =
     useDeferredValue(search);
 
@@ -327,10 +338,11 @@ export default function ChatSidebar() {
       [setActiveConversation]
     );
 
-  const handleLogout =
+  const confirmLogout =
     useCallback(() => {
       tokenStorage.remove();
       queryClient.clear();
+      useCallStore.getState().resetCall();
       resetConversationState();
       disconnectSocket();
       logout();
@@ -360,12 +372,12 @@ export default function ChatSidebar() {
   ]);
 
   return (
-    <aside className="flex h-full w-full border-r border-white/10 bg-[#0B111C] lg:w-[340px]">
+    <aside className="flex h-full w-full border-r border-white/10 bg-[#08111f]/88 shadow-2xl shadow-black/25 backdrop-blur-3xl lg:w-[360px]">
       <div className="flex w-full flex-col">
-        <div className="border-b border-white/10 p-5">
+        <div className="border-b border-white/10 bg-white/[0.02] p-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-600 shadow-lg shadow-purple-600/30">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-600 shadow-lg shadow-purple-600/30">
                 <MessageCircle
                   size={24}
                   className="text-white"
@@ -386,7 +398,9 @@ export default function ChatSidebar() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={handleLogout}
+                onClick={() =>
+                  setLogoutConfirmOpen(true)
+                }
                 className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-300 transition-all hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-200"
                 aria-label="Logout"
               >
@@ -407,7 +421,7 @@ export default function ChatSidebar() {
                 setSearch(event.target.value)
               }
               placeholder="Search conversations..."
-              className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.03] pl-12 pr-4 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-purple-500/40"
+              className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.045] pl-12 pr-4 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-purple-500/40 focus:bg-white/[0.07]"
             />
           </div>
 
@@ -432,9 +446,11 @@ export default function ChatSidebar() {
               </button>
             ))}
           </div>
+
+          <StoryTray />
         </div>
 
-        <div className="flex-1 space-y-2 overflow-y-auto p-4">
+        <div className="flex-1 space-y-2 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {conversationsQuery.isLoading ? (
             <div className="space-y-3">
               {Array.from({
@@ -498,6 +514,82 @@ export default function ChatSidebar() {
           ) : null}
         </div>
       </div>
+
+      <AnimatePresence>
+        {logoutConfirmOpen ? (
+          <motion.div
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+            }}
+            className="fixed inset-0 z-[280] flex items-center justify-center bg-black/70 p-4 backdrop-blur-xl"
+          >
+            <motion.div
+              initial={{
+                opacity: 0,
+                y: 18,
+                scale: 0.96,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                scale: 1,
+              }}
+              exit={{
+                opacity: 0,
+                y: 18,
+                scale: 0.96,
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 260,
+                damping: 28,
+              }}
+              className="w-full max-w-sm rounded-[30px] border border-white/10 bg-[#0B111C]/96 p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.6)] backdrop-blur-3xl"
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/15 text-red-100">
+                  <AlertTriangle size={21} />
+                </div>
+
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold">
+                    Log out?
+                  </h2>
+                  <p className="mt-1 text-sm leading-relaxed text-zinc-400">
+                    Your session will end on this device. Realtime sync resumes after you sign in again.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLogoutConfirmOpen(false)
+                  }
+                  className="h-12 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08]"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={confirmLogout}
+                  className="h-12 rounded-2xl bg-red-500 text-sm font-semibold text-white shadow-xl shadow-red-500/25 transition hover:bg-red-400"
+                >
+                  Log out
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </aside>
   );
 }
