@@ -29,6 +29,8 @@ interface NotificationState {
   clearNotifications: () => void;
 }
 
+const MAX_NOTIFICATIONS = 80;
+
 export const useNotificationStore =
   create<NotificationState>(
     (set) => ({
@@ -45,8 +47,15 @@ export const useNotificationStore =
               notifications:
                 [
                   notification,
-                  ...state.notifications,
-                ],
+                  ...state.notifications.filter(
+                    (item) =>
+                      item.id !==
+                      notification.id
+                  ),
+                ].slice(
+                  0,
+                  MAX_NOTIFICATIONS
+                ),
             })
           ),
 

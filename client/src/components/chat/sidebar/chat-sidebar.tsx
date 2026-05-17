@@ -13,7 +13,6 @@ import {
   LogOut,
   MessageCircle,
   Pin,
-  Plus,
   Search,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -37,6 +36,84 @@ function hasOnlinePeer(
         memberId !== currentUserId &&
         onlineUsers.has(memberId)
     ) ?? false
+  );
+}
+
+const RELATIVE_TIME_FORMATTER =
+  new Intl.RelativeTimeFormat("en", {
+    numeric: "auto",
+  });
+
+function formatConversationTime(
+  value?: string
+) {
+  if (!value) {
+    return "";
+  }
+
+  const time =
+    new Date(value).getTime();
+
+  if (Number.isNaN(time)) {
+    return "";
+  }
+
+  const diffSeconds =
+    Math.round(
+      (time - Date.now()) / 1000
+    );
+  const absoluteSeconds =
+    Math.abs(diffSeconds);
+
+  if (absoluteSeconds < 60) {
+    return "now";
+  }
+
+  const units = [
+    [
+      "year",
+      60 * 60 * 24 * 365,
+    ],
+    [
+      "month",
+      60 * 60 * 24 * 30,
+    ],
+    [
+      "week",
+      60 * 60 * 24 * 7,
+    ],
+    [
+      "day",
+      60 * 60 * 24,
+    ],
+    [
+      "hour",
+      60 * 60,
+    ],
+    [
+      "minute",
+      60,
+    ],
+  ] as const;
+
+  const [
+    unit,
+    seconds,
+  ] =
+    units.find(
+      ([, unitSeconds]) =>
+        absoluteSeconds >=
+        unitSeconds
+    ) ?? [
+      "minute",
+      60,
+    ];
+
+  return RELATIVE_TIME_FORMATTER.format(
+    Math.round(
+      diffSeconds / seconds
+    ),
+    unit
   );
 }
 
@@ -96,7 +173,10 @@ const ConversationListButton = memo(
             </div>
 
             <span className="text-xs text-zinc-500">
-              now
+              {formatConversationTime(
+                conversation.lastActivityAt ??
+                  conversation.createdAt
+              )}
             </span>
           </div>
 
@@ -306,17 +386,6 @@ export default function ChatSidebar() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] transition-all hover:border-purple-500/40 hover:bg-purple-500/10"
-                aria-label="New conversation"
-              >
-                <Plus
-                  size={20}
-                  className="text-white"
-                />
-              </button>
-
-              <button
-                type="button"
                 onClick={handleLogout}
                 className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-300 transition-all hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-200"
                 aria-label="Logout"
@@ -345,9 +414,6 @@ export default function ChatSidebar() {
           <div className="mt-5 flex items-center gap-2 overflow-x-auto pb-1">
             {[
               "all",
-              "work",
-              "friends",
-              "groups",
               "unread",
             ].map((folder) => (
               <button
@@ -413,6 +479,23 @@ export default function ChatSidebar() {
               );
             }
           )}
+
+          {conversationsQuery.hasNextPage ? (
+            <button
+              type="button"
+              onClick={() => {
+                void conversationsQuery.fetchNextPage();
+              }}
+              disabled={
+                conversationsQuery.isFetchingNextPage
+              }
+              className="mt-3 w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-medium text-zinc-300 transition hover:border-purple-400/30 hover:bg-purple-500/10 hover:text-white disabled:cursor-wait disabled:opacity-60"
+            >
+              {conversationsQuery.isFetchingNextPage
+                ? "Loading..."
+                : "Load more"}
+            </button>
+          ) : null}
         </div>
       </div>
     </aside>

@@ -1,28 +1,65 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+} from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import { queryKeys } from "@/lib/query-keys";
-import { getMessages } from "@/services/message.service";
+import { getMessagePage } from "@/services/message.service";
+import type { Message } from "@/services/message.service";
 
 const INITIAL_MESSAGE_LIMIT = 120;
 
 export function useMessagesQuery(
   conversationId: string | null
 ) {
-  return useQuery({
+  const query = useInfiniteQuery({
     enabled: !!conversationId,
+    initialPageParam:
+      undefined as string | undefined,
     queryKey:
       conversationId
         ? queryKeys.messages.list(conversationId)
         : ["messages", "inactive"],
-    queryFn: () =>
-      getMessages(conversationId ?? "", {
+    queryFn: ({ pageParam }) =>
+      getMessagePage(conversationId ?? "", {
         limit: INITIAL_MESSAGE_LIMIT,
+        cursor: pageParam,
       }),
+    getNextPageParam: (lastPage) =>
+      lastPage.nextCursor,
     staleTime:
       8 * 1000,
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
   });
+
+  const queryData = query.data;
+
+  const messages = useMemo(
+    () => {
+      const data =
+        queryData as
+          | typeof queryData
+          | Message[]
+          | undefined;
+
+      if (Array.isArray(data)) {
+        return data;
+      }
+
+      return data
+        ? [...data.pages]
+            .reverse()
+            .flatMap((page) => page.messages)
+        : [];
+    },
+    [queryData]
+  );
+
+  return {
+    ...query,
+    data: messages,
+  };
 }

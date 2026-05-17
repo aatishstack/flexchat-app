@@ -11,11 +11,18 @@ import {
   Message,
   useSocketStore,
 } from "@/store/socket-store";
+import {
+  mergeMessageIntoQueryCache,
+  updateMessageStatusInQueryCache,
+} from "@/lib/message-query-cache";
+import type { MessageQueryCache } from "@/lib/message-query-cache";
+import { updateConversationInQueryCache } from "@/lib/conversation-query-cache";
+import type { ConversationQueryCache } from "@/lib/conversation-query-cache";
 import { useAuthStore } from "@/stores/auth.store";
 import { useConversationStore } from "@/stores/conversation.store";
 import { queryKeys } from "@/lib/query-keys";
 import { tokenStorage } from "@/lib/token";
-import type { Conversation } from "@/types/conversation";
+import { useNotificationStore } from "@/store/notification-store";
 
 type MessageReceipt = {
   messageId: string;
@@ -51,6 +58,32 @@ const recentConversationUpdates = new Map<
   number
 >();
 
+function getConversationNameFromCache(
+  cache: ConversationQueryCache,
+  conversationId: string
+) {
+  if (!cache) {
+    return "New message";
+  }
+
+  const conversations =
+    Array.isArray(cache)
+      ? cache
+      : "pages" in cache
+        ? cache.pages.flatMap(
+            (page) =>
+              page.conversations
+          )
+        : [];
+
+  return (
+    conversations.find(
+      (conversation) =>
+        conversation.id === conversationId
+    )?.name ?? "New message"
+  );
+}
+
 function hasSeenConversationUpdate(
   messageId?: string
 ) {
@@ -78,83 +111,6 @@ function hasSeenConversationUpdate(
   );
 
   return false;
-}
-
-function sortMessages(messages: Message[]) {
-  return [...messages].sort((left, right) => {
-    const leftTime = left.createdAt
-      ? new Date(left.createdAt).getTime()
-      : 0;
-    const rightTime = right.createdAt
-      ? new Date(right.createdAt).getTime()
-      : 0;
-
-    return leftTime - rightTime;
-  });
-}
-
-function mergeMessage(
-  messages: Message[] | undefined,
-  incoming: Message
-) {
-  const currentMessages =
-    messages ?? [];
-  const existingIndex =
-    currentMessages.findIndex(
-      (message) =>
-        message.id === incoming.id ||
-        (!!message.tempId &&
-          message.tempId === incoming.id) ||
-        (!!incoming.tempId &&
-          (message.id === incoming.tempId ||
-            message.tempId === incoming.tempId))
-    );
-
-  if (existingIndex === -1) {
-    return sortMessages([
-      ...currentMessages,
-      incoming,
-    ]);
-  }
-
-  return sortMessages(
-    currentMessages.map((message, index) =>
-      index === existingIndex
-        ? {
-            ...message,
-            ...incoming,
-            optimistic: false,
-          }
-        : message
-    )
-  );
-}
-
-function updateCachedMessageStatus(
-  messages: Message[] | undefined,
-  receipt: MessageReceipt,
-  fallbackStatus: Message["status"]
-) {
-  if (!messages) {
-    return messages;
-  }
-
-  return messages.map((message) =>
-    message.id === receipt.messageId ||
-    message.id === receipt.serverId ||
-    message.tempId === receipt.messageId
-      ? {
-          ...message,
-          id:
-            receipt.serverId ??
-            message.id,
-          status:
-            receipt.status ??
-            fallbackStatus,
-          optimistic: false,
-        }
-      : message
-  );
 }
 
 export default function SocketProvider({
@@ -264,15 +220,12 @@ export default function SocketProvider({
         message.senderId !== "me" &&
         message.senderId !== currentUserId;
 
-      queryClient.setQueryData<Message[]>(
+      queryClient.setQueryData<MessageQueryCache>(
         queryKeys.messages.list(
           message.conversationId
         ),
-        (currentMessages) =>
-          mergeMessage(
-            currentMessages,
-            message
-          )
+        (cache) =>
+          mergeMessageIntoQueryCache(cache, message)
       );
 
       addMessage(message);
@@ -332,21 +285,24 @@ export default function SocketProvider({
       const shouldIncrementUnread =
         isRemoteMessage &&
         !conversationIsActive;
+      const conversationName =
+        getConversationNameFromCache(
+          queryClient.getQueryData<ConversationQueryCache>(
+            queryKeys.conversations.all
+          ),
+          payload.conversationId
+        );
       let nextUnreadCount:
         | number
         | undefined;
 
-      queryClient.setQueryData<Conversation[]>(
+      queryClient.setQueryData<ConversationQueryCache>(
         queryKeys.conversations.all,
-        (conversations) =>
-          conversations?.map((conversation) => {
-            if (
-              conversation.id !==
-              payload.conversationId
-            ) {
-              return conversation;
-            }
-
+        (cache) =>
+          updateConversationInQueryCache(
+            cache,
+            payload.conversationId ?? "",
+            (conversation) => {
             nextUnreadCount =
               conversationIsActive
                 ? 0
@@ -359,8 +315,12 @@ export default function SocketProvider({
               latestMessage,
               unreadCount:
                 nextUnreadCount,
+              lastActivityAt:
+                payload.createdAt ??
+                conversation.lastActivityAt,
             };
-          })
+            }
+          )
       );
 
       updateConversationMessage(
@@ -373,6 +333,22 @@ export default function SocketProvider({
             nextUnreadCount,
         }
       );
+
+      if (shouldIncrementUnread) {
+        useNotificationStore
+          .getState()
+          .addNotification({
+            id: payload.messageId,
+            title: conversationName,
+            message:
+              latestMessage ||
+              "New message",
+            createdAt:
+              payload.createdAt ??
+              new Date().toISOString(),
+            read: false,
+          });
+      }
     }
 
     function onTypingUsers(payload: TypingUsersPayload) {
@@ -395,13 +371,13 @@ export default function SocketProvider({
     }
 
     function onMessageDelivered(receipt: MessageReceipt) {
-      queryClient.setQueriesData<Message[]>(
+      queryClient.setQueriesData<MessageQueryCache>(
         {
           queryKey: ["messages"],
         },
-        (messages) =>
-          updateCachedMessageStatus(
-            messages,
+        (cache) =>
+          updateMessageStatusInQueryCache(
+            cache,
             receipt,
             "delivered"
           )
@@ -415,13 +391,13 @@ export default function SocketProvider({
     }
 
     function onMessageSeen(receipt: MessageReceipt) {
-      queryClient.setQueriesData<Message[]>(
+      queryClient.setQueriesData<MessageQueryCache>(
         {
           queryKey: ["messages"],
         },
-        (messages) =>
-          updateCachedMessageStatus(
-            messages,
+        (cache) =>
+          updateMessageStatusInQueryCache(
+            cache,
             receipt,
             "read"
           )

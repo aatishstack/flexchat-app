@@ -6,14 +6,11 @@ import {
 } from "framer-motion";
 
 import {
+  type CSSProperties,
   useEffect,
   useState,
 } from "react";
 
-import {
-  Sparkles,
-  X,
-} from "lucide-react";
 import dynamic from "next/dynamic";
 
 import ChatShell from "../../../components/chat/chat-shell";
@@ -54,26 +51,6 @@ const FloatingRoot = dynamic(
   }
 );
 
-const IncomingCallPopup = dynamic(
-  () =>
-    import(
-      "../../../components/chat/floating/incoming-call-popup"
-    ),
-  {
-    ssr: false,
-  }
-);
-
-const MobileAISheet = dynamic(
-  () =>
-    import(
-      "../../../components/chat/mobile/mobile-ai-sheet"
-    ),
-  {
-    ssr: false,
-  }
-);
-
 const MobileNotificationSheet = dynamic(
   () =>
     import(
@@ -95,9 +72,6 @@ const NotificationPanel = dynamic(
 );
 
 export default function ChatPage() {
-  const [aiOpen, setAiOpen] =
-    useState(false);
-
   const [
     notificationsOpen,
     setNotificationsOpen,
@@ -144,15 +118,24 @@ export default function ChatPage() {
   ]);
 
   return (
-    <div className="relative h-dvh overflow-hidden bg-gradient-to-br from-[#050816] via-[#0B1020] to-[#111827] text-white">
+    <div
+      style={
+        {
+          "--chat-right-rail-width":
+            "20rem",
+          "--chat-notification-panel-width":
+            "21.25rem",
+          "--chat-panel-gap":
+            "1rem",
+        } as CSSProperties
+      }
+      className="relative h-dvh overflow-hidden bg-gradient-to-br from-[#050816] via-[#0B1020] to-[#111827] text-white"
+    >
       {/* SEARCH */}
       <GlobalSearch />
 
       {/* LIVE TOAST */}
       <LiveToast />
-
-      {/* INCOMING CALL */}
-      <IncomingCallPopup />
 
       {/* ACTIVITY */}
       <ActivityBar />
@@ -189,104 +172,6 @@ export default function ChatPage() {
           />
         </motion.div>
 
-        {/* DESKTOP AI PANEL */}
-        <AnimatePresence mode="wait">
-          {aiOpen && (
-            <motion.aside
-              initial={{
-                width: 0,
-                opacity: 0,
-              }}
-              animate={{
-                width: 380,
-                opacity: 1,
-              }}
-              exit={{
-                width: 0,
-                opacity: 0,
-              }}
-              transition={{
-                type: "spring",
-                stiffness: 260,
-                damping: 30,
-              }}
-              className="hidden xl:flex h-full overflow-hidden border-l border-white/10 bg-[#0B111C]/90 backdrop-blur-2xl"
-            >
-              <div className="flex h-full w-full flex-col">
-                {/* HEADER */}
-                <div className="border-b border-white/10 bg-white/[0.02] p-5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <motion.div
-                        animate={{
-                          rotate: [
-                            0,
-                            10,
-                            -10,
-                            0,
-                          ],
-                        }}
-                        transition={{
-                          duration: 5,
-                          repeat: Infinity,
-                        }}
-                        className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-purple-500 via-fuchsia-500 to-indigo-500 text-2xl shadow-2xl shadow-purple-500/30"
-                      >
-                        <Sparkles size={24} />
-                      </motion.div>
-
-                      <div>
-                        <h2 className="text-lg font-semibold">
-                          Flex AI
-                        </h2>
-
-                        <p className="text-sm text-zinc-400">
-                          Smart assistant
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() =>
-                        setAiOpen(
-                          false
-                        )
-                      }
-                      className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-white transition hover:bg-white/[0.08]"
-                    >
-                      <X size={18} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* CONTENT */}
-                <div className="flex-1 overflow-y-auto p-5">
-                  <div className="rounded-[28px] border border-purple-500/20 bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10 p-5 backdrop-blur-xl">
-                    <p className="text-sm leading-relaxed text-zinc-300">
-                      Ask Flex AI to summarize chats,
-                      search files, generate replies,
-                      or manage conversations.
-                    </p>
-                  </div>
-                </div>
-
-                {/* INPUT */}
-                <div className="border-t border-white/10 p-4">
-                  <div className="flex items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] px-4 backdrop-blur-xl">
-                    <input
-                      placeholder="Ask Flex AI..."
-                      className="h-14 flex-1 bg-transparent text-white outline-none placeholder:text-zinc-500"
-                    />
-
-                    <button className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-500 shadow-lg shadow-purple-500/30">
-                      <Sparkles size={18} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </motion.aside>
-          )}
-        </AnimatePresence>
       </div>
 
       {/* NOTIFICATION PANEL */}
@@ -313,28 +198,24 @@ export default function ChatPage() {
               stiffness: 260,
               damping: 28,
             }}
-            className="fixed right-4 top-20 z-[180] hidden h-[620px] w-[340px] overflow-hidden rounded-[32px] border border-white/10 bg-[#0B111C]/95 shadow-2xl backdrop-blur-2xl xl:flex"
+            className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-[calc(var(--chat-right-rail-width)+var(--chat-panel-gap))] top-[calc(5rem+env(safe-area-inset-top))] z-[180] hidden w-[var(--chat-notification-panel-width)] overflow-hidden rounded-[32px] border border-white/10 bg-[#0B111C]/95 shadow-2xl backdrop-blur-2xl xl:flex"
           >
-            <NotificationPanel />
+            <NotificationPanel
+              onClose={() =>
+                setNotificationsOpen(
+                  false
+                )
+              }
+            />
           </motion.aside>
         )}
       </AnimatePresence>
 
       {/* FLOATING ROOT */}
       <FloatingRoot
-        aiOpen={aiOpen}
-        setAiOpen={setAiOpen}
         notificationsOpen={notificationsOpen}
         setNotificationsOpen={
           setNotificationsOpen
-        }
-      />
-
-      {/* MOBILE AI SHEET */}
-      <MobileAISheet
-        open={aiOpen}
-        onClose={() =>
-          setAiOpen(false)
         }
       />
 

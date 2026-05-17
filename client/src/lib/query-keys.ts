@@ -17,4 +17,18 @@ export const queryKeys = {
         conversationId,
       ] as const,
   },
+  users: {
+    discover: (query: string) =>
+      [
+        "users",
+        "discover",
+        query,
+      ] as const,
+    lookup: (ids: string[]) =>
+      [
+        "users",
+        "lookup",
+        ...ids,
+      ] as const,
+  },
 } as const;

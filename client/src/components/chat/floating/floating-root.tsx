@@ -1,43 +1,64 @@
 "use client";
 
+import type { CSSProperties } from "react";
+
+import { Bell } from "lucide-react";
+
 import {
-  Bell,
-  Sparkles,
-} from "lucide-react";
+  motion,
+  useReducedMotion,
+} from "framer-motion";
 
-import { motion } from "framer-motion";
-
-import DynamicMusicIsland from "./dynamic-music-island";
-import MiniCallIsland from "./mini-call-island";
-import VoiceRoomOrb from "./voice-room-orb";
+import { useNotificationStore } from "@/store/notification-store";
 
 type Props = {
-  aiOpen: boolean;
-  setAiOpen: (value: boolean) => void;
   notificationsOpen: boolean;
   setNotificationsOpen: (value: boolean) => void;
 };
 
 export default function FloatingRoot({
-  aiOpen,
-  setAiOpen,
   notificationsOpen,
   setNotificationsOpen,
 }: Props) {
+  const reducedMotion =
+    useReducedMotion();
+  const unreadCount =
+    useNotificationStore(
+      (state) =>
+        state.notifications.filter(
+          (notification) =>
+            !notification.read
+        ).length
+    );
+  const floatingOffset =
+    notificationsOpen
+      ? "calc(var(--chat-right-rail-width,20rem) + var(--chat-notification-panel-width,21.25rem) + (var(--chat-panel-gap,1rem) * 2))"
+      : "calc(var(--chat-right-rail-width,20rem) + 1.5rem)";
+
+  if (notificationsOpen) {
+    return null;
+  }
+
   return (
     <div
-      className={`pointer-events-none fixed inset-x-0 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-[140] flex justify-center px-3 lg:bottom-5 lg:pb-[max(env(safe-area-inset-bottom),0px)] xl:justify-end ${
-        aiOpen
-          ? "xl:pr-[404px]"
-          : "xl:pr-6"
-      }`}
+      style={
+        {
+          "--chat-floating-offset":
+            floatingOffset,
+        } as CSSProperties
+      }
+      className="pointer-events-none fixed inset-x-0 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-[140] flex justify-center px-3 lg:bottom-5 lg:pb-[max(env(safe-area-inset-bottom),0px)] xl:justify-end xl:pr-[var(--chat-floating-offset)]"
     >
       <motion.div
-        initial={{
-          opacity: 0,
-          y: 18,
-          scale: 0.96,
-        }}
+        initial={
+          reducedMotion
+            ? false
+            : {
+                opacity: 0,
+                y: 18,
+                scale: 0.96,
+              }
+        }
         animate={{
           opacity: 1,
           y: 0,
@@ -45,53 +66,53 @@ export default function FloatingRoot({
         }}
         transition={{
           type: "spring",
-          stiffness: 260,
-          damping: 26,
+          stiffness:
+            reducedMotion
+              ? 180
+              : 260,
+          damping:
+            reducedMotion
+              ? 30
+              : 26,
         }}
         className="pointer-events-auto flex max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-[24px] border border-white/10 bg-[#08111f]/92 p-2 shadow-[0_20px_70px_rgba(0,0,0,0.45)] backdrop-blur-3xl sm:gap-3 sm:rounded-[28px]"
       >
-        <MiniCallIsland />
-        <VoiceRoomOrb />
-        <DynamicMusicIsland />
-
         <motion.button
-          whileHover={{
-            scale: 1.05,
-          }}
-          whileTap={{
-            scale: 0.96,
-          }}
+          whileHover={
+            reducedMotion
+              ? undefined
+              : {
+                  scale: 1.05,
+                }
+          }
+          whileTap={
+            reducedMotion
+              ? undefined
+              : {
+                  scale: 0.96,
+                }
+          }
           onClick={() =>
             setNotificationsOpen(
               !notificationsOpen
             )
           }
           aria-label="Notifications"
-          className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white shadow-xl backdrop-blur-2xl transition hover:bg-white/[0.1] sm:h-14 sm:w-14"
+          className={
+            notificationsOpen
+              ? "relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-purple-400/40 bg-gradient-to-br from-purple-600 to-fuchsia-600 text-white shadow-2xl shadow-purple-600/30 backdrop-blur-2xl transition sm:h-14 sm:w-14"
+              : "relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white shadow-xl backdrop-blur-2xl transition hover:bg-white/[0.1] sm:h-14 sm:w-14"
+          }
         >
           <Bell size={20} />
 
-          <div className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-red-500 shadow-lg shadow-red-500/60" />
-        </motion.button>
-
-        <motion.button
-          whileHover={{
-            scale: 1.05,
-          }}
-          whileTap={{
-            scale: 0.96,
-          }}
-          onClick={() =>
-            setAiOpen(!aiOpen)
-          }
-          aria-label="Flex AI"
-          className={
-            aiOpen
-              ? "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-purple-400/40 bg-gradient-to-br from-purple-600 via-fuchsia-600 to-indigo-600 text-white shadow-2xl shadow-purple-600/40 backdrop-blur-2xl transition sm:h-14 sm:w-14"
-              : "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white shadow-xl backdrop-blur-2xl transition hover:bg-white/[0.1] sm:h-14 sm:w-14"
-          }
-        >
-          <Sparkles size={20} />
+          {unreadCount ? (
+            <span className="absolute right-2 top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white shadow-lg shadow-red-500/50">
+              {unreadCount > 9
+                ? "9+"
+                : unreadCount}
+            </span>
+          ) : null}
         </motion.button>
       </motion.div>
     </div>

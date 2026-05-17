@@ -35,12 +35,18 @@ export interface Message {
 export interface GetMessagesOptions {
   limit?: number;
   before?: string;
+  cursor?: string;
 }
 
-export async function getMessages(
+export interface MessagePage {
+  messages: Message[];
+  nextCursor?: string;
+}
+
+export async function getMessagePage(
   conversationId: string,
   options: GetMessagesOptions = {}
-): Promise<Message[]> {
+): Promise<MessagePage> {
   const response =
     await api.get<Message[]>(
       `/messages/${conversationId}`,
@@ -50,9 +56,28 @@ export async function getMessages(
             options.limit ?? 120,
           before:
             options.before,
+          cursor:
+            options.cursor,
         },
       }
     );
 
-  return response.data;
+  return {
+    messages:
+      response.data,
+    nextCursor:
+      response.headers["x-next-cursor"],
+  };
+}
+
+export async function getMessages(
+  conversationId: string,
+  options: GetMessagesOptions = {}
+): Promise<Message[]> {
+  const page = await getMessagePage(
+    conversationId,
+    options
+  );
+
+  return page.messages;
 }

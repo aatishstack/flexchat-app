@@ -14,3 +14,7 @@ const client =
 
 export const db =
   drizzle(client);
+
+export async function closeDb() {
+  await client.end();
+}

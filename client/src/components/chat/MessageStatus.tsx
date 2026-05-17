@@ -6,7 +6,10 @@ import {
   CheckCheck,
 } from "lucide-react";
 
-import { motion } from "framer-motion";
+import {
+  motion,
+  useReducedMotion,
+} from "framer-motion";
 
 type Props = {
   status:
@@ -20,7 +23,15 @@ type Props = {
 export default function MessageStatus({
   status,
 }: Props) {
+  const reducedMotion = useReducedMotion();
+
   if (status === "sending") {
+    if (reducedMotion) {
+      return (
+        <div className="h-3.5 w-3.5 rounded-full border border-white/30 border-t-cyan-300" />
+      );
+    }
+
     return (
       <motion.div
         animate={{

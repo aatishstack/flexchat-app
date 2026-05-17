@@ -4,6 +4,11 @@ import { create } from "zustand";
 
 import { queryClient } from "@/lib/query-client";
 import { queryKeys } from "@/lib/query-keys";
+import {
+  mergeMessageIntoQueryCache,
+  updateMessageStatusInQueryCache,
+} from "@/lib/message-query-cache";
+import type { MessageQueryCache } from "@/lib/message-query-cache";
 import { socket } from "@/socket/socket";
 import { SOCKET_EVENTS } from "@/socket/socket-events";
 
@@ -347,13 +352,10 @@ function setCachedConversationMessage(
   conversationId: string,
   message: Message
 ) {
-  queryClient.setQueryData<Message[]>(
+  queryClient.setQueryData<MessageQueryCache>(
     queryKeys.messages.list(conversationId),
-    (currentMessages) =>
-      normalizeMessages(
-        currentMessages ?? [],
-        message
-      )
+    (cache) =>
+      mergeMessageIntoQueryCache(cache, message)
   );
 }
 
@@ -362,30 +364,20 @@ function setCachedMessageStatus(
   status: MessageStatus,
   serverId?: string
 ) {
-  queryClient.setQueriesData<Message[]>(
+  queryClient.setQueriesData<MessageQueryCache>(
     {
       queryKey: ["messages"],
     },
-    (messages) => {
-      const nextMessages =
-        updateMessageStatusInList(
-          messages,
-          id,
+    (cache) =>
+      updateMessageStatusInQueryCache(
+        cache,
+        {
+          messageId: id,
+          serverId,
           status,
-          serverId
-        );
-
-      return nextMessages?.map((message) =>
-        message.id === id ||
-        message.id === serverId ||
-        message.tempId === id
-          ? {
-              ...message,
-              optimistic: false,
-            }
-          : message
-      );
-    }
+        },
+        status
+      )
   );
 }
 

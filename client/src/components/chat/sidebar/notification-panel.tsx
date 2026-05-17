@@ -3,11 +3,42 @@
 import {
   Bell,
   Trash2,
+  X,
 } from "lucide-react";
 
 import { useNotificationStore } from "@/store/notification-store";
 
-export default function NotificationPanel() {
+type Props = {
+  onClose?: () => void;
+};
+
+const NOTIFICATION_TIME_FORMATTER =
+  new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+function formatNotificationTime(
+  value: string
+) {
+  const date = new Date(value);
+
+  if (
+    Number.isNaN(date.getTime())
+  ) {
+    return value;
+  }
+
+  return NOTIFICATION_TIME_FORMATTER.format(
+    date
+  );
+}
+
+export default function NotificationPanel({
+  onClose,
+}: Props) {
   const notifications =
     useNotificationStore(
       (state) =>
@@ -18,6 +49,11 @@ export default function NotificationPanel() {
     useNotificationStore(
       (state) =>
         state.clearNotifications
+    );
+  const markAsRead =
+    useNotificationStore(
+      (state) =>
+        state.markAsRead
     );
 
   return (
@@ -39,14 +75,29 @@ export default function NotificationPanel() {
           </div>
         </div>
 
-        <button
-          onClick={
-            clearNotifications
-          }
-          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-zinc-400 transition-all hover:bg-white/[0.06]"
-        >
-          <Trash2 size={18} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={
+              clearNotifications
+            }
+            disabled={!notifications.length}
+            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-zinc-400 transition-all hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Clear notifications"
+          >
+            <Trash2 size={18} />
+          </button>
+
+          {onClose ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-zinc-300 transition-all hover:bg-white/[0.06]"
+              aria-label="Close notifications"
+            >
+              <X size={18} />
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
@@ -60,14 +111,20 @@ export default function NotificationPanel() {
           (
             notification
           ) => (
-            <div
+            <button
+              type="button"
               key={
                 notification.id
               }
-              className="rounded-3xl border border-white/10 bg-white/[0.03] p-4"
+              onClick={() =>
+                markAsRead(
+                  notification.id
+                )
+              }
+              className="w-full rounded-3xl border border-white/10 bg-white/[0.03] p-4 text-left transition hover:bg-white/[0.05]"
             >
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="text-left">
                   <h3 className="font-medium text-white">
                     {
                       notification.title
@@ -88,10 +145,12 @@ export default function NotificationPanel() {
 
               <p className="mt-3 text-xs text-zinc-600">
                 {
-                  notification.createdAt
+                  formatNotificationTime(
+                    notification.createdAt
+                  )
                 }
               </p>
-            </div>
+            </button>
           )
         )}
       </div>

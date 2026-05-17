@@ -41,3 +41,17 @@ export async function getConversations(
 
   return page.conversations;
 }
+
+export async function createDirectConversation(
+  targetUserId: string
+) {
+  const response =
+    await api.post<Conversation>(
+      "/conversations/direct",
+      {
+        targetUserId,
+      }
+    );
+
+  return response.data;
+}

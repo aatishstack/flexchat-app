@@ -13,6 +13,12 @@ export interface Conversation {
 
   memberIds?: string[];
 
+  members?: {
+    id: string;
+    username: string;
+    avatar?: string | null;
+  }[];
+
   unreadCount?: number;
 
   pinned?: boolean;

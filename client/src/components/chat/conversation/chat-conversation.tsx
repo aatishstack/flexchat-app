@@ -13,7 +13,6 @@ import {
 import {
   FileText,
   ImageIcon,
-  Mic,
   RefreshCw,
   SendHorizonal,
 } from "lucide-react";
@@ -24,22 +23,22 @@ import {
 } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 
-import StoriesRow from "./stories-row";
-
 import MessageStatus from "@/components/chat/MessageStatus";
 import { useConversationsQuery } from "@/hooks/queries/use-conversations-query";
 import { useMessagesQuery } from "@/hooks/queries/use-messages-query";
 import { useAuth } from "@/hooks/useAuth";
+import { uploadImage } from "@/services/upload.service";
 import { SOCKET_EVENTS } from "@/socket/socket-events";
 import {
   Message,
   useSocketStore,
 } from "@/store/socket-store";
+import { updateConversationInQueryCache } from "@/lib/conversation-query-cache";
+import type { ConversationQueryCache } from "@/lib/conversation-query-cache";
 import { queryKeys } from "@/lib/query-keys";
 import { useConversationStore } from "@/stores/conversation.store";
-import type { Conversation } from "@/types/conversation";
 
-const VIRTUAL_WINDOW_SIZE = 120;
+const RENDER_WINDOW_SIZE = 360;
 const EMPTY_MESSAGES: Message[] = [];
 const MESSAGE_TIME_FORMATTER =
   new Intl.DateTimeFormat("en", {
@@ -415,8 +414,14 @@ export default function ChatConversation() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
+  const [
+    isUploadingAttachment,
+    setIsUploadingAttachment,
+  ] = useState(false);
   const typingTimeoutRef =
     useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fileInputRef =
+    useRef<HTMLInputElement | null>(null);
   const typingActiveRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -473,6 +478,11 @@ export default function ChatConversation() {
   const messagesQuery = useMessagesQuery(
     conversationId
   );
+  const {
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = messagesQuery;
   const realtimeMessages = useSocketStore(
     useCallback(
       (state) =>
@@ -512,6 +522,11 @@ export default function ChatConversation() {
   const retryMessage = useSocketStore(
     (state) => state.retryMessage
   );
+  const setConnectionError =
+    useSocketStore(
+      (state) =>
+        state.setConnectionError
+    );
   const markConversationRead = useConversationStore(
     (state) => state.markConversationRead
   );
@@ -547,6 +562,40 @@ export default function ChatConversation() {
     ]
   );
 
+  const handleLoadOlderMessages = useCallback(async () => {
+    if (
+      !hasNextPage ||
+      isFetchingNextPage
+    ) {
+      return;
+    }
+
+    const element = containerRef.current;
+    const previousScrollHeight =
+      element?.scrollHeight ?? 0;
+
+    await fetchNextPage();
+
+    requestAnimationFrame(() => {
+      const nextElement = containerRef.current;
+
+      if (
+        !nextElement ||
+        !previousScrollHeight
+      ) {
+        return;
+      }
+
+      nextElement.scrollTop +=
+        nextElement.scrollHeight -
+        previousScrollHeight;
+    });
+  }, [
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  ]);
+
   const visibleMessages = useMemo(() => {
     if (!conversationId) {
       return [];
@@ -559,7 +608,7 @@ export default function ChatConversation() {
       serverMessages,
       realtimeMessages
     )
-      .slice(-VIRTUAL_WINDOW_SIZE);
+      .slice(-RENDER_WINDOW_SIZE);
   }, [
     conversationId,
     realtimeMessages,
@@ -619,16 +668,16 @@ export default function ChatConversation() {
     }
 
     markConversationRead(conversationId);
-    queryClient.setQueryData<Conversation[]>(
+    queryClient.setQueryData<ConversationQueryCache>(
       queryKeys.conversations.all,
-      (conversations) =>
-        conversations?.map((conversation) =>
-          conversation.id === conversationId
-            ? {
-                ...conversation,
-                unreadCount: 0,
-              }
-            : conversation
+      (cache) =>
+        updateConversationInQueryCache(
+          cache,
+          conversationId,
+          (conversation) => ({
+            ...conversation,
+            unreadCount: 0,
+          })
         )
     );
   }, [
@@ -833,6 +882,51 @@ export default function ChatConversation() {
     }, 900);
   }
 
+  async function handleAttachmentUpload(
+    file?: File
+  ) {
+    if (
+      !file ||
+      !conversationId ||
+      isUploadingAttachment
+    ) {
+      return;
+    }
+
+    setIsUploadingAttachment(true);
+
+    try {
+      const attachmentUrl =
+        await uploadImage(file);
+      const caption =
+        text.trim();
+
+      sendSocketMessage({
+        conversationId,
+        text: caption,
+        attachment:
+          attachmentUrl,
+      });
+
+      setText("");
+      stopActiveTyping(conversationId);
+      setConnectionError(null);
+    } catch (error) {
+      setConnectionError(
+        error instanceof Error
+          ? error.message
+          : "Attachment upload failed"
+      );
+    } finally {
+      setIsUploadingAttachment(false);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value =
+          "";
+      }
+    }
+  }
+
   function handleSend() {
     if (!conversationId) {
       return;
@@ -902,8 +996,6 @@ export default function ChatConversation() {
         </div>
       </div>
 
-      <StoriesRow />
-
       <div
         ref={containerRef}
         onScroll={handleScroll}
@@ -916,6 +1008,25 @@ export default function ChatConversation() {
             {messagesQuery.isError ? (
               <div className="mb-5 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
                 Unable to load message history
+              </div>
+            ) : null}
+
+            {hasNextPage ? (
+              <div className="mb-5 flex justify-center">
+                <button
+                  type="button"
+                  onClick={
+                    handleLoadOlderMessages
+                  }
+                  disabled={
+                    isFetchingNextPage
+                  }
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-medium text-zinc-300 backdrop-blur-xl transition hover:border-purple-400/30 hover:bg-purple-500/10 hover:text-white disabled:cursor-wait disabled:opacity-60"
+                >
+                  {isFetchingNextPage
+                    ? "Loading..."
+                    : "Load earlier"}
+                </button>
               </div>
             ) : null}
 
@@ -959,10 +1070,16 @@ export default function ChatConversation() {
                     {[0, 1, 2].map((dot) => (
                       <motion.div
                         key={dot}
-                        animate={{
-                          y: [0, -5, 0],
-                          opacity: [0.4, 1, 0.4],
-                        }}
+                        animate={
+                          reducedMotion
+                            ? false
+                            : {
+                                y: [0, -5, 0],
+                                opacity: [
+                                  0.4, 1, 0.4,
+                                ],
+                              }
+                        }
                         transition={{
                           duration: 0.8,
                           repeat: Infinity,
@@ -983,10 +1100,34 @@ export default function ChatConversation() {
 
       <div className="shrink-0 border-t border-white/10 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-xl sm:p-5 sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
         <div className="flex items-end gap-2 sm:gap-3">
-          <button className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] transition-all hover:bg-white/[0.06] sm:flex">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,audio/*,video/*,application/pdf"
+            className="hidden"
+            onChange={(event) => {
+              void handleAttachmentUpload(
+                event.target.files?.[0]
+              );
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={() =>
+              fileInputRef.current?.click()
+            }
+            disabled={isUploadingAttachment}
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] transition-all hover:bg-white/[0.06] disabled:cursor-wait disabled:opacity-60"
+            aria-label="Upload attachment"
+          >
             <ImageIcon
               size={20}
-              className="text-zinc-400"
+              className={
+                isUploadingAttachment
+                  ? "animate-pulse text-purple-300"
+                  : "text-zinc-400"
+              }
             />
           </button>
 
@@ -1016,16 +1157,12 @@ export default function ChatConversation() {
             />
           </div>
 
-          <button className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] transition-all hover:bg-white/[0.06] sm:flex">
-            <Mic
-              size={20}
-              className="text-zinc-400"
-            />
-          </button>
-
           <button
             onClick={handleSend}
-            disabled={!text.trim()}
+            disabled={
+              !text.trim() ||
+              isUploadingAttachment
+            }
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-white shadow-2xl shadow-purple-600/30 transition-all hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <SendHorizonal size={21} />
