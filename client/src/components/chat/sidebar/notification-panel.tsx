@@ -2,11 +2,13 @@
 
 import {
   Bell,
-  Trash2,
+  CheckCheck,
   X,
 } from "lucide-react";
 
+import { markNotificationsRead } from "@/services/notification.service";
 import { useNotificationStore } from "@/store/notification-store";
+import { useToastStore } from "@/store/toast-store";
 
 type Props = {
   onClose?: () => void;
@@ -45,16 +47,41 @@ export default function NotificationPanel({
         state.notifications
     );
 
-  const clearNotifications =
+  const markAllRead =
     useNotificationStore(
       (state) =>
-        state.clearNotifications
+        state.markAllRead
     );
   const markAsRead =
     useNotificationStore(
       (state) =>
         state.markAsRead
     );
+  const pushToast =
+    useToastStore(
+      (state) => state.pushToast
+    );
+  const unreadCount =
+    notifications.filter(
+      (notification) =>
+        !notification.read
+    ).length;
+
+  async function handleMarkAllRead() {
+    try {
+      await markNotificationsRead();
+      markAllRead();
+    } catch {
+      pushToast({
+        title:
+          "Notifications unavailable",
+        message:
+          "We could not sync read state right now.",
+        variant: "warning",
+      });
+      markAllRead();
+    }
+  }
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -77,14 +104,14 @@ export default function NotificationPanel({
 
         <div className="flex items-center gap-2">
           <button
-            onClick={
-              clearNotifications
-            }
-            disabled={!notifications.length}
+            onClick={() => {
+              void handleMarkAllRead();
+            }}
+            disabled={!unreadCount}
             className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-zinc-400 transition-all hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40"
-            aria-label="Clear notifications"
+            aria-label="Mark all notifications as read"
           >
-            <Trash2 size={18} />
+            <CheckCheck size={18} />
           </button>
 
           {onClose ? (
@@ -100,7 +127,7 @@ export default function NotificationPanel({
         </div>
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto p-4">
+      <div className="chat-safe-scroll min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
         {!notifications.length && (
           <div className="flex h-full items-center justify-center text-sm text-zinc-500">
             No notifications yet

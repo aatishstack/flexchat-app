@@ -43,7 +43,7 @@ export default function ActiveNowPanel() {
     onlineUsersQuery.data ?? [];
 
   return (
-    <aside className="hidden h-full w-[320px] border-l border-white/10 bg-[#08111f]/82 shadow-2xl shadow-black/20 backdrop-blur-3xl xl:flex xl:flex-col">
+    <aside className="hidden h-full w-[320px] border-l border-white/10 bg-[#08111f]/[0.82] shadow-2xl shadow-black/20 backdrop-blur-3xl xl:flex xl:flex-col">
       <div className="border-b border-white/10 bg-white/[0.02] p-5">
         <h2 className="text-xl font-semibold text-white">
           Active Now
@@ -54,7 +54,7 @@ export default function ActiveNowPanel() {
         </p>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+      <div className="chat-safe-scroll min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
         {onlineUsersQuery.isLoading &&
         onlinePeerIds.length ? (
           <div className="space-y-3">
@@ -101,10 +101,19 @@ export default function ActiveNowPanel() {
             className="flex items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.045] p-4 shadow-lg shadow-black/10"
           >
             <div className="relative">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-lg font-bold text-white">
-                {user.username
-                  .charAt(0)
-                  .toUpperCase()}
+              <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-lg font-bold text-white">
+                {user.avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={user.avatar}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  user.username
+                    .charAt(0)
+                    .toUpperCase()
+                )}
               </div>
 
               <div className="absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-[#0B111C] bg-green-500 shadow-lg shadow-green-500/40" />

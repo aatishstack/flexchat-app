@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -11,7 +12,6 @@ import {
   Plus,
 } from "lucide-react";
 import {
-  AnimatePresence,
   motion,
   useReducedMotion,
 } from "framer-motion";
@@ -24,6 +24,7 @@ import { useStoriesQuery } from "@/hooks/queries/use-stories-query";
 import { queryKeys } from "@/lib/query-keys";
 import { createStory } from "@/services/story.service";
 import { uploadImage } from "@/services/upload.service";
+import { useToastStore } from "@/store/toast-store";
 import { useAuthStore } from "@/stores/auth.store";
 import type { Story } from "@/types/story";
 
@@ -105,14 +106,18 @@ export default function StoryTray() {
     useRef<HTMLInputElement | null>(null);
   const [viewerGroupIndex, setViewerGroupIndex] =
     useState<number | null>(null);
-  const [uploadError, setUploadError] =
-    useState("");
   const reducedMotion =
     useReducedMotion();
   const queryClient = useQueryClient();
+  const storyErrorShownRef =
+    useRef(false);
   const currentUserId =
     useAuthStore(
       (state) => state.user?.id
+    );
+  const pushToast =
+    useToastStore(
+      (state) => state.pushToast
     );
   const storiesQuery = useStoriesQuery();
 
@@ -153,14 +158,21 @@ export default function StoryTray() {
             ),
           ]
         );
-        setUploadError("");
+        pushToast({
+          title: "Story published",
+          message:
+            "Your story is now live for your conversations.",
+          variant: "success",
+        });
       },
-      onError: (error) => {
-        setUploadError(
-          error instanceof Error
-            ? error.message
-            : "Story upload failed"
-        );
+      onError: () => {
+        pushToast({
+          title:
+            "Couldn't upload story",
+          message:
+            "Please try again in a moment.",
+          variant: "error",
+        });
       },
       onSettled: () => {
         if (fileInputRef.current) {
@@ -168,6 +180,31 @@ export default function StoryTray() {
         }
       },
     });
+
+  useEffect(() => {
+    if (storiesQuery.isError) {
+      if (!storyErrorShownRef.current) {
+        storyErrorShownRef.current = true;
+        pushToast({
+          title:
+            "Stories temporarily unavailable",
+          message:
+            "We could not refresh stories right now.",
+          variant: "error",
+        });
+      }
+
+      return;
+    }
+
+    if (storiesQuery.isSuccess) {
+      storyErrorShownRef.current = false;
+    }
+  }, [
+    storiesQuery.isError,
+    storiesQuery.isSuccess,
+    pushToast,
+  ]);
 
   const viewerGroup =
     viewerGroupIndex === null
@@ -284,28 +321,6 @@ export default function StoryTray() {
           </motion.button>
         ))}
       </div>
-
-      <AnimatePresence>
-        {uploadError ? (
-          <motion.p
-            initial={{
-              opacity: 0,
-              y: -4,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            exit={{
-              opacity: 0,
-              y: -4,
-            }}
-            className="mt-2 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-100"
-          >
-            {uploadError}
-          </motion.p>
-        ) : null}
-      </AnimatePresence>
 
       <StoryViewer
         group={viewerGroup}

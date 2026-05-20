@@ -28,6 +28,7 @@ import {
   deleteStory,
   markStoryViewed,
 } from "@/services/story.service";
+import { useToastStore } from "@/store/toast-store";
 import { useAuthStore } from "@/stores/auth.store";
 import type { Story } from "@/types/story";
 
@@ -78,9 +79,23 @@ export default function StoryViewer({
 }: Props) {
   const [storyIndex, setStoryIndex] =
     useState(0);
+  const [
+    videoDuration,
+    setVideoDuration,
+  ] = useState(
+    {
+      storyId: "",
+      durationMs:
+        VIDEO_FALLBACK_DURATION_MS,
+    }
+  );
   const reducedMotion =
     useReducedMotion();
   const queryClient = useQueryClient();
+  const pushToast =
+    useToastStore(
+      (state) => state.pushToast
+    );
   const currentUserId =
     useAuthStore(
       (state) => state.user?.id
@@ -92,7 +107,10 @@ export default function StoryViewer({
     currentStory?.userId === currentUserId;
   const duration =
     currentStory?.mediaType === "video"
-      ? VIDEO_FALLBACK_DURATION_MS
+      ? videoDuration.storyId ===
+        currentStory.id
+        ? videoDuration.durationMs
+        : VIDEO_FALLBACK_DURATION_MS
       : STORY_DURATION_MS;
 
   const {
@@ -127,6 +145,21 @@ export default function StoryViewer({
             )
         );
         onClose();
+        pushToast({
+          title: "Story deleted",
+          message:
+            "Your story has been removed.",
+          variant: "success",
+        });
+      },
+      onError: () => {
+        pushToast({
+          title:
+            "Stories temporarily unavailable",
+          message:
+            "We could not delete that story right now.",
+          variant: "error",
+        });
       },
     });
 
@@ -292,7 +325,7 @@ export default function StoryViewer({
           exit={{
             opacity: 0,
           }}
-          className="fixed inset-0 z-[260] flex items-center justify-center bg-black/86 p-3 text-white backdrop-blur-xl sm:p-6"
+          className="fixed inset-0 z-[260] flex items-center justify-center bg-black/[0.86] p-3 text-white backdrop-blur-xl sm:p-6"
         >
           <motion.div
             initial={
@@ -319,6 +352,28 @@ export default function StoryViewer({
               type: "spring",
               stiffness: 260,
               damping: 28,
+            }}
+            drag="x"
+            dragConstraints={{
+              left: 0,
+              right: 0,
+            }}
+            dragElastic={0.18}
+            onDragEnd={(_, info) => {
+              if (
+                info.offset.x < -70 ||
+                info.velocity.x < -520
+              ) {
+                goNext();
+                return;
+              }
+
+              if (
+                info.offset.x > 70 ||
+                info.velocity.x > 520
+              ) {
+                goPrevious();
+              }
             }}
             className="relative h-[min(760px,92dvh)] w-full max-w-[430px] overflow-hidden rounded-[32px] border border-white/10 bg-[#080B14] shadow-[0_28px_90px_rgba(0,0,0,0.6)]"
           >
@@ -409,7 +464,32 @@ export default function StoryViewer({
                 autoPlay
                 playsInline
                 controls={false}
+                onLoadedMetadata={(event) => {
+                  const durationSeconds =
+                    event.currentTarget.duration;
+
+                  if (
+                    Number.isFinite(
+                      durationSeconds
+                    ) &&
+                    durationSeconds > 0
+                  ) {
+                    setVideoDuration({
+                      storyId:
+                        currentStory.id,
+                      durationMs:
+                        Math.min(
+                          Math.max(
+                            durationSeconds * 1000,
+                            2500
+                          ),
+                          30000
+                        ),
+                    });
+                  }
+                }}
                 onEnded={goNext}
+                onError={goNext}
                 className="h-full w-full bg-black object-cover"
               />
             ) : (
@@ -418,6 +498,7 @@ export default function StoryViewer({
                 key={currentStory.id}
                 src={currentStory.mediaUrl}
                 alt=""
+                onError={goNext}
                 className="h-full w-full bg-black object-cover"
               />
             )}

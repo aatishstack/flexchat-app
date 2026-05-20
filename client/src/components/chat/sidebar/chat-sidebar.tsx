@@ -15,12 +15,15 @@ import {
   MessageCircle,
   Pin,
   Search,
+  Settings,
+  UserRound,
 } from "lucide-react";
 import {
   AnimatePresence,
   motion,
 } from "framer-motion";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { useConversationsQuery } from "@/hooks/queries/use-conversations-query";
 import StoryTray from "@/components/chat/stories/story-tray";
@@ -124,10 +127,35 @@ function formatConversationTime(
   );
 }
 
+function getConversationAvatar(
+  conversation: Conversation,
+  currentUserId?: string
+) {
+  return (
+    conversation.avatar ??
+    conversation.members?.find(
+      (member) =>
+        member.id !== currentUserId &&
+        member.avatar
+    )?.avatar ??
+    null
+  );
+}
+
+function getConversationInitial(
+  conversation: Conversation
+) {
+  return (
+    conversation.name?.charAt(0) ||
+    "F"
+  ).toUpperCase();
+}
+
 type ConversationListButtonProps = {
   conversation: Conversation;
   active: boolean;
   isOnline: boolean;
+  currentUserId?: string;
   onSelect: (
     conversation: Conversation
   ) => void;
@@ -138,24 +166,48 @@ const ConversationListButton = memo(
     conversation,
     active,
     isOnline,
+    currentUserId,
     onSelect,
   }: ConversationListButtonProps) {
+    const avatar =
+      getConversationAvatar(
+        conversation,
+        currentUserId
+      );
+
     return (
-      <button
+      <motion.button
         type="button"
         onClick={() =>
           onSelect(conversation)
         }
+        whileHover={{
+          y: -1,
+          scale: 1.01,
+        }}
+        whileTap={{
+          scale: 0.985,
+        }}
         className={`group flex w-full items-center gap-4 rounded-3xl border p-4 text-left transition-all ${
           active
-            ? "border-purple-500/30 bg-purple-500/10 shadow-lg shadow-purple-500/10"
-            : "border-transparent bg-white/[0.03] hover:border-white/10 hover:bg-white/[0.05]"
+            ? "border-purple-400/35 bg-purple-500/[0.12] shadow-[0_18px_55px_rgba(147,51,234,0.16)]"
+            : "border-transparent bg-white/[0.035] hover:border-white/10 hover:bg-white/[0.055] hover:shadow-[0_16px_45px_rgba(0,0,0,0.18)]"
         }`}
       >
         <div className="relative">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-500 text-lg font-bold text-white">
-            {conversation.name?.charAt(0) ||
-              "F"}
+          <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-500 text-lg font-bold text-white">
+            {avatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={avatar}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              getConversationInitial(
+                conversation
+              )
+            )}
           </div>
 
           {isOnline ? (
@@ -190,7 +242,7 @@ const ConversationListButton = memo(
           <div className="mt-1 flex items-center justify-between gap-3">
             <p className="truncate text-sm text-zinc-400">
               {conversation.latestMessage ||
-                "Start chatting..."}
+                "No messages yet"}
             </p>
 
             {conversation.unreadCount ? (
@@ -200,7 +252,7 @@ const ConversationListButton = memo(
             ) : null}
           </div>
         </div>
-      </button>
+      </motion.button>
     );
   }
 );
@@ -372,12 +424,14 @@ export default function ChatSidebar() {
   ]);
 
   return (
-    <aside className="flex h-full w-full border-r border-white/10 bg-[#08111f]/88 shadow-2xl shadow-black/25 backdrop-blur-3xl lg:w-[360px]">
+    <aside className="flex h-full w-full border-r border-white/10 bg-[#08111f]/[0.88] shadow-[18px_0_80px_rgba(0,0,0,0.34)] backdrop-blur-3xl lg:w-[360px]">
       <div className="flex w-full flex-col">
-        <div className="border-b border-white/10 bg-white/[0.02] p-5">
+        <div className="relative overflow-hidden border-b border-white/10 bg-white/[0.025] p-5">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-purple-300/45 to-transparent" />
+
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-600 shadow-lg shadow-purple-600/30">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 via-fuchsia-600 to-violet-700 shadow-[0_16px_45px_rgba(147,51,234,0.34)]">
                 <MessageCircle
                   size={24}
                   className="text-white"
@@ -396,6 +450,22 @@ export default function ChatSidebar() {
             </div>
 
             <div className="flex items-center gap-2">
+              <Link
+                href="/profile"
+                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-300 transition-all hover:border-purple-300/30 hover:bg-purple-500/[0.12] hover:text-white"
+                aria-label="Open profile"
+              >
+                <UserRound size={18} />
+              </Link>
+
+              <Link
+                href="/settings"
+                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-300 transition-all hover:border-purple-300/30 hover:bg-purple-500/[0.12] hover:text-white"
+                aria-label="Open settings"
+              >
+                <Settings size={18} />
+              </Link>
+
               <button
                 type="button"
                 onClick={() =>
@@ -436,13 +506,26 @@ export default function ChatSidebar() {
                 onClick={() =>
                   setActiveFolder(folder)
                 }
-                className={`rounded-2xl px-4 py-2 text-sm font-medium capitalize transition-all ${
+                className={`relative overflow-hidden rounded-2xl px-4 py-2 text-sm font-medium capitalize transition-all ${
                   activeFolder === folder
-                    ? "bg-purple-600 text-white"
+                    ? "text-white shadow-lg shadow-purple-600/20"
                     : "bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08]"
                 }`}
               >
-                {folder}
+                {activeFolder === folder ? (
+                  <motion.span
+                    layoutId="sidebar-folder-active"
+                    className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-600 to-fuchsia-600"
+                    transition={{
+                      type: "spring",
+                      stiffness: 360,
+                      damping: 32,
+                    }}
+                  />
+                ) : null}
+                <span className="relative z-10">
+                  {folder}
+                </span>
               </button>
             ))}
           </div>
@@ -450,7 +533,7 @@ export default function ChatSidebar() {
           <StoryTray />
         </div>
 
-        <div className="flex-1 space-y-2 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div className="chat-safe-scroll flex-1 space-y-2 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {conversationsQuery.isLoading ? (
             <div className="space-y-3">
               {Array.from({
@@ -488,6 +571,7 @@ export default function ChatSidebar() {
                   conversation={conversation}
                   active={active}
                   isOnline={isOnline}
+                  currentUserId={currentUserId}
                   onSelect={
                     handleSelectConversation
                   }
@@ -550,10 +634,10 @@ export default function ChatSidebar() {
                 stiffness: 260,
                 damping: 28,
               }}
-              className="w-full max-w-sm rounded-[30px] border border-white/10 bg-[#0B111C]/96 p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.6)] backdrop-blur-3xl"
+              className="w-full max-w-sm rounded-[30px] border border-white/10 bg-[#0B111C]/[0.96] p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.6)] backdrop-blur-3xl"
             >
               <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/15 text-red-100">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/[0.15] text-red-100">
                   <AlertTriangle size={21} />
                 </div>
 

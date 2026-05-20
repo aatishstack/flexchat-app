@@ -56,6 +56,9 @@ export const SOCKET_EVENTS = {
   STORY_VIEWED:
     "story_viewed",
 
+  STORY_DELETED:
+    "story_deleted",
+
   CALL_INVITE:
     "call_invite",
 

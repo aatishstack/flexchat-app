@@ -4,7 +4,10 @@ import {
 
 import bcrypt from "bcrypt";
 
-import { eq } from "drizzle-orm";
+import {
+  eq,
+  sql,
+} from "drizzle-orm";
 
 import { z } from "zod";
 
@@ -13,6 +16,7 @@ import { db } from "../db/index.js";
 import { users } from "../db/schema/users.js";
 
 import { signToken } from "../lib/jwt.js";
+import { getFirebaseAuth } from "../lib/firebase-admin.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
 const blockedDomains = new Set([
@@ -52,16 +56,84 @@ const loginBodySchema = z.object({
     z.string().min(1).max(128),
 });
 
+const firebaseLoginBodySchema = z.object({
+  idToken:
+    z.string().trim().min(20).max(4096),
+});
+
 function publicUser(user: {
   id: string;
   username: string;
   email: string;
+  avatar?: string | null;
 }) {
   return {
     id: user.id,
     username: user.username,
     email: user.email,
+    avatar: user.avatar ?? null,
   };
+}
+
+type UserRow = {
+  id: string;
+  username: string;
+  email: string;
+  password: string;
+  avatar: string | null;
+  createdAt: Date;
+};
+
+function normalizeUsername(
+  value: string
+) {
+  const normalized =
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 24);
+
+  return normalized || "flexuser";
+}
+
+async function createUniqueUsername(
+  preferredName: string
+) {
+  const baseUsername =
+    normalizeUsername(preferredName);
+
+  for (let index = 0; index < 12; index += 1) {
+    const candidate =
+      index === 0
+        ? baseUsername
+        : `${baseUsername}_${crypto
+            .randomUUID()
+            .slice(0, 6)}`.slice(0, 32);
+
+    const existingUser =
+      await db
+        .select({
+          id: users.id,
+        })
+        .from(users)
+        .where(
+          eq(
+            users.username,
+            candidate
+          )
+        );
+
+    if (!existingUser.length) {
+      return candidate;
+    }
+  }
+
+  return `flex_${crypto
+    .randomUUID()
+    .replace(/-/g, "")
+    .slice(0, 12)}`;
 }
 
 export async function authRoutes(
@@ -214,6 +286,154 @@ export async function authRoutes(
 
         user:
           publicUser(newUser),
+      };
+    }
+  );
+
+  app.post(
+    "/auth/firebase/google",
+    async (
+      request,
+      reply
+    ) => {
+      const parsedBody =
+        firebaseLoginBodySchema.safeParse(
+          request.body
+        );
+
+      if (!parsedBody.success) {
+        return reply
+          .status(400)
+          .send({
+            message:
+              "Invalid Google sign-in request",
+          });
+      }
+
+      let decodedToken;
+
+      try {
+        decodedToken =
+          await getFirebaseAuth().verifyIdToken(
+            parsedBody.data.idToken,
+            true
+          );
+      } catch {
+        return reply
+          .status(401)
+          .send({
+            message:
+              "Google sign-in could not be verified",
+          });
+      }
+
+      const email =
+        decodedToken.email?.trim().toLowerCase();
+
+      if (
+        !email ||
+        !decodedToken.email_verified
+      ) {
+        return reply
+          .status(401)
+          .send({
+            message:
+              "Google account email is not verified",
+          });
+      }
+
+      const existingUsers =
+        await db
+          .select()
+          .from(users)
+          .where(
+            eq(
+              users.email,
+              email
+            )
+          );
+      let user = existingUsers[0];
+
+      if (user) {
+        const googleAvatar =
+          decodedToken.picture ?? null;
+
+        if (
+          googleAvatar &&
+          !user.avatar
+        ) {
+          const updatedUsers =
+            await db
+              .execute<UserRow>(sql`
+                update users
+                set avatar = ${googleAvatar}
+                where id = ${user.id}
+                returning
+                  id,
+                  username,
+                  email,
+                  password,
+                  avatar,
+                  created_at as "createdAt"
+              `);
+
+          user =
+            updatedUsers[0] ?? user;
+        }
+      } else {
+        const preferredUsername =
+          decodedToken.name ??
+          email.split("@")[0] ??
+          "flexuser";
+        const username =
+          await createUniqueUsername(
+            preferredUsername
+          );
+        const password =
+          await bcrypt.hash(
+            `firebase:${decodedToken.uid}:${crypto.randomUUID()}`,
+            10
+          );
+
+        const userId =
+          crypto.randomUUID();
+        const newUsers =
+          await db
+            .execute<UserRow>(sql`
+              insert into users (
+                id,
+                username,
+                email,
+                password,
+                avatar
+              )
+              values (
+                ${userId},
+                ${username},
+                ${email},
+                ${password},
+                ${decodedToken.picture ?? null}
+              )
+              returning
+                id,
+                username,
+                email,
+                password,
+                avatar,
+                created_at as "createdAt"
+            `);
+
+        user = newUsers[0];
+      }
+
+      const token =
+        signToken({
+          id: user.id,
+        });
+
+      return {
+        token,
+        user: publicUser(user),
       };
     }
   );

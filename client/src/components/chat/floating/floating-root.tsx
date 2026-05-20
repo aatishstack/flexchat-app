@@ -47,7 +47,7 @@ export default function FloatingRoot({
             floatingOffset,
         } as CSSProperties
       }
-      className="pointer-events-none fixed inset-x-0 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-[140] flex justify-center px-3 lg:bottom-5 lg:pb-[max(env(safe-area-inset-bottom),0px)] xl:justify-end xl:pr-[var(--chat-floating-offset)]"
+      className="pointer-events-none fixed inset-x-0 bottom-[var(--chat-floating-safe-bottom,calc(5.75rem+env(safe-area-inset-bottom)))] z-[140] flex justify-center px-3 lg:bottom-5 lg:pb-[max(env(safe-area-inset-bottom),0px)] xl:justify-end xl:pr-[var(--chat-floating-offset)]"
     >
       <motion.div
         initial={
@@ -75,7 +75,7 @@ export default function FloatingRoot({
               ? 30
               : 26,
         }}
-        className="pointer-events-auto flex max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-[24px] border border-white/10 bg-[#08111f]/92 p-2 shadow-[0_20px_70px_rgba(0,0,0,0.45)] backdrop-blur-3xl sm:gap-3 sm:rounded-[28px]"
+        className="pointer-events-auto flex max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-[24px] border border-white/10 bg-[#08111f]/[0.92] p-2 shadow-[0_20px_70px_rgba(0,0,0,0.45)] backdrop-blur-3xl sm:gap-3 sm:rounded-[28px]"
       >
         <motion.button
           whileHover={

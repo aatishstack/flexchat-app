@@ -18,7 +18,6 @@ import ChatSidebar from "../../../components/chat/sidebar/chat-sidebar";
 import ChatConversation from "../../../components/chat/conversation/chat-conversation";
 import GlobalSearch from "../../../components/chat/sidebar/global-search";
 import { useGlobalSearchStore } from "../../../store/global-search-store";
-import LiveToast from "../../../components/chat/sidebar/live-toast";
 import ActivityBar from "../../../components/chat/sidebar/activity-bar";
 
 const ActiveNowPanel = dynamic(
@@ -137,15 +136,14 @@ export default function ChatPage() {
             "21.25rem",
           "--chat-panel-gap":
             "1rem",
+          "--chat-floating-safe-bottom":
+            "calc(5.75rem + env(safe-area-inset-bottom))",
         } as CSSProperties
       }
-      className="relative h-dvh overflow-hidden bg-[radial-gradient(circle_at_18%_0%,rgba(168,85,247,0.18),transparent_30%),radial-gradient(circle_at_86%_18%,rgba(6,182,212,0.08),transparent_24%),linear-gradient(135deg,#050816_0%,#090d19_48%,#0b1020_100%)] text-white"
+      className="relative h-dvh min-h-svh overflow-hidden bg-[radial-gradient(circle_at_18%_0%,rgba(168,85,247,0.18),transparent_30%),radial-gradient(circle_at_86%_18%,rgba(6,182,212,0.08),transparent_24%),linear-gradient(135deg,#050816_0%,#090d19_48%,#0b1020_100%)] text-white"
     >
       {/* SEARCH */}
       <GlobalSearch />
-
-      {/* LIVE TOAST */}
-      <LiveToast />
 
       {/* ACTIVITY */}
       <ActivityBar />
@@ -168,7 +166,11 @@ export default function ChatPage() {
                 <DiscoverPanel />
 
                 <div className="min-w-0 flex-1">
-                  <ChatConversation />
+                  <ChatConversation
+                    onOpenNotifications={() =>
+                      setNotificationsOpen(true)
+                    }
+                  />
                 </div>
 
                 <ActiveNowPanel />
@@ -203,7 +205,7 @@ export default function ChatPage() {
               stiffness: 260,
               damping: 28,
             }}
-            className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-[calc(var(--chat-right-rail-width)+var(--chat-panel-gap))] top-[calc(5rem+env(safe-area-inset-top))] z-[180] hidden w-[var(--chat-notification-panel-width)] overflow-hidden rounded-[32px] border border-white/10 bg-[#0B111C]/95 shadow-2xl backdrop-blur-2xl xl:flex"
+            className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-[calc(var(--chat-right-rail-width)+var(--chat-panel-gap))] top-[calc(5rem+env(safe-area-inset-top))] z-[180] hidden w-[var(--chat-notification-panel-width)] overflow-hidden rounded-[32px] border border-white/10 bg-[#0B111C]/95 shadow-2xl shadow-black/45 backdrop-blur-2xl xl:flex"
           >
             <NotificationPanel
               onClose={() =>

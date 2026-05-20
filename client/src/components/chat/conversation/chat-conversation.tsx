@@ -11,15 +11,19 @@ import {
 } from "react";
 
 import {
+  Bell,
   FileText,
   ImageIcon,
   Phone,
   RefreshCw,
   SendHorizonal,
+  Sparkles,
   Video,
+  X,
 } from "lucide-react";
 
 import {
+  AnimatePresence,
   motion,
   useReducedMotion,
 } from "framer-motion";
@@ -36,6 +40,8 @@ import {
   useSocketStore,
 } from "@/store/socket-store";
 import { useCallStore } from "@/store/call-store";
+import { useNotificationStore } from "@/store/notification-store";
+import { useToastStore } from "@/store/toast-store";
 import { updateConversationInQueryCache } from "@/lib/conversation-query-cache";
 import type { ConversationQueryCache } from "@/lib/conversation-query-cache";
 import { queryKeys } from "@/lib/query-keys";
@@ -71,6 +77,27 @@ function hasOnlinePeer(
         memberId !== currentUserId &&
         onlineUsers.has(memberId)
     ) ?? false
+  );
+}
+
+function getConversationAvatar(
+  conversation: {
+    avatar?: string | null;
+    members?: {
+      id: string;
+      avatar?: string | null;
+    }[];
+  },
+  currentUserId?: string
+) {
+  return (
+    conversation.avatar ??
+    conversation.members?.find(
+      (member) =>
+        member.id !== currentUserId &&
+        member.avatar
+    )?.avatar ??
+    null
   );
 }
 
@@ -296,10 +323,10 @@ const ChatMessageRow = memo(
           }`}
         >
           <div
-            className={`max-w-[86%] rounded-3xl px-4 py-3 text-sm text-white shadow-lg sm:max-w-[70%] sm:px-5 sm:py-4 ${
+            className={`max-w-[86%] rounded-3xl px-4 py-3 text-sm text-white shadow-[0_14px_45px_rgba(0,0,0,0.22)] sm:max-w-[70%] sm:px-5 sm:py-4 ${
               mine
-                ? "rounded-br-md bg-gradient-to-br from-purple-600 to-fuchsia-600"
-                : "rounded-bl-md border border-white/10 bg-white/[0.04] backdrop-blur-xl"
+                ? "rounded-br-md bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 shadow-purple-950/30"
+                : "rounded-bl-md border border-white/10 bg-white/[0.055] backdrop-blur-2xl"
             } ${
               message.status === "failed"
                 ? "ring-1 ring-red-400/35"
@@ -307,7 +334,7 @@ const ChatMessageRow = memo(
             }`}
           >
             {message.replyTo ? (
-              <div className="mb-3 rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-xs text-white/70">
+              <div className="mb-3 rounded-2xl border border-white/10 bg-black/[0.15] px-3 py-2 text-xs text-white/70">
                 <p className="font-medium text-white/85">
                   Reply
                 </p>
@@ -339,7 +366,7 @@ const ChatMessageRow = memo(
                   href={message.attachment}
                   target="_blank"
                   rel="noreferrer"
-                  className="mb-3 flex items-center gap-3 rounded-2xl border border-white/10 bg-black/15 px-3 py-3 text-xs text-white/80"
+                  className="mb-3 flex items-center gap-3 rounded-2xl border border-white/10 bg-black/[0.15] px-3 py-3 text-xs text-white/80"
                 >
                   <FileText size={16} />
                   <span className="truncate">
@@ -413,10 +440,20 @@ const ChatMessageRow = memo(
   }
 );
 
-export default function ChatConversation() {
+type ChatConversationProps = {
+  onOpenNotifications?: () => void;
+};
+
+export default function ChatConversation({
+  onOpenNotifications,
+}: ChatConversationProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
+  const [aiOpen, setAiOpen] =
+    useState(false);
+  const [aiPrompt, setAiPrompt] =
+    useState("");
   const [
     isUploadingAttachment,
     setIsUploadingAttachment,
@@ -436,6 +473,18 @@ export default function ChatConversation() {
     new Set()
   );
   const reducedMotion = useReducedMotion();
+  const pushToast =
+    useToastStore(
+      (state) => state.pushToast
+    );
+  const unreadNotificationCount =
+    useNotificationStore(
+      (state) =>
+        state.notifications.filter(
+          (notification) =>
+            !notification.read
+        ).length
+    );
 
   const conversationsQuery =
     useConversationsQuery();
@@ -651,6 +700,13 @@ export default function ChatConversation() {
       (memberId) =>
         memberId !== user?.id
     );
+  const activeConversationAvatar =
+    activeConversation
+      ? getConversationAvatar(
+          activeConversation,
+          user?.id
+        )
+      : null;
 
   useEffect(() => {
     if (!conversationId) {
@@ -922,12 +978,16 @@ export default function ChatConversation() {
       setText("");
       stopActiveTyping(conversationId);
       setConnectionError(null);
-    } catch (error) {
+    } catch {
       setConnectionError(
-        error instanceof Error
-          ? error.message
-          : "Attachment upload failed"
+        "Attachment upload failed"
       );
+      pushToast({
+        title: "Upload failed",
+        message:
+          "We could not attach that file. Please try again.",
+        variant: "error",
+      });
     } finally {
       setIsUploadingAttachment(false);
 
@@ -956,6 +1016,18 @@ export default function ChatConversation() {
 
     setText("");
     stopActiveTyping(conversationId);
+  }
+
+  function handleAskAi() {
+    pushToast({
+      title: "AI features coming soon",
+      message:
+        aiPrompt.trim()
+          ? "Your prompt is ready for the upcoming assistant."
+          : "The FlexChat assistant will arrive in a future update.",
+      variant: "info",
+    });
+    setAiOpen(false);
   }
 
   function handleStartCall(
@@ -994,10 +1066,19 @@ export default function ChatConversation() {
     <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_50%_0%,rgba(168,85,247,0.10),transparent_32%),linear-gradient(180deg,rgba(8,17,31,0.72),rgba(5,8,18,0.92))]">
       <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.7)_1px,transparent_0)] [background-size:24px_24px]" />
 
-      <div className="relative z-10 flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#08111f]/62 px-4 py-4 shadow-lg shadow-black/10 backdrop-blur-2xl sm:px-6 sm:py-5">
+      <div className="relative z-10 flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#08111f]/[0.62] px-4 py-4 shadow-lg shadow-black/10 backdrop-blur-2xl sm:px-6 sm:py-5">
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-base font-bold text-white sm:h-14 sm:w-14 sm:text-lg">
-            {activeConversation.name?.charAt(0) ?? "F"}
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-base font-bold text-white shadow-lg shadow-purple-950/30 sm:h-14 sm:w-14 sm:text-lg">
+            {activeConversationAvatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={activeConversationAvatar}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              activeConversation.name?.charAt(0) ?? "F"
+            )}
           </div>
 
           <div className="min-w-0">
@@ -1028,11 +1109,27 @@ export default function ChatConversation() {
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
+            onClick={onOpenNotifications}
+            className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-200 transition hover:border-purple-400/30 hover:bg-purple-500/[0.15]"
+            aria-label="Open notifications"
+          >
+            <Bell size={18} />
+            {unreadNotificationCount ? (
+              <span className="absolute right-2 top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white shadow-lg shadow-red-500/50">
+                {unreadNotificationCount > 9
+                  ? "9+"
+                  : unreadNotificationCount}
+              </span>
+            ) : null}
+          </button>
+
+          <button
+            type="button"
             onClick={() =>
               handleStartCall("voice")
             }
             disabled={!callTargetUserId}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-200 transition hover:border-purple-400/30 hover:bg-purple-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-200 transition hover:border-purple-400/30 hover:bg-purple-500/[0.15] disabled:cursor-not-allowed disabled:opacity-40"
             aria-label="Start voice call"
           >
             <Phone size={18} />
@@ -1044,7 +1141,7 @@ export default function ChatConversation() {
               handleStartCall("video")
             }
             disabled={!callTargetUserId}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-200 transition hover:border-purple-400/30 hover:bg-purple-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-200 transition hover:border-purple-400/30 hover:bg-purple-500/[0.15] disabled:cursor-not-allowed disabled:opacity-40"
             aria-label="Start video call"
           >
             <Video size={18} />
@@ -1055,7 +1152,7 @@ export default function ChatConversation() {
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="relative z-10 min-h-0 flex-1 touch-pan-y overscroll-contain overflow-y-auto scroll-pb-28 px-3 py-4 sm:px-6 sm:py-6"
+        className="chat-safe-scroll relative z-10 min-h-0 flex-1 touch-pan-y overscroll-contain overflow-y-auto scroll-pb-32 px-3 py-4 sm:px-6 sm:py-6"
       >
         {showInitialMessageSkeleton ? (
           <MessageSkeleton />
@@ -1154,7 +1251,7 @@ export default function ChatConversation() {
         )}
       </div>
 
-      <div className="relative z-10 shrink-0 border-t border-white/10 bg-[#08111f]/72 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-18px_60px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:p-5 sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
+      <div className="relative z-10 shrink-0 border-t border-white/10 bg-[#08111f]/[0.72] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-18px_60px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:p-5 sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
         <div className="flex items-end gap-2 sm:gap-3">
           <input
             ref={fileInputRef}
@@ -1187,7 +1284,18 @@ export default function ChatConversation() {
             />
           </button>
 
-          <div className="min-w-0 flex-1 rounded-3xl border border-white/10 bg-white/[0.03] px-4 sm:px-5">
+          <button
+            type="button"
+            onClick={() =>
+              setAiOpen(true)
+            }
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-purple-300/20 bg-purple-500/[0.10] text-purple-100 shadow-lg shadow-purple-950/15 transition-all hover:bg-purple-500/[0.18] active:scale-95"
+            aria-label="Open AI assistant"
+          >
+            <Sparkles size={20} />
+          </button>
+
+          <div className="min-w-0 flex-1 rounded-3xl border border-white/10 bg-white/[0.04] px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition focus-within:border-purple-300/35 focus-within:bg-white/[0.06] focus-within:shadow-[0_0_0_4px_rgba(147,51,234,0.14)] sm:px-5">
             <textarea
               rows={1}
               value={text}
@@ -1214,17 +1322,112 @@ export default function ChatConversation() {
           </div>
 
           <button
+            type="button"
             onClick={handleSend}
             disabled={
               !text.trim() ||
               isUploadingAttachment
             }
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-white shadow-2xl shadow-purple-600/30 transition-all hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 text-white shadow-2xl shadow-purple-600/30 transition-all hover:scale-105 hover:shadow-purple-500/40 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <SendHorizonal size={21} />
           </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {aiOpen ? (
+          <motion.div
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+            }}
+            className="fixed inset-0 z-[270] flex items-end justify-center bg-black/[0.62] p-3 backdrop-blur-xl sm:items-center sm:p-6"
+          >
+            <motion.div
+              initial={{
+                opacity: 0,
+                y: 24,
+                scale: 0.96,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                scale: 1,
+              }}
+              exit={{
+                opacity: 0,
+                y: 24,
+                scale: 0.96,
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 320,
+                damping: 30,
+              }}
+              className="w-full max-w-md overflow-hidden rounded-[30px] border border-white/10 bg-[#0B111C]/[0.96] text-white shadow-[0_28px_90px_rgba(0,0,0,0.62)] backdrop-blur-3xl"
+            >
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 shadow-lg shadow-purple-600/25">
+                    <Sparkles size={19} />
+                  </div>
+                  <div>
+                    <h2 className="font-semibold">
+                      FlexChat AI
+                    </h2>
+                    <p className="text-xs text-zinc-500">
+                      Assistant preview
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAiOpen(false)
+                  }
+                  className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white transition hover:bg-white/[0.08]"
+                  aria-label="Close AI assistant"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="space-y-4 p-5">
+                <textarea
+                  value={aiPrompt}
+                  onChange={(event) =>
+                    setAiPrompt(
+                      event.target.value.slice(
+                        0,
+                        600
+                      )
+                    )
+                  }
+                  rows={5}
+                  placeholder="Ask for a summary, rewrite, or reply idea..."
+                  className="w-full resize-none rounded-3xl border border-white/10 bg-white/[0.04] px-4 py-4 text-sm leading-relaxed text-white outline-none transition placeholder:text-zinc-500 focus:border-purple-300/40 focus:bg-white/[0.06]"
+                />
+
+                <button
+                  type="button"
+                  onClick={handleAskAi}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-fuchsia-600 text-sm font-semibold text-white shadow-xl shadow-purple-600/25 transition hover:scale-[1.01]"
+                >
+                  <Sparkles size={18} />
+                  Ask AI
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </section>
   );
 }

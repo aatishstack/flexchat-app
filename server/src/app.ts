@@ -14,6 +14,7 @@ import { isAllowedOrigin } from "./lib/origins.js";
 import { authRoutes } from "./routes/auth.route.js";
 import { conversationRoutes } from "./routes/conversation.route.js";
 import { messageRoutes } from "./routes/messages.route.js";
+import { notificationRoutes } from "./routes/notification.route.js";
 import { storyRoutes } from "./routes/story.route.js";
 import { uploadRoutes } from "./routes/upload.route.js";
 import { userRoutes } from "./routes/user.route.js";
@@ -152,6 +153,7 @@ export async function buildApp() {
   await app.register(authRoutes);
   await app.register(userRoutes);
   await app.register(messageRoutes);
+  await app.register(notificationRoutes);
   await app.register(conversationRoutes);
   await app.register(storyRoutes);
   await app.register(uploadRoutes);

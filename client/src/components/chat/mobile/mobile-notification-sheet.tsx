@@ -67,7 +67,7 @@ export default function MobileNotificationSheet({
               stiffness: 240,
               damping: 26,
             }}
-            className="fixed bottom-0 left-0 right-0 z-[240] flex h-[min(82dvh,720px)] flex-col overflow-hidden rounded-t-[32px] border-t border-white/10 bg-[#0B111C]/95 shadow-2xl backdrop-blur-3xl xl:hidden"
+            className="fixed bottom-0 left-0 right-0 z-[240] flex h-[min(82dvh,720px)] max-h-[calc(100dvh-env(safe-area-inset-top)-1rem)] flex-col overflow-hidden rounded-t-[32px] border-t border-white/10 bg-[#0B111C]/95 shadow-2xl shadow-black/50 backdrop-blur-3xl xl:hidden"
           >
             <div className="relative flex h-14 shrink-0 items-center justify-center">
               <div className="h-1.5 w-16 rounded-full bg-white/20" />

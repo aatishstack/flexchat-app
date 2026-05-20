@@ -2,6 +2,13 @@ import { api } from "./api";
 
 import type { PublicUser } from "@/types/user";
 
+export type CurrentUser = {
+  id: string;
+  username: string;
+  email: string;
+  avatar?: string | null;
+};
+
 export async function getDiscoverUsers(
   query = ""
 ) {
@@ -15,6 +22,21 @@ export async function getDiscoverUsers(
           limit: 60,
         },
       }
+    );
+
+  return response.data;
+}
+
+export async function updateCurrentUser(
+  data: {
+    username?: string;
+    avatar?: string | null;
+  }
+) {
+  const response =
+    await api.patch<CurrentUser>(
+      "/users/me",
+      data
     );
 
   return response.data;

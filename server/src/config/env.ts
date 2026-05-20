@@ -38,6 +38,16 @@ const envSchema = z.object({
     z.coerce.number().min(1).default(168),
   UPLOAD_CLEANUP_INTERVAL_MINUTES:
     z.coerce.number().min(5).default(60),
+  FIREBASE_SERVICE_ACCOUNT_JSON:
+    z.string().optional(),
+  FIREBASE_SERVICE_ACCOUNT_BASE64:
+    z.string().optional(),
+  FIREBASE_PROJECT_ID:
+    z.string().optional(),
+  FIREBASE_CLIENT_EMAIL:
+    z.string().optional(),
+  FIREBASE_PRIVATE_KEY:
+    z.string().optional(),
 }).superRefine((env, context) => {
   if (
     env.NODE_ENV === "production" &&

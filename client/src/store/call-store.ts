@@ -4,6 +4,7 @@ import { create } from "zustand";
 
 import { socket } from "@/socket/socket";
 import { SOCKET_EVENTS } from "@/socket/socket-events";
+import { useToastStore } from "@/store/toast-store";
 import { useAuthStore } from "@/stores/auth.store";
 
 export type CallKind = "voice" | "video";
@@ -190,6 +191,90 @@ function emitCallWithAck(
   });
 }
 
+function pushCallToast({
+  title,
+  message,
+  variant = "error",
+}: {
+  title: string;
+  message?: string;
+  variant?: "error" | "info" | "warning";
+}) {
+  useToastStore.getState().pushToast({
+    title,
+    message,
+    variant,
+    durationMs: 3000,
+  });
+}
+
+function getMediaAccessFeedback(
+  error: unknown,
+  kind: CallKind
+) {
+  const errorName =
+    error instanceof Error
+      ? error.name
+      : "";
+  const errorMessage =
+    error instanceof Error
+      ? error.message
+      : "";
+  const normalizedError =
+    `${errorName} ${errorMessage}`.toLowerCase();
+  const denied =
+    normalizedError.includes(
+      "notallowed"
+    ) ||
+    normalizedError.includes(
+      "permission"
+    ) ||
+    normalizedError.includes(
+      "denied"
+    ) ||
+    normalizedError.includes(
+      "security"
+    );
+
+  if (denied) {
+    return {
+      title:
+        kind === "video"
+          ? "Camera access denied"
+          : "Microphone access denied",
+      message:
+        "Check your browser and system privacy settings.",
+    };
+  }
+
+  if (
+    normalizedError.includes(
+      "notfound"
+    ) ||
+    normalizedError.includes(
+      "device"
+    )
+  ) {
+    return {
+      title:
+        kind === "video"
+          ? "Camera unavailable"
+          : "Microphone unavailable",
+      message:
+        "Connect a device and try the call again.",
+    };
+  }
+
+  return {
+    title:
+      kind === "video"
+        ? "Camera or microphone unavailable"
+        : "Microphone unavailable",
+    message:
+      "FlexChat could not prepare your call devices.",
+  };
+}
+
 async function getLocalMedia(kind: CallKind) {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error(
@@ -309,6 +394,41 @@ async function makePeerConnection(
     }
   };
 
+  pc.oniceconnectionstatechange = () => {
+    if (
+      pc.iceConnectionState === "connected" ||
+      pc.iceConnectionState === "completed"
+    ) {
+      set({
+        networkState: "stable",
+        error: null,
+      });
+      return;
+    }
+
+    if (
+      pc.iceConnectionState === "checking"
+    ) {
+      set({
+        networkState: "connecting",
+      });
+      return;
+    }
+
+    if (
+      pc.iceConnectionState === "disconnected" ||
+      pc.iceConnectionState === "failed"
+    ) {
+      set({
+        networkState: "reconnecting",
+      });
+
+      if (pc.iceConnectionState === "failed") {
+        pc.restartIce();
+      }
+    }
+  };
+
   peerConnection = pc;
 
   return pc;
@@ -328,9 +448,14 @@ export const useCallStore =
 
     startCall: async (input) => {
       if (get().currentCall) {
+        pushCallToast({
+          title: "Call already active",
+          message:
+            "Finish the current call before starting another one.",
+          variant: "warning",
+        });
         set({
-          error:
-            "Finish the current call before starting another one",
+          error: null,
         });
         return;
       }
@@ -365,9 +490,13 @@ export const useCallStore =
             localStream: null,
             phase: "idle",
             networkState: "stable",
-            error:
+            error: null,
+          });
+          pushCallToast({
+            title: "Unable to start call",
+            message:
               ack.error ??
-              "Unable to start call",
+              "Please try again in a moment.",
           });
           return;
         }
@@ -378,16 +507,20 @@ export const useCallStore =
           networkState: "connecting",
         });
       } catch (error) {
+        const feedback =
+          getMediaAccessFeedback(
+            error,
+            input.kind
+          );
+
         set({
           currentCall: null,
           phase: "idle",
           localStream: null,
           networkState: "stable",
-          error:
-            error instanceof Error
-              ? error.message
-              : "Unable to access microphone or camera",
+          error: null,
         });
+        pushCallToast(feedback);
       }
     },
 
@@ -438,19 +571,38 @@ export const useCallStore =
             remoteStream: null,
             phase: "idle",
             networkState: "stable",
-            error:
+            error: null,
+          });
+          pushCallToast({
+            title: "Unable to accept call",
+            message:
               ack.error ??
-              "Unable to accept call",
+              "Please try again in a moment.",
           });
         }
       } catch (error) {
+        socket.emit(
+          SOCKET_EVENTS.CALL_REJECT,
+          {
+            callId: call.id,
+          }
+        );
+        stopStream(get().localStream);
+        closePeerConnection();
         set({
-          phase: "incoming",
-          error:
-            error instanceof Error
-              ? error.message
-              : "Unable to access microphone or camera",
+          currentCall: null,
+          localStream: null,
+          remoteStream: null,
+          phase: "idle",
+          networkState: "stable",
+          error: null,
         });
+        pushCallToast(
+          getMediaAccessFeedback(
+            error,
+            call.kind
+          )
+        );
       }
     },
 
@@ -598,6 +750,11 @@ export const useCallStore =
         get().localStream;
 
       if (!localStream) {
+        pushCallToast({
+          title: "Call media unavailable",
+          message:
+            "Local media was not ready for this call.",
+        });
         set({
           error:
             "Local media was not ready for this call",
@@ -621,6 +778,13 @@ export const useCallStore =
           description: offer,
         });
       })().catch((error) => {
+        pushCallToast({
+          title: "Unable to prepare call",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Please try again in a moment.",
+        });
         set({
           error:
             error instanceof Error
@@ -643,7 +807,11 @@ export const useCallStore =
 
       get().resetCall();
       set({
-        error: "Call declined",
+        error: null,
+      });
+      pushCallToast({
+        title: "Call declined",
+        variant: "info",
       });
     },
 
@@ -660,7 +828,11 @@ export const useCallStore =
 
       get().resetCall();
       set({
-        error: "Call canceled",
+        error: null,
+      });
+      pushCallToast({
+        title: "Call canceled",
+        variant: "info",
       });
     },
 
@@ -761,6 +933,14 @@ export const useCallStore =
           );
         }
       })().catch((error) => {
+        pushCallToast({
+          title: "Call connection issue",
+          message:
+            error instanceof Error
+              ? error.message
+              : "FlexChat is reconnecting the call.",
+          variant: "warning",
+        });
         set({
           error:
             error instanceof Error
@@ -787,6 +967,13 @@ export const useCallStore =
           payload.message ??
           "Call connection issue",
       });
+      pushCallToast({
+        title: "Call connection issue",
+        message:
+          payload.message ??
+          "FlexChat is reconnecting the call.",
+        variant: "warning",
+      });
     },
 
     resetCall: () => {
@@ -803,6 +990,7 @@ export const useCallStore =
         isVideoEnabled: true,
         isMinimized: false,
         networkState: "stable",
+        error: null,
       });
     },
   }));

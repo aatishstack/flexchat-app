@@ -26,6 +26,8 @@ interface NotificationState {
     id: string
   ) => void;
 
+  markAllRead: () => void;
+
   clearNotifications: () => void;
 }
 
@@ -79,6 +81,24 @@ export const useNotificationStore =
                           read: true,
                         }
                       : item
+                ),
+            })
+          ),
+
+      markAllRead:
+        () =>
+          set(
+            (
+              state
+            ) => ({
+              notifications:
+                state.notifications.map(
+                  (
+                    item
+                  ) => ({
+                    ...item,
+                    read: true,
+                  })
                 ),
             })
           ),

@@ -219,29 +219,7 @@ export default function CallLayer() {
   ]);
 
   if (!callActive) {
-    return (
-      <AnimatePresence>
-        {error ? (
-          <motion.div
-            initial={{
-              opacity: 0,
-              y: 20,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            exit={{
-              opacity: 0,
-              y: 20,
-            }}
-            className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] left-1/2 z-[210] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-2xl border border-red-400/20 bg-red-500/15 px-4 py-3 text-sm text-red-100 shadow-2xl backdrop-blur-2xl"
-          >
-            {error}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    );
+    return null;
   }
 
   if (isMinimized) {
@@ -259,7 +237,7 @@ export default function CallLayer() {
           y: 0,
           scale: 1,
         }}
-        className="fixed bottom-[calc(6.25rem+env(safe-area-inset-bottom))] right-4 z-[220] flex items-center gap-3 rounded-[24px] border border-purple-400/30 bg-[#0B111C]/95 p-3 pr-4 text-left shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-3xl lg:bottom-6"
+        className="fixed bottom-[calc(6.25rem+env(safe-area-inset-bottom))] left-4 z-[220] flex max-w-[calc(100vw-2rem)] items-center gap-3 rounded-[24px] border border-purple-400/30 bg-[#0B111C]/95 p-3 pr-4 text-left shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-3xl sm:left-auto sm:right-5 lg:bottom-6 xl:right-[calc(var(--chat-right-rail-width,20rem)+1.5rem)]"
       >
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-500 text-white">
           {isVideoCall ? (
@@ -297,7 +275,7 @@ export default function CallLayer() {
         exit={{
           opacity: 0,
         }}
-        className="fixed inset-0 z-[250] flex items-center justify-center bg-black/84 p-3 text-white backdrop-blur-xl sm:p-6"
+        className="fixed inset-0 z-[250] flex items-center justify-center bg-black/[0.84] p-3 text-white backdrop-blur-xl sm:p-6"
       >
         <motion.div
           initial={
@@ -376,7 +354,7 @@ export default function CallLayer() {
               )}
 
               {localStream ? (
-                <div className="absolute bottom-28 right-4 z-20 h-36 w-24 overflow-hidden rounded-3xl border border-white/15 bg-black shadow-2xl">
+                <div className="absolute bottom-28 right-4 z-20 h-36 w-24 overflow-hidden rounded-3xl border border-white/[0.15] bg-black shadow-2xl">
                   <StreamVideo
                     stream={localStream}
                     muted
@@ -392,7 +370,7 @@ export default function CallLayer() {
             />
           )}
 
-          <div className="absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/82 via-black/44 to-transparent px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-16">
+          <div className="absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/[0.82] via-black/[0.44] to-transparent px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-16">
             <div className="mb-5 text-center">
               <p className="text-sm text-white/70">
                 {phase === "active"
@@ -439,7 +417,7 @@ export default function CallLayer() {
                   className={`flex h-14 w-14 items-center justify-center rounded-full border border-white/10 text-white shadow-xl transition hover:scale-105 ${
                     isMuted
                       ? "bg-red-500"
-                      : "bg-white/12"
+                      : "bg-white/[0.12]"
                   }`}
                   aria-label={
                     isMuted
@@ -460,7 +438,7 @@ export default function CallLayer() {
                     onClick={toggleVideo}
                     className={`flex h-14 w-14 items-center justify-center rounded-full border border-white/10 text-white shadow-xl transition hover:scale-105 ${
                       isVideoEnabled
-                        ? "bg-white/12"
+                        ? "bg-white/[0.12]"
                         : "bg-red-500"
                     }`}
                     aria-label={
@@ -493,7 +471,7 @@ export default function CallLayer() {
                 <button
                   type="button"
                   onClick={minimizeCall}
-                  className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/12 text-white shadow-xl transition hover:scale-105"
+                  className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/[0.12] text-white shadow-xl transition hover:scale-105"
                   aria-label="Minimize call"
                 >
                   <Minimize2 size={20} />

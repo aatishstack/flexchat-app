@@ -113,7 +113,7 @@ export default function ActivityBar() {
           1,
         ],
       }}
-      className="pointer-events-none fixed left-1/2 top-[calc(1rem+env(safe-area-inset-top))] z-[130] flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-[#0B111C]/90 px-4 py-3 shadow-2xl backdrop-blur-xl sm:gap-4 sm:px-6"
+      className="pointer-events-none fixed left-1/2 top-[calc(0.75rem+env(safe-area-inset-top))] z-[130] flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-[#0B111C]/90 px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-xl sm:gap-4 sm:px-6"
     >
       <div
         className={`h-3 w-3 rounded-full shadow-lg motion-safe:animate-pulse ${status.dot}`}

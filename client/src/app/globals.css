@@ -2,6 +2,9 @@
 
 :root {
   color-scheme: dark;
+  --flexchat-bg: #050713;
+  --flexchat-panel: rgba(9, 17, 31, 0.86);
+  --flexchat-border: rgba(255, 255, 255, 0.1);
 }
 
 * {
@@ -15,23 +18,34 @@ body {
   min-height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
-  background: #050510;
+  background: var(--flexchat-bg);
   font-family:
     Inter,
     sans-serif;
+  overscroll-behavior: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 body {
   background-image:
-    radial-gradient(
-      circle at top,
-      rgba(124, 58, 237, 0.14),
-      transparent 28%
+    linear-gradient(
+      135deg,
+      rgba(124, 58, 237, 0.14) 0%,
+      rgba(6, 182, 212, 0.05) 34%,
+      transparent 58%
+    ),
+    linear-gradient(
+      135deg,
+      #050713 0%,
+      #080d19 45%,
+      #070a14 100%
     );
 }
 
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -40,22 +54,69 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background:
-    rgba(139, 92, 246, 0.4);
+    rgba(255, 255, 255, 0.12);
 
-  border-radius: 999px;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background:
+    rgba(255, 255, 255, 0.25);
+}
+
+::selection {
+  background: rgba(168, 85, 247, 0.38);
+  color: white;
 }
 
 input,
-button {
+button,
+textarea {
   font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button {
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 button:disabled {
   cursor: not-allowed;
+}
+
+button,
+a,
+input,
+textarea {
+  outline: none;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  box-shadow:
+    0 0 0 1px rgba(216, 180, 254, 0.58),
+    0 0 0 5px rgba(147, 51, 234, 0.2);
+}
+
+.chat-safe-scroll {
+  scrollbar-gutter: stable;
+  scroll-behavior: smooth;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.modal-safe-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -123,54 +123,68 @@ export async function storyRoutes(app: FastifyInstance) {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const userId = request.user?.id;
+      try {
+        const userId = request.user?.id;
 
-      if (!userId) {
-        return reply.status(401).send({
-          message: "Unauthorized",
-        });
+        if (!userId) {
+          return reply.status(401).send({
+            message: "Unauthorized",
+          });
+        }
+
+        const stories = await db.execute<StoryRow>(sql`
+          with visible_users as (
+            select distinct cm2.user_id
+            from conversation_members cm1
+            inner join conversation_members cm2
+              on cm2.conversation_id = cm1.conversation_id
+            where cm1.user_id = ${userId}
+            union
+            select ${userId}
+          )
+          select
+            s.id,
+            s.user_id as "userId",
+            s.media_url as "mediaUrl",
+            s.media_type as "mediaType",
+            s.caption,
+            s.created_at as "createdAt",
+            s.expires_at as "expiresAt",
+            (sv.id is not null) as viewed,
+            jsonb_build_object(
+              'id', u.id,
+              'username', u.username,
+              'avatar', u.avatar
+            ) as "user"
+          from stories s
+          inner join users u
+            on u.id = s.user_id
+          left join story_views sv
+            on sv.story_id = s.id
+            and sv.user_id = ${userId}
+          where s.user_id in (
+            select user_id from visible_users
+          )
+            and s.deleted_at is null
+            and s.expires_at > now()
+          order by s.created_at desc
+          limit 200
+        `);
+
+        return stories.map(serializeStory);
+      } catch (error) {
+        request.log.warn(
+          {
+            err: error,
+          },
+          "Stories temporarily unavailable"
+        );
+        reply.header(
+          "x-flexchat-stories-error",
+          "unavailable"
+        );
+        return [];
       }
-
-      const stories = await db.execute<StoryRow>(sql`
-        with visible_users as (
-          select distinct cm2.user_id
-          from conversation_members cm1
-          inner join conversation_members cm2
-            on cm2.conversation_id = cm1.conversation_id
-          where cm1.user_id = ${userId}
-          union
-          select ${userId}
-        )
-        select
-          s.id,
-          s.user_id as "userId",
-          s.media_url as "mediaUrl",
-          s.media_type as "mediaType",
-          s.caption,
-          s.created_at as "createdAt",
-          s.expires_at as "expiresAt",
-          (sv.id is not null) as viewed,
-          jsonb_build_object(
-            'id', u.id,
-            'username', u.username,
-            'avatar', u.avatar
-          ) as "user"
-        from stories s
-        inner join users u
-          on u.id = s.user_id
-        left join story_views sv
-          on sv.story_id = s.id
-          and sv.user_id = ${userId}
-        where s.user_id in (
-          select user_id from visible_users
-        )
-          and s.deleted_at is null
-          and s.expires_at > now()
-        order by s.created_at desc
-        limit 200
-      `);
-
-      return stories.map(serializeStory);
     }
   );
 
@@ -344,6 +358,23 @@ export async function storyRoutes(app: FastifyInstance) {
           and user_id = ${userId}
           and deleted_at is null
       `);
+
+      const io = getSocketServer();
+
+      if (io) {
+        const audienceUserIds =
+          await getVisibleStoryUserIds(userId);
+
+        audienceUserIds.forEach((audienceUserId) => {
+          io.to(`user:${audienceUserId}`).emit(
+            SOCKET_EVENTS.STORY_DELETED,
+            {
+              storyId: parsedParams.data.storyId,
+              deletedAt: new Date().toISOString(),
+            }
+          );
+        });
+      }
 
       return {
         ok: true,

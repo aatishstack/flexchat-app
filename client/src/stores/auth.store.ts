@@ -8,6 +8,8 @@ interface User {
   username: string;
 
   email: string;
+
+  avatar?: string | null;
 }
 
 interface AuthState {
@@ -29,6 +31,10 @@ interface AuthState {
 
       token: string;
     }
+  ) => void;
+
+  updateUser: (
+    user: Partial<User>
   ) => void;
 
   logout: () => void;
@@ -68,8 +74,25 @@ export const useAuthStore =
             true,
 
           isHydrated:
-            true,
+          true,
         }),
+
+      updateUser: (
+        user
+      ) =>
+        set(
+          (
+            state
+          ) => ({
+            user:
+              state.user
+                ? {
+                    ...state.user,
+                    ...user,
+                  }
+                : null,
+          })
+        ),
 
       logout: () =>
         set({

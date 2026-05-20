@@ -61,6 +61,11 @@ type StoryViewedPayload = {
   viewedAt?: string;
 };
 
+type StoryDeletedPayload = {
+  storyId?: string;
+  deletedAt?: string;
+};
+
 type CallLifecyclePayload = {
   callId?: string;
   reason?: string;
@@ -516,6 +521,23 @@ export default function SocketProvider({
       );
     }
 
+    function onStoryDeleted(
+      payload: StoryDeletedPayload
+    ) {
+      if (!payload.storyId) {
+        return;
+      }
+
+      queryClient.setQueryData<Story[]>(
+        queryKeys.stories.all,
+        (stories) =>
+          (stories ?? []).filter(
+            (story) =>
+              story.id !== payload.storyId
+          )
+      );
+    }
+
     function onCallIncoming(
       call: CallSession
     ) {
@@ -584,6 +606,7 @@ export default function SocketProvider({
     socket.on(SOCKET_EVENTS.CONVERSATION_ERROR, onConversationError);
     socket.on(SOCKET_EVENTS.STORY_CREATED, onStoryCreated);
     socket.on(SOCKET_EVENTS.STORY_VIEWED, onStoryViewed);
+    socket.on(SOCKET_EVENTS.STORY_DELETED, onStoryDeleted);
     socket.on(SOCKET_EVENTS.CALL_INCOMING, onCallIncoming);
     socket.on(SOCKET_EVENTS.CALL_ACCEPTED, onCallAccepted);
     socket.on(SOCKET_EVENTS.CALL_REJECTED, onCallRejected);
@@ -607,6 +630,7 @@ export default function SocketProvider({
       socket.off(SOCKET_EVENTS.CONVERSATION_ERROR, onConversationError);
       socket.off(SOCKET_EVENTS.STORY_CREATED, onStoryCreated);
       socket.off(SOCKET_EVENTS.STORY_VIEWED, onStoryViewed);
+      socket.off(SOCKET_EVENTS.STORY_DELETED, onStoryDeleted);
       socket.off(SOCKET_EVENTS.CALL_INCOMING, onCallIncoming);
       socket.off(SOCKET_EVENTS.CALL_ACCEPTED, onCallAccepted);
       socket.off(SOCKET_EVENTS.CALL_REJECTED, onCallRejected);

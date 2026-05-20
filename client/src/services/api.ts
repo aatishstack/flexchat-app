@@ -1,13 +1,16 @@
 import axios from "axios";
 
+import { resolveLocalRuntimeUrl } from "@/lib/runtime-url";
 import { tokenStorage } from "@/lib/token";
 
 export const api =
   axios.create({
     baseURL:
-      process.env
-        .NEXT_PUBLIC_API_URL ??
-      "http://localhost:5000",
+      resolveLocalRuntimeUrl(
+        process.env
+          .NEXT_PUBLIC_API_URL,
+        "http://localhost:5000"
+      ),
   });
 
 type RefreshResponse = {

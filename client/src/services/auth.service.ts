@@ -9,6 +9,8 @@ export interface AuthResponse {
     username: string;
 
     email: string;
+
+    avatar?: string | null;
   };
 }
 
@@ -41,6 +43,20 @@ export async function register(
     await api.post<AuthResponse>(
       "/auth/register",
       data
+    );
+
+  return response.data;
+}
+
+export async function loginWithFirebaseIdToken(
+  idToken: string
+) {
+  const response =
+    await api.post<AuthResponse>(
+      "/auth/firebase/google",
+      {
+        idToken,
+      }
     );
 
   return response.data;

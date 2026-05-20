@@ -4,6 +4,8 @@ import "./globals.css";
 
 import AuthRouteGate from "@/components/auth/auth-route-gate";
 
+import LiveToast from "@/components/chat/sidebar/live-toast";
+
 import AuthProvider from "@/providers/auth-provider";
 
 import QueryProvider from "@/providers/query-provider";
@@ -31,6 +33,7 @@ export default function RootLayout({
               <AuthRouteGate>
                 {children}
               </AuthRouteGate>
+              <LiveToast />
             </AuthProvider>
           </SocketProvider>
         </QueryProvider>

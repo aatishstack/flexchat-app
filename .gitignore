@@ -20,10 +20,26 @@ node_modules/
 # production
 /build
 dist/
+server/uploads/
+
+# capacitor/android
+android/app/build/
+android/.gradle/
+android/local.properties
+
+# uploads/cache
+uploads/
+tmp/
+
+# logs
+logs/
+*.log
 
 # misc
 .DS_Store
 *.pem
+*service-account*.json
+*firebase-adminsdk*.json
 
 # debug
 npm-debug.log*
@@ -31,7 +47,7 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files
 .env*
 !.env.example
 !**/.env.example

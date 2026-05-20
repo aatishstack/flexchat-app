@@ -24,9 +24,11 @@ import {
 import type { ConversationQueryCache } from "@/lib/conversation-query-cache";
 import { queryKeys } from "@/lib/query-keys";
 import { createDirectConversation } from "@/services/conversation.service";
+import { useToastStore } from "@/store/toast-store";
 import { useAuthStore } from "@/stores/auth.store";
 import { useConversationStore } from "@/stores/conversation.store";
 import type { PublicUser } from "@/types/user";
+import type { Conversation } from "@/types/conversation";
 
 function getInitials(user: PublicUser) {
   return user.username
@@ -41,6 +43,10 @@ export default function DiscoverPanel() {
     useReducedMotion();
   const queryClient =
     useQueryClient();
+  const pushToast =
+    useToastStore(
+      (state) => state.pushToast
+    );
   const currentUserId =
     useAuthStore(
       (state) => state.user?.id
@@ -58,7 +64,7 @@ export default function DiscoverPanel() {
   const directConversationByUserId =
     useMemo(() => {
       const map =
-        new Map<string, string>();
+        new Map<string, Conversation>();
 
       conversationsQuery.data?.forEach(
         (conversation) => {
@@ -76,7 +82,7 @@ export default function DiscoverPanel() {
               ) {
                 map.set(
                   memberId,
-                  conversation.id
+                  conversation
                 );
               }
             }
@@ -113,6 +119,15 @@ export default function DiscoverPanel() {
             queryKeys.conversations.all,
         });
       },
+      onError: () => {
+        pushToast({
+          title:
+            "Conversation unavailable",
+          message:
+            "Please try starting that chat again.",
+          variant: "error",
+        });
+      },
     });
 
   const users =
@@ -121,7 +136,7 @@ export default function DiscoverPanel() {
     startConversation.variables;
 
   return (
-    <aside className="hidden w-[320px] border-r border-white/10 bg-[#08111f]/82 shadow-2xl shadow-black/20 backdrop-blur-3xl xl:flex xl:flex-col">
+    <aside className="hidden w-[320px] border-r border-white/10 bg-[#08111f]/[0.82] shadow-2xl shadow-black/20 backdrop-blur-3xl xl:flex xl:flex-col">
       <div className="border-b border-white/10 bg-white/[0.02] p-5">
         <h2 className="text-xl font-semibold text-white">
           Discover
@@ -150,7 +165,7 @@ export default function DiscoverPanel() {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+      <div className="chat-safe-scroll min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
         {discoverQuery.isLoading ? (
           <div className="space-y-3">
             {Array.from({
@@ -179,10 +194,12 @@ export default function DiscoverPanel() {
         ) : null}
 
         {users.map((user) => {
-          const hasDirectConversation =
-            directConversationByUserId.has(
+          const existingConversation =
+            directConversationByUserId.get(
               user.id
             );
+          const hasDirectConversation =
+            !!existingConversation;
           const isPending =
             pendingTargetUserId ===
               user.id &&
@@ -206,8 +223,17 @@ export default function DiscoverPanel() {
               className="flex items-center justify-between gap-3 rounded-3xl border border-white/10 bg-white/[0.045] p-4 shadow-lg shadow-black/10"
             >
               <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-base font-bold text-white">
-                  {getInitials(user)}
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-base font-bold text-white">
+                  {user.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={user.avatar}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    getInitials(user)
+                  )}
                 </div>
 
                 <div className="min-w-0">
@@ -223,11 +249,18 @@ export default function DiscoverPanel() {
 
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  if (existingConversation) {
+                    setActiveConversation(
+                      existingConversation
+                    );
+                    return;
+                  }
+
                   startConversation.mutate(
                     user.id
-                  )
-                }
+                  );
+                }}
                 disabled={isPending}
                 className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-2xl border border-purple-500/20 bg-purple-500/10 px-3 text-sm font-medium text-purple-200 transition hover:bg-purple-500/20 disabled:cursor-wait disabled:opacity-60"
                 aria-label={
