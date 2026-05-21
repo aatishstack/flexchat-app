@@ -24,10 +24,8 @@ import {
 } from "@tanstack/react-query";
 
 import { queryKeys } from "@/lib/query-keys";
-import {
-  formatDisplayName,
-  getAvatarInitial,
-} from "@/lib/user-display";
+import FlexAvatar from "@/components/chat/flex-avatar";
+import { formatDisplayName } from "@/lib/user-display";
 import {
   deleteStory,
   markStoryViewed,
@@ -388,20 +386,11 @@ export default function StoryViewer({
 
               <div className="mt-4 flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-500 text-sm font-bold">
-                    {group.user.avatar ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={group.user.avatar}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      getAvatarInitial(
-                        group.user.username
-                      )
-                    )}
-                  </div>
+                  <FlexAvatar
+                    src={group.user.avatar}
+                    name={group.user.username}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-500 text-sm font-bold"
+                  />
 
                   <div className="min-w-0">
                     <h3 className="truncate text-sm font-semibold">

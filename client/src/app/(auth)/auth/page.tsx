@@ -254,10 +254,10 @@ export default function AuthPage() {
   }
 
   return (
-    <main className="relative min-h-svh overflow-y-auto overflow-x-hidden bg-[#050510] text-white">
+    <main className="modal-safe-scroll relative h-svh min-h-svh touch-pan-y overflow-y-auto overflow-x-hidden overscroll-y-contain bg-[#050510] text-white">
       <AuthBackground />
 
-      <div className="relative z-10 grid min-h-svh lg:grid-cols-[minmax(360px,0.9fr)_minmax(420px,1.1fr)]">
+      <div className="relative z-10 grid min-h-full lg:grid-cols-[minmax(360px,0.9fr)_minmax(420px,1.1fr)]">
         <div className="relative hidden overflow-hidden border-r border-white/10 lg:flex">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-600/[0.12] via-transparent to-cyan-400/[0.08]" />
 

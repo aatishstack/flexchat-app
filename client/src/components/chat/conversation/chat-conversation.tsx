@@ -19,6 +19,7 @@ import {
   Pencil,
   Phone,
   RefreshCw,
+  Search,
   SendHorizonal,
   Share2,
   SmilePlus,
@@ -34,15 +35,18 @@ import {
   motion,
   useReducedMotion,
 } from "framer-motion";
+import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
 import MessageStatus from "@/components/chat/MessageStatus";
+import FlexAvatar from "@/components/chat/flex-avatar";
 import { useConversationsQuery } from "@/hooks/queries/use-conversations-query";
 import { useMessagesQuery } from "@/hooks/queries/use-messages-query";
 import { useAuth } from "@/hooks/useAuth";
 import {
   deleteMessage,
   editMessage,
+  forwardMessage,
   reactToMessage,
 } from "@/services/message.service";
 import {
@@ -63,14 +67,25 @@ import type { ConversationQueryCache } from "@/lib/conversation-query-cache";
 import { queryKeys } from "@/lib/query-keys";
 import {
   formatDisplayName,
-  getAvatarInitial,
 } from "@/lib/user-display";
 import { useConversationStore } from "@/stores/conversation.store";
-import { mergeMessageIntoQueryCache } from "@/lib/message-query-cache";
+import {
+  mergeMessageIntoQueryCache,
+  removeMessagesFromQueryCache,
+} from "@/lib/message-query-cache";
 import type { MessageQueryCache } from "@/lib/message-query-cache";
 
 const RENDER_WINDOW_SIZE = 360;
 const EMPTY_MESSAGES: Message[] = [];
+const QUICK_REACTIONS = [
+  "👍",
+  "❤️",
+  "😂",
+  "🔥",
+  "👏",
+  "😮",
+  "😢",
+];
 const MESSAGE_TIME_FORMATTER =
   new Intl.DateTimeFormat("en", {
     hour: "numeric",
@@ -195,6 +210,28 @@ function getAttachmentLabel(url: string) {
   } catch {
     return "Attachment";
   }
+}
+
+function getMessagePreviewText(message: {
+  text?: string | null;
+  attachment?: string | null;
+  audio?: string | null;
+  deletedAt?: string | null;
+  forwardedFrom?: unknown;
+}) {
+  const body =
+    message.deletedAt
+      ? "Message deleted"
+      : message.text?.trim() ||
+        (message.audio
+          ? "Voice message"
+          : message.attachment
+            ? "Attachment"
+            : "New message");
+
+  return message.forwardedFrom
+    ? `Forwarded: ${body}`
+    : body;
 }
 
 function sortMessages(messages: Message[]) {
@@ -386,6 +423,147 @@ type ChatMessageRowProps = {
   onShare: (message: Message) => void;
 };
 
+type ReactionPickerProps = {
+  anchorRect: DOMRect;
+  disabled: boolean;
+  onClose: () => void;
+  onSelect: (emoji: string) => void;
+};
+
+function ReactionPicker({
+  anchorRect,
+  disabled,
+  onClose,
+  onSelect,
+}: ReactionPickerProps) {
+  const pickerRef =
+    useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target =
+        event.target as Node | null;
+
+      if (
+        target &&
+        pickerRef.current?.contains(target)
+      ) {
+        return;
+      }
+
+      onClose();
+    }
+
+    document.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
+    document.addEventListener(
+      "pointerdown",
+      handlePointerDown
+    );
+
+    return () => {
+      document.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
+      document.removeEventListener(
+        "pointerdown",
+        handlePointerDown
+      );
+    };
+  }, [onClose]);
+
+  if (
+    typeof window === "undefined" ||
+    typeof document === "undefined"
+  ) {
+    return null;
+  }
+
+  const gap = 10;
+  const viewportWidth =
+    window.innerWidth;
+  const viewportHeight =
+    window.innerHeight;
+  const pickerWidth =
+    Math.min(292, viewportWidth - 24);
+  const pickerHeight = 54;
+  const left = Math.min(
+    Math.max(
+      12,
+      anchorRect.left +
+        anchorRect.width / 2 -
+        pickerWidth / 2
+    ),
+    viewportWidth - pickerWidth - 12
+  );
+  const preferredTop =
+    anchorRect.top - pickerHeight - gap;
+  const top =
+    preferredTop >= 12
+      ? preferredTop
+      : Math.min(
+          anchorRect.bottom + gap,
+          viewportHeight -
+            pickerHeight -
+            12
+        );
+
+  return createPortal(
+    <motion.div
+      ref={pickerRef}
+      initial={{
+        opacity: 0,
+        y: 6,
+        scale: 0.96,
+      }}
+      animate={{
+        opacity: 1,
+        y: 0,
+        scale: 1,
+      }}
+      exit={{
+        opacity: 0,
+        y: 6,
+        scale: 0.96,
+      }}
+      transition={{
+        duration: 0.15,
+      }}
+      style={{
+        left,
+        top,
+        width: pickerWidth,
+      }}
+      className="fixed z-[260] flex items-center justify-center gap-1 rounded-2xl border border-white/10 bg-[#07101E]/95 p-2 text-white shadow-[0_24px_80px_rgba(0,0,0,0.48)] backdrop-blur-2xl"
+      role="menu"
+      aria-label="Choose reaction"
+    >
+      {QUICK_REACTIONS.map((emoji) => (
+        <button
+          key={emoji}
+          type="button"
+          onClick={() => onSelect(emoji)}
+          disabled={disabled}
+          className="flex h-9 w-9 items-center justify-center rounded-xl text-lg transition hover:bg-white/10 active:scale-90 disabled:cursor-wait disabled:opacity-60"
+          aria-label={`React ${emoji}`}
+        >
+          {emoji}
+        </button>
+      ))}
+    </motion.div>,
+    document.body
+  );
+}
+
 const ChatMessageRow = memo(
   function ChatMessageRow({
     message,
@@ -398,8 +576,12 @@ const ChatMessageRow = memo(
     onReact,
     onShare,
   }: ChatMessageRowProps) {
-    const [menuOpen, setMenuOpen] =
-      useState(false);
+    const reactionButtonRef =
+      useRef<HTMLButtonElement | null>(null);
+    const [
+      reactionAnchorRect,
+      setReactionAnchorRect,
+    ] = useState<DOMRect | null>(null);
     const [isEditing, setIsEditing] =
       useState(false);
     const [draftText, setDraftText] =
@@ -431,6 +613,8 @@ const ChatMessageRow = memo(
       !!message.text;
     const canDelete =
       mine && isSettled && !isDeleted;
+    const showLegacyInlineReactionPicker =
+      false;
 
     async function submitEdit() {
       const nextText = draftText.trim();
@@ -447,7 +631,7 @@ const ChatMessageRow = memo(
 
       if (ok) {
         setIsEditing(false);
-        setMenuOpen(false);
+        setReactionAnchorRect(null);
       }
     }
 
@@ -457,7 +641,7 @@ const ChatMessageRow = memo(
       setIsMutating(false);
 
       if (ok) {
-        setMenuOpen(false);
+        setReactionAnchorRect(null);
       }
     }
 
@@ -467,8 +651,23 @@ const ChatMessageRow = memo(
       setIsMutating(false);
 
       if (ok) {
-        setMenuOpen(false);
+        setReactionAnchorRect(null);
       }
+    }
+
+    function toggleReactionPicker() {
+      const anchor =
+        reactionButtonRef.current;
+
+      if (!anchor || !isSettled || isDeleted) {
+        return;
+      }
+
+      setReactionAnchorRect((current) =>
+        current
+          ? null
+          : anchor.getBoundingClientRect()
+      );
     }
 
     return (
@@ -542,6 +741,23 @@ const ChatMessageRow = memo(
               </div>
             ) : null}
 
+            {message.forwardedFrom &&
+            !isDeleted ? (
+              <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/55">
+                <Share2 size={12} />
+                <span className="truncate">
+                  Forwarded
+                  {message.forwardedFrom
+                    .senderName
+                    ? ` from ${formatDisplayName(
+                        message.forwardedFrom
+                          .senderName
+                      )}`
+                    : ""}
+                </span>
+              </div>
+            ) : null}
+
             {isDeleted ? (
               <p className="italic text-white/65">
                 Message deleted
@@ -562,7 +778,9 @@ const ChatMessageRow = memo(
                   <img
                     src={message.attachment}
                     alt="Attachment"
-                    className="max-h-72 w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    className="max-h-72 w-full bg-black/25 object-contain"
                   />
                 </a>
               ) : isVideoAttachment(
@@ -573,7 +791,7 @@ const ChatMessageRow = memo(
                   preload="metadata"
                   playsInline
                   src={message.attachment}
-                  className="mb-3 max-h-80 w-full rounded-2xl border border-white/10 bg-black object-contain"
+                  className="mb-3 aspect-video max-h-80 w-full rounded-2xl border border-white/10 bg-black object-contain"
                 />
               ) : (
                 <a
@@ -656,12 +874,12 @@ const ChatMessageRow = memo(
             ) : null}
 
             {!isDeleted && message.reactions?.length ? (
-              <div className="mt-3 flex flex-wrap gap-1.5">
+              <div className="mt-2 flex flex-wrap justify-end gap-1.5">
                 {message.reactions.map(
                   (reaction) => (
                     <span
                       key={reaction.emoji}
-                      className="rounded-full border border-white/10 bg-white/10 px-2 py-1 text-xs"
+                      className="rounded-full border border-white/10 bg-black/15 px-2 py-1 text-xs shadow-sm"
                     >
                       {reaction.emoji}{" "}
                       {reaction.count}
@@ -678,9 +896,9 @@ const ChatMessageRow = memo(
                     ? "right-full mr-2"
                     : "left-full ml-2"
                 } ${
-                  menuOpen
+                  reactionAnchorRect
                     ? "opacity-100"
-                    : "pointer-events-none opacity-0 group-hover/message:pointer-events-auto group-hover/message:opacity-100 group-focus-within/message:pointer-events-auto group-focus-within/message:opacity-100"
+                    : "opacity-100 sm:pointer-events-none sm:opacity-0 sm:group-hover/message:pointer-events-auto sm:group-hover/message:opacity-100 sm:group-focus-within/message:pointer-events-auto sm:group-focus-within/message:opacity-100"
                 }`}
               >
                 {!isDeleted ? (
@@ -698,7 +916,7 @@ const ChatMessageRow = memo(
                           disabled={
                             isMutating || !isSettled
                           }
-                          className="flex h-8 w-8 items-center justify-center rounded-xl text-base transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-60"
+                          className="hidden h-8 w-8 items-center justify-center rounded-xl text-base transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-60"
                           aria-label={`React ${emoji}`}
                         >
                           {emoji}
@@ -707,17 +925,26 @@ const ChatMessageRow = memo(
                     )}
 
                     <button
+                      ref={reactionButtonRef}
                       type="button"
-                      onClick={() =>
-                        setMenuOpen(
-                          (open) => !open
-                        )
+                      onPointerDown={(event) => {
+                        event.stopPropagation();
+                      }}
+                      onClick={
+                        toggleReactionPicker
                       }
                       disabled={
                         isMutating || !isSettled
                       }
-                      className="flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-60"
-                      aria-label="More reactions"
+                      className={`flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 active:scale-95 disabled:cursor-wait disabled:opacity-60 ${
+                        reactionAnchorRect
+                          ? "bg-white/10 text-purple-100"
+                          : ""
+                      }`}
+                      aria-expanded={
+                        !!reactionAnchorRect
+                      }
+                      aria-label="Add reaction"
                     >
                       <SmilePlus size={15} />
                     </button>
@@ -728,7 +955,7 @@ const ChatMessageRow = memo(
                   type="button"
                   onClick={() => onShare(message)}
                   className="flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10"
-                  aria-label="Share message"
+                  aria-label="Forward message"
                 >
                   <Share2 size={15} />
                 </button>
@@ -741,7 +968,7 @@ const ChatMessageRow = memo(
                         message.text ?? ""
                       );
                       setIsEditing(true);
-                      setMenuOpen(false);
+                      setReactionAnchorRect(null);
                     }}
                     className="flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10"
                     aria-label="Edit message"
@@ -766,7 +993,9 @@ const ChatMessageRow = memo(
               </div>
             ) : null}
 
-            {menuOpen && !isDeleted ? (
+            {showLegacyInlineReactionPicker &&
+            reactionAnchorRect &&
+            !isDeleted ? (
               <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/10 pt-3">
                 {["🔥", "👏", "😮", "😢"].map(
                   (emoji) => (
@@ -788,6 +1017,28 @@ const ChatMessageRow = memo(
                 )}
               </div>
             ) : null}
+
+            <AnimatePresence>
+              {reactionAnchorRect &&
+              !isDeleted ? (
+                <ReactionPicker
+                  anchorRect={
+                    reactionAnchorRect
+                  }
+                  disabled={
+                    isMutating || !isSettled
+                  }
+                  onClose={() =>
+                    setReactionAnchorRect(null)
+                  }
+                  onSelect={(emoji) => {
+                    void submitReaction(
+                      emoji
+                    );
+                  }}
+                />
+              ) : null}
+            </AnimatePresence>
 
             <div className="mt-2 flex items-center justify-end gap-2 text-[11px] text-white/65">
               {message.editedAt && !isDeleted ? (
@@ -844,6 +1095,20 @@ export default function ChatConversation({
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
+  const [
+    forwardingMessage,
+    setForwardingMessage,
+  ] = useState<Message | null>(null);
+  const [forwardSearch, setForwardSearch] =
+    useState("");
+  const [
+    selectedForwardConversationIds,
+    setSelectedForwardConversationIds,
+  ] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [isForwarding, setIsForwarding] =
+    useState(false);
   const [aiOpen, setAiOpen] =
     useState(false);
   const [aiPrompt, setAiPrompt] =
@@ -984,6 +1249,11 @@ export default function ChatConversation({
   const markConversationRead = useConversationStore(
     (state) => state.markConversationRead
   );
+  const updateConversationMessage =
+    useConversationStore(
+      (state) =>
+        state.updateConversationMessage
+    );
   const startCall = useCallStore(
     (state) => state.startCall
   );
@@ -1133,52 +1403,20 @@ export default function ChatConversation({
   const handleShareMessage =
     useCallback(
       (message: Message) => {
-        const shareText =
-          message.deletedAt
-            ? "Message deleted"
-            : message.text ||
-              message.attachment ||
-              message.audio ||
-              "";
-
-        if (!shareText) {
+        if (message.deletedAt) {
           pushToast({
-            title: "Nothing to share",
+            title:
+              "Deleted messages can't be forwarded",
             variant: "info",
           });
           return;
         }
 
-        if (
-          navigator.share &&
-          shareText.length < 1800
-        ) {
-          void navigator
-            .share({
-              text: shareText,
-            })
-            .catch(() => undefined);
-          return;
-        }
-
-        void navigator.clipboard
-          ?.writeText(shareText)
-          .then(() => {
-            pushToast({
-              title: "Message copied",
-              message:
-                "Share text is on your clipboard.",
-              variant: "success",
-            });
-          })
-          .catch(() => {
-            pushToast({
-              title: "Share unavailable",
-              message:
-                "Your browser blocked sharing and clipboard access.",
-              variant: "warning",
-            });
-          });
+        setForwardingMessage(message);
+        setForwardSearch("");
+        setSelectedForwardConversationIds(
+          new Set()
+        );
       },
       [pushToast]
     );
@@ -1202,7 +1440,7 @@ export default function ChatConversation({
       textarea.style.height = "auto";
       textarea.style.height = `${Math.min(
         textarea.scrollHeight,
-        144
+        128
       )}px`;
     }, []);
 
@@ -1317,6 +1555,15 @@ export default function ChatConversation({
     formatDisplayName(
       activeConversation?.name ?? "FlexChat"
     );
+  const compactChat =
+    !!discoverOpen && !!activeNowOpen;
+  const headerActionClass = `flex shrink-0 items-center justify-center border border-white/10 bg-white/[0.04] text-zinc-200 transition hover:border-purple-400/30 hover:bg-purple-500/[0.15] disabled:cursor-not-allowed disabled:opacity-40 ${
+    compactChat
+      ? "h-9 w-9 rounded-xl"
+      : "h-11 w-11 rounded-2xl"
+  }`;
+  const headerIconSize =
+    compactChat ? 16 : 18;
   const aiSuggestions = useMemo(
     () => [
       "Summarize recent messages",
@@ -1325,6 +1572,28 @@ export default function ChatConversation({
     ],
     []
   );
+  const forwardConversations = useMemo(() => {
+    const normalizedSearch =
+      forwardSearch.trim().toLowerCase();
+
+    return (conversationsQuery.data ?? [])
+      .filter((conversation) => {
+        if (!normalizedSearch) {
+          return true;
+        }
+
+        return (
+          conversation.name
+            ?.toLowerCase()
+            .includes(normalizedSearch) ??
+          false
+        );
+      })
+      .slice(0, 60);
+  }, [
+    conversationsQuery.data,
+    forwardSearch,
+  ]);
 
   useEffect(() => {
     if (!conversationId) {
@@ -1707,6 +1976,239 @@ export default function ChatConversation({
     });
   }
 
+  function closeForwardSheet() {
+    if (isForwarding) {
+      return;
+    }
+
+    setForwardingMessage(null);
+    setSelectedForwardConversationIds(
+      new Set()
+    );
+    setForwardSearch("");
+  }
+
+  function toggleForwardTarget(
+    conversationId: string
+  ) {
+    setSelectedForwardConversationIds(
+      (current) => {
+        const next = new Set(current);
+
+        if (next.has(conversationId)) {
+          next.delete(conversationId);
+        } else {
+          next.add(conversationId);
+        }
+
+        return next;
+      }
+    );
+  }
+
+  function removeOptimisticForwardMessages(
+    messageIds: string[]
+  ) {
+    if (!messageIds.length) {
+      return;
+    }
+
+    const ids = new Set(messageIds);
+
+    queryClient.setQueriesData<MessageQueryCache>(
+      {
+        queryKey: ["messages"],
+      },
+      (cache) =>
+        removeMessagesFromQueryCache(
+          cache,
+          messageIds
+        )
+    );
+
+    useSocketStore.setState((state) => {
+      const filterMessages = (
+        messages: Message[]
+      ) =>
+        messages.filter(
+          (message) =>
+            !ids.has(message.id) &&
+            !(
+              message.tempId &&
+              ids.has(message.tempId)
+            )
+        );
+      const nextBuckets:
+        Record<string, Message[]> = {};
+
+      Object.entries(
+        state.messagesByConversation
+      ).forEach(
+        ([conversationId, messages]) => {
+          nextBuckets[conversationId] =
+            filterMessages(messages);
+        }
+      );
+
+      return {
+        messages:
+          filterMessages(state.messages),
+        messagesByConversation:
+          nextBuckets,
+      };
+    });
+  }
+
+  async function handleForwardSubmit() {
+    if (
+      !forwardingMessage ||
+      isForwarding ||
+      !user?.id
+    ) {
+      return;
+    }
+
+    const targetConversationIds =
+      Array.from(
+        selectedForwardConversationIds
+      );
+
+    if (!targetConversationIds.length) {
+      pushToast({
+        title: "Choose a conversation",
+        message:
+          "Select where this message should be forwarded.",
+        variant: "info",
+      });
+      return;
+    }
+
+    const optimisticIds: string[] = [];
+    const now = new Date().toISOString();
+    const sourceAttribution =
+      forwardingMessage.forwardedFrom ?? {
+        messageId: forwardingMessage.id,
+        senderId:
+          forwardingMessage.senderId,
+        senderName:
+          forwardingMessage.senderId ===
+          user.id
+            ? user.username
+            : activeConversationDisplayName,
+      };
+
+    setIsForwarding(true);
+
+    targetConversationIds.forEach(
+      (targetConversationId) => {
+        const optimisticId =
+          crypto.randomUUID();
+        optimisticIds.push(optimisticId);
+
+        const optimisticMessage: Message = {
+          ...forwardingMessage,
+          id: optimisticId,
+          tempId: optimisticId,
+          conversationId:
+            targetConversationId,
+          senderId: user.id,
+          createdAt: now,
+          status: "sending",
+          optimistic: true,
+          reactions: [],
+          forwardedFrom:
+            sourceAttribution,
+        };
+
+        mergeMutatedMessage(
+          optimisticMessage
+        );
+
+        const latestMessage =
+          getMessagePreviewText(
+            optimisticMessage
+          );
+
+        queryClient.setQueryData<ConversationQueryCache>(
+          queryKeys.conversations.all,
+          (cache) =>
+            updateConversationInQueryCache(
+              cache,
+              targetConversationId,
+              (conversation) => ({
+                ...conversation,
+                latestMessage,
+                lastActivityAt: now,
+              })
+            )
+        );
+
+        updateConversationMessage(
+          targetConversationId,
+          latestMessage
+        );
+      }
+    );
+
+    try {
+      const forwardedMessages =
+        await forwardMessage({
+          messageId:
+            forwardingMessage.id,
+          targetConversationIds,
+        });
+
+      removeOptimisticForwardMessages(
+        optimisticIds
+      );
+
+      forwardedMessages.forEach(
+        (message) => {
+          mergeMutatedMessage(
+            message as Message
+          );
+        }
+      );
+
+      pushToast({
+        title: "Message forwarded",
+        message:
+          targetConversationIds.length > 1
+            ? "Forwarded to selected conversations."
+            : "Forwarded to the selected conversation.",
+        variant: "success",
+      });
+
+      setForwardingMessage(null);
+      setSelectedForwardConversationIds(
+        new Set()
+      );
+      setForwardSearch("");
+      void queryClient.invalidateQueries({
+        queryKey:
+          queryKeys.conversations.all,
+      });
+    } catch (error) {
+      removeOptimisticForwardMessages(
+        optimisticIds
+      );
+      pushToast({
+        title: "Forward failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Please try forwarding that message again.",
+        variant: "error",
+      });
+      void queryClient.invalidateQueries({
+        queryKey:
+          queryKeys.conversations.all,
+      });
+    } finally {
+      setIsForwarding(false);
+    }
+  }
+
   if (!activeConversation) {
     return (
       <section className="flex h-full flex-col items-center justify-center bg-transparent px-6 text-center">
@@ -1726,30 +2228,45 @@ export default function ChatConversation({
     <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_50%_0%,rgba(168,85,247,0.10),transparent_32%),linear-gradient(180deg,rgba(8,17,31,0.72),rgba(5,8,18,0.92))]">
       <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.7)_1px,transparent_0)] [background-size:24px_24px]" />
 
-      <div className="relative z-10 flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#08111f]/[0.62] px-4 py-4 shadow-lg shadow-black/10 backdrop-blur-2xl sm:px-6 sm:py-5">
-        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-base font-bold text-white shadow-lg shadow-purple-950/30 sm:h-14 sm:w-14 sm:text-lg">
-            {activeConversationAvatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={activeConversationAvatar}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              getAvatarInitial(
-                activeConversation.name
-              )
-            )}
-          </div>
+      <div
+        className={`relative z-10 flex shrink-0 items-center justify-between border-b border-white/10 bg-[#08111f]/[0.62] shadow-lg shadow-black/10 backdrop-blur-2xl ${
+          compactChat
+            ? "gap-2 px-3 py-3 sm:px-4 sm:py-3"
+            : "gap-3 px-4 py-4 sm:px-6 sm:py-5"
+        }`}
+      >
+        <div
+          className={`flex min-w-0 flex-1 items-center ${
+            compactChat
+              ? "gap-2"
+              : "gap-3 sm:gap-4"
+          }`}
+        >
+          <FlexAvatar
+            src={activeConversationAvatar}
+            name={
+              activeConversation.name
+            }
+            className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-sm font-bold text-white shadow-lg shadow-purple-950/30 sm:h-12 sm:w-12 sm:text-base"
+          />
 
-          <div className="min-w-0">
-            <h2 className="truncate font-semibold text-white">
+          <div className="min-w-0 flex-1">
+            <h2
+              className={`truncate font-semibold text-white ${
+                compactChat
+                  ? "text-sm"
+                  : ""
+              }`}
+            >
               {activeConversationDisplayName}
             </h2>
 
             <p
-              className={`text-sm ${
+              className={`truncate ${
+                compactChat
+                  ? "text-xs"
+                  : "text-sm"
+              } ${
                 remoteTypingUsers.length
                   ? "text-cyan-300"
                   : isOnline
@@ -1768,12 +2285,18 @@ export default function ChatConversation({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div
+          className={`flex shrink-0 items-center ${
+            compactChat
+              ? "gap-1.5"
+              : "gap-2"
+          }`}
+        >
           <button
             type="button"
             onClick={onToggleDiscover}
             disabled={!onToggleDiscover}
-            className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition hover:border-purple-400/30 hover:bg-purple-500/[0.15] disabled:cursor-not-allowed disabled:opacity-40 ${
+            className={`${headerActionClass} ${
               discoverOpen
                 ? "border-purple-300/30 bg-purple-500/[0.16] text-purple-100"
                 : "border-white/10 bg-white/[0.04] text-zinc-200"
@@ -1781,14 +2304,14 @@ export default function ChatConversation({
             aria-pressed={!!discoverOpen}
             aria-label="Toggle Discover"
           >
-            <Compass size={18} />
+            <Compass size={headerIconSize} />
           </button>
 
           <button
             type="button"
             onClick={onToggleActiveNow}
             disabled={!onToggleActiveNow}
-            className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition hover:border-purple-400/30 hover:bg-purple-500/[0.15] disabled:cursor-not-allowed disabled:opacity-40 ${
+            className={`${headerActionClass} ${
               activeNowOpen
                 ? "border-cyan-300/30 bg-cyan-500/[0.14] text-cyan-100"
                 : "border-white/10 bg-white/[0.04] text-zinc-200"
@@ -1796,17 +2319,17 @@ export default function ChatConversation({
             aria-pressed={!!activeNowOpen}
             aria-label="Toggle Active Now"
           >
-            <Users size={18} />
+            <Users size={headerIconSize} />
           </button>
 
           <button
             type="button"
             onClick={onOpenNotifications}
             disabled={!onOpenNotifications}
-            className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-200 transition hover:border-purple-400/30 hover:bg-purple-500/[0.15]"
+            className={`relative ${headerActionClass}`}
             aria-label="Open notifications"
           >
-            <Bell size={18} />
+            <Bell size={headerIconSize} />
             {unreadNotificationCount ? (
               <span className="absolute right-2 top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white shadow-lg shadow-red-500/50">
                 {unreadNotificationCount > 9
@@ -1822,10 +2345,10 @@ export default function ChatConversation({
               handleStartCall("voice")
             }
             disabled={!callTargetUserId}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-200 transition hover:border-purple-400/30 hover:bg-purple-500/[0.15] disabled:cursor-not-allowed disabled:opacity-40"
+            className={`${headerActionClass} ${compactChat ? "hidden 2xl:flex" : ""}`}
             aria-label="Start voice call"
           >
-            <Phone size={18} />
+            <Phone size={headerIconSize} />
           </button>
 
           <button
@@ -1834,10 +2357,10 @@ export default function ChatConversation({
               handleStartCall("video")
             }
             disabled={!callTargetUserId}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-200 transition hover:border-purple-400/30 hover:bg-purple-500/[0.15] disabled:cursor-not-allowed disabled:opacity-40"
+            className={`${headerActionClass} ${compactChat ? "hidden 2xl:flex" : ""}`}
             aria-label="Start video call"
           >
-            <Video size={18} />
+            <Video size={headerIconSize} />
           </button>
         </div>
       </div>
@@ -1956,8 +2479,14 @@ export default function ChatConversation({
         )}
       </div>
 
-      <div className="relative z-10 shrink-0 border-t border-white/10 bg-[#08111f]/[0.72] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-18px_60px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:p-5 sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
-        <div className="flex items-end gap-2 sm:gap-3">
+      <div
+        className={`relative z-10 shrink-0 border-t border-white/10 bg-[#08111f]/[0.72] shadow-[0_-18px_60px_rgba(0,0,0,0.24)] backdrop-blur-2xl ${
+          compactChat
+            ? "p-2.5 pb-[calc(0.65rem+env(safe-area-inset-bottom))] sm:p-3 sm:pb-[calc(0.8rem+env(safe-area-inset-bottom))]"
+            : "p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-5 sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
+        }`}
+      >
+        <div className="flex items-end gap-2 sm:gap-2.5">
           <input
             ref={fileInputRef}
             type="file"
@@ -1976,11 +2505,11 @@ export default function ChatConversation({
               fileInputRef.current?.click()
             }
             disabled={isUploadingAttachment}
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] transition-all hover:bg-white/[0.06] disabled:cursor-wait disabled:opacity-60"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] transition-all hover:border-purple-300/25 hover:bg-white/[0.07] active:scale-95 disabled:cursor-wait disabled:opacity-60 sm:h-11 sm:w-11"
             aria-label="Upload attachment"
           >
             <ImageIcon
-              size={20}
+              size={18}
               className={
                 isUploadingAttachment
                   ? "animate-pulse text-purple-300"
@@ -1994,13 +2523,13 @@ export default function ChatConversation({
             onClick={() =>
               setAiOpen(true)
             }
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-purple-300/20 bg-purple-500/[0.10] text-purple-100 shadow-lg shadow-purple-950/15 transition-all hover:bg-purple-500/[0.18] active:scale-95"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-purple-300/20 bg-purple-500/[0.10] text-purple-100 shadow-lg shadow-purple-950/15 transition-all hover:bg-purple-500/[0.18] active:scale-95 sm:h-11 sm:w-11"
             aria-label="Open AI assistant"
           >
-            <Sparkles size={20} />
+            <Sparkles size={18} />
           </button>
 
-          <div className="min-w-0 flex-1 rounded-[28px] border border-white/10 bg-white/[0.04] px-4 transition-all duration-200 focus-within:border-purple-400/40 focus-within:bg-white/[0.06] sm:px-5">
+          <div className="min-w-0 flex-1 rounded-[24px] border border-white/10 bg-white/[0.04] px-3 transition-all duration-200 focus-within:border-purple-400/40 focus-within:bg-white/[0.065] focus-within:shadow-[0_0_0_3px_rgba(147,51,234,0.10)] sm:px-4">
             <textarea
               ref={textareaRef}
               rows={1}
@@ -2027,7 +2556,7 @@ export default function ChatConversation({
                 }
               }}
               placeholder="Write a message..."
-              className="max-h-36 min-h-[52px] w-full resize-none overflow-y-auto border-0 bg-transparent py-4 text-sm leading-6 text-white outline-none ring-0 placeholder:text-zinc-500 focus:border-0 focus:outline-none focus:ring-0"
+              className="max-h-32 min-h-[40px] w-full resize-none overflow-y-auto border-0 bg-transparent py-2.5 text-sm leading-5 text-white outline-none ring-0 placeholder:text-zinc-500 focus:border-0 focus:outline-none focus:ring-0 sm:min-h-[44px] sm:py-3"
             />
           </div>
 
@@ -2038,12 +2567,198 @@ export default function ChatConversation({
               !text.trim() ||
               isUploadingAttachment
             }
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 text-white shadow-2xl shadow-purple-600/30 transition-all hover:scale-105 hover:shadow-purple-500/40 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 text-white shadow-2xl shadow-purple-600/30 transition-all hover:scale-105 hover:shadow-purple-500/40 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:w-11"
           >
-            <SendHorizonal size={21} />
+            <SendHorizonal size={19} />
           </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {forwardingMessage ? (
+          <motion.div
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+            }}
+            className="fixed inset-0 z-[272] flex items-end justify-center bg-black/[0.66] p-3 backdrop-blur-xl sm:items-center sm:p-6"
+          >
+            <motion.div
+              initial={{
+                opacity: 0,
+                y: 24,
+                scale: 0.96,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                scale: 1,
+              }}
+              exit={{
+                opacity: 0,
+                y: 24,
+                scale: 0.96,
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 30,
+              }}
+              className="flex max-h-[min(82dvh,640px)] w-full max-w-md flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[#0B111C]/[0.98] text-white shadow-[0_28px_90px_rgba(0,0,0,0.62)]"
+            >
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+                <div className="min-w-0">
+                  <h2 className="font-semibold">
+                    Forward message
+                  </h2>
+                  <p className="truncate text-xs text-zinc-500">
+                    {getMessagePreviewText(
+                      forwardingMessage
+                    )}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeForwardSheet}
+                  disabled={isForwarding}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-60"
+                  aria-label="Close forward dialog"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="border-b border-white/10 p-4">
+                <div className="relative">
+                  <Search
+                    size={16}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
+                  />
+                  <input
+                    value={forwardSearch}
+                    onChange={(event) =>
+                      setForwardSearch(
+                        event.target.value
+                      )
+                    }
+                    placeholder="Search conversations..."
+                    className="h-11 w-full rounded-2xl border border-white/10 bg-white/[0.04] pl-11 pr-4 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-purple-400/40"
+                  />
+                </div>
+              </div>
+
+              <div className="chat-safe-scroll min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+                {forwardConversations.length ? (
+                  forwardConversations.map(
+                    (conversation) => {
+                      const selected =
+                        selectedForwardConversationIds.has(
+                          conversation.id
+                        );
+                      const avatar =
+                        getConversationAvatar(
+                          conversation,
+                          user?.id
+                        );
+                      const displayName =
+                        formatDisplayName(
+                          conversation.name
+                        );
+
+                      return (
+                        <button
+                          key={conversation.id}
+                          type="button"
+                          onClick={() =>
+                            toggleForwardTarget(
+                              conversation.id
+                            )
+                          }
+                          disabled={isForwarding}
+                          className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition ${
+                            selected
+                              ? "border-purple-300/35 bg-purple-500/[0.14]"
+                              : "border-white/10 bg-white/[0.035] hover:bg-white/[0.06]"
+                          } disabled:cursor-wait disabled:opacity-70`}
+                        >
+                          <FlexAvatar
+                            src={avatar}
+                            name={displayName}
+                            className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-sm font-bold text-white"
+                          />
+
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-white">
+                              {displayName}
+                            </p>
+                            <p className="truncate text-xs text-zinc-500">
+                              {conversation.latestMessage ??
+                                "No messages yet"}
+                            </p>
+                          </div>
+
+                          <span
+                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border ${
+                              selected
+                                ? "border-purple-300/40 bg-purple-500 text-white"
+                                : "border-white/10 bg-white/[0.03] text-transparent"
+                            }`}
+                          >
+                            <Check size={14} />
+                          </span>
+                        </button>
+                      );
+                    }
+                  )
+                ) : (
+                  <div className="flex min-h-32 items-center justify-center px-4 text-center text-sm text-zinc-500">
+                    No conversations found
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3 border-t border-white/10 p-4">
+                <button
+                  type="button"
+                  onClick={closeForwardSheet}
+                  disabled={isForwarding}
+                  className="h-11 flex-1 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleForwardSubmit();
+                  }}
+                  disabled={
+                    isForwarding ||
+                    !selectedForwardConversationIds.size
+                  }
+                  className="flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-fuchsia-600 text-sm font-semibold text-white shadow-xl shadow-purple-600/25 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-55"
+                >
+                  {isForwarding ? (
+                    <RefreshCw
+                      size={16}
+                      className="motion-safe:animate-spin"
+                    />
+                  ) : (
+                    <Share2 size={16} />
+                  )}
+                  Forward
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <AnimatePresence>
         {largeVideoFile ? (

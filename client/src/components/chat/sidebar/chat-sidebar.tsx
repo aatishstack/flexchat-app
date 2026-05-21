@@ -27,10 +27,10 @@ import Link from "next/link";
 
 import { useConversationsQuery } from "@/hooks/queries/use-conversations-query";
 import StoryTray from "@/components/chat/stories/story-tray";
+import FlexAvatar from "@/components/chat/flex-avatar";
 import { clearClientSession } from "@/lib/session-cleanup";
 import {
   formatDisplayName,
-  getAvatarInitial,
 } from "@/lib/user-display";
 import { useSocketStore } from "@/store/socket-store";
 import { useAuthStore } from "@/stores/auth.store";
@@ -144,16 +144,6 @@ function getConversationAvatar(
   );
 }
 
-function getConversationInitial(
-  conversation: Conversation
-) {
-  return (
-    getAvatarInitial(
-      conversation.name
-    )
-  );
-}
-
 type ConversationListButtonProps = {
   conversation: Conversation;
   active: boolean;
@@ -198,20 +188,11 @@ const ConversationListButton = memo(
         }`}
       >
         <div className="relative">
-          <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-500 text-lg font-bold text-white">
-            {avatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={avatar}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              getConversationInitial(
-                conversation
-              )
-            )}
-          </div>
+          <FlexAvatar
+            src={avatar}
+            name={conversation.name}
+            className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-500 text-lg font-bold text-white"
+          />
 
           {isOnline ? (
             <div className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[#0B111C] bg-green-500" />

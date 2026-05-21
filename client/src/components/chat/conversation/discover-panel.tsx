@@ -22,23 +22,18 @@ import { useDiscoverUsersQuery } from "@/hooks/queries/use-users-query";
 import {
   upsertConversationInQueryCache,
 } from "@/lib/conversation-query-cache";
+import FlexAvatar from "@/components/chat/flex-avatar";
 import type { ConversationQueryCache } from "@/lib/conversation-query-cache";
 import { queryKeys } from "@/lib/query-keys";
 import {
   formatDisplayName,
   formatHandle,
-  getAvatarInitial,
 } from "@/lib/user-display";
 import { createDirectConversation } from "@/services/conversation.service";
 import { useToastStore } from "@/store/toast-store";
 import { useAuthStore } from "@/stores/auth.store";
 import { useConversationStore } from "@/stores/conversation.store";
-import type { PublicUser } from "@/types/user";
 import type { Conversation } from "@/types/conversation";
-
-function getInitials(user: PublicUser) {
-  return getAvatarInitial(user.username);
-}
 
 type DiscoverPanelProps = {
   variant?: "rail" | "sheet";
@@ -253,18 +248,11 @@ export default function DiscoverPanel({
               className="flex items-center justify-between gap-3 rounded-3xl border border-white/10 bg-white/[0.045] p-4 shadow-lg shadow-black/10"
             >
               <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-base font-bold text-white">
-                  {user.avatar ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={user.avatar}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    getInitials(user)
-                  )}
-                </div>
+                <FlexAvatar
+                  src={user.avatar}
+                  name={user.username}
+                  className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-base font-bold text-white"
+                />
 
                 <div className="min-w-0">
                   <h3 className="truncate font-medium text-white">

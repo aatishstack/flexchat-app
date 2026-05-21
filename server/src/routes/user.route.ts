@@ -412,6 +412,9 @@ export async function userRoutes(app: FastifyInstance) {
           from users
           where id <> ${userId}
             and is_deleted = false
+            and id not like 'phase3b-%'
+            and username not ilike 'phase3b_%'
+            and email not ilike '%@flexchat.local'
           ${searchFilter}
           order by
             username asc,

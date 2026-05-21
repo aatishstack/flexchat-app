@@ -8,8 +8,11 @@ import {
 } from "react";
 
 import {
+  AlertCircle,
   Loader2,
   Plus,
+  RefreshCw,
+  X,
 } from "lucide-react";
 import {
   motion,
@@ -21,11 +24,9 @@ import {
 } from "@tanstack/react-query";
 
 import { useStoriesQuery } from "@/hooks/queries/use-stories-query";
+import FlexAvatar from "@/components/chat/flex-avatar";
 import { queryKeys } from "@/lib/query-keys";
-import {
-  formatDisplayName,
-  getAvatarInitial,
-} from "@/lib/user-display";
+import { formatDisplayName } from "@/lib/user-display";
 import { createStory } from "@/services/story.service";
 import {
   getUploadValidationError,
@@ -42,6 +43,18 @@ type StoryGroup = {
   user: Story["user"];
   stories: Story[];
   hasUnseen: boolean;
+};
+
+type StoryUploadInput = {
+  file: File;
+  optimisticId: string;
+  previewUrl: string;
+};
+
+type FailedStoryUpload = {
+  file: File;
+  message: string;
+  previewUrl: string;
 };
 
 function groupStories(
@@ -102,12 +115,6 @@ function groupStories(
   );
 }
 
-function avatarLabel(storyGroup: StoryGroup) {
-  return getAvatarInitial(
-    storyGroup.user.username
-  );
-}
-
 function getVideoDurationSeconds(file: File) {
   return new Promise<number>((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -133,15 +140,25 @@ export default function StoryTray() {
     useRef<HTMLInputElement | null>(null);
   const [viewerGroupIndex, setViewerGroupIndex] =
     useState<number | null>(null);
+  const [
+    uploadProgress,
+    setUploadProgress,
+  ] = useState(0);
+  const [
+    failedStoryUpload,
+    setFailedStoryUpload,
+  ] = useState<FailedStoryUpload | null>(null);
   const reducedMotion =
     useReducedMotion();
   const queryClient = useQueryClient();
   const storyErrorShownRef =
     useRef(false);
-  const currentUserId =
+  const currentUser =
     useAuthStore(
-      (state) => state.user?.id
+      (state) => state.user
     );
+  const currentUserId =
+    currentUser?.id;
   const pushToast =
     useToastStore(
       (state) => state.pushToast
@@ -162,7 +179,15 @@ export default function StoryTray() {
 
   const createStoryMutation =
     useMutation({
-      mutationFn: async (file: File) => {
+      mutationFn: async ({
+        file,
+      }: StoryUploadInput) => {
+        if (!currentUser) {
+          throw new Error(
+            "Please sign in again before publishing a story."
+          );
+        }
+
         const validationError =
           getUploadValidationError(file);
 
@@ -185,7 +210,17 @@ export default function StoryTray() {
         }
 
         const mediaUrl =
-          await uploadImage(file);
+          await uploadImage(file, {
+            onProgress: (progress) => {
+              setUploadProgress(
+                Math.min(
+                  88,
+                  Math.max(8, progress)
+                )
+              );
+            },
+          });
+        setUploadProgress(94);
         const mediaType =
           file.type.startsWith("video/")
             ? "video"
@@ -196,16 +231,95 @@ export default function StoryTray() {
           mediaType,
         });
       },
-      onSuccess: (story) => {
+      onMutate: ({
+        file,
+        optimisticId,
+        previewUrl,
+      }) => {
+        setUploadProgress(4);
+        setFailedStoryUpload(null);
+
+        if (!currentUser) {
+          return {
+            optimisticId,
+            previewUrl,
+          };
+        }
+
+        const optimisticStory: Story = {
+          id: optimisticId,
+          userId: currentUser.id,
+          mediaUrl: previewUrl,
+          mediaType:
+            file.type.startsWith("video/")
+              ? "video"
+              : "image",
+          caption: "",
+          createdAt:
+            new Date().toISOString(),
+          expiresAt:
+            new Date(
+              Date.now() +
+                24 * 60 * 60 * 1000
+            ).toISOString(),
+          viewed: true,
+          user: {
+            id: currentUser.id,
+            username:
+              currentUser.username,
+            avatar:
+              currentUser.avatar ?? null,
+          },
+        };
+
         queryClient.setQueryData<Story[]>(
           queryKeys.stories.all,
           (currentStories) => [
-            story,
+            optimisticStory,
             ...(currentStories ?? []).filter(
-              (item) => item.id !== story.id
+              (story) =>
+                story.id !== optimisticId
             ),
           ]
         );
+
+        return {
+          optimisticId,
+          previewUrl,
+        };
+      },
+      onSuccess: (
+        story,
+        _variables,
+        context
+      ) => {
+        queryClient.setQueryData<Story[]>(
+          queryKeys.stories.all,
+          (currentStories) => {
+            const filteredStories =
+              (currentStories ?? []).filter(
+                (item) =>
+                  item.id !== story.id &&
+                  item.id !==
+                    context?.optimisticId
+              );
+
+            return [
+              story,
+              ...filteredStories,
+            ];
+          }
+        );
+        setUploadProgress(100);
+        if (context?.previewUrl) {
+          URL.revokeObjectURL(
+            context.previewUrl
+          );
+        }
+        void queryClient.invalidateQueries({
+          queryKey:
+            queryKeys.stories.all,
+        });
         pushToast({
           title: "Story published",
           message:
@@ -213,7 +327,29 @@ export default function StoryTray() {
           variant: "success",
         });
       },
-      onError: (error) => {
+      onError: (
+        error,
+        variables,
+        context
+      ) => {
+        queryClient.setQueryData<Story[]>(
+          queryKeys.stories.all,
+          (currentStories) =>
+            (currentStories ?? []).filter(
+              (story) =>
+                story.id !==
+                context?.optimisticId
+            )
+        );
+        setFailedStoryUpload({
+          file: variables.file,
+          previewUrl:
+            variables.previewUrl,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Please try again in a moment.",
+        });
         pushToast({
           title:
             "Couldn't upload story",
@@ -225,11 +361,86 @@ export default function StoryTray() {
         });
       },
       onSettled: () => {
+        setUploadProgress(0);
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
       },
     });
+
+  useEffect(() => {
+    return () => {
+      if (failedStoryUpload?.previewUrl) {
+        URL.revokeObjectURL(
+          failedStoryUpload.previewUrl
+        );
+      }
+    };
+  }, [failedStoryUpload?.previewUrl]);
+
+  function startStoryUpload(file: File) {
+    if (!currentUser) {
+      pushToast({
+        title: "Sign in required",
+        message:
+          "Please sign in again before publishing a story.",
+        variant: "error",
+      });
+      return;
+    }
+
+    const validationError =
+      getUploadValidationError(file);
+
+    if (validationError) {
+      pushToast({
+        title:
+          "Story media unavailable",
+        message: validationError,
+        variant: "warning",
+      });
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      return;
+    }
+
+    const previewUrl =
+      URL.createObjectURL(file);
+
+    createStoryMutation.mutate({
+      file,
+      optimisticId: `optimistic-story-${crypto.randomUUID()}`,
+      previewUrl,
+    });
+  }
+
+  function clearFailedStoryUpload() {
+    if (failedStoryUpload?.previewUrl) {
+      URL.revokeObjectURL(
+        failedStoryUpload.previewUrl
+      );
+    }
+
+    setFailedStoryUpload(null);
+  }
+
+  function retryFailedStoryUpload() {
+    const failed =
+      failedStoryUpload;
+
+    if (!failed) {
+      return;
+    }
+
+    setFailedStoryUpload(null);
+    URL.revokeObjectURL(
+      failed.previewUrl
+    );
+    startStoryUpload(failed.file);
+  }
 
   useEffect(() => {
     if (storiesQuery.isError) {
@@ -286,7 +497,7 @@ export default function StoryTray() {
             event.target.files?.[0];
 
           if (file) {
-            createStoryMutation.mutate(file);
+            startStoryUpload(file);
           }
         }}
       />
@@ -302,10 +513,20 @@ export default function StoryTray() {
         >
           <span className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-dashed border-purple-400/40 bg-purple-500/10 text-purple-100 shadow-lg shadow-purple-950/20">
             {createStoryMutation.isPending ? (
-              <Loader2
-                size={18}
-                className="motion-safe:animate-spin"
-              />
+              <>
+                <Loader2
+                  size={18}
+                  className="motion-safe:animate-spin"
+                />
+                <span className="absolute inset-x-2 bottom-2 h-1 overflow-hidden rounded-full bg-white/15">
+                  <span
+                    className="block h-full rounded-full bg-purple-200 transition-[width]"
+                    style={{
+                      width: `${uploadProgress}%`,
+                    }}
+                  />
+                </span>
+              </>
             ) : (
               <Plus size={18} />
             )}
@@ -350,18 +571,11 @@ export default function StoryTray() {
                   : "bg-white/10"
               }`}
             >
-              <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-[14px] bg-[#0B111C] text-base font-bold text-white">
-                {group.user.avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={group.user.avatar}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  avatarLabel(group)
-                )}
-              </span>
+              <FlexAvatar
+                src={group.user.avatar}
+                name={group.user.username}
+                className="flex h-full w-full items-center justify-center overflow-hidden rounded-[14px] bg-[#0B111C] text-base font-bold text-white"
+              />
             </span>
             <span className="w-full truncate">
               {group.userId === currentUserId
@@ -373,6 +587,61 @@ export default function StoryTray() {
           </motion.button>
         ))}
       </div>
+
+      {failedStoryUpload ? (
+        <div className="mt-3 flex items-center gap-3 rounded-2xl border border-red-400/20 bg-red-500/[0.08] p-3 text-sm text-red-100">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/25">
+            {failedStoryUpload.file.type.startsWith(
+              "image/"
+            ) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={
+                  failedStoryUpload.previewUrl
+                }
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <AlertCircle size={17} />
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">
+              Story upload failed
+            </p>
+            <p className="truncate text-xs text-red-100/70">
+              {failedStoryUpload.message}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={
+              retryFailedStoryUpload
+            }
+            disabled={
+              createStoryMutation.isPending
+            }
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 transition hover:bg-white/15 disabled:cursor-wait disabled:opacity-60"
+            aria-label="Retry story upload"
+          >
+            <RefreshCw size={15} />
+          </button>
+
+          <button
+            type="button"
+            onClick={
+              clearFailedStoryUpload
+            }
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 transition hover:bg-white/15"
+            aria-label="Dismiss story upload error"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      ) : null}
 
       <StoryViewer
         group={viewerGroup}

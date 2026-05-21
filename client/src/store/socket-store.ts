@@ -34,6 +34,11 @@ export interface Message {
     emoji: string;
     count: number;
   }[];
+  forwardedFrom?: {
+    messageId: string;
+    senderId?: string | null;
+    senderName?: string | null;
+  };
   replyTo?: {
     id: string;
     text: string;

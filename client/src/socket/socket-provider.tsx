@@ -153,6 +153,22 @@ function hasSeenConversationUpdate(
   return false;
 }
 
+function getMessagePreview(message: Message) {
+  const body =
+    message.deletedAt
+      ? "Message deleted"
+      : message.text?.trim() ||
+        (message.audio
+          ? "Voice message"
+          : message.attachment
+            ? "Attachment"
+            : "New message");
+
+  return message.forwardedFrom
+    ? `Forwarded: ${body}`
+    : body;
+}
+
 export default function SocketProvider({
   children,
 }: {
@@ -263,9 +279,12 @@ export default function SocketProvider({
       );
 
       addMessage(message);
+      const latestMessage =
+        getMessagePreview(message);
+
       updateConversationMessage(
         message.conversationId,
-        message.text,
+        latestMessage,
         {
           unread:
             isRemoteMessage &&

@@ -23,11 +23,32 @@ const typingMap = new Map<
 >();
 
 const TYPING_TTL_MS = 6_000;
+const TYPING_EVENT_THROTTLE_MS = 450;
 
 const typingExpiryTimers = new Map<
   string,
   ReturnType<typeof setTimeout>
 >();
+const lastTypingEventBySocket = new Map<
+  string,
+  number
+>();
+
+function canEmitTypingEvent(socketId: string) {
+  const now = Date.now();
+  const lastEventAt =
+    lastTypingEventBySocket.get(socketId) ?? 0;
+
+  if (
+    now - lastEventAt <
+    TYPING_EVENT_THROTTLE_MS
+  ) {
+    return false;
+  }
+
+  lastTypingEventBySocket.set(socketId, now);
+  return true;
+}
 
 function typingTimerKey(
   conversationId: string,
@@ -214,6 +235,10 @@ export function registerTypingHandlers(
   socket.on(
     SOCKET_EVENTS.START_TYPING,
     async (payload: TypingPayload) => {
+      if (!canEmitTypingEvent(socket.id)) {
+        return;
+      }
+
       const parsedPayload =
         typingPayloadSchema.safeParse(payload);
 
@@ -308,6 +333,8 @@ export function registerTypingHandlers(
   );
 
   socket.on(SOCKET_EVENTS.DISCONNECT, () => {
+    lastTypingEventBySocket.delete(socket.id);
+
     const changedRooms =
       removeSocketFromAllTypingRooms(userId, socket.id);
 

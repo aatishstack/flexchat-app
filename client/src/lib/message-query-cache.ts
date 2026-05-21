@@ -228,5 +228,35 @@ export function updateMessageStatusInQueryCache(
         ...cache,
         pages,
       }
-    : cache;
+      : cache;
+}
+
+export function removeMessagesFromQueryCache(
+  cache: MessageQueryCache,
+  messageIds: string[]
+): MessageQueryCache {
+  if (!cache || !messageIds.length) {
+    return cache;
+  }
+
+  const ids = new Set(messageIds);
+  const keepMessage = (message: Message) =>
+    !ids.has(message.id) &&
+    !(
+      message.tempId &&
+      ids.has(message.tempId)
+    );
+
+  if (!isInfiniteMessageCache(cache)) {
+    return cache.filter(keepMessage);
+  }
+
+  return {
+    ...cache,
+    pages: cache.pages.map((page) => ({
+      ...page,
+      messages:
+        page.messages.filter(keepMessage),
+    })),
+  };
 }

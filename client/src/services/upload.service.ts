@@ -1,3 +1,5 @@
+import type { AxiosProgressEvent } from "axios";
+
 import { api } from "./api";
 
 export const MEDIA_LIMITS = {
@@ -157,7 +159,10 @@ export function getUploadValidationError(file: File) {
 }
 
 export async function uploadImage(
-  file: File
+  file: File,
+  options?: {
+    onProgress?: (progress: number) => void;
+  }
 ) {
   const validationError =
     getUploadValidationError(file);
@@ -177,13 +182,28 @@ export async function uploadImage(
   const response =
     await api.post(
       "/upload",
-
       formData,
-
       {
-        headers: {
-          "Content-Type":
-            "multipart/form-data",
+        onUploadProgress: (
+          progressEvent: AxiosProgressEvent
+        ) => {
+          if (
+            !options?.onProgress ||
+            !progressEvent.total
+          ) {
+            return;
+          }
+
+          options.onProgress(
+            Math.min(
+              100,
+              Math.round(
+                (progressEvent.loaded /
+                  progressEvent.total) *
+                  100
+              )
+            )
+          );
         },
       }
     );

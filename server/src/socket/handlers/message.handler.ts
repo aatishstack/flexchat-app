@@ -122,6 +122,9 @@ const MESSAGE_DEDUPE_TTL_MS =
   10 * 60 * 1000;
 
 const MAX_RECENT_CLIENT_MESSAGES = 5000;
+const MESSAGE_RATE_LIMIT_WINDOW_MS =
+  10_000;
+const MAX_MESSAGES_PER_WINDOW = 24;
 
 type RecentClientMessage = {
   message: SocketMessage;
@@ -137,6 +140,39 @@ const inFlightClientMessages = new Map<
   string,
   Promise<SocketMessage>
 >();
+
+const messageRateBySocket = new Map<
+  string,
+  {
+    count: number;
+    resetAt: number;
+  }
+>();
+
+function consumeMessageRate(socketId: string) {
+  const now = Date.now();
+  const current =
+    messageRateBySocket.get(socketId);
+
+  if (!current || current.resetAt <= now) {
+    messageRateBySocket.set(socketId, {
+      count: 1,
+      resetAt:
+        now + MESSAGE_RATE_LIMIT_WINDOW_MS,
+    });
+
+    return true;
+  }
+
+  if (
+    current.count >= MAX_MESSAGES_PER_WINDOW
+  ) {
+    return false;
+  }
+
+  current.count += 1;
+  return true;
+}
 
 function getConversationId(
   payload: ConversationPayload | string
@@ -468,6 +504,16 @@ export function registerMessageHandlers(
         }
       };
 
+      if (!consumeMessageRate(socket.id)) {
+        acknowledge({
+          ok: false,
+          error:
+            "You're sending messages too quickly",
+        });
+
+        return;
+      }
+
       const parsedData =
         sendMessagePayloadSchema.safeParse(data);
 
@@ -629,6 +675,10 @@ export function registerMessageHandlers(
       }
     }
   );
+
+  socket.on(SOCKET_EVENTS.DISCONNECT, () => {
+    messageRateBySocket.delete(socket.id);
+  });
 
   socket.on(
     SOCKET_EVENTS.MESSAGE_DELIVERED,

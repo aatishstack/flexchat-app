@@ -33,6 +33,21 @@ export const messages =
       audio:
         text("audio"),
 
+      forwardedFromMessageId:
+        text(
+          "forwarded_from_message_id"
+        ),
+
+      forwardedFromSenderId:
+        text(
+          "forwarded_from_sender_id"
+        ),
+
+      forwardedFromSenderName:
+        text(
+          "forwarded_from_sender_name"
+        ),
+
       editedAt:
         timestamp(
           "edited_at"
@@ -89,6 +104,11 @@ export const messages =
       ).on(
         table.conversationId,
         table.deletedAt
+      ),
+      forwardedSourceIdx: index(
+        "messages_forwarded_source_idx"
+      ).on(
+        table.forwardedFromMessageId
       ),
     })
   );

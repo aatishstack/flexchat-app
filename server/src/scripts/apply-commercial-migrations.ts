@@ -62,4 +62,24 @@ await db.execute(sql`
     on story_views (user_id, viewed_at)
 `);
 
+await db.execute(sql`
+  alter table messages
+    add column if not exists forwarded_from_message_id text
+`);
+
+await db.execute(sql`
+  alter table messages
+    add column if not exists forwarded_from_sender_id text
+`);
+
+await db.execute(sql`
+  alter table messages
+    add column if not exists forwarded_from_sender_name text
+`);
+
+await db.execute(sql`
+  create index if not exists messages_forwarded_source_idx
+    on messages (forwarded_from_message_id)
+`);
+
 await closeDb();

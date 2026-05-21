@@ -31,6 +31,12 @@ export interface Message {
     count: number;
   }[];
 
+  forwardedFrom?: {
+    messageId: string;
+    senderId?: string | null;
+    senderName?: string | null;
+  };
+
   tempId?: string;
 
   optimistic?: boolean;
@@ -143,4 +149,22 @@ export async function reactToMessage(input: {
     );
 
   return response.data;
+}
+
+export async function forwardMessage(input: {
+  messageId: string;
+  targetConversationIds: string[];
+}) {
+  const response =
+    await api.post<{
+      messages: Message[];
+    }>(
+      `/messages/${input.messageId}/forward`,
+      {
+        targetConversationIds:
+          input.targetConversationIds,
+      }
+    );
+
+  return response.data.messages;
 }

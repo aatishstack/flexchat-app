@@ -8,10 +8,8 @@ import {
 } from "framer-motion";
 
 import { useUsersByIdsQuery } from "@/hooks/queries/use-users-query";
-import {
-  formatDisplayName,
-  getAvatarInitial,
-} from "@/lib/user-display";
+import FlexAvatar from "@/components/chat/flex-avatar";
+import { formatDisplayName } from "@/lib/user-display";
 import { useSocketStore } from "@/store/socket-store";
 import { useAuthStore } from "@/stores/auth.store";
 
@@ -94,8 +92,18 @@ export default function ActiveNowPanel({
         {!onlinePeerIds.length ||
         (!onlineUsersQuery.isLoading &&
           !users.length) ? (
-          <div className="flex h-full items-center justify-center px-5 text-center text-sm text-zinc-500">
-            No other users online
+          <div className="flex h-full items-center justify-center px-6 py-10 text-center">
+            <div className="max-w-[220px]">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
+                <span className="h-2.5 w-2.5 rounded-full bg-zinc-500 shadow-[0_0_18px_rgba(113,113,122,0.55)]" />
+              </div>
+              <p className="mt-4 text-sm font-medium text-zinc-300">
+                Quiet right now
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+                Online friends will appear here as soon as presence updates.
+              </p>
+            </div>
           </div>
         ) : null}
 
@@ -117,20 +125,11 @@ export default function ActiveNowPanel({
             className="flex items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.045] p-4 shadow-lg shadow-black/10"
           >
             <div className="relative">
-              <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-lg font-bold text-white">
-                {user.avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={user.avatar}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  getAvatarInitial(
-                    user.username
-                  )
-                )}
-              </div>
+              <FlexAvatar
+                src={user.avatar}
+                name={user.username}
+                className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-lg font-bold text-white"
+              />
 
               <div className="absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-[#0B111C] bg-green-500 shadow-lg shadow-green-500/40" />
             </div>
