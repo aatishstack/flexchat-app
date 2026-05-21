@@ -26,6 +26,8 @@ export interface Message {
   conversationId: string;
   status: MessageStatus;
   createdAt?: string;
+  editedAt?: string;
+  deletedAt?: string;
   attachment?: string | null;
   audio?: string | null;
   reactions?: {

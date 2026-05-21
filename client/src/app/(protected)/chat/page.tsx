@@ -50,6 +50,11 @@ const CallLayer = dynamic(
 
 export default function ChatPage() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [discoverOpen, setDiscoverOpen] = useState(true);
+  const [activeNowOpen, setActiveNowOpen] = useState(true);
+  const [mobilePanel, setMobilePanel] = useState<"discover" | "active" | null>(
+    null,
+  );
 
   const setGlobalSearchOpen = useGlobalSearchStore((state) => state.setOpen);
 
@@ -103,15 +108,33 @@ export default function ChatPage() {
             sidebar={<ChatSidebar />}
             chat={
               <div className="flex h-full w-full overflow-hidden">
-                <DiscoverPanel />
+                {discoverOpen ? <DiscoverPanel /> : null}
 
                 <div className="min-w-0 flex-1">
                   <ChatConversation
+                    discoverOpen={discoverOpen}
+                    activeNowOpen={activeNowOpen}
+                    onToggleDiscover={() => {
+                      if (window.matchMedia("(min-width: 1280px)").matches) {
+                        setDiscoverOpen((open) => !open);
+                        return;
+                      }
+
+                      setMobilePanel("discover");
+                    }}
+                    onToggleActiveNow={() => {
+                      if (window.matchMedia("(min-width: 1280px)").matches) {
+                        setActiveNowOpen((open) => !open);
+                        return;
+                      }
+
+                      setMobilePanel("active");
+                    }}
                     onOpenNotifications={() => setNotificationsOpen(true)}
                   />
                 </div>
 
-                <ActiveNowPanel />
+                {activeNowOpen ? <ActiveNowPanel /> : null}
               </div>
             }
           />
@@ -158,6 +181,56 @@ export default function ChatPage() {
         open={notificationsOpen}
         onClose={() => setNotificationsOpen(false)}
       />
+
+      <AnimatePresence>
+        {mobilePanel ? (
+          <motion.div
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+            }}
+            className="fixed inset-0 z-[220] bg-black/65 backdrop-blur-xl xl:hidden"
+          >
+            <motion.div
+              initial={{
+                y: "100%",
+              }}
+              animate={{
+                y: 0,
+              }}
+              exit={{
+                y: "100%",
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 260,
+                damping: 30,
+              }}
+              className="absolute inset-x-0 bottom-0 h-[min(82dvh,720px)] overflow-hidden rounded-t-[32px] border border-white/10 bg-[#08111f] shadow-[0_-24px_90px_rgba(0,0,0,0.55)]"
+            >
+              <button
+                type="button"
+                onClick={() => setMobilePanel(null)}
+                className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-black/35 text-white backdrop-blur-xl"
+                aria-label="Close panel"
+              >
+                ×
+              </button>
+
+              {mobilePanel === "discover" ? (
+                <DiscoverPanel variant="sheet" />
+              ) : (
+                <ActiveNowPanel variant="sheet" />
+              )}
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <CallLayer />
     </div>

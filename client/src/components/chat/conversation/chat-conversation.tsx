@@ -12,12 +12,19 @@ import {
 
 import {
   Bell,
+  Check,
+  Compass,
   FileText,
   ImageIcon,
+  Pencil,
   Phone,
   RefreshCw,
   SendHorizonal,
+  Share2,
+  SmilePlus,
   Sparkles,
+  Trash2,
+  Users,
   Video,
   X,
 } from "lucide-react";
@@ -33,7 +40,16 @@ import MessageStatus from "@/components/chat/MessageStatus";
 import { useConversationsQuery } from "@/hooks/queries/use-conversations-query";
 import { useMessagesQuery } from "@/hooks/queries/use-messages-query";
 import { useAuth } from "@/hooks/useAuth";
-import { uploadImage } from "@/services/upload.service";
+import {
+  deleteMessage,
+  editMessage,
+  reactToMessage,
+} from "@/services/message.service";
+import {
+  MEDIA_LIMITS,
+  getUploadValidationError,
+  uploadImage,
+} from "@/services/upload.service";
 import { SOCKET_EVENTS } from "@/socket/socket-events";
 import {
   Message,
@@ -45,7 +61,13 @@ import { useToastStore } from "@/store/toast-store";
 import { updateConversationInQueryCache } from "@/lib/conversation-query-cache";
 import type { ConversationQueryCache } from "@/lib/conversation-query-cache";
 import { queryKeys } from "@/lib/query-keys";
+import {
+  formatDisplayName,
+  getAvatarInitial,
+} from "@/lib/user-display";
 import { useConversationStore } from "@/stores/conversation.store";
+import { mergeMessageIntoQueryCache } from "@/lib/message-query-cache";
+import type { MessageQueryCache } from "@/lib/message-query-cache";
 
 const RENDER_WINDOW_SIZE = 360;
 const EMPTY_MESSAGES: Message[] = [];
@@ -157,6 +179,24 @@ function isImageAttachment(url: string) {
   return /\.(png|jpe?g|gif|webp|avif)$/i.test(url);
 }
 
+function isVideoAttachment(url: string) {
+  return /\.(mp4|webm|ogg|mov|m4v)$/i.test(url);
+}
+
+function getAttachmentLabel(url: string) {
+  try {
+    const parsedUrl = new URL(url);
+    const filename =
+      parsedUrl.pathname.split("/").pop();
+
+    return filename
+      ? decodeURIComponent(filename)
+      : "Attachment";
+  } catch {
+    return "Attachment";
+  }
+}
+
 function sortMessages(messages: Message[]) {
   return [...messages].sort((left, right) => {
     const leftTime = left.createdAt
@@ -229,6 +269,84 @@ function mergeMessages(
   return sortMessages(merged);
 }
 
+function getTimeAwareGreeting(name?: string | null) {
+  const hour = new Date().getHours();
+  const period =
+    hour < 12
+      ? "morning"
+      : hour < 17
+        ? "afternoon"
+        : "evening";
+
+  return `Good ${period}${name ? ` ${formatDisplayName(name)}` : ""}, how can I help you?`;
+}
+
+function buildLocalAiResponse({
+  prompt,
+  messages,
+  conversationName,
+}: {
+  prompt: string;
+  messages: Message[];
+  conversationName: string;
+}) {
+  const normalizedPrompt =
+    prompt.trim().toLowerCase();
+  const recentMessages = messages
+    .filter(
+      (message) =>
+        !message.deletedAt &&
+        (message.text?.trim() ||
+          message.attachment ||
+          message.audio)
+    )
+    .slice(-12);
+  const recentTextMessages =
+    recentMessages
+      .map((message) => message.text?.trim())
+      .filter(Boolean) as string[];
+
+  if (
+    normalizedPrompt.includes("summar") ||
+    normalizedPrompt.includes("unread")
+  ) {
+    if (!recentTextMessages.length) {
+      return `There is not enough recent text in ${conversationName} to summarize yet.`;
+    }
+
+    return `Recent ${conversationName} context: ${recentTextMessages
+      .slice(-5)
+      .map((text, index) => `${index + 1}. ${text}`)
+      .join(" ")}`;
+  }
+
+  if (
+    normalizedPrompt.includes("reply") ||
+    normalizedPrompt.includes("rewrite") ||
+    normalizedPrompt.includes("write")
+  ) {
+    const seed =
+      recentTextMessages.at(-1) ??
+      prompt.trim();
+
+    return `Try this: "${seed ? `Thanks for the update. ${seed.length > 90 ? "I will take a closer look and get back to you shortly." : "That works for me."}` : "Thanks for the update. I will get back to you shortly."}"`;
+  }
+
+  if (
+    normalizedPrompt.includes("media") ||
+    normalizedPrompt.includes("photo") ||
+    normalizedPrompt.includes("video")
+  ) {
+    return "For media, keep images under 10 MB and videos under 25 MB. Short videos render inline in chat, while oversized videos need compression before sending.";
+  }
+
+  if (!prompt.trim()) {
+    return "Ask me to summarize recent messages, draft a reply, clean up a message, or check media sending limits.";
+  }
+
+  return `For ${conversationName}, I would keep it short and warm: "${prompt.trim().slice(0, 180)}"`;
+}
+
 function MessageSkeleton() {
   return (
     <div className="space-y-4 px-4 py-5 sm:px-6">
@@ -254,6 +372,18 @@ type ChatMessageRowProps = {
   mine: boolean;
   reducedMotion: boolean;
   onRetry: (messageId: string) => void;
+  onEdit: (
+    message: Message,
+    text: string
+  ) => Promise<boolean>;
+  onDelete: (
+    message: Message
+  ) => Promise<boolean>;
+  onReact: (
+    message: Message,
+    emoji: string
+  ) => Promise<boolean>;
+  onShare: (message: Message) => void;
 };
 
 const ChatMessageRow = memo(
@@ -263,7 +393,19 @@ const ChatMessageRow = memo(
     mine,
     reducedMotion,
     onRetry,
+    onEdit,
+    onDelete,
+    onReact,
+    onShare,
   }: ChatMessageRowProps) {
+    const [menuOpen, setMenuOpen] =
+      useState(false);
+    const [isEditing, setIsEditing] =
+      useState(false);
+    const [draftText, setDraftText] =
+      useState(message.text ?? "");
+    const [isMutating, setIsMutating] =
+      useState(false);
     const grouped =
       previous?.senderId === message.senderId &&
       isSameMessageDay(
@@ -276,6 +418,58 @@ const ChatMessageRow = memo(
         previous.createdAt,
         message.createdAt
       );
+    const isDeleted = !!message.deletedAt;
+    const isSettled =
+      !message.optimistic &&
+      message.status !== "sending";
+    const canEdit =
+      mine &&
+      isSettled &&
+      !isDeleted &&
+      !message.attachment &&
+      !message.audio &&
+      !!message.text;
+    const canDelete =
+      mine && isSettled && !isDeleted;
+
+    async function submitEdit() {
+      const nextText = draftText.trim();
+
+      if (!nextText || nextText === message.text) {
+        setIsEditing(false);
+        setDraftText(message.text ?? "");
+        return;
+      }
+
+      setIsMutating(true);
+      const ok = await onEdit(message, nextText);
+      setIsMutating(false);
+
+      if (ok) {
+        setIsEditing(false);
+        setMenuOpen(false);
+      }
+    }
+
+    async function submitDelete() {
+      setIsMutating(true);
+      const ok = await onDelete(message);
+      setIsMutating(false);
+
+      if (ok) {
+        setMenuOpen(false);
+      }
+    }
+
+    async function submitReaction(emoji: string) {
+      setIsMutating(true);
+      const ok = await onReact(message, emoji);
+      setIsMutating(false);
+
+      if (ok) {
+        setMenuOpen(false);
+      }
+    }
 
     return (
       <Fragment>
@@ -320,16 +514,20 @@ const ChatMessageRow = memo(
             mine
               ? "justify-end"
               : "justify-start"
-          }`}
+          } group/message relative`}
         >
           <div
-            className={`max-w-[86%] rounded-3xl px-4 py-3 text-sm text-white shadow-[0_14px_45px_rgba(0,0,0,0.22)] sm:max-w-[70%] sm:px-5 sm:py-4 ${
+            className={`relative max-w-[86%] rounded-3xl px-4 py-3 text-sm text-white shadow-[0_14px_45px_rgba(0,0,0,0.22)] sm:max-w-[70%] sm:px-5 sm:py-4 ${
               mine
                 ? "rounded-br-md bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 shadow-purple-950/30"
                 : "rounded-bl-md border border-white/10 bg-white/[0.055] backdrop-blur-2xl"
             } ${
               message.status === "failed"
                 ? "ring-1 ring-red-400/35"
+                : ""
+            } ${
+              isDeleted
+                ? "border border-white/10 bg-white/[0.035] text-white/60"
                 : ""
             }`}
           >
@@ -344,7 +542,13 @@ const ChatMessageRow = memo(
               </div>
             ) : null}
 
-            {message.attachment ? (
+            {isDeleted ? (
+              <p className="italic text-white/65">
+                Message deleted
+              </p>
+            ) : null}
+
+            {!isDeleted && message.attachment ? (
               isImageAttachment(
                 message.attachment
               ) ? (
@@ -361,6 +565,16 @@ const ChatMessageRow = memo(
                     className="max-h-72 w-full object-cover"
                   />
                 </a>
+              ) : isVideoAttachment(
+                  message.attachment
+                ) ? (
+                <video
+                  controls
+                  preload="metadata"
+                  playsInline
+                  src={message.attachment}
+                  className="mb-3 max-h-80 w-full rounded-2xl border border-white/10 bg-black object-contain"
+                />
               ) : (
                 <a
                   href={message.attachment}
@@ -370,13 +584,15 @@ const ChatMessageRow = memo(
                 >
                   <FileText size={16} />
                   <span className="truncate">
-                    Attachment
+                    {getAttachmentLabel(
+                      message.attachment
+                    )}
                   </span>
                 </a>
               )
             ) : null}
 
-            {message.audio ? (
+            {!isDeleted && message.audio ? (
               <audio
                 controls
                 src={message.audio}
@@ -384,13 +600,62 @@ const ChatMessageRow = memo(
               />
             ) : null}
 
-            {message.text ? (
+            {!isDeleted && isEditing ? (
+              <div className="space-y-3">
+                <textarea
+                  value={draftText}
+                  onChange={(event) =>
+                    setDraftText(
+                      event.target.value.slice(
+                        0,
+                        4000
+                      )
+                    )
+                  }
+                  autoFocus
+                  rows={3}
+                  className="w-full resize-none rounded-2xl border border-white/15 bg-black/20 px-3 py-2 text-sm leading-relaxed text-white outline-none transition focus:border-white/35"
+                />
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDraftText(
+                        message.text ?? ""
+                      );
+                      setIsEditing(false);
+                    }}
+                    disabled={isMutating}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/10 transition hover:bg-white/15 disabled:cursor-wait disabled:opacity-60"
+                    aria-label="Cancel edit"
+                  >
+                    <X size={15} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void submitEdit();
+                    }}
+                    disabled={
+                      isMutating ||
+                      !draftText.trim()
+                    }
+                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-purple-700 transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
+                    aria-label="Save edit"
+                  >
+                    <Check size={15} />
+                  </button>
+                </div>
+              </div>
+            ) : !isDeleted && message.text ? (
               <p className="whitespace-pre-wrap break-words leading-relaxed">
                 {message.text}
               </p>
             ) : null}
 
-            {message.reactions?.length ? (
+            {!isDeleted && message.reactions?.length ? (
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {message.reactions.map(
                   (reaction) => (
@@ -406,7 +671,128 @@ const ChatMessageRow = memo(
               </div>
             ) : null}
 
+            {!isEditing ? (
+              <div
+                className={`absolute top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-2xl border border-white/10 bg-[#07101E]/95 p-1 text-white shadow-2xl shadow-black/35 backdrop-blur-xl transition max-sm:bottom-full max-sm:left-auto max-sm:right-0 max-sm:top-auto max-sm:mb-2 max-sm:translate-y-0 ${
+                  mine
+                    ? "right-full mr-2"
+                    : "left-full ml-2"
+                } ${
+                  menuOpen
+                    ? "opacity-100"
+                    : "pointer-events-none opacity-0 group-hover/message:pointer-events-auto group-hover/message:opacity-100 group-focus-within/message:pointer-events-auto group-focus-within/message:opacity-100"
+                }`}
+              >
+                {!isDeleted ? (
+                  <>
+                    {["👍", "❤️", "😂"].map(
+                      (emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => {
+                            void submitReaction(
+                              emoji
+                            );
+                          }}
+                          disabled={
+                            isMutating || !isSettled
+                          }
+                          className="flex h-8 w-8 items-center justify-center rounded-xl text-base transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-60"
+                          aria-label={`React ${emoji}`}
+                        >
+                          {emoji}
+                        </button>
+                      )
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setMenuOpen(
+                          (open) => !open
+                        )
+                      }
+                      disabled={
+                        isMutating || !isSettled
+                      }
+                      className="flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-60"
+                      aria-label="More reactions"
+                    >
+                      <SmilePlus size={15} />
+                    </button>
+                  </>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={() => onShare(message)}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10"
+                  aria-label="Share message"
+                >
+                  <Share2 size={15} />
+                </button>
+
+                {canEdit ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDraftText(
+                        message.text ?? ""
+                      );
+                      setIsEditing(true);
+                      setMenuOpen(false);
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10"
+                    aria-label="Edit message"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                ) : null}
+
+                {canDelete ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void submitDelete();
+                    }}
+                    disabled={isMutating}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl text-red-200 transition hover:bg-red-500/20 disabled:cursor-wait disabled:opacity-60"
+                    aria-label="Delete message"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+
+            {menuOpen && !isDeleted ? (
+              <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/10 pt-3">
+                {["🔥", "👏", "😮", "😢"].map(
+                  (emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => {
+                        void submitReaction(emoji);
+                      }}
+                      disabled={
+                        isMutating || !isSettled
+                      }
+                      className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-base transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60"
+                      aria-label={`React ${emoji}`}
+                    >
+                      {emoji}
+                    </button>
+                  )
+                )}
+              </div>
+            ) : null}
+
             <div className="mt-2 flex items-center justify-end gap-2 text-[11px] text-white/65">
+              {message.editedAt && !isDeleted ? (
+                <span>edited</span>
+              ) : null}
               <span>
                 {formatMessageTime(
                   message.createdAt
@@ -442,10 +828,18 @@ const ChatMessageRow = memo(
 
 type ChatConversationProps = {
   onOpenNotifications?: () => void;
+  discoverOpen?: boolean;
+  activeNowOpen?: boolean;
+  onToggleDiscover?: () => void;
+  onToggleActiveNow?: () => void;
 };
 
 export default function ChatConversation({
   onOpenNotifications,
+  discoverOpen,
+  activeNowOpen,
+  onToggleDiscover,
+  onToggleActiveNow,
 }: ChatConversationProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -454,10 +848,16 @@ export default function ChatConversation({
     useState(false);
   const [aiPrompt, setAiPrompt] =
     useState("");
+  const [aiResponse, setAiResponse] =
+    useState("");
   const [
     isUploadingAttachment,
     setIsUploadingAttachment,
   ] = useState(false);
+  const [
+    largeVideoFile,
+    setLargeVideoFile,
+  ] = useState<File | null>(null);
   const typingTimeoutRef =
     useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef =
@@ -588,12 +988,200 @@ export default function ChatConversation({
     (state) => state.startCall
   );
 
+  const mergeMutatedMessage =
+    useCallback(
+      (message: Message) => {
+        queryClient.setQueryData<MessageQueryCache>(
+          queryKeys.messages.list(
+            message.conversationId
+          ),
+          (cache) =>
+            mergeMessageIntoQueryCache(
+              cache,
+              message
+            )
+        );
+        useSocketStore
+          .getState()
+          .addMessage(message);
+      },
+      [queryClient]
+    );
+
   const handleRetryMessage = useCallback(
     (messageId: string) => {
       retryMessage(messageId);
     },
     [retryMessage]
   );
+
+  const handleEditMessage =
+    useCallback(
+      async (
+        message: Message,
+        nextText: string
+      ) => {
+        try {
+          const updatedMessage =
+            await editMessage({
+              messageId: message.id,
+              conversationId:
+                message.conversationId,
+              text: nextText,
+            });
+
+          mergeMutatedMessage(
+            updatedMessage as Message
+          );
+          pushToast({
+            title: "Message updated",
+            variant: "success",
+          });
+
+          return true;
+        } catch {
+          pushToast({
+            title: "Edit failed",
+            message:
+              "That message could not be updated right now.",
+            variant: "error",
+          });
+
+          return false;
+        }
+      },
+      [
+        mergeMutatedMessage,
+        pushToast,
+      ]
+    );
+
+  const handleDeleteMessage =
+    useCallback(
+      async (message: Message) => {
+        try {
+          const deletedMessage =
+            await deleteMessage({
+              messageId: message.id,
+              conversationId:
+                message.conversationId,
+            });
+
+          mergeMutatedMessage(
+            deletedMessage as Message
+          );
+          pushToast({
+            title: "Message deleted",
+            variant: "success",
+          });
+
+          return true;
+        } catch {
+          pushToast({
+            title: "Delete failed",
+            message:
+              "That message could not be deleted right now.",
+            variant: "error",
+          });
+
+          return false;
+        }
+      },
+      [
+        mergeMutatedMessage,
+        pushToast,
+      ]
+    );
+
+  const handleReactMessage =
+    useCallback(
+      async (
+        message: Message,
+        emoji: string
+      ) => {
+        try {
+          const updatedMessage =
+            await reactToMessage({
+              messageId: message.id,
+              conversationId:
+                message.conversationId,
+              emoji,
+            });
+
+          mergeMutatedMessage(
+            updatedMessage as Message
+          );
+
+          return true;
+        } catch {
+          pushToast({
+            title: "Reaction failed",
+            message:
+              "We could not sync that reaction.",
+            variant: "warning",
+          });
+
+          return false;
+        }
+      },
+      [
+        mergeMutatedMessage,
+        pushToast,
+      ]
+    );
+
+  const handleShareMessage =
+    useCallback(
+      (message: Message) => {
+        const shareText =
+          message.deletedAt
+            ? "Message deleted"
+            : message.text ||
+              message.attachment ||
+              message.audio ||
+              "";
+
+        if (!shareText) {
+          pushToast({
+            title: "Nothing to share",
+            variant: "info",
+          });
+          return;
+        }
+
+        if (
+          navigator.share &&
+          shareText.length < 1800
+        ) {
+          void navigator
+            .share({
+              text: shareText,
+            })
+            .catch(() => undefined);
+          return;
+        }
+
+        void navigator.clipboard
+          ?.writeText(shareText)
+          .then(() => {
+            pushToast({
+              title: "Message copied",
+              message:
+                "Share text is on your clipboard.",
+              variant: "success",
+            });
+          })
+          .catch(() => {
+            pushToast({
+              title: "Share unavailable",
+              message:
+                "Your browser blocked sharing and clipboard access.",
+              variant: "warning",
+            });
+          });
+      },
+      [pushToast]
+    );
 
   const clearTypingTimeout = useCallback(() => {
     if (typingTimeoutRef.current) {
@@ -725,6 +1313,18 @@ export default function ChatConversation({
           user?.id
         )
       : null;
+  const activeConversationDisplayName =
+    formatDisplayName(
+      activeConversation?.name ?? "FlexChat"
+    );
+  const aiSuggestions = useMemo(
+    () => [
+      "Summarize recent messages",
+      "Help me write a warm reply",
+      "What media can I send?",
+    ],
+    []
+  );
 
   useEffect(() => {
     if (!conversationId) {
@@ -985,6 +1585,38 @@ export default function ChatConversation({
       return;
     }
 
+    if (
+      file.type.startsWith("video/") &&
+      file.size > MEDIA_LIMITS.video
+    ) {
+      setLargeVideoFile(file);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value =
+          "";
+      }
+
+      return;
+    }
+
+    const validationError =
+      getUploadValidationError(file);
+
+    if (validationError) {
+      pushToast({
+        title: "Attachment unavailable",
+        message: validationError,
+        variant: "warning",
+      });
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value =
+          "";
+      }
+
+      return;
+    }
+
     setIsUploadingAttachment(true);
 
     try {
@@ -1004,14 +1636,16 @@ export default function ChatConversation({
       setText("");
       stopActiveTyping(conversationId);
       setConnectionError(null);
-    } catch {
+    } catch (error) {
       setConnectionError(
         "Attachment upload failed"
       );
       pushToast({
         title: "Upload failed",
         message:
-          "We could not attach that file. Please try again.",
+          error instanceof Error
+            ? error.message
+            : "We could not attach that file. Please try again.",
         variant: "error",
       });
     } finally {
@@ -1046,15 +1680,14 @@ export default function ChatConversation({
   }
 
   function handleAskAi() {
-    pushToast({
-      title: "AI features coming soon",
-      message:
-        aiPrompt.trim()
-          ? "Your prompt is ready for the upcoming assistant."
-          : "The FlexChat assistant will arrive in a future update.",
-      variant: "info",
-    });
-    setAiOpen(false);
+    setAiResponse(
+      buildLocalAiResponse({
+        prompt: aiPrompt,
+        messages: visibleMessages,
+        conversationName:
+          activeConversationDisplayName,
+      })
+    );
   }
 
   function handleStartCall(
@@ -1104,13 +1737,15 @@ export default function ChatConversation({
                 className="h-full w-full object-cover"
               />
             ) : (
-              activeConversation.name?.charAt(0) ?? "F"
+              getAvatarInitial(
+                activeConversation.name
+              )
             )}
           </div>
 
           <div className="min-w-0">
             <h2 className="truncate font-semibold text-white">
-              {activeConversation.name ?? "FlexChat"}
+              {activeConversationDisplayName}
             </h2>
 
             <p
@@ -1134,6 +1769,36 @@ export default function ChatConversation({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={onToggleDiscover}
+            disabled={!onToggleDiscover}
+            className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition hover:border-purple-400/30 hover:bg-purple-500/[0.15] disabled:cursor-not-allowed disabled:opacity-40 ${
+              discoverOpen
+                ? "border-purple-300/30 bg-purple-500/[0.16] text-purple-100"
+                : "border-white/10 bg-white/[0.04] text-zinc-200"
+            }`}
+            aria-pressed={!!discoverOpen}
+            aria-label="Toggle Discover"
+          >
+            <Compass size={18} />
+          </button>
+
+          <button
+            type="button"
+            onClick={onToggleActiveNow}
+            disabled={!onToggleActiveNow}
+            className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition hover:border-purple-400/30 hover:bg-purple-500/[0.15] disabled:cursor-not-allowed disabled:opacity-40 ${
+              activeNowOpen
+                ? "border-cyan-300/30 bg-cyan-500/[0.14] text-cyan-100"
+                : "border-white/10 bg-white/[0.04] text-zinc-200"
+            }`}
+            aria-pressed={!!activeNowOpen}
+            aria-label="Toggle Active Now"
+          >
+            <Users size={18} />
+          </button>
+
           <button
             type="button"
             onClick={onOpenNotifications}
@@ -1239,6 +1904,18 @@ export default function ChatConversation({
                   }
                   onRetry={
                     handleRetryMessage
+                  }
+                  onEdit={
+                    handleEditMessage
+                  }
+                  onDelete={
+                    handleDeleteMessage
+                  }
+                  onReact={
+                    handleReactMessage
+                  }
+                  onShare={
+                    handleShareMessage
                   }
                 />
               );
@@ -1369,6 +2046,86 @@ export default function ChatConversation({
       </div>
 
       <AnimatePresence>
+        {largeVideoFile ? (
+          <motion.div
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+            }}
+            className="fixed inset-0 z-[275] flex items-end justify-center bg-black/[0.68] p-3 backdrop-blur-xl sm:items-center sm:p-6"
+          >
+            <motion.div
+              initial={{
+                opacity: 0,
+                y: 24,
+                scale: 0.96,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                scale: 1,
+              }}
+              exit={{
+                opacity: 0,
+                y: 24,
+                scale: 0.96,
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 30,
+              }}
+              className="w-full max-w-sm rounded-[30px] border border-white/10 bg-[#0B111C]/[0.98] p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.62)]"
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-purple-300/20 bg-purple-500/15 text-purple-100">
+                  <Video size={21} />
+                </div>
+
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold">
+                    This video is large.
+                  </h2>
+                  <p className="mt-1 text-sm leading-relaxed text-zinc-400">
+                    Compress video for faster sending and better compatibility?
+                  </p>
+                  <p className="mt-3 truncate text-xs text-zinc-500">
+                    {largeVideoFile.name}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLargeVideoFile(null)
+                  }
+                  className="h-12 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08]"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  disabled
+                  className="h-12 rounded-2xl bg-white/[0.08] text-sm font-semibold text-zinc-400"
+                  title="Video compression is not available in this build."
+                >
+                  Compress & Send
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {aiOpen ? (
           <motion.div
             initial={{
@@ -1415,7 +2172,7 @@ export default function ChatConversation({
                       FlexChat AI
                     </h2>
                     <p className="text-xs text-zinc-500">
-                      Assistant preview
+                      Local assistant
                     </p>
                   </div>
                 </div>
@@ -1433,6 +2190,45 @@ export default function ChatConversation({
               </div>
 
               <div className="space-y-4 p-5">
+                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+                  <p className="text-sm font-medium text-white">
+                    {getTimeAwareGreeting(
+                      user?.username
+                    )}
+                  </p>
+                </div>
+
+                <div className="grid gap-2">
+                  {aiSuggestions.map(
+                    (suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => {
+                          setAiPrompt(
+                            suggestion
+                          );
+                          setAiResponse(
+                            buildLocalAiResponse(
+                              {
+                                prompt:
+                                  suggestion,
+                                messages:
+                                  visibleMessages,
+                                conversationName:
+                                  activeConversationDisplayName,
+                              }
+                            )
+                          );
+                        }}
+                        className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-left text-sm text-zinc-200 transition hover:border-purple-300/25 hover:bg-purple-500/10 hover:text-white"
+                      >
+                        {suggestion}
+                      </button>
+                    )
+                  )}
+                </div>
+
                 <textarea
                   value={aiPrompt}
                   onChange={(event) =>
@@ -1456,6 +2252,12 @@ export default function ChatConversation({
                   <Sparkles size={18} />
                   Ask AI
                 </button>
+
+                {aiResponse ? (
+                  <div className="rounded-3xl border border-purple-300/15 bg-purple-500/[0.10] p-4 text-sm leading-relaxed text-purple-50">
+                    {aiResponse}
+                  </div>
+                ) : null}
               </div>
             </motion.div>
           </motion.div>

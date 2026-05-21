@@ -3,6 +3,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const messages =
@@ -31,6 +32,16 @@ export const messages =
 
       audio:
         text("audio"),
+
+      editedAt:
+        timestamp(
+          "edited_at"
+        ),
+
+      deletedAt:
+        timestamp(
+          "deleted_at"
+        ),
 
       status:
         text("status")
@@ -72,6 +83,66 @@ export const messages =
         table.conversationId,
         table.status,
         table.senderId
+      ),
+      conversationDeletedIdx: index(
+        "messages_conversation_deleted_idx"
+      ).on(
+        table.conversationId,
+        table.deletedAt
+      ),
+    })
+  );
+
+export const messageReactions =
+  pgTable(
+    "message_reactions",
+    {
+      id: text("id")
+        .primaryKey(),
+
+      messageId:
+        text(
+          "message_id"
+        ).notNull(),
+
+      conversationId:
+        text(
+          "conversation_id"
+        ).notNull(),
+
+      userId:
+        text(
+          "user_id"
+        ).notNull(),
+
+      emoji:
+        text("emoji")
+          .notNull(),
+
+      createdAt:
+        timestamp(
+          "created_at"
+        )
+          .defaultNow()
+          .notNull(),
+    },
+    (table) => ({
+      messageUserUniqueIdx: uniqueIndex(
+        "message_reactions_message_user_unique_idx"
+      ).on(
+        table.messageId,
+        table.userId
+      ),
+      messageEmojiIdx: index(
+        "message_reactions_message_emoji_idx"
+      ).on(
+        table.messageId,
+        table.emoji
+      ),
+      conversationIdx: index(
+        "message_reactions_conversation_idx"
+      ).on(
+        table.conversationId
       ),
     })
   );

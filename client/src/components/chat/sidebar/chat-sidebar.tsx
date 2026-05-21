@@ -28,6 +28,10 @@ import Link from "next/link";
 import { useConversationsQuery } from "@/hooks/queries/use-conversations-query";
 import StoryTray from "@/components/chat/stories/story-tray";
 import { clearClientSession } from "@/lib/session-cleanup";
+import {
+  formatDisplayName,
+  getAvatarInitial,
+} from "@/lib/user-display";
 import { useSocketStore } from "@/store/socket-store";
 import { useAuthStore } from "@/stores/auth.store";
 import { useConversationStore } from "@/stores/conversation.store";
@@ -144,9 +148,10 @@ function getConversationInitial(
   conversation: Conversation
 ) {
   return (
-    conversation.name?.charAt(0) ||
-    "F"
-  ).toUpperCase();
+    getAvatarInitial(
+      conversation.name
+    )
+  );
 }
 
 type ConversationListButtonProps = {
@@ -217,8 +222,10 @@ const ConversationListButton = memo(
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <h3 className="truncate font-semibold text-white">
-                {conversation.name ||
-                  "Untitled"}
+                {formatDisplayName(
+                  conversation.name ||
+                    "Untitled"
+                )}
               </h3>
 
               {conversation.pinned ? (

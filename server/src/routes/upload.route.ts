@@ -11,31 +11,152 @@ import { pipeline } from "stream/promises";
 import { env } from "../config/env.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const IMAGE_UPLOAD_LIMIT_BYTES =
+  10 * 1024 * 1024;
+const VIDEO_UPLOAD_LIMIT_BYTES =
+  25 * 1024 * 1024;
+const AUDIO_UPLOAD_LIMIT_BYTES =
+  12 * 1024 * 1024;
+const DOCUMENT_UPLOAD_LIMIT_BYTES =
+  8 * 1024 * 1024;
+const HARD_UPLOAD_LIMIT_BYTES =
+  VIDEO_UPLOAD_LIMIT_BYTES;
 
-const allowedExtensions = new Set([
-  ".avif",
-  ".gif",
-  ".jpeg",
-  ".jpg",
-  ".m4a",
-  ".mp3",
-  ".mp4",
-  ".ogg",
-  ".pdf",
-  ".png",
-  ".wav",
-  ".webm",
-  ".webp",
+const allowedMediaTypes = new Map<
+  string,
+  {
+    extensions: readonly string[];
+    maxBytes: number;
+    kind:
+      | "image"
+      | "video"
+      | "audio"
+      | "document";
+  }
+>([
+  [
+    "image/avif",
+    {
+      extensions: [".avif"],
+      maxBytes: IMAGE_UPLOAD_LIMIT_BYTES,
+      kind: "image",
+    },
+  ],
+  [
+    "image/gif",
+    {
+      extensions: [".gif"],
+      maxBytes: IMAGE_UPLOAD_LIMIT_BYTES,
+      kind: "image",
+    },
+  ],
+  [
+    "image/jpeg",
+    {
+      extensions: [".jpg", ".jpeg"],
+      maxBytes: IMAGE_UPLOAD_LIMIT_BYTES,
+      kind: "image",
+    },
+  ],
+  [
+    "image/png",
+    {
+      extensions: [".png"],
+      maxBytes: IMAGE_UPLOAD_LIMIT_BYTES,
+      kind: "image",
+    },
+  ],
+  [
+    "image/webp",
+    {
+      extensions: [".webp"],
+      maxBytes: IMAGE_UPLOAD_LIMIT_BYTES,
+      kind: "image",
+    },
+  ],
+  [
+    "video/mp4",
+    {
+      extensions: [".mp4", ".m4v"],
+      maxBytes: VIDEO_UPLOAD_LIMIT_BYTES,
+      kind: "video",
+    },
+  ],
+  [
+    "video/quicktime",
+    {
+      extensions: [".mov"],
+      maxBytes: VIDEO_UPLOAD_LIMIT_BYTES,
+      kind: "video",
+    },
+  ],
+  [
+    "video/webm",
+    {
+      extensions: [".webm"],
+      maxBytes: VIDEO_UPLOAD_LIMIT_BYTES,
+      kind: "video",
+    },
+  ],
+  [
+    "audio/mpeg",
+    {
+      extensions: [".mp3"],
+      maxBytes: AUDIO_UPLOAD_LIMIT_BYTES,
+      kind: "audio",
+    },
+  ],
+  [
+    "audio/mp4",
+    {
+      extensions: [".m4a"],
+      maxBytes: AUDIO_UPLOAD_LIMIT_BYTES,
+      kind: "audio",
+    },
+  ],
+  [
+    "audio/ogg",
+    {
+      extensions: [".ogg"],
+      maxBytes: AUDIO_UPLOAD_LIMIT_BYTES,
+      kind: "audio",
+    },
+  ],
+  [
+    "audio/wav",
+    {
+      extensions: [".wav"],
+      maxBytes: AUDIO_UPLOAD_LIMIT_BYTES,
+      kind: "audio",
+    },
+  ],
+  [
+    "application/pdf",
+    {
+      extensions: [".pdf"],
+      maxBytes: DOCUMENT_UPLOAD_LIMIT_BYTES,
+      kind: "document",
+    },
+  ],
 ]);
 
-function isAllowedMimeType(mimeType: string) {
-  return (
-    mimeType.startsWith("image/") ||
-    mimeType.startsWith("audio/") ||
-    mimeType.startsWith("video/") ||
-    mimeType === "application/pdf"
-  );
+function getAllowedMediaType(
+  mimeType: string,
+  extension: string
+) {
+  const mediaType =
+    allowedMediaTypes.get(
+      mimeType.toLowerCase()
+    );
+
+  if (
+    !mediaType ||
+    !mediaType.extensions.includes(extension)
+  ) {
+    return null;
+  }
+
+  return mediaType;
 }
 
 async function removeFileIfExists(filepath: string) {
@@ -63,7 +184,7 @@ export async function uploadRoutes(
         await request.file({
           limits: {
             fileSize:
-              MAX_UPLOAD_BYTES,
+              HARD_UPLOAD_LIMIT_BYTES,
             files: 1,
           },
         });
@@ -87,9 +208,27 @@ export async function uploadRoutes(
           .toLowerCase();
 
       if (
-        !allowedExtensions.has(extension) ||
-        !isAllowedMimeType(data.mimetype)
+        !extension ||
+        extension.includes("/") ||
+        extension.includes("\\")
       ) {
+        data.file.destroy();
+
+        return reply
+          .status(415)
+          .send({
+            message:
+              "Unsupported file type",
+          });
+      }
+
+      const mediaType =
+        getAllowedMediaType(
+          data.mimetype,
+          extension
+        );
+
+      if (!mediaType) {
         data.file.destroy();
 
         return reply
@@ -152,8 +291,29 @@ export async function uploadRoutes(
           });
       }
 
+      const stats =
+        await fs.promises.stat(filepath);
+
+      if (stats.size > mediaType.maxBytes) {
+        await removeFileIfExists(filepath);
+
+        return reply
+          .status(413)
+          .send({
+            message:
+              mediaType.kind === "video"
+                ? "Video is too large"
+                : mediaType.kind === "image"
+                  ? "Image is too large"
+                  : "File is too large",
+            maxBytes: mediaType.maxBytes,
+          });
+      }
+
       return {
         url: `${env.PUBLIC_API_URL}/uploads/${filename}`,
+        kind: mediaType.kind,
+        size: stats.size,
       };
     }
   );

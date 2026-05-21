@@ -8,10 +8,20 @@ import {
 } from "framer-motion";
 
 import { useUsersByIdsQuery } from "@/hooks/queries/use-users-query";
+import {
+  formatDisplayName,
+  getAvatarInitial,
+} from "@/lib/user-display";
 import { useSocketStore } from "@/store/socket-store";
 import { useAuthStore } from "@/stores/auth.store";
 
-export default function ActiveNowPanel() {
+type ActiveNowPanelProps = {
+  variant?: "rail" | "sheet";
+};
+
+export default function ActiveNowPanel({
+  variant = "rail",
+}: ActiveNowPanelProps) {
   const reducedMotion =
     useReducedMotion();
   const currentUserId =
@@ -43,7 +53,13 @@ export default function ActiveNowPanel() {
     onlineUsersQuery.data ?? [];
 
   return (
-    <aside className="hidden h-full w-[320px] border-l border-white/10 bg-[#08111f]/[0.82] shadow-2xl shadow-black/20 backdrop-blur-3xl xl:flex xl:flex-col">
+    <aside
+      className={
+        variant === "rail"
+          ? "hidden h-full w-[320px] border-l border-white/10 bg-[#08111f]/[0.82] shadow-2xl shadow-black/20 backdrop-blur-3xl xl:flex xl:flex-col"
+          : "flex h-full w-full flex-col bg-[#08111f]/[0.94] backdrop-blur-3xl"
+      }
+    >
       <div className="border-b border-white/10 bg-white/[0.02] p-5">
         <h2 className="text-xl font-semibold text-white">
           Active Now
@@ -110,9 +126,9 @@ export default function ActiveNowPanel() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  user.username
-                    .charAt(0)
-                    .toUpperCase()
+                  getAvatarInitial(
+                    user.username
+                  )
                 )}
               </div>
 
@@ -121,7 +137,9 @@ export default function ActiveNowPanel() {
 
             <div className="min-w-0">
               <h3 className="truncate font-medium text-white">
-                {user.username}
+                {formatDisplayName(
+                  user.username
+                )}
               </h3>
 
               <p className="text-sm text-zinc-500">

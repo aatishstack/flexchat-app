@@ -22,8 +22,15 @@ import {
 
 import { useStoriesQuery } from "@/hooks/queries/use-stories-query";
 import { queryKeys } from "@/lib/query-keys";
+import {
+  formatDisplayName,
+  getAvatarInitial,
+} from "@/lib/user-display";
 import { createStory } from "@/services/story.service";
-import { uploadImage } from "@/services/upload.service";
+import {
+  getUploadValidationError,
+  uploadImage,
+} from "@/services/upload.service";
 import { useToastStore } from "@/store/toast-store";
 import { useAuthStore } from "@/stores/auth.store";
 import type { Story } from "@/types/story";
@@ -96,9 +103,29 @@ function groupStories(
 }
 
 function avatarLabel(storyGroup: StoryGroup) {
-  return storyGroup.user.username
-    .slice(0, 1)
-    .toUpperCase();
+  return getAvatarInitial(
+    storyGroup.user.username
+  );
+}
+
+function getVideoDurationSeconds(file: File) {
+  return new Promise<number>((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      const duration = video.duration;
+
+      URL.revokeObjectURL(url);
+      resolve(duration);
+    };
+    video.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Video metadata unavailable"));
+    };
+    video.src = url;
+  });
 }
 
 export default function StoryTray() {
@@ -136,6 +163,27 @@ export default function StoryTray() {
   const createStoryMutation =
     useMutation({
       mutationFn: async (file: File) => {
+        const validationError =
+          getUploadValidationError(file);
+
+        if (validationError) {
+          throw new Error(validationError);
+        }
+
+        if (file.type.startsWith("video/")) {
+          const duration =
+            await getVideoDurationSeconds(file);
+
+          if (
+            Number.isFinite(duration) &&
+            duration > 30
+          ) {
+            throw new Error(
+              "Story videos must be 30 seconds or shorter."
+            );
+          }
+        }
+
         const mediaUrl =
           await uploadImage(file);
         const mediaType =
@@ -165,12 +213,14 @@ export default function StoryTray() {
           variant: "success",
         });
       },
-      onError: () => {
+      onError: (error) => {
         pushToast({
           title:
             "Couldn't upload story",
           message:
-            "Please try again in a moment.",
+            error instanceof Error
+              ? error.message
+              : "Please try again in a moment.",
           variant: "error",
         });
       },
@@ -316,7 +366,9 @@ export default function StoryTray() {
             <span className="w-full truncate">
               {group.userId === currentUserId
                 ? "You"
-                : group.user.username}
+                : formatDisplayName(
+                    group.user.username
+                  )}
             </span>
           </motion.button>
         ))}

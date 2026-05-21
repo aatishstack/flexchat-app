@@ -285,6 +285,18 @@ export default function SocketProvider({
       }
     }
 
+    function mergeRealtimeMessage(message: Message) {
+      queryClient.setQueryData<MessageQueryCache>(
+        queryKeys.messages.list(
+          message.conversationId
+        ),
+        (cache) =>
+          mergeMessageIntoQueryCache(cache, message)
+      );
+
+      addMessage(message);
+    }
+
     function onConversationUpdated(
       payload: ConversationUpdatedPayload
     ) {
@@ -639,6 +651,9 @@ export default function SocketProvider({
     socket.on(SOCKET_EVENTS.CONNECT_ERROR, onConnectError);
     socket.on(SOCKET_EVENTS.ONLINE_USERS, onOnlineUsers);
     socket.on(SOCKET_EVENTS.RECEIVE_MESSAGE, onReceiveMessage);
+    socket.on(SOCKET_EVENTS.MESSAGE_UPDATED, mergeRealtimeMessage);
+    socket.on(SOCKET_EVENTS.MESSAGE_DELETED, mergeRealtimeMessage);
+    socket.on(SOCKET_EVENTS.MESSAGE_REACTION_UPDATED, mergeRealtimeMessage);
     socket.on(SOCKET_EVENTS.CONVERSATION_UPDATED, onConversationUpdated);
     socket.on(SOCKET_EVENTS.TYPING_USERS, onTypingUsers);
     socket.on(SOCKET_EVENTS.MESSAGE_DELIVERED, onMessageDelivered);
@@ -664,6 +679,9 @@ export default function SocketProvider({
       socket.off(SOCKET_EVENTS.CONNECT_ERROR, onConnectError);
       socket.off(SOCKET_EVENTS.ONLINE_USERS, onOnlineUsers);
       socket.off(SOCKET_EVENTS.RECEIVE_MESSAGE, onReceiveMessage);
+      socket.off(SOCKET_EVENTS.MESSAGE_UPDATED, mergeRealtimeMessage);
+      socket.off(SOCKET_EVENTS.MESSAGE_DELETED, mergeRealtimeMessage);
+      socket.off(SOCKET_EVENTS.MESSAGE_REACTION_UPDATED, mergeRealtimeMessage);
       socket.off(SOCKET_EVENTS.CONVERSATION_UPDATED, onConversationUpdated);
       socket.off(SOCKET_EVENTS.TYPING_USERS, onTypingUsers);
       socket.off(SOCKET_EVENTS.MESSAGE_DELIVERED, onMessageDelivered);

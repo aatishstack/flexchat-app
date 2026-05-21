@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -23,6 +24,11 @@ import {
 } from "@/lib/conversation-query-cache";
 import type { ConversationQueryCache } from "@/lib/conversation-query-cache";
 import { queryKeys } from "@/lib/query-keys";
+import {
+  formatDisplayName,
+  formatHandle,
+  getAvatarInitial,
+} from "@/lib/user-display";
 import { createDirectConversation } from "@/services/conversation.service";
 import { useToastStore } from "@/store/toast-store";
 import { useAuthStore } from "@/stores/auth.store";
@@ -31,14 +37,22 @@ import type { PublicUser } from "@/types/user";
 import type { Conversation } from "@/types/conversation";
 
 function getInitials(user: PublicUser) {
-  return user.username
-    .slice(0, 1)
-    .toUpperCase();
+  return getAvatarInitial(user.username);
 }
 
-export default function DiscoverPanel() {
+type DiscoverPanelProps = {
+  variant?: "rail" | "sheet";
+};
+
+export default function DiscoverPanel({
+  variant = "rail",
+}: DiscoverPanelProps) {
   const [search, setSearch] =
     useState("");
+  const [
+    debouncedSearch,
+    setDebouncedSearch,
+  ] = useState("");
   const reducedMotion =
     useReducedMotion();
   const queryClient =
@@ -58,8 +72,18 @@ export default function DiscoverPanel() {
     );
   const conversationsQuery =
     useConversationsQuery();
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 220);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [search]);
+
   const discoverQuery =
-    useDiscoverUsersQuery(search);
+    useDiscoverUsersQuery(debouncedSearch);
 
   const directConversationByUserId =
     useMemo(() => {
@@ -136,7 +160,13 @@ export default function DiscoverPanel() {
     startConversation.variables;
 
   return (
-    <aside className="hidden w-[320px] border-r border-white/10 bg-[#08111f]/[0.82] shadow-2xl shadow-black/20 backdrop-blur-3xl xl:flex xl:flex-col">
+    <aside
+      className={
+        variant === "rail"
+          ? "hidden w-[320px] border-r border-white/10 bg-[#08111f]/[0.82] shadow-2xl shadow-black/20 backdrop-blur-3xl xl:flex xl:flex-col"
+          : "flex h-full w-full flex-col bg-[#08111f]/[0.94] backdrop-blur-3xl"
+      }
+    >
       <div className="border-b border-white/10 bg-white/[0.02] p-5">
         <h2 className="text-xl font-semibold text-white">
           Discover
@@ -238,11 +268,15 @@ export default function DiscoverPanel() {
 
                 <div className="min-w-0">
                   <h3 className="truncate font-medium text-white">
-                    {user.username}
+                    {formatDisplayName(
+                      user.username
+                    )}
                   </h3>
 
                   <p className="truncate text-sm text-zinc-500">
-                    @{user.username}
+                    {formatHandle(
+                      user.username
+                    )}
                   </p>
                 </div>
               </div>

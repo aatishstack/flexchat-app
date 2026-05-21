@@ -27,6 +27,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/hooks/useAuth";
+import {
+  formatDisplayName,
+  formatHandle,
+  getAvatarInitial,
+} from "@/lib/user-display";
 import { uploadImage } from "@/services/upload.service";
 import { updateCurrentUser } from "@/services/user.service";
 import { useSocketStore } from "@/store/socket-store";
@@ -160,10 +165,12 @@ export default function ProfilePage() {
         setSavingProfile(true);
 
         const displayName =
-          draft.displayName
-            .trim()
-            .slice(0, 32) ||
-          user.username;
+          formatDisplayName(
+            draft.displayName
+              .trim()
+              .slice(0, 32) ||
+              user.username
+          );
         let avatarUrl =
           draft.avatar ?? user.avatar ?? null;
 
@@ -173,20 +180,18 @@ export default function ProfilePage() {
         }
 
         const shouldUpdateServer =
-          displayName !== user.username ||
           avatarUrl !==
             (user.avatar ?? null);
         const serverUser =
           shouldUpdateServer
             ? await updateCurrentUser({
-                username: displayName,
                 avatar: avatarUrl,
               })
             : user;
         const nextProfile = {
           ...draft,
           displayName:
-            serverUser.username,
+            displayName,
           avatar:
             serverUser.avatar ??
             avatarUrl,
@@ -308,7 +313,7 @@ export default function ProfilePage() {
     });
 
   return (
-    <main className="modal-safe-scroll min-h-dvh bg-[linear-gradient(135deg,rgba(168,85,247,0.20)_0%,transparent_34%),linear-gradient(225deg,rgba(6,182,212,0.10)_0%,transparent_28%),linear-gradient(135deg,#050816,#0B111C)] px-4 py-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-white sm:px-6 sm:py-8">
+    <main className="modal-safe-scroll h-dvh min-h-svh overflow-y-auto bg-[linear-gradient(135deg,rgba(168,85,247,0.20)_0%,transparent_34%),linear-gradient(225deg,rgba(6,182,212,0.10)_0%,transparent_28%),linear-gradient(135deg,#050816,#0B111C)] px-4 py-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-white sm:px-6 sm:py-8">
       <section className="mx-auto flex min-h-[calc(100dvh-3rem)] max-w-3xl flex-col">
         <div className="mb-5 flex items-center justify-between gap-3">
           <button
@@ -357,18 +362,20 @@ export default function ProfilePage() {
                   className="h-full w-full object-cover"
                 />
               ) : (
-                profile.displayName
-                  .charAt(0)
-                  .toUpperCase()
+                getAvatarInitial(
+                  profile.displayName
+                )
               )}
               <span className="absolute bottom-2 right-2 h-4 w-4 rounded-full border-2 border-white bg-green-400 shadow-lg shadow-green-500/40" />
             </div>
 
             <h1 className="mt-5 text-3xl font-bold">
-              {profile.displayName}
+              {formatDisplayName(
+                profile.displayName
+              )}
             </h1>
             <p className="mt-1 text-sm text-white/80">
-              @{user.username}
+              {formatHandle(user.username)}
             </p>
 
             <div className="mx-auto mt-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/[0.18] px-3 py-1.5 text-xs text-white/90 backdrop-blur-xl">
@@ -529,9 +536,9 @@ export default function ProfilePage() {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      draft.displayName
-                        .charAt(0)
-                        .toUpperCase()
+                      getAvatarInitial(
+                        draft.displayName
+                      )
                     )}
                     <span className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#381052] shadow-lg">
                       {savingProfile &&

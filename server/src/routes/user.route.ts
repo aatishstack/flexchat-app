@@ -261,7 +261,7 @@ export async function userRoutes(app: FastifyInstance) {
         });
       }
 
-      const deletedAt = new Date().toISOString();
+      const deletedAt = new Date();
       const disabledPassword = await bcrypt.hash(
         `deleted:${userId}:${crypto.randomUUID()}`,
         10,

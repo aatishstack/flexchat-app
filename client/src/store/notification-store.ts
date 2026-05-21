@@ -26,7 +26,15 @@ interface NotificationState {
     id: string
   ) => void;
 
+  markAsUnread: (
+    id: string
+  ) => void;
+
   markAllRead: () => void;
+
+  deleteNotification: (
+    id: string
+  ) => void;
 
   clearNotifications: () => void;
 }
@@ -85,6 +93,30 @@ export const useNotificationStore =
             })
           ),
 
+      markAsUnread:
+        (
+          id
+        ) =>
+          set(
+            (
+              state
+            ) => ({
+              notifications:
+                state.notifications.map(
+                  (
+                    item
+                  ) =>
+                    item.id ===
+                    id
+                      ? {
+                          ...item,
+                          read: false,
+                        }
+                      : item
+                ),
+            })
+          ),
+
       markAllRead:
         () =>
           set(
@@ -99,6 +131,25 @@ export const useNotificationStore =
                     ...item,
                     read: true,
                   })
+                ),
+            })
+          ),
+
+      deleteNotification:
+        (
+          id
+        ) =>
+          set(
+            (
+              state
+            ) => ({
+              notifications:
+                state.notifications.filter(
+                  (
+                    item
+                  ) =>
+                    item.id !==
+                    id
                 ),
             })
           ),

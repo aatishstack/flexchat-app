@@ -22,6 +22,15 @@ export interface Message {
 
   audio?: string | null;
 
+  editedAt?: string;
+
+  deletedAt?: string;
+
+  reactions?: {
+    emoji: string;
+    count: number;
+  }[];
+
   tempId?: string;
 
   optimistic?: boolean;
@@ -80,4 +89,58 @@ export async function getMessages(
   );
 
   return page.messages;
+}
+
+export async function editMessage(input: {
+  messageId: string;
+  conversationId: string;
+  text: string;
+}) {
+  const response =
+    await api.patch<Message>(
+      `/messages/${input.messageId}`,
+      {
+        conversationId:
+          input.conversationId,
+        text: input.text,
+      }
+    );
+
+  return response.data;
+}
+
+export async function deleteMessage(input: {
+  messageId: string;
+  conversationId: string;
+}) {
+  const response =
+    await api.delete<Message>(
+      `/messages/${input.messageId}`,
+      {
+        data: {
+          conversationId:
+            input.conversationId,
+        },
+      }
+    );
+
+  return response.data;
+}
+
+export async function reactToMessage(input: {
+  messageId: string;
+  conversationId: string;
+  emoji: string;
+}) {
+  const response =
+    await api.post<Message>(
+      `/messages/${input.messageId}/reactions`,
+      {
+        conversationId:
+          input.conversationId,
+        emoji: input.emoji,
+      }
+    );
+
+  return response.data;
 }

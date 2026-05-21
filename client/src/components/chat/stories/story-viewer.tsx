@@ -25,6 +25,10 @@ import {
 
 import { queryKeys } from "@/lib/query-keys";
 import {
+  formatDisplayName,
+  getAvatarInitial,
+} from "@/lib/user-display";
+import {
   deleteStory,
   markStoryViewed,
 } from "@/services/story.service";
@@ -393,9 +397,9 @@ export default function StoryViewer({
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      group.user.username
-                        .slice(0, 1)
-                        .toUpperCase()
+                      getAvatarInitial(
+                        group.user.username
+                      )
                     )}
                   </div>
 
@@ -403,7 +407,9 @@ export default function StoryViewer({
                     <h3 className="truncate text-sm font-semibold">
                       {isOwnStory
                         ? "Your story"
-                        : group.user.username}
+                        : formatDisplayName(
+                            group.user.username
+                          )}
                     </h3>
                     <p className="text-xs text-white/60">
                       {formatStoryTime(

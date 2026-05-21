@@ -114,6 +114,8 @@ async function getHydratedConversation(
             uc.created_at
           ) as last_activity_at,
           case
+            when latest.deleted_at is not null
+              then 'Message deleted'
             when nullif(trim(latest.text), '') is not null
               then latest.text
             when latest.audio is not null
@@ -140,7 +142,8 @@ async function getHydratedConversation(
             m.text,
             m.attachment,
             m.audio,
-            m.created_at
+            m.created_at,
+            m.deleted_at
           from messages m
           where m.conversation_id = uc.id
           order by
@@ -359,6 +362,8 @@ export async function conversationRoutes(app: FastifyInstance) {
                   uc.created_at
                 ) as last_activity_at,
                 case
+                  when latest.deleted_at is not null
+                    then 'Message deleted'
                   when nullif(trim(latest.text), '') is not null
                     then latest.text
                   when latest.audio is not null
@@ -385,7 +390,8 @@ export async function conversationRoutes(app: FastifyInstance) {
                   m.text,
                   m.attachment,
                   m.audio,
-                  m.created_at
+                  m.created_at,
+                  m.deleted_at
                 from messages m
                 where m.conversation_id = uc.id
                 order by

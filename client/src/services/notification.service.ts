@@ -14,3 +14,27 @@ export async function fetchNotifications() {
 export async function markNotificationsRead() {
   await api.patch("/notifications/read");
 }
+
+export async function markNotificationRead(
+  notificationId: string,
+  read: boolean
+) {
+  await api.patch(
+    `/notifications/${notificationId}/read`,
+    {
+      read,
+    }
+  );
+}
+
+export async function deleteNotificationRequest(
+  notificationId: string
+) {
+  await api.delete(
+    `/notifications/${notificationId}`
+  );
+}
+
+export async function clearNotificationsRequest() {
+  await api.delete("/notifications");
+}
