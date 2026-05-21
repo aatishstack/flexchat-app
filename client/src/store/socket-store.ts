@@ -221,6 +221,19 @@ function trimEphemeralMessages(messages: Message[]) {
   );
 }
 
+function arraysEqual(
+  left: string[],
+  right: string[]
+) {
+  return (
+    left.length === right.length &&
+    left.every(
+      (value, index) =>
+        value === right[index]
+    )
+  );
+}
+
 const normalizeMessages = (
   currentMessages: Message[],
   incomingMessage: Message
@@ -489,15 +502,41 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     retryTimers.clear();
   },
 
-  setOnlineUsers: (users) =>
-    set({
-      onlineUsers: Array.from(new Set(users)),
-    }),
+  setOnlineUsers: (users) => {
+    const nextUsers =
+      Array.from(new Set(users)).sort();
 
-  setTypingUsers: (users) =>
+    if (
+      arraysEqual(
+        get().onlineUsers,
+        nextUsers
+      )
+    ) {
+      return;
+    }
+
     set({
-      typingUsers: users,
-    }),
+      onlineUsers: nextUsers,
+    });
+  },
+
+  setTypingUsers: (users) => {
+    const nextUsers =
+      Array.from(new Set(users)).sort();
+
+    if (
+      arraysEqual(
+        get().typingUsers,
+        nextUsers
+      )
+    ) {
+      return;
+    }
+
+    set({
+      typingUsers: nextUsers,
+    });
+  },
 
   setConnectionError: (message) =>
     set({

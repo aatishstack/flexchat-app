@@ -1,15 +1,8 @@
 "use client";
 
-import {
-  AnimatePresence,
-  motion,
-} from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 
-import {
-  type CSSProperties,
-  useEffect,
-  useState,
-} from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 
 import dynamic from "next/dynamic";
 
@@ -21,121 +14,68 @@ import { useGlobalSearchStore } from "../../../store/global-search-store";
 import ActivityBar from "../../../components/chat/sidebar/activity-bar";
 
 const ActiveNowPanel = dynamic(
-  () =>
-    import(
-      "../../../components/chat/sidebar/active-now-panel"
-    ),
+  () => import("../../../components/chat/sidebar/active-now-panel"),
   {
     ssr: false,
-  }
+  },
 );
 
 const DiscoverPanel = dynamic(
-  () =>
-    import(
-      "../../../components/chat/conversation/discover-panel"
-    ),
+  () => import("../../../components/chat/conversation/discover-panel"),
   {
     ssr: false,
-  }
-);
-
-const FloatingRoot = dynamic(
-  () =>
-    import(
-      "../../../components/chat/floating/floating-root"
-    ),
-  {
-    ssr: false,
-  }
+  },
 );
 
 const MobileNotificationSheet = dynamic(
-  () =>
-    import(
-      "../../../components/chat/mobile/mobile-notification-sheet"
-    ),
+  () => import("../../../components/chat/mobile/mobile-notification-sheet"),
   {
     ssr: false,
-  }
+  },
 );
 
 const NotificationPanel = dynamic(
-  () =>
-    import(
-      "../../../components/chat/sidebar/notification-panel"
-    ),
+  () => import("../../../components/chat/sidebar/notification-panel"),
   {
     ssr: false,
-  }
+  },
 );
 
 const CallLayer = dynamic(
-  () =>
-    import(
-      "../../../components/chat/calls/call-layer"
-    ),
+  () => import("../../../components/chat/calls/call-layer"),
   {
     ssr: false,
-  }
+  },
 );
 
 export default function ChatPage() {
-  const [
-    notificationsOpen,
-    setNotificationsOpen,
-  ] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
-  const setGlobalSearchOpen =
-    useGlobalSearchStore(
-      (state) =>
-        state.setOpen
-    );
+  const setGlobalSearchOpen = useGlobalSearchStore((state) => state.setOpen);
 
   useEffect(() => {
-    function handleKeyDown(
-      event: KeyboardEvent
-    ) {
-      if (
-        (
-          event.ctrlKey ||
-          event.metaKey
-        ) &&
-        event.key === "j"
-      ) {
+    function handleKeyDown(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key === "j") {
         event.preventDefault();
 
-        setGlobalSearchOpen(
-          true
-        );
+        setGlobalSearchOpen(true);
       }
     }
 
-    window.addEventListener(
-      "keydown",
-      handleKeyDown
-    );
+    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      window.removeEventListener(
-        "keydown",
-        handleKeyDown
-      );
+      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [
-    setGlobalSearchOpen,
-  ]);
+  }, [setGlobalSearchOpen]);
 
   return (
     <div
       style={
         {
-          "--chat-right-rail-width":
-            "20rem",
-          "--chat-notification-panel-width":
-            "21.25rem",
-          "--chat-panel-gap":
-            "1rem",
+          "--chat-right-rail-width": "20rem",
+          "--chat-notification-panel-width": "21.25rem",
+          "--chat-panel-gap": "1rem",
           "--chat-floating-safe-bottom":
             "calc(5.75rem + env(safe-area-inset-bottom))",
         } as CSSProperties
@@ -167,9 +107,7 @@ export default function ChatPage() {
 
                 <div className="min-w-0 flex-1">
                   <ChatConversation
-                    onOpenNotifications={() =>
-                      setNotificationsOpen(true)
-                    }
+                    onOpenNotifications={() => setNotificationsOpen(true)}
                   />
                 </div>
 
@@ -178,7 +116,6 @@ export default function ChatPage() {
             }
           />
         </motion.div>
-
       </div>
 
       {/* NOTIFICATION PANEL */}
@@ -207,31 +144,19 @@ export default function ChatPage() {
             }}
             className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-[calc(var(--chat-right-rail-width)+var(--chat-panel-gap))] top-[calc(5rem+env(safe-area-inset-top))] z-[180] hidden w-[var(--chat-notification-panel-width)] overflow-hidden rounded-[32px] border border-white/10 bg-[#0B111C]/95 shadow-2xl shadow-black/45 backdrop-blur-2xl xl:flex"
           >
-            <NotificationPanel
-              onClose={() =>
-                setNotificationsOpen(
-                  false
-                )
-              }
-            />
+            <NotificationPanel onClose={() => setNotificationsOpen(false)} />
           </motion.aside>
         )}
       </AnimatePresence>
 
-      {/* FLOATING ROOT */}
-      <FloatingRoot
-        notificationsOpen={notificationsOpen}
-        setNotificationsOpen={
-          setNotificationsOpen
-        }
-      />
+      {/* FLOATING ROOT REMOVED
+          duplicate floating notification bell removed
+          top header notification action preserved */}
 
       {/* MOBILE NOTIFICATION SHEET */}
       <MobileNotificationSheet
         open={notificationsOpen}
-        onClose={() =>
-          setNotificationsOpen(false)
-        }
+        onClose={() => setNotificationsOpen(false)}
       />
 
       <CallLayer />

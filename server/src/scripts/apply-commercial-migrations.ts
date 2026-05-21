@@ -6,6 +6,21 @@ import {
 } from "../db/index.js";
 
 await db.execute(sql`
+  alter table users
+    add column if not exists is_deleted boolean default false not null
+`);
+
+await db.execute(sql`
+  alter table users
+    add column if not exists deleted_at timestamp
+`);
+
+await db.execute(sql`
+  create index if not exists users_active_lookup_idx
+    on users (id, is_deleted)
+`);
+
+await db.execute(sql`
   create table if not exists stories (
     id text primary key not null,
     user_id text not null,

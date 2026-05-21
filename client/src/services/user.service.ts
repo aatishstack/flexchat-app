@@ -42,6 +42,19 @@ export async function updateCurrentUser(
   return response.data;
 }
 
+export async function deleteCurrentUser() {
+  const response =
+    await api.delete<{
+      ok: boolean;
+    }>("/users/me", {
+      data: {
+        confirmation: "DELETE",
+      },
+    });
+
+  return response.data;
+}
+
 export async function getUsersByIds(
   ids: string[]
 ) {

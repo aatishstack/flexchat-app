@@ -1,4 +1,5 @@
 import {
+  boolean,
   pgTable,
   text,
   timestamp,
@@ -33,6 +34,18 @@ export const users =
       avatar:
         text(
           "avatar"
+        ),
+
+      isDeleted:
+        boolean(
+          "is_deleted"
+        )
+          .default(false)
+          .notNull(),
+
+      deletedAt:
+        timestamp(
+          "deleted_at"
         ),
 
       createdAt:

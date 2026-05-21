@@ -5,6 +5,7 @@ import {
 import bcrypt from "bcrypt";
 
 import {
+  and,
   eq,
   sql,
 } from "drizzle-orm";
@@ -119,9 +120,12 @@ async function createUniqueUsername(
         })
         .from(users)
         .where(
-          eq(
-            users.username,
-            candidate
+          and(
+            eq(
+              users.username,
+              candidate
+            ),
+            eq(users.isDeleted, false)
           )
         );
 
@@ -208,9 +212,12 @@ export async function authRoutes(
             users
           )
           .where(
-            eq(
-              users.email,
-              email
+            and(
+              eq(
+                users.email,
+                email
+              ),
+              eq(users.isDeleted, false)
             )
           );
 
@@ -232,9 +239,12 @@ export async function authRoutes(
             users
           )
           .where(
-            eq(
-              users.username,
-              username
+            and(
+              eq(
+                users.username,
+                username
+              ),
+              eq(users.isDeleted, false)
             )
           );
 
@@ -347,12 +357,16 @@ export async function authRoutes(
           .select()
           .from(users)
           .where(
-            eq(
-              users.email,
-              email
+            and(
+              eq(
+                users.email,
+                email
+              ),
+              eq(users.isDeleted, false)
             )
           );
-      let user = existingUsers[0];
+      let user: UserRow | undefined =
+        existingUsers[0];
 
       if (user) {
         const googleAvatar =
@@ -426,6 +440,15 @@ export async function authRoutes(
         user = newUsers[0];
       }
 
+      if (!user) {
+        return reply
+          .status(500)
+          .send({
+            message:
+              "Google sign-in failed",
+          });
+      }
+
       const token =
         signToken({
           id: user.id,
@@ -472,9 +495,12 @@ export async function authRoutes(
             users
           )
           .where(
-            eq(
-              users.email,
-              email
+            and(
+              eq(
+                users.email,
+                email
+              ),
+              eq(users.isDeleted, false)
             )
           );
 
@@ -550,9 +576,12 @@ export async function authRoutes(
             users
           )
           .where(
-            eq(
-              users.id,
-              userId
+            and(
+              eq(
+                users.id,
+                userId
+              ),
+              eq(users.isDeleted, false)
             )
           );
 

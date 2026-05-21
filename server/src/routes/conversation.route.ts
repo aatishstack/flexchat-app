@@ -164,15 +164,38 @@ async function getHydratedConversation(
             jsonb_agg(
               jsonb_build_object(
                 'id', u.id,
-                'username', u.username,
-                'avatar', u.avatar
+                'username',
+                  case
+                    when u.is_deleted then 'Deleted User'
+                    else u.username
+                  end,
+                'avatar',
+                  case
+                    when u.is_deleted then null
+                    else u.avatar
+                  end
               )
-              order by u.username, u.id
+              order by
+                case
+                  when u.is_deleted then 'Deleted User'
+                  else u.username
+                end,
+                u.id
             ) as members,
-            max(u.username) filter (
+            max(
+              case
+                when u.is_deleted then 'Deleted User'
+                else u.username
+              end
+            ) filter (
               where cm.user_id <> ${userId}
             ) as direct_name,
-            max(u.avatar) filter (
+            max(
+              case
+                when u.is_deleted then null
+                else u.avatar
+              end
+            ) filter (
               where cm.user_id <> ${userId}
             ) as direct_avatar
           from conversation_members cm
@@ -386,15 +409,38 @@ export async function conversationRoutes(app: FastifyInstance) {
                   jsonb_agg(
                     jsonb_build_object(
                       'id', u.id,
-                      'username', u.username,
-                      'avatar', u.avatar
+                      'username',
+                        case
+                          when u.is_deleted then 'Deleted User'
+                          else u.username
+                        end,
+                      'avatar',
+                        case
+                          when u.is_deleted then null
+                          else u.avatar
+                        end
                     )
-                    order by u.username, u.id
+                    order by
+                      case
+                        when u.is_deleted then 'Deleted User'
+                        else u.username
+                      end,
+                      u.id
                   ) as members,
-                  max(u.username) filter (
+                  max(
+                    case
+                      when u.is_deleted then 'Deleted User'
+                      else u.username
+                    end
+                  ) filter (
                     where cm.user_id <> ${userId}
                   ) as direct_name,
-                  max(u.avatar) filter (
+                  max(
+                    case
+                      when u.is_deleted then null
+                      else u.avatar
+                    end
+                  ) filter (
                     where cm.user_id <> ${userId}
                   ) as direct_avatar
                 from conversation_members cm
@@ -501,6 +547,7 @@ export async function conversationRoutes(app: FastifyInstance) {
             select id
             from users
             where id = ${targetUserId}
+              and is_deleted = false
             limit 1
           `);
 

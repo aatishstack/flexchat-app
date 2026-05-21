@@ -19,48 +19,32 @@ import { storyRoutes } from "./routes/story.route.js";
 import { uploadRoutes } from "./routes/upload.route.js";
 import { userRoutes } from "./routes/user.route.js";
 
-async function cleanupExpiredUploads(
-  uploadsDir: string
-) {
-  const cutoff =
-    Date.now() -
-    env.UPLOAD_RETENTION_HOURS *
-      60 *
-      60 *
-      1000;
-  const entries =
-    await fs.promises.readdir(
-      uploadsDir,
-      {
-        withFileTypes: true,
-      }
-    );
+async function cleanupExpiredUploads(uploadsDir: string) {
+  const cutoff = Date.now() - env.UPLOAD_RETENTION_HOURS * 60 * 60 * 1000;
+
+  const entries = await fs.promises.readdir(uploadsDir, {
+    withFileTypes: true,
+  });
 
   for (const entry of entries) {
     if (!entry.isFile()) {
       continue;
     }
 
-    const filepath =
-      path.join(uploadsDir, entry.name);
-    const stats =
-      await fs.promises
-        .stat(filepath)
-        .catch(() => null);
+    const filepath = path.join(uploadsDir, entry.name);
+
+    const stats = await fs.promises.stat(filepath).catch(() => null);
 
     if (!stats || stats.mtimeMs > cutoff) {
       continue;
     }
 
-    await fs.promises
-      .unlink(filepath)
-      .catch(() => undefined);
+    await fs.promises.unlink(filepath).catch(() => undefined);
   }
 }
 
 export async function buildApp() {
-  const uploadsDir =
-    path.join(process.cwd(), "uploads");
+  const uploadsDir = path.join(process.cwd(), "uploads");
 
   await fs.promises.mkdir(uploadsDir, {
     recursive: true,
@@ -77,9 +61,13 @@ export async function buildApp() {
 
   await app.register(cors, {
     credentials: true,
-    exposedHeaders: [
-      "x-next-cursor",
-    ],
+
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+
+    allowedHeaders: ["Content-Type", "Authorization"],
+
+    exposedHeaders: ["x-next-cursor"],
+
     origin: (origin, callback) => {
       callback(null, isAllowedOrigin(origin));
     },
@@ -93,24 +81,21 @@ export async function buildApp() {
   await app.register(multipart);
 
   app.addHook("onRequest", async (_request, reply) => {
-    reply.header(
-      "X-Content-Type-Options",
-      "nosniff"
-    );
+    reply.header("X-Content-Type-Options", "nosniff");
+
     reply.header("X-Frame-Options", "DENY");
-    reply.header(
-      "Referrer-Policy",
-      "strict-origin-when-cross-origin"
-    );
+
+    reply.header("Referrer-Policy", "strict-origin-when-cross-origin");
+
     reply.header(
       "Permissions-Policy",
-      "camera=(), microphone=(), geolocation=()"
+      "camera=(), microphone=(), geolocation=()",
     );
 
     if (env.NODE_ENV === "production") {
       reply.header(
         "Strict-Transport-Security",
-        "max-age=31536000; includeSubDomains"
+        "max-age=31536000; includeSubDomains",
       );
     }
   });
@@ -120,18 +105,19 @@ export async function buildApp() {
     prefix: "/uploads/",
   });
 
-  const uploadCleanupTimer = setInterval(() => {
-    void cleanupExpiredUploads(uploadsDir).catch(
-      (error) => {
+  const uploadCleanupTimer = setInterval(
+    () => {
+      void cleanupExpiredUploads(uploadsDir).catch((error) => {
         app.log.warn(
           {
             err: error,
           },
-          "Upload cleanup failed"
+          "Upload cleanup failed",
         );
-      }
-    );
-  }, env.UPLOAD_CLEANUP_INTERVAL_MINUTES * 60 * 1000);
+      });
+    },
+    env.UPLOAD_CLEANUP_INTERVAL_MINUTES * 60 * 1000,
+  );
 
   uploadCleanupTimer.unref?.();
 
@@ -139,16 +125,14 @@ export async function buildApp() {
     clearInterval(uploadCleanupTimer);
   });
 
-  void cleanupExpiredUploads(uploadsDir).catch(
-    (error) => {
-      app.log.warn(
-        {
-          err: error,
-        },
-        "Initial upload cleanup failed"
-      );
-    }
-  );
+  void cleanupExpiredUploads(uploadsDir).catch((error) => {
+    app.log.warn(
+      {
+        err: error,
+      },
+      "Initial upload cleanup failed",
+    );
+  });
 
   await app.register(authRoutes);
   await app.register(userRoutes);
@@ -159,30 +143,26 @@ export async function buildApp() {
   await app.register(uploadRoutes);
 
   app.setErrorHandler((error, request, reply) => {
-    const requestError =
-      error as {
-        statusCode?: number;
-        message?: string;
-      };
+    const requestError = error as {
+      statusCode?: number;
+      message?: string;
+    };
 
     request.log.error(
       {
         err: error,
       },
-      "Unhandled request error"
+      "Unhandled request error",
     );
 
     const statusCode =
-      requestError.statusCode &&
-      requestError.statusCode >= 400
+      requestError.statusCode && requestError.statusCode >= 400
         ? requestError.statusCode
         : 500;
 
     reply.status(statusCode).send({
       message:
-        statusCode >= 500
-          ? "Internal server error"
-          : requestError.message,
+        statusCode >= 500 ? "Internal server error" : requestError.message,
     });
   });
 

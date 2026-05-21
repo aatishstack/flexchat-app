@@ -33,6 +33,8 @@ export function setupSocket(server: HttpServer) {
 
   setSocketServer(io);
   const presenceCleanupTimer = setInterval(() => {
+    const previousOnlineUsers =
+      getOnlineUserIds().join(",");
     const changedUserIds =
       removeMissingOnlineSockets(
         new Set(io.sockets.sockets.keys())
@@ -42,10 +44,18 @@ export function setupSocket(server: HttpServer) {
       return;
     }
 
-    io.emit(
-      SOCKET_EVENTS.ONLINE_USERS,
-      getOnlineUserIds()
-    );
+    const nextOnlineUsers =
+      getOnlineUserIds();
+
+    if (
+      previousOnlineUsers !==
+      nextOnlineUsers.join(",")
+    ) {
+      io.emit(
+        SOCKET_EVENTS.ONLINE_USERS,
+        nextOnlineUsers
+      );
+    }
   }, 30_000);
 
   presenceCleanupTimer.unref?.();
@@ -64,6 +74,8 @@ export function setupSocket(server: HttpServer) {
 
   io.on(SOCKET_EVENTS.CONNECTION, (socket) => {
     const userId = socket.data.user.id as string;
+    const previousOnlineUsers =
+      getOnlineUserIds().join(",");
 
     addOnlineSocket(userId, socket.id);
     socket.join(`user:${userId}`);
@@ -71,22 +83,41 @@ export function setupSocket(server: HttpServer) {
       touchOnlineSocket(socket.id);
     });
 
-    io.emit(
-      SOCKET_EVENTS.ONLINE_USERS,
-      getOnlineUserIds()
-    );
+    const nextOnlineUsers =
+      getOnlineUserIds();
+
+    if (
+      previousOnlineUsers !==
+      nextOnlineUsers.join(",")
+    ) {
+      io.emit(
+        SOCKET_EVENTS.ONLINE_USERS,
+        nextOnlineUsers
+      );
+    }
 
     registerMessageHandlers(io, socket);
     registerTypingHandlers(io, socket);
     registerCallHandlers(io, socket);
 
     socket.on(SOCKET_EVENTS.DISCONNECT, () => {
+      const previousOnlineUsers =
+        getOnlineUserIds().join(",");
+
       removeOnlineSocket(socket.id);
 
-      io.emit(
-        SOCKET_EVENTS.ONLINE_USERS,
-        getOnlineUserIds()
-      );
+      const nextOnlineUsers =
+        getOnlineUserIds();
+
+      if (
+        previousOnlineUsers !==
+        nextOnlineUsers.join(",")
+      ) {
+        io.emit(
+          SOCKET_EVENTS.ONLINE_USERS,
+          nextOnlineUsers
+        );
+      }
     });
   });
 

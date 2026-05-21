@@ -462,6 +462,8 @@ export default function ChatConversation({
     useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef =
     useRef<HTMLInputElement | null>(null);
+  const textareaRef =
+    useRef<HTMLTextAreaElement | null>(null);
   const typingActiveRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -599,6 +601,22 @@ export default function ChatConversation({
       typingTimeoutRef.current = null;
     }
   }, []);
+
+  const resizeComposer =
+    useCallback(() => {
+      const textarea =
+        textareaRef.current;
+
+      if (!textarea) {
+        return;
+      }
+
+      textarea.style.height = "auto";
+      textarea.style.height = `${Math.min(
+        textarea.scrollHeight,
+        144
+      )}px`;
+    }, []);
 
   const stopActiveTyping = useCallback(
     (targetConversationId: string) => {
@@ -849,6 +867,13 @@ export default function ChatConversation({
   );
 
   useEffect(() => {
+    resizeComposer();
+  }, [
+    resizeComposer,
+    text,
+  ]);
+
+  useEffect(() => {
     if (!conversationId || !user?.id || !isConnected) {
       return;
     }
@@ -975,6 +1000,7 @@ export default function ChatConversation({
           attachmentUrl,
       });
 
+      isNearBottomRef.current = true;
       setText("");
       stopActiveTyping(conversationId);
       setConnectionError(null);
@@ -1014,6 +1040,7 @@ export default function ChatConversation({
       text: nextText,
     });
 
+    isNearBottomRef.current = true;
     setText("");
     stopActiveTyping(conversationId);
   }
@@ -1110,6 +1137,7 @@ export default function ChatConversation({
           <button
             type="button"
             onClick={onOpenNotifications}
+            disabled={!onOpenNotifications}
             className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-200 transition hover:border-purple-400/30 hover:bg-purple-500/[0.15]"
             aria-label="Open notifications"
           >
@@ -1295,12 +1323,15 @@ export default function ChatConversation({
             <Sparkles size={20} />
           </button>
 
-          <div className="min-w-0 flex-1 rounded-3xl border border-white/10 bg-white/[0.04] px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition focus-within:border-purple-300/35 focus-within:bg-white/[0.06] focus-within:shadow-[0_0_0_4px_rgba(147,51,234,0.14)] sm:px-5">
+          <div className="min-w-0 flex-1 rounded-[28px] border border-white/10 bg-white/[0.04] px-4 transition-all duration-200 focus-within:border-purple-400/40 focus-within:bg-white/[0.06] sm:px-5">
             <textarea
+              ref={textareaRef}
               rows={1}
               value={text}
               onChange={(event) =>
-                handleTyping(event.target.value)
+                handleTyping(
+                  event.target.value
+                )
               }
               onKeyDown={(event) => {
                 if (
@@ -1313,11 +1344,13 @@ export default function ChatConversation({
               }}
               onBlur={() => {
                 if (conversationId) {
-                  stopActiveTyping(conversationId);
+                  stopActiveTyping(
+                    conversationId
+                  );
                 }
               }}
               placeholder="Write a message..."
-              className="max-h-36 min-h-[52px] w-full resize-none bg-transparent py-4 text-sm text-white outline-none placeholder:text-zinc-500"
+              className="max-h-36 min-h-[52px] w-full resize-none overflow-y-auto border-0 bg-transparent py-4 text-sm leading-6 text-white outline-none ring-0 placeholder:text-zinc-500 focus:border-0 focus:outline-none focus:ring-0"
             />
           </div>
 

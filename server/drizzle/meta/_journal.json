@@ -15,6 +15,13 @@
       "when": 1779003000000,
       "tag": "0001_commercial_stories",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779300000000,
+      "tag": "0002_deleted_users",
+      "breakpoints": true
     }
   ]
 }

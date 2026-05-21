@@ -47,6 +47,9 @@ export const SOCKET_EVENTS = {
   ONLINE_USERS:
     "online_users",
 
+  ACCOUNT_DELETED:
+    "account_deleted",
+
   CONVERSATION_ERROR:
     "conversation_error",
 

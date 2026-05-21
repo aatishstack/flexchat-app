@@ -238,6 +238,8 @@ export function registerTypingHandlers(
       const typingUsers =
         typingMap.get(conversationId) ??
         new Map<string, Set<string>>();
+      const userAlreadyTyping =
+        typingUsers.has(userId);
 
       const userSockets =
         typingUsers.get(userId) ??
@@ -253,7 +255,9 @@ export function registerTypingHandlers(
         socket.id
       );
 
-      emitTypingUsers(io, conversationId);
+      if (!userAlreadyTyping) {
+        emitTypingUsers(io, conversationId);
+      }
     }
   );
 
@@ -281,13 +285,25 @@ export function registerTypingHandlers(
         return;
       }
 
+      const before =
+        getConversationTypingUsers(
+          conversationId
+        ).join(",");
+
       removeSocketFromTypingRoom(
         conversationId,
         userId,
         socket.id
       );
 
-      emitTypingUsers(io, conversationId);
+      const after =
+        getConversationTypingUsers(
+          conversationId
+        ).join(",");
+
+      if (before !== after) {
+        emitTypingUsers(io, conversationId);
+      }
     }
   );
 

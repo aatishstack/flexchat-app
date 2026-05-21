@@ -27,9 +27,7 @@ import Link from "next/link";
 
 import { useConversationsQuery } from "@/hooks/queries/use-conversations-query";
 import StoryTray from "@/components/chat/stories/story-tray";
-import { queryClient } from "@/lib/query-client";
-import { tokenStorage } from "@/lib/token";
-import { useCallStore } from "@/store/call-store";
+import { clearClientSession } from "@/lib/session-cleanup";
 import { useSocketStore } from "@/store/socket-store";
 import { useAuthStore } from "@/stores/auth.store";
 import { useConversationStore } from "@/stores/conversation.store";
@@ -282,11 +280,6 @@ export default function ChatSidebar() {
   const setActiveConversation = useConversationStore(
     (state) => state.setActiveConversation
   );
-  const resetConversationState =
-    useConversationStore(
-      (state) =>
-        state.resetConversationState
-    );
   const onlineUsers = useSocketStore(
     (state) => state.onlineUsers
   );
@@ -294,16 +287,8 @@ export default function ChatSidebar() {
     () => new Set(onlineUsers),
     [onlineUsers]
   );
-  const disconnectSocket =
-    useSocketStore(
-      (state) =>
-        state.disconnectSocket
-    );
   const currentUserId = useAuthStore(
     (state) => state.user?.id
-  );
-  const logout = useAuthStore(
-    (state) => state.logout
   );
 
   const conversations = useMemo(
@@ -392,19 +377,9 @@ export default function ChatSidebar() {
 
   const confirmLogout =
     useCallback(() => {
-      tokenStorage.remove();
-      queryClient.clear();
-      useCallStore.getState().resetCall();
-      resetConversationState();
-      disconnectSocket();
-      logout();
+      clearClientSession();
       router.replace("/auth");
-    }, [
-      disconnectSocket,
-      logout,
-      resetConversationState,
-      router,
-    ]);
+    }, [router]);
 
   useEffect(() => {
     if (

@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import {
   ShieldCheck,
@@ -11,7 +13,62 @@ import {
 
 import { motion } from "framer-motion";
 
+import { useToastStore } from "@/store/toast-store";
+
 export default function VerifyPage() {
+  const router = useRouter();
+  const pushToast =
+    useToastStore(
+      (state) => state.pushToast
+    );
+  const [code, setCode] =
+    useState<string[]>(
+      Array.from({ length: 6 }, () => "")
+    );
+  const canVerify =
+    code.every(Boolean);
+
+  function updateCode(
+    index: number,
+    value: string
+  ) {
+    const digit =
+      value.replace(/\D/g, "").slice(-1);
+
+    setCode((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index
+          ? digit
+          : item
+      )
+    );
+  }
+
+  function handleVerify() {
+    if (!canVerify) {
+      return;
+    }
+
+    pushToast({
+      title:
+        "Verification unavailable",
+      message:
+        "Phone verification is not enabled for this auth flow. Continue with email or Google sign-in.",
+      variant: "info",
+    });
+    router.replace("/auth");
+  }
+
+  function handleResend() {
+    pushToast({
+      title:
+        "Resend unavailable",
+      message:
+        "Use email/password or Google sign-in while phone verification is offline.",
+      variant: "warning",
+    });
+  }
+
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050816] px-6 text-white">
       {/* BACKGROUND */}
@@ -92,7 +149,7 @@ export default function VerifyPage() {
           <ShieldCheck className="h-5 w-5 text-cyan-300" />
 
           <span className="text-sm text-white/65">
-            +91 ••••• ••704
+            +91 ***** **704
           </span>
         </div>
 
@@ -113,6 +170,14 @@ export default function VerifyPage() {
                 delay: index * 0.05,
               }}
               maxLength={1}
+              inputMode="numeric"
+              value={code[index]}
+              onChange={(event) =>
+                updateCode(
+                  index,
+                  event.target.value
+                )
+              }
               className={`h-16 w-14 rounded-3xl border bg-white/[0.04] text-center text-2xl font-black outline-none transition-all ${
                 index === 2
                   ? "border-purple-500/50 shadow-[0_0_30px_rgba(139,92,246,0.35)]"
@@ -135,13 +200,16 @@ export default function VerifyPage() {
 
         {/* VERIFY */}
         <motion.button
+          type="button"
           whileHover={{
-            scale: 1.02,
+            scale: canVerify ? 1.02 : 1,
           }}
           whileTap={{
-            scale: 0.98,
+            scale: canVerify ? 0.98 : 1,
           }}
-          className="mt-8 flex w-full items-center justify-center gap-3 rounded-3xl bg-gradient-to-r from-purple-600 to-blue-500 py-5 text-lg font-bold shadow-[0_10px_40px_rgba(139,92,246,0.35)]"
+          onClick={handleVerify}
+          disabled={!canVerify}
+          className="mt-8 flex w-full items-center justify-center gap-3 rounded-3xl bg-gradient-to-r from-purple-600 to-blue-500 py-5 text-lg font-bold shadow-[0_10px_40px_rgba(139,92,246,0.35)] transition disabled:cursor-not-allowed disabled:opacity-50"
         >
           Verify & Continue
 
@@ -149,7 +217,11 @@ export default function VerifyPage() {
         </motion.button>
 
         {/* RESEND */}
-        <button className="mt-5 w-full text-center text-sm text-white/45 transition-all hover:text-white">
+        <button
+          type="button"
+          onClick={handleResend}
+          className="mt-5 w-full text-center text-sm text-white/45 transition-all hover:text-white"
+        >
           Didn&apos;t receive anything? Resend
         </button>
 

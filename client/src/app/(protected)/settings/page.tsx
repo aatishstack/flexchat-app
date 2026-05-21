@@ -16,10 +16,12 @@ import {
   ChevronRight,
   Database,
   Headphones,
+  Loader2,
   LockKeyhole,
   LogOut,
   MessageCircle,
   ShieldCheck,
+  Trash2,
   UserRound,
   Video,
   Wifi,
@@ -33,12 +35,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/hooks/useAuth";
-import { queryClient } from "@/lib/query-client";
-import { tokenStorage } from "@/lib/token";
-import { useCallStore } from "@/store/call-store";
+import { clearClientSession } from "@/lib/session-cleanup";
+import { deleteCurrentUser } from "@/services/user.service";
 import { useSocketStore } from "@/store/socket-store";
-import { useAuthStore } from "@/stores/auth.store";
-import { useConversationStore } from "@/stores/conversation.store";
+import { useToastStore } from "@/store/toast-store";
 
 type SettingKey =
   | "readReceipts"
@@ -202,19 +202,26 @@ export default function SettingsPage() {
     logoutConfirmOpen,
     setLogoutConfirmOpen,
   ] = useState(false);
+  const [
+    deleteConfirmOpen,
+    setDeleteConfirmOpen,
+  ] = useState(false);
+  const [
+    deleteConfirmation,
+    setDeleteConfirmation,
+  ] = useState("");
+  const [
+    deletingAccount,
+    setDeletingAccount,
+  ] = useState(false);
 
   const isConnected =
     useSocketStore(
       (state) => state.isConnected
     );
-  const disconnectSocket =
-    useSocketStore(
-      (state) =>
-        state.disconnectSocket
-    );
-  const logout =
-    useAuthStore(
-      (state) => state.logout
+  const pushToast =
+    useToastStore(
+      (state) => state.pushToast
     );
 
   useEffect(() => {
@@ -329,18 +336,39 @@ export default function SettingsPage() {
 
   const confirmLogout =
     useCallback(() => {
-      tokenStorage.remove();
-      queryClient.clear();
-      useCallStore.getState().resetCall();
-      useConversationStore
-        .getState()
-        .resetConversationState();
-      disconnectSocket();
-      logout();
+      clearClientSession();
       router.replace("/auth");
+    }, [router]);
+
+  const confirmDeleteAccount =
+    useCallback(async () => {
+      if (
+        deletingAccount ||
+        deleteConfirmation !== "DELETE"
+      ) {
+        return;
+      }
+
+      setDeletingAccount(true);
+
+      try {
+        await deleteCurrentUser();
+        clearClientSession();
+        router.replace("/auth");
+      } catch {
+        pushToast({
+          title:
+            "Account deletion failed",
+          message:
+            "Please try again in a moment.",
+          variant: "error",
+        });
+        setDeletingAccount(false);
+      }
     }, [
-      disconnectSocket,
-      logout,
+      deleteConfirmation,
+      deletingAccount,
+      pushToast,
       router,
     ]);
 
@@ -462,6 +490,18 @@ export default function SettingsPage() {
                 <LogOut size={18} />
                 Log out
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteConfirmation("");
+                  setDeleteConfirmOpen(true);
+                }}
+                className="flex h-14 items-center justify-center gap-2 rounded-[24px] border border-red-300/20 bg-black/[0.18] px-5 py-4 text-sm font-semibold text-red-100 shadow-[0_18px_55px_rgba(0,0,0,0.16)] transition hover:bg-red-500/[0.12]"
+              >
+                <Trash2 size={18} />
+                Delete account
+              </button>
             </div>
 
             <div className="grid gap-6">
@@ -558,6 +598,116 @@ export default function SettingsPage() {
                   className="h-12 rounded-2xl bg-red-500 text-sm font-semibold text-white shadow-xl shadow-red-500/25 transition hover:bg-red-400"
                 >
                   Log out
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {deleteConfirmOpen ? (
+          <motion.div
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+            }}
+            className="fixed inset-0 z-[285] flex items-center justify-center bg-black/[0.76] p-4 backdrop-blur-xl"
+          >
+            <motion.div
+              initial={{
+                opacity: 0,
+                y: 18,
+                scale: 0.96,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                scale: 1,
+              }}
+              exit={{
+                opacity: 0,
+                y: 18,
+                scale: 0.96,
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 260,
+                damping: 28,
+              }}
+              className="w-full max-w-md rounded-[30px] border border-red-300/15 bg-[#0B111C]/[0.97] p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.65)] backdrop-blur-3xl"
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-400/25 bg-red-500/[0.16] text-red-100">
+                  <Trash2 size={21} />
+                </div>
+
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold">
+                    Delete account?
+                  </h2>
+                  <p className="mt-1 text-sm leading-relaxed text-zinc-400">
+                    Your profile, presence, stories, notifications, and active sessions will be removed. Existing conversations stay intact as Deleted User.
+                  </p>
+                </div>
+              </div>
+
+              <label
+                htmlFor="delete-account-confirmation"
+                className="mt-5 block text-sm font-medium text-zinc-300"
+              >
+                Type DELETE to continue
+              </label>
+              <input
+                id="delete-account-confirmation"
+                value={deleteConfirmation}
+                onChange={(event) =>
+                  setDeleteConfirmation(
+                    event.target.value
+                  )
+                }
+                disabled={deletingAccount}
+                className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-red-300/40 focus:bg-white/[0.06] disabled:cursor-wait disabled:opacity-70"
+                autoComplete="off"
+                autoCapitalize="characters"
+              />
+
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDeleteConfirmOpen(false)
+                  }
+                  disabled={deletingAccount}
+                  className="h-12 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-70"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    void confirmDeleteAccount();
+                  }}
+                  disabled={
+                    deletingAccount ||
+                    deleteConfirmation !== "DELETE"
+                  }
+                  className="flex h-12 items-center justify-center rounded-2xl bg-red-500 text-sm font-semibold text-white shadow-xl shadow-red-500/25 transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {deletingAccount ? (
+                    <Loader2
+                      size={18}
+                      className="motion-safe:animate-spin"
+                    />
+                  ) : (
+                    "Delete"
+                  )}
                 </button>
               </div>
             </motion.div>

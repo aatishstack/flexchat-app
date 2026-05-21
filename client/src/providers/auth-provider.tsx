@@ -11,10 +11,9 @@ import {
   TOKEN_KEY,
   tokenStorage,
 } from "@/lib/token";
-import { queryClient } from "@/lib/query-client";
+import { clearClientSession } from "@/lib/session-cleanup";
 
 import { useAuthStore } from "@/stores/auth.store";
-import { useConversationStore } from "@/stores/conversation.store";
 
 import { getCurrentUser } from "@/services/auth.service";
 
@@ -37,30 +36,17 @@ export default function AuthProvider({
         state.setHydrated
     );
 
-  const logout =
-    useAuthStore(
-      (state) =>
-        state.logout
-    );
-
   const connectSocket =
     useSocketStore(
       (state) =>
         state.connectSocket
     );
 
-  const disconnectSocket =
-    useSocketStore(
-      (state) =>
-        state.disconnectSocket
-    );
-
   const resetClientSessionState =
     useCallback(() => {
-      queryClient.clear();
-      useConversationStore
-        .getState()
-        .resetConversationState();
+      clearClientSession({
+        removeToken: false,
+      });
     }, []);
 
   const hydrateVersionRef =
@@ -95,8 +81,6 @@ export default function AuthProvider({
           }
 
           resetClientSessionState();
-          disconnectSocket();
-          logout();
 
           return;
         }
@@ -113,8 +97,6 @@ export default function AuthProvider({
 
         if (!activeToken) {
           resetClientSessionState();
-          disconnectSocket();
-          logout();
 
           return;
         }
@@ -145,10 +127,6 @@ export default function AuthProvider({
         tokenStorage.remove();
 
         resetClientSessionState();
-
-        disconnectSocket();
-
-        logout();
       } finally {
         if (isCurrentHydration()) {
           setHydrated(
@@ -212,8 +190,6 @@ export default function AuthProvider({
     };
   }, [
     connectSocket,
-    disconnectSocket,
-    logout,
     resetClientSessionState,
     setAuth,
     setHydrated,

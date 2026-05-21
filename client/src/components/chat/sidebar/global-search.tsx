@@ -5,7 +5,10 @@ import {
   X,
 } from "lucide-react";
 
-import { useMemo } from "react";
+import {
+  useEffect,
+  useMemo,
+} from "react";
 
 import { useConversationsQuery } from "@/hooks/queries/use-conversations-query";
 
@@ -92,6 +95,35 @@ export default function GlobalSearch() {
       query,
     ]);
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handleKeyDown(
+      event: KeyboardEvent
+    ) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    window.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
+    };
+  }, [
+    open,
+    setOpen,
+  ]);
+
   if (!open) {
     return null;
   }
@@ -118,12 +150,14 @@ export default function GlobalSearch() {
           />
 
           <button
+            type="button"
             onClick={() =>
               setOpen(
                 false
               )
             }
             className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-zinc-400"
+            aria-label="Close search"
           >
             <X size={18} />
           </button>
@@ -135,6 +169,7 @@ export default function GlobalSearch() {
               conversation
             ) => (
               <button
+                type="button"
                 key={
                   conversation.id
                 }

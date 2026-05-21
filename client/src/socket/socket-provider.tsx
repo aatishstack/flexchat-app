@@ -21,7 +21,7 @@ import type { ConversationQueryCache } from "@/lib/conversation-query-cache";
 import { useAuthStore } from "@/stores/auth.store";
 import { useConversationStore } from "@/stores/conversation.store";
 import { queryKeys } from "@/lib/query-keys";
-import { tokenStorage } from "@/lib/token";
+import { clearClientSession } from "@/lib/session-cleanup";
 import { useNotificationStore } from "@/store/notification-store";
 import {
   useCallStore,
@@ -63,6 +63,11 @@ type StoryViewedPayload = {
 
 type StoryDeletedPayload = {
   storyId?: string;
+  deletedAt?: string;
+};
+
+type AccountDeletedPayload = {
+  userId?: string;
   deletedAt?: string;
 };
 
@@ -231,16 +236,7 @@ export default function SocketProvider({
           .toLowerCase()
           .includes("unauthorized")
       ) {
-        tokenStorage.remove();
-        useCallStore
-          .getState()
-          .resetCall();
-        useSocketStore
-          .getState()
-          .disconnectSocket();
-        useAuthStore
-          .getState()
-          .logout();
+        clearClientSession();
       }
     }
 
@@ -538,6 +534,50 @@ export default function SocketProvider({
       );
     }
 
+    function onAccountDeleted(
+      payload: AccountDeletedPayload
+    ) {
+      if (!payload.userId) {
+        return;
+      }
+
+      const currentUserId =
+        useAuthStore.getState().user?.id;
+
+      if (payload.userId === currentUserId) {
+        clearClientSession();
+        return;
+      }
+
+      useSocketStore.setState((state) => ({
+        onlineUsers:
+          state.onlineUsers.filter(
+            (userId) =>
+              userId !== payload.userId
+          ),
+        typingUsers:
+          state.typingUsers.filter(
+            (userId) =>
+              userId !== payload.userId
+          ),
+      }));
+      useNotificationStore
+        .getState()
+        .clearNotifications();
+
+      void queryClient.invalidateQueries({
+        queryKey:
+          queryKeys.conversations.all,
+      });
+      void queryClient.invalidateQueries({
+        queryKey:
+          queryKeys.stories.all,
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["users"],
+      });
+    }
+
     function onCallIncoming(
       call: CallSession
     ) {
@@ -607,6 +647,7 @@ export default function SocketProvider({
     socket.on(SOCKET_EVENTS.STORY_CREATED, onStoryCreated);
     socket.on(SOCKET_EVENTS.STORY_VIEWED, onStoryViewed);
     socket.on(SOCKET_EVENTS.STORY_DELETED, onStoryDeleted);
+    socket.on(SOCKET_EVENTS.ACCOUNT_DELETED, onAccountDeleted);
     socket.on(SOCKET_EVENTS.CALL_INCOMING, onCallIncoming);
     socket.on(SOCKET_EVENTS.CALL_ACCEPTED, onCallAccepted);
     socket.on(SOCKET_EVENTS.CALL_REJECTED, onCallRejected);
@@ -631,6 +672,7 @@ export default function SocketProvider({
       socket.off(SOCKET_EVENTS.STORY_CREATED, onStoryCreated);
       socket.off(SOCKET_EVENTS.STORY_VIEWED, onStoryViewed);
       socket.off(SOCKET_EVENTS.STORY_DELETED, onStoryDeleted);
+      socket.off(SOCKET_EVENTS.ACCOUNT_DELETED, onAccountDeleted);
       socket.off(SOCKET_EVENTS.CALL_INCOMING, onCallIncoming);
       socket.off(SOCKET_EVENTS.CALL_ACCEPTED, onCallAccepted);
       socket.off(SOCKET_EVENTS.CALL_REJECTED, onCallRejected);

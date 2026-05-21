@@ -43,10 +43,12 @@ export default function ChatShell({
         </div>
 
         <button
+          type="button"
           onClick={() =>
             setOpen(false)
           }
           className="absolute right-5 top-[calc(1rem+env(safe-area-inset-top))] flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl"
+          aria-label="Close navigation"
         >
           <X size={22} />
         </button>
@@ -62,10 +64,12 @@ export default function ChatShell({
         {/* Mobile Topbar */}
         <div className="flex min-h-16 shrink-0 items-center border-b border-white/10 bg-[#08111f]/80 px-4 pt-[env(safe-area-inset-top)] shadow-lg shadow-black/20 backdrop-blur-2xl sm:px-5 lg:hidden">
           <button
+            type="button"
             onClick={() =>
               setOpen(true)
             }
             className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]"
+            aria-label="Open navigation"
           >
             <Menu size={20} />
           </button>

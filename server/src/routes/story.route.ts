@@ -62,6 +62,9 @@ async function getVisibleStoryUserIds(userId: string) {
     from conversation_members cm1
     inner join conversation_members cm2
       on cm2.conversation_id = cm1.conversation_id
+    inner join users visible_user
+      on visible_user.id = cm2.user_id
+      and visible_user.is_deleted = false
     where cm1.user_id = ${userId}
     union
     select ${userId} as "userId"
@@ -101,6 +104,7 @@ async function getStoryById(
     from stories s
     inner join users u
       on u.id = s.user_id
+      and u.is_deleted = false
     left join story_views sv
       on sv.story_id = s.id
       and sv.user_id = ${viewerId}
@@ -159,6 +163,7 @@ export async function storyRoutes(app: FastifyInstance) {
           from stories s
           inner join users u
             on u.id = s.user_id
+            and u.is_deleted = false
           left join story_views sv
             on sv.story_id = s.id
             and sv.user_id = ${userId}
