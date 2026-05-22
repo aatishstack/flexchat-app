@@ -10,6 +10,7 @@ export function useStoriesQuery() {
     queryKey: queryKeys.stories.all,
     queryFn: getStories,
     staleTime: 15 * 1000,
+    refetchInterval: 60 * 1000,
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
   });

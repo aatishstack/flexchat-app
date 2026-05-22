@@ -6,6 +6,8 @@ import {
   useRef,
 } from "react";
 
+import { isAxiosError } from "axios";
+
 import {
   TOKEN_CHANGE_EVENT,
   TOKEN_KEY,
@@ -119,14 +121,23 @@ export default function AuthProvider({
         connectSocket(
           activeToken
         );
-      } catch {
+      } catch (error) {
         if (!isCurrentHydration()) {
           return;
         }
 
-        tokenStorage.remove();
+        const status = isAxiosError(error)
+          ? error.response?.status
+          : undefined;
+        const tokenIsInvalid =
+          status === 401 ||
+          status === 403 ||
+          status === 404;
 
-        resetClientSessionState();
+        if (tokenIsInvalid) {
+          tokenStorage.remove();
+          resetClientSessionState();
+        }
       } finally {
         if (isCurrentHydration()) {
           setHydrated(

@@ -32,6 +32,7 @@
     "nanoid": "^5.1.11",
     "postgres": "^3.4.9",
     "socket.io": "^4.8.3",
+    "uuid": "^14.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

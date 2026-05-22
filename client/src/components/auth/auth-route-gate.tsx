@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { motion } from "framer-motion";
 import { usePathname, useRouter } from "next/navigation";
 
 import { useAuth } from "@/hooks/useAuth";
+import { TOKEN_CHANGE_EVENT, TOKEN_KEY, tokenStorage } from "@/lib/token";
 
 const protectedPrefixes = [
   "/chat",
@@ -13,8 +14,21 @@ const protectedPrefixes = [
   "/settings",
 ];
 
+const authPrefixes = [
+  "/auth",
+  "/register",
+];
+
 function isProtectedPath(pathname: string) {
   return protectedPrefixes.some(
+    (prefix) =>
+      pathname === prefix ||
+      pathname.startsWith(`${prefix}/`)
+  );
+}
+
+function isAuthPath(pathname: string) {
+  return authPrefixes.some(
     (prefix) =>
       pathname === prefix ||
       pathname.startsWith(`${prefix}/`)
@@ -74,15 +88,67 @@ export default function AuthRouteGate({
     isAuthenticated,
     isHydrated,
   } = useAuth();
+  const [hasStoredToken, setHasStoredToken] =
+    useState(() => tokenStorage.exists());
 
   const protectedPath =
     isProtectedPath(pathname);
+  const authPath =
+    isAuthPath(pathname);
+
+  useEffect(() => {
+    function syncTokenState() {
+      setHasStoredToken(
+        tokenStorage.exists()
+      );
+    }
+
+    function handleStorage(
+      event: StorageEvent
+    ) {
+      if (event.key !== TOKEN_KEY) {
+        return;
+      }
+
+      syncTokenState();
+    }
+
+    window.addEventListener(
+      "storage",
+      handleStorage
+    );
+    window.addEventListener(
+      TOKEN_CHANGE_EVENT,
+      syncTokenState
+    );
+
+    return () => {
+      window.removeEventListener(
+        "storage",
+        handleStorage
+      );
+      window.removeEventListener(
+        TOKEN_CHANGE_EVENT,
+        syncTokenState
+      );
+    };
+  }, []);
 
   useEffect(() => {
     if (
+      authPath &&
+      isHydrated &&
+      isAuthenticated
+    ) {
+      router.replace("/chat");
+      return;
+    }
+
+    if (
       !protectedPath ||
       !isHydrated ||
-      isAuthenticated
+      isAuthenticated ||
+      hasStoredToken
     ) {
       return;
     }
@@ -92,14 +158,24 @@ export default function AuthRouteGate({
     isAuthenticated,
     isHydrated,
     protectedPath,
+    authPath,
+    hasStoredToken,
     router,
   ]);
+
+  if (
+    authPath &&
+    (isAuthenticated ||
+      hasStoredToken)
+  ) {
+    return null;
+  }
 
   if (!protectedPath) {
     return children;
   }
 
-  if (!isHydrated) {
+  if (!isHydrated || (!isAuthenticated && hasStoredToken)) {
     return <RouteGateLoader />;
   }
 

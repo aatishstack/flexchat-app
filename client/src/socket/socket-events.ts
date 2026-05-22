@@ -56,11 +56,29 @@ export const SOCKET_EVENTS = {
   ONLINE_USERS:
     "online_users",
 
+  PRESENCE_UPDATED:
+    "presence_updated",
+
   ACCOUNT_DELETED:
     "account_deleted",
 
+  USER_UPDATED:
+    "user_updated",
+
+  DISCOVER_USER_DISMISSED:
+    "discover_user_dismissed",
+
   CONVERSATION_ERROR:
     "conversation_error",
+
+  CONVERSATION_ARCHIVE_UPDATED:
+    "conversation_archive_updated",
+
+  CONVERSATION_DELETED:
+    "conversation_deleted",
+
+  CONVERSATION_THEME_UPDATED:
+    "conversation_theme_updated",
 
   STORY_CREATED:
     "story_created",

@@ -1,7 +1,9 @@
 import type { Server as HttpServer } from "http";
 
 import { Server } from "socket.io";
+import { sql } from "drizzle-orm";
 
+import { db } from "../db/index.js";
 import { isAllowedOrigin } from "../lib/origins.js";
 import { authenticateSocket } from "./socket-auth.js";
 import { SOCKET_EVENTS } from "./socket-events.js";
@@ -56,6 +58,29 @@ export function setupSocket(server: HttpServer) {
         nextOnlineUsers
       );
     }
+
+    changedUserIds.forEach((changedUserId) => {
+      if (nextOnlineUsers.includes(changedUserId)) {
+        return;
+      }
+
+      const lastSeenAt = new Date().toISOString();
+
+      void db.execute(sql`
+        update users
+        set last_seen_at = ${lastSeenAt}
+        where id = ${changedUserId}
+          and is_deleted = false
+      `).catch((error) => {
+        console.error("Failed to persist cleaned-up last seen", error);
+      });
+
+      io.emit(SOCKET_EVENTS.PRESENCE_UPDATED, {
+        userId: changedUserId,
+        status: "offline",
+        lastSeenAt,
+      });
+    });
   }, 30_000);
 
   presenceCleanupTimer.unref?.();
@@ -96,6 +121,12 @@ export function setupSocket(server: HttpServer) {
       );
     }
 
+    io.emit(SOCKET_EVENTS.PRESENCE_UPDATED, {
+      userId,
+      status: "online",
+      lastSeenAt: new Date().toISOString(),
+    });
+
     registerMessageHandlers(io, socket);
     registerTypingHandlers(io, socket);
     registerCallHandlers(io, socket);
@@ -104,10 +135,13 @@ export function setupSocket(server: HttpServer) {
       const previousOnlineUsers =
         getOnlineUserIds().join(",");
 
-      removeOnlineSocket(socket.id);
+      const removedUserId = removeOnlineSocket(socket.id);
 
       const nextOnlineUsers =
         getOnlineUserIds();
+      const isStillOnline =
+        removedUserId ? nextOnlineUsers.includes(removedUserId) : false;
+      const lastSeenAt = new Date().toISOString();
 
       if (
         previousOnlineUsers !==
@@ -117,6 +151,23 @@ export function setupSocket(server: HttpServer) {
           SOCKET_EVENTS.ONLINE_USERS,
           nextOnlineUsers
         );
+      }
+
+      if (removedUserId && !isStillOnline) {
+        void db.execute(sql`
+          update users
+          set last_seen_at = ${lastSeenAt}
+          where id = ${removedUserId}
+            and is_deleted = false
+        `).catch((error) => {
+          console.error("Failed to persist last seen", error);
+        });
+
+        io.emit(SOCKET_EVENTS.PRESENCE_UPDATED, {
+          userId: removedUserId,
+          status: "offline",
+          lastSeenAt,
+        });
       }
     });
   });

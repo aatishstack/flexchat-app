@@ -10,6 +10,7 @@ import {
   Loader2,
   MessageCircle,
   Search,
+  X,
 } from "lucide-react";
 import {
   motion,
@@ -29,18 +30,22 @@ import {
   formatDisplayName,
   formatHandle,
 } from "@/lib/user-display";
+import { dismissDiscoverUser } from "@/services/user.service";
 import { createDirectConversation } from "@/services/conversation.service";
 import { useToastStore } from "@/store/toast-store";
 import { useAuthStore } from "@/stores/auth.store";
 import { useConversationStore } from "@/stores/conversation.store";
 import type { Conversation } from "@/types/conversation";
+import type { PublicUser } from "@/types/user";
 
 type DiscoverPanelProps = {
   variant?: "rail" | "sheet";
+  onConversationOpen?: () => void;
 };
 
 export default function DiscoverPanel({
   variant = "rail",
+  onConversationOpen,
 }: DiscoverPanelProps) {
   const [search, setSearch] =
     useState("");
@@ -132,6 +137,9 @@ export default function DiscoverPanel({
         setActiveConversation(
           conversation
         );
+        setSearch("");
+        setDebouncedSearch("");
+        onConversationOpen?.();
 
         void queryClient.invalidateQueries({
           queryKey:
@@ -145,6 +153,56 @@ export default function DiscoverPanel({
           message:
             "Please try starting that chat again.",
           variant: "error",
+        });
+      },
+    });
+
+  const dismissUser =
+    useMutation({
+      mutationFn:
+        dismissDiscoverUser,
+      onMutate: async (userId) => {
+        await queryClient.cancelQueries({
+          queryKey:
+            queryKeys.users.discover(
+              debouncedSearch
+                .trim()
+                .toLowerCase()
+            ),
+        });
+
+        queryClient.setQueryData<
+          PublicUser[]
+        >(
+          queryKeys.users.discover(
+            debouncedSearch
+              .trim()
+              .toLowerCase()
+          ),
+          (currentUsers) =>
+            currentUsers?.filter(
+              (user) =>
+                user.id !== userId
+            ) ?? []
+        );
+      },
+      onError: () => {
+        pushToast({
+          title:
+            "Could not remove user",
+          message:
+            "Please try again in a moment.",
+          variant: "error",
+        });
+      },
+      onSettled: () => {
+        void queryClient.invalidateQueries({
+          queryKey:
+            queryKeys.users.discover(
+              debouncedSearch
+                .trim()
+                .toLowerCase()
+            ),
         });
       },
     });
@@ -276,6 +334,9 @@ export default function DiscoverPanel({
                     setActiveConversation(
                       existingConversation
                     );
+                    setSearch("");
+                    setDebouncedSearch("");
+                    onConversationOpen?.();
                     return;
                   }
 
@@ -299,6 +360,20 @@ export default function DiscoverPanel({
                 ) : (
                   <MessageCircle size={17} />
                 )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  dismissUser.mutate(user.id)
+                }
+                disabled={
+                  dismissUser.isPending
+                }
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.035] text-zinc-400 transition hover:border-red-300/25 hover:bg-red-500/10 hover:text-red-100 disabled:cursor-wait disabled:opacity-50"
+                aria-label={`Remove ${user.username} from Discover`}
+              >
+                <X size={16} />
               </button>
             </motion.div>
           );

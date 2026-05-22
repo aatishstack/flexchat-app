@@ -1,8 +1,12 @@
 import type { FastifyInstance } from "fastify";
+import { generateId } from "../lib/uuid.js";
+import fs from "fs/promises";
+import path from "path";
 
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { env } from "../config/env.js";
 import { db } from "../db/index.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { SOCKET_EVENTS } from "../socket/socket-events.js";
@@ -34,6 +38,13 @@ type StoryRow = {
   };
 };
 
+type StoryViewerRow = {
+  id: string;
+  username: string;
+  avatar: string | null;
+  viewedAt: Date | string;
+};
+
 function serializeStory(story: StoryRow) {
   return {
     id: story.id,
@@ -52,6 +63,48 @@ function serializeStory(story: StoryRow) {
     viewed: Boolean(story.viewed),
     user: story.user,
   };
+}
+
+function serializeStoryViewer(viewer: StoryViewerRow) {
+  return {
+    id: viewer.id,
+    username: viewer.username,
+    avatar: viewer.avatar,
+    viewedAt:
+      viewer.viewedAt instanceof Date
+        ? viewer.viewedAt.toISOString()
+        : viewer.viewedAt,
+  };
+}
+
+async function removeUploadedAsset(url?: string | null) {
+  if (!url) {
+    return;
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    const publicApiUrl = new URL(env.PUBLIC_API_URL);
+
+    if (
+      parsedUrl.origin !== publicApiUrl.origin ||
+      !parsedUrl.pathname.startsWith("/uploads/")
+    ) {
+      return;
+    }
+
+    const filename = path.basename(parsedUrl.pathname);
+    const uploadsDir = path.resolve(process.cwd(), "uploads");
+    const filepath = path.resolve(uploadsDir, filename);
+
+    if (!filepath.startsWith(`${uploadsDir}${path.sep}`)) {
+      return;
+    }
+
+    await fs.unlink(filepath).catch(() => undefined);
+  } catch {
+    return;
+  }
 }
 
 async function getVisibleStoryUserIds(userId: string) {
@@ -73,10 +126,7 @@ async function getVisibleStoryUserIds(userId: string) {
   return rows.map((row) => row.userId);
 }
 
-async function getStoryById(
-  storyId: string,
-  viewerId: string
-) {
+async function getStoryById(storyId: string, viewerId: string) {
   const rows = await db.execute<StoryRow>(sql`
     with visible_users as (
       select distinct cm2.user_id
@@ -182,15 +232,12 @@ export async function storyRoutes(app: FastifyInstance) {
           {
             err: error,
           },
-          "Stories temporarily unavailable"
+          "Stories temporarily unavailable",
         );
-        reply.header(
-          "x-flexchat-stories-error",
-          "unavailable"
-        );
+        reply.header("x-flexchat-stories-error", "unavailable");
         return [];
       }
-    }
+    },
   );
 
   app.post(
@@ -207,9 +254,7 @@ export async function storyRoutes(app: FastifyInstance) {
         });
       }
 
-      const parsedBody = storyBodySchema.safeParse(
-        request.body
-      );
+      const parsedBody = storyBodySchema.safeParse(request.body);
 
       if (!parsedBody.success) {
         return reply.status(400).send({
@@ -217,10 +262,10 @@ export async function storyRoutes(app: FastifyInstance) {
         });
       }
 
-      const storyId = crypto.randomUUID();
+      const storyId = generateId();
       const expiresAt = new Date(
-        Date.now() + 24 * 60 * 60 * 1000
-      );
+        Date.now() + 24 * 60 * 60 * 1000,
+      ).toISOString();
 
       await db.execute(sql`
         insert into stories (
@@ -253,19 +298,18 @@ export async function storyRoutes(app: FastifyInstance) {
       const io = getSocketServer();
 
       if (io) {
-        const audienceUserIds =
-          await getVisibleStoryUserIds(userId);
+        const audienceUserIds = await getVisibleStoryUserIds(userId);
 
         audienceUserIds.forEach((audienceUserId) => {
           io.to(`user:${audienceUserId}`).emit(
             SOCKET_EVENTS.STORY_CREATED,
-            serializedStory
+            serializedStory,
           );
         });
       }
 
       return reply.status(201).send(serializedStory);
-    }
+    },
   );
 
   app.post(
@@ -282,9 +326,7 @@ export async function storyRoutes(app: FastifyInstance) {
         });
       }
 
-      const parsedParams = storyParamsSchema.safeParse(
-        request.params
-      );
+      const parsedParams = storyParamsSchema.safeParse(request.params);
 
       if (!parsedParams.success) {
         return reply.status(400).send({
@@ -292,10 +334,7 @@ export async function storyRoutes(app: FastifyInstance) {
         });
       }
 
-      const story = await getStoryById(
-        parsedParams.data.storyId,
-        userId
-      );
+      const story = await getStoryById(parsedParams.data.storyId, userId);
 
       if (!story) {
         return reply.status(404).send({
@@ -310,7 +349,7 @@ export async function storyRoutes(app: FastifyInstance) {
           user_id
         )
         values (
-          ${crypto.randomUUID()},
+          ${generateId()},
           ${story.id},
           ${userId}
         )
@@ -329,7 +368,67 @@ export async function storyRoutes(app: FastifyInstance) {
       return {
         ok: true,
       };
-    }
+    },
+  );
+
+  app.get(
+    "/stories/:storyId/views",
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const userId = request.user?.id;
+
+      if (!userId) {
+        return reply.status(401).send({
+          message: "Unauthorized",
+        });
+      }
+
+      const parsedParams = storyParamsSchema.safeParse(request.params);
+
+      if (!parsedParams.success) {
+        return reply.status(400).send({
+          message: "Invalid story viewer request",
+        });
+      }
+
+      const storyRows = await db.execute<{
+        id: string;
+      }>(sql`
+        select id
+        from stories
+        where id = ${parsedParams.data.storyId}
+          and user_id = ${userId}
+          and deleted_at is null
+          and expires_at > now()
+        limit 1
+      `);
+
+      if (!storyRows.length) {
+        return reply.status(404).send({
+          message: "Story unavailable",
+        });
+      }
+
+      const viewers = await db.execute<StoryViewerRow>(sql`
+        select
+          u.id,
+          u.username,
+          u.avatar,
+          sv.viewed_at as "viewedAt"
+        from story_views sv
+        inner join users u
+          on u.id = sv.user_id
+          and u.is_deleted = false
+        where sv.story_id = ${parsedParams.data.storyId}
+          and sv.user_id <> ${userId}
+        order by sv.viewed_at desc
+        limit 200
+      `);
+
+      return viewers.map(serializeStoryViewer);
+    },
   );
 
   app.delete(
@@ -346,9 +445,7 @@ export async function storyRoutes(app: FastifyInstance) {
         });
       }
 
-      const parsedParams = storyParamsSchema.safeParse(
-        request.params
-      );
+      const parsedParams = storyParamsSchema.safeParse(request.params);
 
       if (!parsedParams.success) {
         return reply.status(400).send({
@@ -356,34 +453,44 @@ export async function storyRoutes(app: FastifyInstance) {
         });
       }
 
-      await db.execute(sql`
+      const deletedStories = await db.execute<{
+        id: string;
+        mediaUrl: string;
+      }>(sql`
         update stories
         set deleted_at = now()
         where id = ${parsedParams.data.storyId}
           and user_id = ${userId}
           and deleted_at is null
+        returning
+          id,
+          media_url as "mediaUrl"
       `);
+
+      if (!deletedStories.length) {
+        return reply.status(404).send({
+          message: "Story unavailable",
+        });
+      }
 
       const io = getSocketServer();
 
       if (io) {
-        const audienceUserIds =
-          await getVisibleStoryUserIds(userId);
+        const audienceUserIds = await getVisibleStoryUserIds(userId);
 
         audienceUserIds.forEach((audienceUserId) => {
-          io.to(`user:${audienceUserId}`).emit(
-            SOCKET_EVENTS.STORY_DELETED,
-            {
-              storyId: parsedParams.data.storyId,
-              deletedAt: new Date().toISOString(),
-            }
-          );
+          io.to(`user:${audienceUserId}`).emit(SOCKET_EVENTS.STORY_DELETED, {
+            storyId: parsedParams.data.storyId,
+            deletedAt: new Date().toISOString(),
+          });
         });
       }
+
+      await removeUploadedAsset(deletedStories[0].mediaUrl);
 
       return {
         ok: true,
       };
-    }
+    },
   );
 }

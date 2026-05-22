@@ -312,7 +312,9 @@ export default function CallLayer() {
                   {phase === "incoming"
                     ? "Incoming"
                     : phase === "outgoing"
-                      ? "Calling"
+                      ? currentCall.status === "ringing"
+                        ? "Ringing"
+                        : "Calling"
                       : "FlexChat Call"}
                 </p>
                 <h2 className="truncate text-lg font-semibold">
@@ -378,7 +380,9 @@ export default function CallLayer() {
                   : phase === "incoming"
                     ? "Ringing"
                     : phase === "outgoing"
-                      ? "Waiting for answer"
+                      ? currentCall.status === "ringing"
+                        ? "Ringing"
+                        : "Calling"
                       : "Connecting media"}
               </p>
               {error ? (

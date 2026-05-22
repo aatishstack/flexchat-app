@@ -2,6 +2,7 @@ import { api } from "./api";
 
 import type {
   Story,
+  StoryViewer,
   StoryMediaType,
 } from "@/types/story";
 
@@ -40,4 +41,15 @@ export async function deleteStory(
   await api.delete(
     `/stories/${storyId}`
   );
+}
+
+export async function getStoryViewers(
+  storyId: string
+) {
+  const response =
+    await api.get<StoryViewer[]>(
+      `/stories/${storyId}/views`
+    );
+
+  return response.data;
 }

@@ -55,3 +55,50 @@ export async function createDirectConversation(
 
   return response.data;
 }
+
+export async function setConversationArchived(
+  conversationId: string,
+  archived: boolean
+) {
+  const response =
+    await api.patch<Conversation>(
+      `/conversations/${conversationId}/archive`,
+      {
+        archived,
+      }
+    );
+
+  return response.data;
+}
+
+export async function deleteConversation(
+  conversationId: string
+) {
+  const response =
+    await api.delete<{
+      ok: boolean;
+      conversationId: string;
+      hiddenAt: string;
+    }>(
+      `/conversations/${conversationId}`
+    );
+
+  return response.data;
+}
+
+export async function applyConversationTheme(input: {
+  conversationId: string;
+  themeId: string | null;
+  scope: "me" | "both";
+}) {
+  const response =
+    await api.patch<Conversation>(
+      `/conversations/${input.conversationId}/theme`,
+      {
+        themeId: input.themeId,
+        scope: input.scope,
+      }
+    );
+
+  return response.data;
+}

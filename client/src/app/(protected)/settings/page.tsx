@@ -390,7 +390,7 @@ export default function SettingsPage() {
         <div className="mb-5 flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={() => router.push("/chat")}
+            onClick={() => router.replace("/chat")}
             className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-zinc-200 shadow-lg shadow-black/20 backdrop-blur-xl transition hover:bg-white/[0.09]"
             aria-label="Back to chat"
           >

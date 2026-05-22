@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useState,
 } from "react";
 
@@ -22,10 +23,43 @@ export default function ChatShell({
   const [open, setOpen] =
     useState(false);
 
+  useEffect(() => {
+    function handleConversationSelected() {
+      setOpen(false);
+    }
+
+    function handleOpenMobileSidebar() {
+      setOpen(true);
+    }
+
+    window.addEventListener(
+      "flexchat:conversation-selected",
+      handleConversationSelected
+    );
+    window.addEventListener(
+      "flexchat:open-mobile-sidebar",
+      handleOpenMobileSidebar
+    );
+
+    return () => {
+      window.removeEventListener(
+        "flexchat:conversation-selected",
+        handleConversationSelected
+      );
+      window.removeEventListener(
+        "flexchat:open-mobile-sidebar",
+        handleOpenMobileSidebar
+      );
+    };
+  }, []);
+
   return (
     <main className="flex h-full min-h-0 w-full overflow-hidden bg-transparent text-white">
       {/* Mobile Sidebar */}
       <div
+        onClick={() =>
+          setOpen(false)
+        }
         className={`fixed inset-0 z-50 transition-all lg:hidden ${
           open
             ? "pointer-events-auto bg-black/60 backdrop-blur-sm"
@@ -33,6 +67,9 @@ export default function ChatShell({
         }`}
       >
         <div
+          onClick={(event) =>
+            event.stopPropagation()
+          }
           className={`absolute left-0 top-0 h-full w-[min(92vw,380px)] max-w-full transition-transform duration-300 ${
             open
               ? "translate-x-0"
@@ -47,7 +84,7 @@ export default function ChatShell({
           onClick={() =>
             setOpen(false)
           }
-          className="absolute right-5 top-[calc(1rem+env(safe-area-inset-top))] flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl"
+          className="absolute bottom-[calc(1rem+env(safe-area-inset-bottom))] right-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-black/45 shadow-2xl shadow-black/40 backdrop-blur-xl"
           aria-label="Close navigation"
         >
           <X size={22} />

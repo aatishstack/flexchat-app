@@ -18,6 +18,8 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  allowedDevOrigins: ["192.168.1.3"],
+
   productionBrowserSourceMaps: false,
 
   compiler: {

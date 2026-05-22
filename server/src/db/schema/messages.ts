@@ -48,6 +48,16 @@ export const messages =
           "forwarded_from_sender_name"
         ),
 
+      replyToMessageId:
+        text(
+          "reply_to_message_id"
+        ),
+
+      replyToText:
+        text(
+          "reply_to_text"
+        ),
+
       editedAt:
         timestamp(
           "edited_at"
@@ -109,6 +119,11 @@ export const messages =
         "messages_forwarded_source_idx"
       ).on(
         table.forwardedFromMessageId
+      ),
+      replySourceIdx: index(
+        "messages_reply_source_idx"
+      ).on(
+        table.replyToMessageId
       ),
     })
   );

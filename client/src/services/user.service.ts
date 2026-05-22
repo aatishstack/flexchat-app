@@ -74,3 +74,14 @@ export async function getUsersByIds(
 
   return response.data;
 }
+
+export async function dismissDiscoverUser(
+  userId: string
+) {
+  const response =
+    await api.delete<{ ok: boolean }>(
+      `/users/discover/${userId}`
+    );
+
+  return response.data;
+}

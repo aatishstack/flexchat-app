@@ -12,6 +12,7 @@ import ChatConversation from "../../../components/chat/conversation/chat-convers
 import GlobalSearch from "../../../components/chat/sidebar/global-search";
 import { useGlobalSearchStore } from "../../../store/global-search-store";
 import ActivityBar from "../../../components/chat/sidebar/activity-bar";
+import { useConversationStore } from "../../../stores/conversation.store";
 
 const ActiveNowPanel = dynamic(
   () => import("../../../components/chat/sidebar/active-now-panel"),
@@ -57,6 +58,9 @@ export default function ChatPage() {
   );
 
   const setGlobalSearchOpen = useGlobalSearchStore((state) => state.setOpen);
+  const activeConversationId = useConversationStore(
+    (state) => state.activeConversationId,
+  );
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -73,6 +77,42 @@ export default function ChatPage() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [setGlobalSearchOpen]);
+
+  useEffect(() => {
+    if (!activeConversationId) {
+      return;
+    }
+
+    if (!window.history.state?.flexchatChatOpen) {
+      window.history.pushState(
+        {
+          ...window.history.state,
+          flexchatChatOpen: true,
+        },
+        "",
+        window.location.href,
+      );
+    }
+
+    function handlePopState() {
+      if (!useConversationStore.getState().activeConversationId) {
+        return;
+      }
+
+      useConversationStore.setState({
+        activeConversationId: null,
+      });
+      window.dispatchEvent(
+        new CustomEvent("flexchat:open-mobile-sidebar"),
+      );
+    }
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [activeConversationId]);
 
   return (
     <div
@@ -216,16 +256,22 @@ export default function ChatPage() {
               <button
                 type="button"
                 onClick={() => setMobilePanel(null)}
-                className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-black/35 text-white backdrop-blur-xl"
+                className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-black/35 text-transparent backdrop-blur-xl before:text-lg before:font-semibold before:leading-none before:text-white before:content-['X']"
                 aria-label="Close panel"
               >
                 ×
               </button>
 
               {mobilePanel === "discover" ? (
-                <DiscoverPanel variant="sheet" />
+                <DiscoverPanel
+                  variant="sheet"
+                  onConversationOpen={() => setMobilePanel(null)}
+                />
               ) : (
-                <ActiveNowPanel variant="sheet" />
+                <ActiveNowPanel
+                  variant="sheet"
+                  onConversationOpen={() => setMobilePanel(null)}
+                />
               )}
             </motion.div>
           </motion.div>

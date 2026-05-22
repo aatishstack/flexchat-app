@@ -22,6 +22,21 @@ export const conversations =
       avatar:
         text("avatar"),
 
+      sharedThemeId:
+        text(
+          "shared_theme_id"
+        ),
+
+      themeUpdatedBy:
+        text(
+          "theme_updated_by"
+        ),
+
+      themeUpdatedAt:
+        timestamp(
+          "theme_updated_at"
+        ),
+
       createdAt:
         timestamp(
           "created_at"

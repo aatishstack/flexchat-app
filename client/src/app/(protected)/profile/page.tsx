@@ -2,6 +2,7 @@
 
 import {
   useCallback,
+  useEffect,
   useState,
 } from "react";
 
@@ -27,6 +28,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/hooks/useAuth";
+import { getCurrentUser } from "@/services/auth.service";
 import {
   formatDisplayName,
   formatHandle,
@@ -86,12 +88,19 @@ function readStoredProfile(user: {
         profileStorageKey(user.id)
       );
 
-    return stored
-      ? {
-          ...fallback,
-          ...JSON.parse(stored),
-        }
-      : fallback;
+    if (!stored) {
+      return fallback;
+    }
+
+    const parsedProfile =
+      JSON.parse(stored) as Partial<ProfileDetails>;
+
+    return {
+      ...fallback,
+      ...parsedProfile,
+      displayName: user.username,
+      avatar: user.avatar ?? null,
+    };
   } catch {
     return fallback;
   }
@@ -136,11 +145,47 @@ export default function ProfilePage() {
     editOpen,
     setEditOpen,
   ] = useState(false);
+  const [
+    photoPreviewOpen,
+    setPhotoPreviewOpen,
+  ] = useState(false);
 
   const profile = user
     ? savedProfiles[user.id] ??
       readStoredProfile(user)
     : null;
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    setSavedProfiles((current) => {
+      const existing =
+        current[user.id] ?? readStoredProfile(user);
+      const nextProfile = {
+        ...existing,
+        displayName: user.username,
+        avatar: user.avatar ?? null,
+      };
+
+      try {
+        window.localStorage.setItem(
+          profileStorageKey(user.id),
+          JSON.stringify(nextProfile)
+        );
+      } catch {
+        // Local profile extras are non-critical; /me remains authoritative.
+      }
+
+      return {
+        ...current,
+        [user.id]: nextProfile,
+      };
+    });
+  }, [
+    user,
+  ]);
 
   const openEditModal =
     useCallback(() => {
@@ -172,7 +217,9 @@ export default function ProfilePage() {
               user.username
           );
         let avatarUrl =
-          draft.avatar ?? user.avatar ?? null;
+          draft.avatar !== undefined
+            ? draft.avatar
+            : user.avatar ?? null;
 
         if (avatarFile) {
           avatarUrl =
@@ -180,20 +227,31 @@ export default function ProfilePage() {
         }
 
         const shouldUpdateServer =
+          displayName !== user.username ||
           avatarUrl !==
             (user.avatar ?? null);
         const serverUser =
           shouldUpdateServer
             ? await updateCurrentUser({
+                username: displayName,
                 avatar: avatarUrl,
               })
             : user;
+
+        if (shouldUpdateServer) {
+          updateUser(serverUser);
+        }
+
+        const authoritativeUser =
+          shouldUpdateServer
+            ? await getCurrentUser()
+            : serverUser;
         const nextProfile = {
           ...draft,
           displayName:
-            displayName,
+            authoritativeUser.username,
           avatar:
-            serverUser.avatar ??
+            authoritativeUser.avatar ??
             avatarUrl,
           about:
             draft.about.trim(),
@@ -201,7 +259,7 @@ export default function ProfilePage() {
             draft.phone.trim(),
         };
 
-        updateUser(serverUser);
+        updateUser(authoritativeUser);
         setSavedProfiles((current) => ({
           ...current,
           [user.id]: nextProfile,
@@ -318,7 +376,7 @@ export default function ProfilePage() {
         <div className="mb-5 flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={() => router.push("/chat")}
+            onClick={() => router.replace("/chat")}
             className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-zinc-200 shadow-lg shadow-black/20 backdrop-blur-xl transition hover:bg-white/[0.09]"
             aria-label="Back to chat"
           >
@@ -353,7 +411,14 @@ export default function ProfilePage() {
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-purple-200/50 to-transparent" />
 
           <div className="bg-gradient-to-br from-purple-600 via-fuchsia-600 to-cyan-500 px-6 pb-9 pt-10 text-center">
-            <div className="relative mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-[36px] border border-white/25 bg-white/[0.15] text-4xl font-bold shadow-2xl shadow-black/25">
+            <button
+              type="button"
+              onClick={() =>
+                setPhotoPreviewOpen(true)
+              }
+              className="relative mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-[36px] border border-white/25 bg-white/[0.15] text-4xl font-bold shadow-2xl shadow-black/25"
+              aria-label="View profile photo"
+            >
               {avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -367,7 +432,7 @@ export default function ProfilePage() {
                 )
               )}
               <span className="absolute bottom-2 right-2 h-4 w-4 rounded-full border-2 border-white bg-green-400 shadow-lg shadow-green-500/40" />
-            </div>
+            </button>
 
             <h1 className="mt-5 text-3xl font-bold">
               {formatDisplayName(
@@ -467,6 +532,64 @@ export default function ProfilePage() {
       </section>
 
       <AnimatePresence>
+        {photoPreviewOpen ? (
+          <motion.div
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+            }}
+            className="fixed inset-0 z-[285] flex items-center justify-center bg-black/[0.86] p-5 backdrop-blur-xl"
+            onClick={() =>
+              setPhotoPreviewOpen(false)
+            }
+          >
+            <button
+              type="button"
+              onClick={() =>
+                setPhotoPreviewOpen(false)
+              }
+              className="absolute right-5 top-[calc(1rem+env(safe-area-inset-top))] flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white"
+              aria-label="Close profile photo"
+            >
+              <X size={18} />
+            </button>
+
+            <motion.div
+              initial={{
+                scale: 0.92,
+              }}
+              animate={{
+                scale: 1,
+              }}
+              exit={{
+                scale: 0.92,
+              }}
+              className="flex aspect-square w-full max-w-[min(82vw,420px)] items-center justify-center overflow-hidden rounded-[42px] bg-gradient-to-br from-purple-600 to-fuchsia-600 text-6xl font-bold text-white shadow-[0_32px_100px_rgba(0,0,0,0.7)]"
+              onClick={(event) =>
+                event.stopPropagation()
+              }
+            >
+              {avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={avatar}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                getAvatarInitial(
+                  profile.displayName
+                )
+              )}
+            </motion.div>
+          </motion.div>
+        ) : null}
+
         {editOpen && draft ? (
           <motion.div
             initial={{
@@ -563,6 +686,23 @@ export default function ProfilePage() {
                     }
                   />
                 </label>
+
+                {draft.avatar ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAvatarFile(null);
+                      setDraft({
+                        ...draft,
+                        avatar: null,
+                      });
+                    }}
+                    disabled={savingProfile}
+                    className="mx-auto flex h-10 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/10 px-4 text-sm font-medium text-red-100 transition hover:bg-red-500/15 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    Remove photo
+                  </button>
+                ) : null}
 
                 <div className="space-y-2">
                   <label

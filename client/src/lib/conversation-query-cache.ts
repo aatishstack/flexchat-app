@@ -186,3 +186,31 @@ export function upsertConversationInQueryCache(
     pages,
   };
 }
+
+export function removeConversationFromQueryCache(
+  cache: ConversationQueryCache,
+  conversationId: string
+): ConversationQueryCache {
+  if (!cache) {
+    return cache;
+  }
+
+  if (!isInfiniteConversationCache(cache)) {
+    return cache.filter(
+      (conversation) =>
+        conversation.id !== conversationId
+    );
+  }
+
+  return {
+    ...cache,
+    pages: cache.pages.map((page) => ({
+      ...page,
+      conversations:
+        page.conversations.filter(
+          (conversation) =>
+            conversation.id !== conversationId
+        ),
+    })),
+  };
+}

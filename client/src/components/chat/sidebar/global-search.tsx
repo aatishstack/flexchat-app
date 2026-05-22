@@ -84,6 +84,7 @@ export default function GlobalSearch() {
     useMemo(() => {
       return conversations.filter(
         (conversation) =>
+          !conversation.archivedAt &&
           conversation.name
             ?.toLowerCase()
             .includes(

@@ -6,7 +6,12 @@ import { Conversation } from "@/types/conversation";
 
 type ConversationPatch = Pick<
   Conversation,
-  "latestMessage" | "unreadCount"
+  | "latestMessage"
+  | "unreadCount"
+  | "archivedAt"
+  | "localThemeId"
+  | "sharedThemeId"
+  | "themeUpdatedAt"
 >;
 
 interface ConversationState {

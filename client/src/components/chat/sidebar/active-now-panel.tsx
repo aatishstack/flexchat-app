@@ -6,22 +6,46 @@ import {
   motion,
   useReducedMotion,
 } from "framer-motion";
+import {
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 
+import { useConversationsQuery } from "@/hooks/queries/use-conversations-query";
 import { useUsersByIdsQuery } from "@/hooks/queries/use-users-query";
+import {
+  upsertConversationInQueryCache,
+} from "@/lib/conversation-query-cache";
+import type {
+  ConversationQueryCache,
+} from "@/lib/conversation-query-cache";
+import { queryKeys } from "@/lib/query-keys";
 import FlexAvatar from "@/components/chat/flex-avatar";
 import { formatDisplayName } from "@/lib/user-display";
+import { createDirectConversation } from "@/services/conversation.service";
 import { useSocketStore } from "@/store/socket-store";
+import { useToastStore } from "@/store/toast-store";
 import { useAuthStore } from "@/stores/auth.store";
+import { useConversationStore } from "@/stores/conversation.store";
+import type { Conversation } from "@/types/conversation";
 
 type ActiveNowPanelProps = {
   variant?: "rail" | "sheet";
+  onConversationOpen?: () => void;
 };
 
 export default function ActiveNowPanel({
   variant = "rail",
+  onConversationOpen,
 }: ActiveNowPanelProps) {
   const reducedMotion =
     useReducedMotion();
+  const queryClient =
+    useQueryClient();
+  const pushToast =
+    useToastStore(
+      (state) => state.pushToast
+    );
   const currentUserId =
     useAuthStore(
       (state) => state.user?.id
@@ -49,6 +73,83 @@ export default function ActiveNowPanel({
     );
   const users =
     onlineUsersQuery.data ?? [];
+  const conversationsQuery =
+    useConversationsQuery();
+  const setActiveConversation =
+    useConversationStore(
+      (state) =>
+        state.setActiveConversation
+    );
+
+  const directConversationByUserId =
+    useMemo(() => {
+      const map =
+        new Map<string, Conversation>();
+
+      conversationsQuery.data?.forEach(
+        (conversation) => {
+          if (
+            conversation.type !== "direct"
+          ) {
+            return;
+          }
+
+          conversation.memberIds?.forEach(
+            (memberId) => {
+              if (
+                memberId !==
+                currentUserId
+              ) {
+                map.set(
+                  memberId,
+                  conversation
+                );
+              }
+            }
+          );
+        }
+      );
+
+      return map;
+    }, [
+      conversationsQuery.data,
+      currentUserId,
+    ]);
+
+  const startConversation =
+    useMutation({
+      mutationFn:
+        createDirectConversation,
+      onSuccess: (conversation) => {
+        queryClient.setQueryData<ConversationQueryCache>(
+          queryKeys.conversations.all,
+          (cache) =>
+            upsertConversationInQueryCache(
+              cache,
+              conversation
+            )
+        );
+
+        setActiveConversation(
+          conversation
+        );
+        onConversationOpen?.();
+
+        void queryClient.invalidateQueries({
+          queryKey:
+            queryKeys.conversations.all,
+        });
+      },
+      onError: () => {
+        pushToast({
+          title:
+            "Conversation unavailable",
+          message:
+            "Please try opening that chat again.",
+          variant: "error",
+        });
+      },
+    });
 
   return (
     <aside
@@ -107,9 +208,20 @@ export default function ActiveNowPanel({
           </div>
         ) : null}
 
-        {users.map((user) => (
-          <motion.div
+        {users.map((user) => {
+          const existingConversation =
+            directConversationByUserId.get(
+              user.id
+            );
+          const isPending =
+            startConversation.variables ===
+              user.id &&
+            startConversation.isPending;
+
+          return (
+          <motion.button
             key={user.id}
+            type="button"
             initial={
               reducedMotion
                 ? false
@@ -122,7 +234,21 @@ export default function ActiveNowPanel({
               opacity: 1,
               x: 0,
             }}
-            className="flex items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.045] p-4 shadow-lg shadow-black/10"
+            onClick={() => {
+              if (existingConversation) {
+                setActiveConversation(
+                  existingConversation
+                );
+                onConversationOpen?.();
+                return;
+              }
+
+              startConversation.mutate(
+                user.id
+              );
+            }}
+            disabled={isPending}
+            className="flex w-full items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.045] p-4 text-left shadow-lg shadow-black/10 transition hover:border-purple-300/25 hover:bg-purple-500/[0.08] disabled:cursor-wait disabled:opacity-70"
           >
             <div className="relative">
               <FlexAvatar
@@ -142,11 +268,14 @@ export default function ActiveNowPanel({
               </h3>
 
               <p className="text-sm text-zinc-500">
-                Online
+                {isPending
+                  ? "Opening..."
+                  : "Online"}
               </p>
             </div>
-          </motion.div>
-        ))}
+          </motion.button>
+          );
+        })}
       </div>
     </aside>
   );

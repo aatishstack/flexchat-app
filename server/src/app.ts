@@ -18,9 +18,69 @@ import { notificationRoutes } from "./routes/notification.route.js";
 import { storyRoutes } from "./routes/story.route.js";
 import { uploadRoutes } from "./routes/upload.route.js";
 import { userRoutes } from "./routes/user.route.js";
+import { getSocketServer } from "./socket/socket-hub.js";
+import { SOCKET_EVENTS } from "./socket/socket-events.js";
+
+function getUploadedFilenameFromUrl(url?: string | null) {
+  if (!url) {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    const publicApiUrl = new URL(env.PUBLIC_API_URL);
+
+    if (
+      parsedUrl.origin !== publicApiUrl.origin ||
+      !parsedUrl.pathname.startsWith("/uploads/")
+    ) {
+      return null;
+    }
+
+    const filename = path.basename(parsedUrl.pathname);
+
+    return filename && filename !== "uploads" ? filename : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getReferencedUploadFilenames() {
+  const rows = await db.execute<{
+    url: string | null;
+  }>(sql`
+    select avatar as url
+    from users
+    where avatar is not null
+      and is_deleted = false
+    union
+    select attachment as url
+    from messages
+    where attachment is not null
+      and deleted_at is null
+    union
+    select audio as url
+    from messages
+    where audio is not null
+      and deleted_at is null
+    union
+    select media_url as url
+    from stories
+    where media_url is not null
+      and deleted_at is null
+      and expires_at > now()
+  `);
+
+  return new Set(
+    rows
+      .map((row) => getUploadedFilenameFromUrl(row.url))
+      .filter((filename): filename is string => Boolean(filename)),
+  );
+}
 
 async function cleanupExpiredUploads(uploadsDir: string) {
   const cutoff = Date.now() - env.UPLOAD_RETENTION_HOURS * 60 * 60 * 1000;
+  const referencedUploads = await getReferencedUploadFilenames();
 
   const entries = await fs.promises.readdir(uploadsDir, {
     withFileTypes: true,
@@ -28,6 +88,10 @@ async function cleanupExpiredUploads(uploadsDir: string) {
 
   for (const entry of entries) {
     if (!entry.isFile()) {
+      continue;
+    }
+
+    if (referencedUploads.has(entry.name)) {
       continue;
     }
 
@@ -43,8 +107,166 @@ async function cleanupExpiredUploads(uploadsDir: string) {
   }
 }
 
+async function removeUploadedAsset(uploadsDir: string, url?: string | null) {
+  if (!url) {
+    return;
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    const publicApiUrl = new URL(env.PUBLIC_API_URL);
+
+    if (parsedUrl.origin !== publicApiUrl.origin) {
+      return;
+    }
+
+    if (!parsedUrl.pathname.startsWith("/uploads/")) {
+      return;
+    }
+
+    const filename = path.basename(parsedUrl.pathname);
+
+    if (!filename || filename === "uploads") {
+      return;
+    }
+
+    const filepath = path.resolve(uploadsDir, filename);
+
+    if (!filepath.startsWith(`${path.resolve(uploadsDir)}${path.sep}`)) {
+      return;
+    }
+
+    await fs.promises.unlink(filepath).catch(() => undefined);
+  } catch {
+    return;
+  }
+}
+
+async function ensureCriticalSchema() {
+  await db.execute(sql`
+    alter table users
+      add column if not exists is_deleted boolean default false not null
+  `);
+
+  await db.execute(sql`
+    alter table users
+      add column if not exists deleted_at timestamp
+  `);
+
+  await db.execute(sql`
+    alter table users
+      add column if not exists last_seen_at timestamp
+  `);
+
+  await db.execute(sql`
+    alter table conversations
+      add column if not exists shared_theme_id text
+  `);
+
+  await db.execute(sql`
+    alter table conversations
+      add column if not exists theme_updated_by text
+  `);
+
+  await db.execute(sql`
+    alter table conversations
+      add column if not exists theme_updated_at timestamp
+  `);
+
+  await db.execute(sql`
+    alter table messages
+      add column if not exists reply_to_message_id text
+  `);
+
+  await db.execute(sql`
+    alter table messages
+      add column if not exists reply_to_text text
+  `);
+
+  await db.execute(sql`
+    create index if not exists messages_reply_source_idx
+      on messages (reply_to_message_id)
+  `);
+
+  await db.execute(sql`
+    create table if not exists conversation_user_settings (
+      id text primary key not null,
+      conversation_id text not null,
+      user_id text not null,
+      archived_at timestamp,
+      hidden_at timestamp,
+      local_theme_id text,
+      updated_at timestamp default now() not null
+    )
+  `);
+
+  await db.execute(sql`
+    create unique index if not exists conversation_user_settings_conversation_user_idx
+      on conversation_user_settings (conversation_id, user_id)
+  `);
+
+  await db.execute(sql`
+    create index if not exists conversation_user_settings_user_archived_idx
+      on conversation_user_settings (user_id, archived_at)
+  `);
+
+  await db.execute(sql`
+    create table if not exists discover_dismissals (
+      id text primary key not null,
+      user_id text not null,
+      dismissed_user_id text not null,
+      created_at timestamp default now() not null
+    )
+  `);
+
+  await db.execute(sql`
+    create unique index if not exists discover_dismissals_user_dismissed_idx
+      on discover_dismissals (user_id, dismissed_user_id)
+  `);
+
+  await db.execute(sql`
+    create index if not exists discover_dismissals_user_created_at_idx
+      on discover_dismissals (user_id, created_at)
+  `);
+}
+
+async function cleanupExpiredStories(uploadsDir: string) {
+  const expiredStories = await db.execute<{
+    id: string;
+    mediaUrl: string;
+  }>(sql`
+    update stories
+    set deleted_at = now()
+    where deleted_at is null
+      and expires_at <= now()
+    returning
+      id,
+      media_url as "mediaUrl"
+  `);
+
+  if (!expiredStories.length) {
+    return;
+  }
+
+  const deletedAt = new Date().toISOString();
+  const io = getSocketServer();
+
+  expiredStories.forEach((story) => {
+    io?.emit(SOCKET_EVENTS.STORY_DELETED, {
+      storyId: story.id,
+      deletedAt,
+    });
+  });
+
+  await Promise.all(
+    expiredStories.map((story) => removeUploadedAsset(uploadsDir, story.mediaUrl)),
+  );
+}
+
 export async function buildApp() {
-  const uploadsDir = path.join(process.cwd(), "uploads");
+  const uploadsDir = path.resolve(process.cwd(), "uploads");
+
+  await ensureCriticalSchema();
 
   await fs.promises.mkdir(uploadsDir, {
     recursive: true,
@@ -89,7 +311,7 @@ export async function buildApp() {
 
     reply.header(
       "Permissions-Policy",
-      "camera=(), microphone=(), geolocation=()",
+      "camera=(self), microphone=(self), geolocation=()",
     );
 
     if (env.NODE_ENV === "production") {
@@ -118,11 +340,26 @@ export async function buildApp() {
     },
     env.UPLOAD_CLEANUP_INTERVAL_MINUTES * 60 * 1000,
   );
+  const storyCleanupTimer = setInterval(
+    () => {
+      void cleanupExpiredStories(uploadsDir).catch((error) => {
+        app.log.warn(
+          {
+            err: error,
+          },
+          "Story cleanup failed",
+        );
+      });
+    },
+    env.UPLOAD_CLEANUP_INTERVAL_MINUTES * 60 * 1000,
+  );
 
   uploadCleanupTimer.unref?.();
+  storyCleanupTimer.unref?.();
 
   app.addHook("onClose", async () => {
     clearInterval(uploadCleanupTimer);
+    clearInterval(storyCleanupTimer);
   });
 
   void cleanupExpiredUploads(uploadsDir).catch((error) => {
@@ -131,6 +368,14 @@ export async function buildApp() {
         err: error,
       },
       "Initial upload cleanup failed",
+    );
+  });
+  void cleanupExpiredStories(uploadsDir).catch((error) => {
+    app.log.warn(
+      {
+        err: error,
+      },
+      "Initial story cleanup failed",
     );
   });
 

@@ -1,7 +1,6 @@
 import { FastifyInstance } from "fastify";
 import fs from "fs/promises";
 import path from "path";
-import crypto from "crypto";
 
 import bcrypt from "bcrypt";
 
@@ -14,6 +13,7 @@ import { users } from "../db/schema/users.js";
 
 import { env } from "../config/env.js";
 import { clearConversationAccessCacheForUser } from "../lib/conversation-access.js";
+import { generateId } from "../lib/uuid.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { getSocketServer } from "../socket/socket-hub.js";
 import { SOCKET_EVENTS } from "../socket/socket-events.js";
@@ -25,6 +25,10 @@ const discoverUsersQuerySchema = z.object({
 
 const lookupUsersQuerySchema = z.object({
   ids: z.string().trim().max(4096).optional(),
+});
+
+const discoverDismissParamsSchema = z.object({
+  userId: z.string().trim().min(1).max(128),
 });
 
 const updateMeBodySchema = z.object({
@@ -47,6 +51,7 @@ function publicUser(user: {
   username: string;
   email?: string;
   avatar?: string | null;
+  lastSeenAt?: Date | string | null;
 }) {
   return {
     id: user.id,
@@ -57,6 +62,10 @@ function publicUser(user: {
         }
       : {}),
     avatar: user.avatar ?? null,
+    lastSeenAt:
+      user.lastSeenAt instanceof Date
+        ? user.lastSeenAt.toISOString()
+        : (user.lastSeenAt ?? null),
   };
 }
 
@@ -235,7 +244,13 @@ export async function userRoutes(app: FastifyInstance) {
         });
       }
 
-      return publicUser(user);
+      const serializedUser = publicUser(user);
+
+      getSocketServer()?.emit(SOCKET_EVENTS.USER_UPDATED, {
+        user: serializedUser,
+      });
+
+      return serializedUser;
     },
   );
 
@@ -262,8 +277,9 @@ export async function userRoutes(app: FastifyInstance) {
       }
 
       const deletedAt = new Date();
+      const deletedAtIso = deletedAt.toISOString();
       const disabledPassword = await bcrypt.hash(
-        `deleted:${userId}:${crypto.randomUUID()}`,
+        `deleted:${userId}:${generateId()}`,
         10,
       );
 
@@ -302,7 +318,7 @@ export async function userRoutes(app: FastifyInstance) {
 
         await tx.execute(sql`
             update stories
-            set deleted_at = ${deletedAt}
+            set deleted_at = ${deletedAtIso}
             where user_id = ${userId}
               and deleted_at is null
           `);
@@ -320,7 +336,7 @@ export async function userRoutes(app: FastifyInstance) {
               password = ${disabledPassword},
               avatar = null,
               is_deleted = true,
-              deleted_at = ${deletedAt}
+              deleted_at = ${deletedAtIso}
             where id = ${userId}
               and is_deleted = false
           `);
@@ -344,7 +360,7 @@ export async function userRoutes(app: FastifyInstance) {
       if (io) {
         const payload = {
           userId,
-          deletedAt: deletedAt.toISOString(),
+          deletedAt: deletedAtIso,
         };
 
         io.emit(SOCKET_EVENTS.ACCOUNT_DELETED, payload);
@@ -404,17 +420,33 @@ export async function userRoutes(app: FastifyInstance) {
         id: string;
         username: string;
         avatar: string | null;
+        lastSeenAt: Date | string | null;
       }>(sql`
           select
             id,
             username,
-            avatar
+            avatar,
+            last_seen_at as "lastSeenAt"
           from users
           where id <> ${userId}
             and is_deleted = false
+            and not exists (
+              select 1
+              from discover_dismissals dd
+              where dd.user_id = ${userId}
+                and dd.dismissed_user_id = users.id
+            )
             and id not like 'phase3b-%'
+            and id not ilike 'demo-%'
+            and id not ilike 'dummy-%'
+            and id not ilike 'fake-%'
             and username not ilike 'phase3b_%'
+            and username not ilike 'demo_%'
+            and username not ilike 'dummy_%'
+            and username not ilike 'fake_%'
             and email not ilike '%@flexchat.local'
+            and email not ilike '%@example.com'
+            and email not ilike '%@test.com'
           ${searchFilter}
           order by
             username asc,
@@ -423,6 +455,74 @@ export async function userRoutes(app: FastifyInstance) {
         `);
 
       return discoveredUsers.map(publicUser);
+    },
+  );
+
+  app.delete(
+    "/users/discover/:userId",
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const currentUserId = request.user?.id;
+
+      if (!currentUserId) {
+        return reply.status(401).send({
+          message: "Unauthorized",
+        });
+      }
+
+      const parsedParams = discoverDismissParamsSchema.safeParse(
+        request.params,
+      );
+
+      if (!parsedParams.success || parsedParams.data.userId === currentUserId) {
+        return reply.status(400).send({
+          message: "Invalid discover removal request",
+        });
+      }
+
+      const targetUsers = await db.execute<{
+        id: string;
+      }>(sql`
+        select id
+        from users
+        where id = ${parsedParams.data.userId}
+          and is_deleted = false
+        limit 1
+      `);
+
+      if (!targetUsers.length) {
+        return reply.status(404).send({
+          message: "User unavailable",
+        });
+      }
+
+      await db.execute(sql`
+        insert into discover_dismissals (
+          id,
+          user_id,
+          dismissed_user_id
+        )
+        values (
+          ${generateId()},
+          ${currentUserId},
+          ${parsedParams.data.userId}
+        )
+        on conflict (user_id, dismissed_user_id)
+        do nothing
+      `);
+
+      getSocketServer()?.to(`user:${currentUserId}`).emit(
+        SOCKET_EVENTS.DISCOVER_USER_DISMISSED,
+        {
+          userId: parsedParams.data.userId,
+        },
+      );
+
+      return {
+        ok: true,
+      };
     },
   );
 
@@ -466,6 +566,7 @@ export async function userRoutes(app: FastifyInstance) {
           id: users.id,
           username: users.username,
           avatar: users.avatar,
+          lastSeenAt: users.lastSeenAt,
         })
         .from(users)
         .where(and(inArray(users.id, ids), eq(users.isDeleted, false)));

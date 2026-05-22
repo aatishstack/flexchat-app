@@ -15,3 +15,10 @@ export interface Story {
     avatar?: string | null;
   };
 }
+
+export interface StoryViewer {
+  id: string;
+  username: string;
+  avatar?: string | null;
+  viewedAt: string;
+}

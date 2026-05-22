@@ -13,6 +13,7 @@ export interface PresenceAdapter {
     activeSocketIds: Set<string>
   ) => string[];
   getOnlineUserIds: () => string[];
+  getLastSeenByUserId: (userId: string) => number | null;
 }
 
 type SocketPresence = {
@@ -32,6 +33,11 @@ class InMemoryPresenceAdapter
   private readonly socketUsers = new Map<
     string,
     SocketPresence
+  >();
+
+  private readonly lastSeenByUser = new Map<
+    string,
+    number
   >();
 
   addSocket(
@@ -79,6 +85,7 @@ class InMemoryPresenceAdapter
 
     if (!sockets?.size) {
       this.onlineUsers.delete(userId);
+      this.lastSeenByUser.set(userId, Date.now());
     }
 
     this.socketUsers.delete(socketId);
@@ -112,6 +119,10 @@ class InMemoryPresenceAdapter
 
   getOnlineUserIds() {
     return Array.from(this.onlineUsers.keys());
+  }
+
+  getLastSeenByUserId(userId: string) {
+    return this.lastSeenByUser.get(userId) ?? null;
   }
 }
 
@@ -147,4 +158,8 @@ export function removeMissingOnlineSockets(
 
 export function getOnlineUserIds() {
   return presenceAdapter.getOnlineUserIds();
+}
+
+export function getLastSeenByUserId(userId: string) {
+  return presenceAdapter.getLastSeenByUserId(userId);
 }

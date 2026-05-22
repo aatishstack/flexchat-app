@@ -48,6 +48,11 @@ export const users =
           "deleted_at"
         ),
 
+      lastSeenAt:
+        timestamp(
+          "last_seen_at"
+        ),
+
       createdAt:
         timestamp(
           "created_at"

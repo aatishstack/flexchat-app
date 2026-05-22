@@ -18,12 +18,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import axios from "axios";
-import {
-  FirebaseError,
-} from "firebase/app";
-import {
-  signInWithPopup,
-} from "firebase/auth";
+import { FirebaseError } from "firebase/app";
+import { signInWithPopup } from "firebase/auth";
 
 import { useSocketStore } from "@/store/socket-store";
 import { useToastStore } from "@/store/toast-store";
@@ -32,10 +28,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 import { useAuthStore } from "@/stores/auth.store";
 
-import {
-  getFirebaseAuth,
-  getGoogleProvider,
-} from "@/lib/firebase";
+import { getFirebaseAuth, getGoogleProvider } from "@/lib/firebase";
 import { tokenStorage } from "@/lib/token";
 
 import {
@@ -122,7 +115,7 @@ export default function AuthPage() {
 
       connectSocket(response.token);
 
-      router.push("/chat");
+      router.replace("/chat");
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         setError(error.response?.data?.message || "Authentication failed");
@@ -134,87 +127,10 @@ export default function AuthPage() {
     }
   }
 
-  async function handleGoogleSignIn() {
-    if (loading || googleLoading) {
-      return;
-    }
-
-    try {
-      setGoogleLoading(true);
-      setError("");
-
-      const firebaseResult =
-        await signInWithPopup(
-          getFirebaseAuth(),
-          getGoogleProvider()
-        );
-      const idToken =
-        await firebaseResult.user.getIdToken();
-      const response =
-        await loginWithFirebaseIdToken(
-          idToken
-        );
-
-      tokenStorage.set(response.token);
-
-      setAuth({
-        user: response.user,
-        token: response.token,
-      });
-
-      connectSocket(response.token);
-
-      pushToast({
-        title: "Welcome to FlexChat",
-        message:
-          "Google sign-in connected securely.",
-        variant: "success",
-      });
-
-      router.push("/chat");
-    } catch (error: unknown) {
-      if (
-        error instanceof FirebaseError &&
-        (
-          error.code ===
-            "auth/popup-closed-by-user" ||
-          error.code ===
-            "auth/cancelled-popup-request"
-        )
-      ) {
-        pushToast({
-          title: "Google sign-in canceled",
-          message:
-            "You can continue whenever you're ready.",
-          variant: "info",
-        });
-        return;
-      }
-
-      const message =
-        axios.isAxiosError(error)
-          ? error.response?.data?.message
-          : error instanceof FirebaseError
-            ? error.message
-            : null;
-
-      pushToast({
-        title: "Google sign-in failed",
-        message:
-          message ??
-          "Please try again in a moment.",
-        variant: "error",
-      });
-    } finally {
-      setGoogleLoading(false);
-    }
-  }
-
   const canSubmit = Boolean(
     email.trim() &&
-      password.trim() &&
-      (isLogin ||
-        (username.trim() && acceptedTerms))
+    password.trim() &&
+    (isLogin || (username.trim() && acceptedTerms)),
   );
 
   const featureItems = [
@@ -487,9 +403,7 @@ export default function AuthPage() {
                   <div className="flex items-start gap-3">
                     <button
                       type="button"
-                      onClick={() =>
-                        setAcceptedTerms((value) => !value)
-                      }
+                      onClick={() => setAcceptedTerms((value) => !value)}
                       className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${
                         acceptedTerms
                           ? "border-purple-400 bg-purple-600 text-white"
@@ -512,48 +426,101 @@ export default function AuthPage() {
                 <PremiumButton
                   type="submit"
                   loading={loading}
-                  disabled={
-                    loading ||
-                    googleLoading ||
-                    !canSubmit
-                  }
+                  disabled={loading || googleLoading || !canSubmit}
                 >
                   {isLogin ? "Sign In" : "Create Account"}
                 </PremiumButton>
 
                 <div className="relative flex items-center py-1">
                   <div className="h-px flex-1 bg-white/10" />
-                  <span className="px-3 text-xs text-zinc-500">
-                    or
-                  </span>
+                  <span className="px-3 text-xs text-zinc-500">or</span>
                   <div className="h-px flex-1 bg-white/10" />
                 </div>
 
                 <motion.button
                   type="button"
                   whileHover={{
-                    scale:
-                      loading || googleLoading
-                        ? 1
-                        : 1.01,
+                    scale: loading || googleLoading ? 1 : 1.01,
                   }}
                   whileTap={{
-                    scale:
-                      loading || googleLoading
-                        ? 1
-                        : 0.98,
+                    scale: loading || googleLoading ? 1 : 0.98,
                   }}
                   onClick={() => {
                     void handleGoogleSignIn();
+                    async function handleGoogleSignIn() {
+                      if (loading || googleLoading) {
+                        return;
+                      }
+
+                      try {
+                        setGoogleLoading(true);
+
+                        setError("");
+
+                        const firebaseResult = await signInWithPopup(
+                          getFirebaseAuth(),
+                          getGoogleProvider(),
+                        );
+
+                        const idToken = await firebaseResult.user.getIdToken();
+
+                        const response =
+                          await loginWithFirebaseIdToken(idToken);
+
+                        tokenStorage.set(response.token);
+
+                        setAuth({
+                          user: response.user,
+                          token: response.token,
+                        });
+
+                        connectSocket(response.token);
+
+                        pushToast({
+                          title: "Welcome to FlexChat",
+                          message: "Google sign-in connected securely.",
+                          variant: "success",
+                        });
+
+                        router.replace("/chat");
+                      } catch (error: unknown) {
+                        console.error(error);
+
+                        if (
+                          error instanceof FirebaseError &&
+                          (error.code === "auth/popup-closed-by-user" ||
+                            error.code === "auth/cancelled-popup-request")
+                        ) {
+                          pushToast({
+                            title: "Google sign-in canceled",
+                            message: "You can continue whenever you're ready.",
+                            variant: "info",
+                          });
+
+                          return;
+                        }
+
+                        const message = axios.isAxiosError(error)
+                          ? error.response?.data?.message
+                          : error instanceof FirebaseError
+                            ? error.message
+                            : "Please try again in a moment.";
+
+                        pushToast({
+                          title: "Google sign-in failed",
+                          message,
+                          variant: "error",
+                        });
+                      } finally {
+                        setGoogleLoading(false);
+                      }
+                    }
                   }}
                   disabled={loading || googleLoading}
                   className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.055] text-sm font-semibold text-white shadow-[0_16px_50px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:border-purple-300/30 hover:bg-purple-500/[0.10] disabled:cursor-wait disabled:opacity-70"
                 >
                   {googleLoading ? (
-                    <Loader2
-                      size={19}
-                      className="motion-safe:animate-spin"
-                    />
+                    <Loader2 size={19} className="motion-safe:animate-spin" />
                   ) : (
                     <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-base font-bold text-[#171923]">
                       G

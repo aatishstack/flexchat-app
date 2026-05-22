@@ -6,22 +6,32 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
 import {
+  Archive,
   AlertTriangle,
+  BellOff,
   LogOut,
+  MailPlus,
   MessageCircle,
   Pin,
   Search,
   Settings,
+  Trash2,
   UserRound,
+  X,
 } from "lucide-react";
 import {
   AnimatePresence,
   motion,
 } from "framer-motion";
+import { useQueryClient } from "@tanstack/react-query";
+import type {
+  PointerEvent as ReactPointerEvent,
+} from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -30,9 +40,22 @@ import StoryTray from "@/components/chat/stories/story-tray";
 import FlexAvatar from "@/components/chat/flex-avatar";
 import { clearClientSession } from "@/lib/session-cleanup";
 import {
+  deleteConversation,
+  setConversationArchived,
+} from "@/services/conversation.service";
+import {
+  removeConversationFromQueryCache,
+  updateConversationInQueryCache,
+} from "@/lib/conversation-query-cache";
+import type {
+  ConversationQueryCache,
+} from "@/lib/conversation-query-cache";
+import { queryKeys } from "@/lib/query-keys";
+import {
   formatDisplayName,
 } from "@/lib/user-display";
 import { useSocketStore } from "@/store/socket-store";
+import { useToastStore } from "@/store/toast-store";
 import { useAuthStore } from "@/stores/auth.store";
 import { useConversationStore } from "@/stores/conversation.store";
 import { Conversation } from "@/types/conversation";
@@ -78,7 +101,7 @@ function formatConversationTime(
     Math.abs(diffSeconds);
 
   if (absoluteSeconds < 60) {
-    return "now";
+    return "Now";
   }
 
   const units = [
@@ -149,7 +172,11 @@ type ConversationListButtonProps = {
   active: boolean;
   isOnline: boolean;
   currentUserId?: string;
+  muted: boolean;
   onSelect: (
+    conversation: Conversation
+  ) => void;
+  onContextOpen: (
     conversation: Conversation
   ) => void;
 };
@@ -160,20 +187,87 @@ const ConversationListButton = memo(
     active,
     isOnline,
     currentUserId,
+    muted,
     onSelect,
+    onContextOpen,
   }: ConversationListButtonProps) {
+    const longPressTimerRef =
+      useRef<ReturnType<typeof setTimeout> | null>(
+        null
+      );
+    const longPressTriggeredRef =
+      useRef(false);
     const avatar =
       getConversationAvatar(
         conversation,
         currentUserId
       );
 
+    const clearLongPressTimer =
+      useCallback(() => {
+        if (!longPressTimerRef.current) {
+          return;
+        }
+
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }, []);
+
+    const handlePointerDown =
+      useCallback(
+        (
+          event: ReactPointerEvent<HTMLButtonElement>
+        ) => {
+          if (
+            event.pointerType === "mouse" &&
+            event.button !== 0
+          ) {
+            return;
+          }
+
+          longPressTriggeredRef.current = false;
+          clearLongPressTimer();
+
+          longPressTimerRef.current =
+            setTimeout(() => {
+              longPressTriggeredRef.current = true;
+              onContextOpen(conversation);
+            }, 430);
+        },
+        [
+          clearLongPressTimer,
+          conversation,
+          onContextOpen,
+        ]
+      );
+
+    useEffect(
+      () => () => {
+        clearLongPressTimer();
+      },
+      [clearLongPressTimer]
+    );
+
     return (
       <motion.button
         type="button"
-        onClick={() =>
-          onSelect(conversation)
-        }
+        onClick={() => {
+          if (longPressTriggeredRef.current) {
+            longPressTriggeredRef.current = false;
+            return;
+          }
+
+          onSelect(conversation);
+        }}
+        onPointerDown={handlePointerDown}
+        onPointerUp={clearLongPressTimer}
+        onPointerCancel={clearLongPressTimer}
+        onPointerLeave={clearLongPressTimer}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          clearLongPressTimer();
+          onContextOpen(conversation);
+        }}
         whileHover={{
           y: -1,
           scale: 1.01,
@@ -215,6 +309,13 @@ const ConversationListButton = memo(
                   className="shrink-0 text-purple-300"
                 />
               ) : null}
+
+              {muted ? (
+                <BellOff
+                  size={13}
+                  className="shrink-0 text-zinc-500"
+                />
+              ) : null}
             </div>
 
             <span className="text-xs text-zinc-500">
@@ -252,11 +353,41 @@ export default function ChatSidebar() {
     logoutConfirmOpen,
     setLogoutConfirmOpen,
   ] = useState(false);
+  const [
+    actionConversation,
+    setActionConversation,
+  ] = useState<Conversation | null>(null);
+  const [
+    archivePendingConversationId,
+    setArchivePendingConversationId,
+  ] = useState<string | null>(null);
+  const [
+    deletePendingConversationId,
+    setDeletePendingConversationId,
+  ] = useState<string | null>(null);
+  const [
+    hiddenConversationIds,
+    setHiddenConversationIds,
+  ] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [
+    mutedConversationIds,
+    setMutedConversationIds,
+  ] = useState<Set<string>>(
+    () => new Set()
+  );
   const deferredSearch =
     useDeferredValue(search);
 
   const conversationsQuery =
     useConversationsQuery();
+  const queryClient =
+    useQueryClient();
+  const pushToast =
+    useToastStore(
+      (state) => state.pushToast
+    );
   const conversationPatches =
     useConversationStore(
       (state) => state.conversationPatches
@@ -279,10 +410,16 @@ export default function ChatSidebar() {
     (state) => state.user?.id
   );
 
-  const conversations = useMemo(
+  const patchedConversations = useMemo(
     () =>
-      (conversationsQuery.data ?? []).map(
-        (conversation) => {
+      (conversationsQuery.data ?? [])
+        .filter(
+          (conversation) =>
+            !hiddenConversationIds.has(
+              conversation.id
+            )
+        )
+        .map((conversation) => {
           const patch =
             conversationPatches[
               conversation.id
@@ -294,11 +431,24 @@ export default function ChatSidebar() {
                 ...patch,
               }
             : conversation;
-        }
-      ),
+        }),
     [
       conversationsQuery.data,
       conversationPatches,
+      hiddenConversationIds,
+    ]
+  );
+
+  const conversations = useMemo(
+    () =>
+      patchedConversations.filter((conversation) =>
+        activeFolder === "archive"
+          ? !!conversation.archivedAt
+          : !conversation.archivedAt
+      ),
+    [
+      activeFolder,
+      patchedConversations,
     ]
   );
 
@@ -320,6 +470,10 @@ export default function ChatSidebar() {
 
         if (activeFolder === "unread") {
           return !!conversation.unreadCount;
+        }
+
+        if (activeFolder === "archive") {
+          return true;
         }
 
         return (
@@ -359,9 +513,218 @@ export default function ChatSidebar() {
     useCallback(
       (conversation: Conversation) => {
         setActiveConversation(conversation);
+        window.dispatchEvent(
+          new CustomEvent(
+            "flexchat:conversation-selected"
+          )
+        );
       },
       [setActiveConversation]
     );
+
+  const closeConversationActions =
+    useCallback(() => {
+      setActionConversation(null);
+    }, []);
+
+  const handleArchiveConversation =
+    useCallback(async () => {
+      if (!actionConversation) {
+        return;
+      }
+
+      const nextArchived =
+        !actionConversation.archivedAt;
+
+      setArchivePendingConversationId(
+        actionConversation.id
+      );
+
+      try {
+        const conversation =
+          await setConversationArchived(
+            actionConversation.id,
+            nextArchived
+          );
+
+        queryClient.setQueryData<ConversationQueryCache>(
+          queryKeys.conversations.all,
+          (cache) =>
+            updateConversationInQueryCache(
+              cache,
+              conversation.id,
+              () => conversation
+            )
+        );
+
+        useConversationStore.setState(
+          (state) => ({
+            activeConversationId:
+              nextArchived &&
+              state.activeConversationId ===
+                actionConversation.id
+                ? null
+                : state.activeConversationId,
+            conversationPatches: {
+              ...state.conversationPatches,
+              [conversation.id]: {
+                ...state.conversationPatches[
+                  conversation.id
+                ],
+                archivedAt:
+                  conversation.archivedAt ??
+                  null,
+              },
+            },
+          })
+        );
+
+        closeConversationActions();
+      } finally {
+        setArchivePendingConversationId(null);
+      }
+    }, [
+      actionConversation,
+      closeConversationActions,
+      queryClient,
+    ]);
+
+  const handleDeleteConversation =
+    useCallback(async () => {
+      if (!actionConversation) {
+        return;
+      }
+
+      const conversationId =
+        actionConversation.id;
+
+      setDeletePendingConversationId(
+        conversationId
+      );
+
+      setHiddenConversationIds(
+        (current) =>
+          new Set(current).add(
+            conversationId
+          )
+      );
+
+      if (
+        activeConversationId ===
+        conversationId
+      ) {
+        useConversationStore.setState({
+          activeConversationId: null,
+        });
+      }
+
+      queryClient.setQueryData<ConversationQueryCache>(
+        queryKeys.conversations.all,
+        (cache) =>
+          removeConversationFromQueryCache(
+            cache,
+            conversationId
+          )
+      );
+
+      try {
+        await deleteConversation(
+          conversationId
+        );
+
+        useConversationStore.setState(
+          (state) => {
+            const conversationPatches = {
+              ...state.conversationPatches,
+            };
+
+            delete conversationPatches[
+              conversationId
+            ];
+
+            return {
+              conversationPatches,
+            };
+          }
+        );
+
+        closeConversationActions();
+        void queryClient.invalidateQueries({
+          queryKey:
+            queryKeys.conversations.all,
+        });
+      } catch {
+        setHiddenConversationIds((current) => {
+          const next = new Set(current);
+
+          next.delete(conversationId);
+
+          return next;
+        });
+        pushToast({
+          title: "Could not delete chat",
+          message:
+            "Please try again in a moment.",
+          variant: "error",
+        });
+      } finally {
+        setDeletePendingConversationId(null);
+      }
+    }, [
+      actionConversation,
+      activeConversationId,
+      closeConversationActions,
+      pushToast,
+      queryClient,
+    ]);
+
+  const handleToggleMute =
+    useCallback(() => {
+      if (!actionConversation) {
+        return;
+      }
+
+      setMutedConversationIds((current) => {
+        const next = new Set(current);
+
+        if (next.has(actionConversation.id)) {
+          next.delete(actionConversation.id);
+        } else {
+          next.add(actionConversation.id);
+        }
+
+        return next;
+      });
+      closeConversationActions();
+    }, [
+      actionConversation,
+      closeConversationActions,
+    ]);
+
+  const handleMarkUnread =
+    useCallback(() => {
+      if (!actionConversation) {
+        return;
+      }
+
+      useConversationStore
+        .getState()
+        .updateConversationMessage(
+          actionConversation.id,
+          actionConversation.latestMessage ??
+            "Unread conversation",
+          {
+            unreadCount: Math.max(
+              1,
+              actionConversation.unreadCount ?? 0
+            ),
+          }
+        );
+      closeConversationActions();
+    }, [
+      actionConversation,
+      closeConversationActions,
+    ]);
 
   const confirmLogout =
     useCallback(() => {
@@ -373,6 +736,13 @@ export default function ChatSidebar() {
     if (
       !conversations.length ||
       activeConversationId
+    ) {
+      return;
+    }
+
+    if (
+      typeof window !== "undefined" &&
+      !window.matchMedia("(min-width: 1024px)").matches
     ) {
       return;
     }
@@ -415,6 +785,7 @@ export default function ChatSidebar() {
             <div className="flex items-center gap-2">
               <Link
                 href="/profile"
+                replace
                 className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-300 transition-all hover:border-purple-300/30 hover:bg-purple-500/[0.12] hover:text-white"
                 aria-label="Open profile"
               >
@@ -423,6 +794,7 @@ export default function ChatSidebar() {
 
               <Link
                 href="/settings"
+                replace
                 className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-300 transition-all hover:border-purple-300/30 hover:bg-purple-500/[0.12] hover:text-white"
                 aria-label="Open settings"
               >
@@ -462,6 +834,7 @@ export default function ChatSidebar() {
             {[
               "all",
               "unread",
+              "archive",
             ].map((folder) => (
               <button
                 key={folder}
@@ -535,8 +908,14 @@ export default function ChatSidebar() {
                   active={active}
                   isOnline={isOnline}
                   currentUserId={currentUserId}
+                  muted={mutedConversationIds.has(
+                    conversation.id
+                  )}
                   onSelect={
                     handleSelectConversation
+                  }
+                  onContextOpen={
+                    setActionConversation
                   }
                 />
               );
@@ -563,6 +942,142 @@ export default function ChatSidebar() {
       </div>
 
       <AnimatePresence>
+        {actionConversation ? (
+          <motion.div
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+            }}
+            className="fixed inset-0 z-[270] flex items-end justify-center bg-black/65 p-3 backdrop-blur-xl sm:items-center"
+            onClick={
+              closeConversationActions
+            }
+          >
+            <motion.div
+              initial={{
+                opacity: 0,
+                y: 24,
+                scale: 0.96,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                scale: 1,
+              }}
+              exit={{
+                opacity: 0,
+                y: 24,
+                scale: 0.96,
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 280,
+                damping: 30,
+              }}
+              className="w-full max-w-sm overflow-hidden rounded-[30px] border border-white/10 bg-[#0B111C]/[0.97] text-white shadow-[0_28px_90px_rgba(0,0,0,0.62)]"
+              onClick={(event) =>
+                event.stopPropagation()
+              }
+            >
+              <div className="flex items-center justify-between border-b border-white/10 p-5">
+                <div className="min-w-0">
+                  <h2 className="truncate font-semibold">
+                    {formatDisplayName(
+                      actionConversation.name ??
+                        "Untitled"
+                    )}
+                  </h2>
+                  <p className="mt-1 truncate text-xs text-zinc-500">
+                    {actionConversation.latestMessage ??
+                      "No messages yet"}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    closeConversationActions
+                  }
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] transition hover:bg-white/[0.08]"
+                  aria-label="Close conversation actions"
+                >
+                  <X size={17} />
+                </button>
+              </div>
+
+              <div className="grid gap-2 p-3">
+                <button
+                  type="button"
+                  onClick={
+                    handleArchiveConversation
+                  }
+                  disabled={
+                    archivePendingConversationId ===
+                    actionConversation.id
+                  }
+                  className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-zinc-100 transition hover:bg-white/[0.07]"
+                >
+                  <Archive
+                    size={18}
+                    className="text-purple-200"
+                  />
+                  {actionConversation.archivedAt
+                    ? "Unarchive"
+                    : "Archive"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleToggleMute}
+                  className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-zinc-100 transition hover:bg-white/[0.07]"
+                >
+                  <BellOff
+                    size={18}
+                    className="text-purple-200"
+                  />
+                  {mutedConversationIds.has(
+                    actionConversation.id
+                  )
+                    ? "Unmute"
+                    : "Mute"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleMarkUnread}
+                  className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-zinc-100 transition hover:bg-white/[0.07]"
+                >
+                  <MailPlus
+                    size={18}
+                    className="text-purple-200"
+                  />
+                  Mark unread
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    handleDeleteConversation
+                  }
+                  disabled={
+                    deletePendingConversationId ===
+                    actionConversation.id
+                  }
+                  className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-red-100 transition hover:bg-red-500/15"
+                >
+                  <Trash2 size={18} />
+                  Delete chat
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+
         {logoutConfirmOpen ? (
           <motion.div
             initial={{

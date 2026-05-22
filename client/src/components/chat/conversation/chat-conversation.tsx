@@ -3,6 +3,8 @@
 import {
   Fragment,
   memo,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -11,30 +13,32 @@ import {
 } from "react";
 
 import {
+  AlertCircle,
   Bell,
   Check,
   Compass,
   FileText,
+  Forward,
   ImageIcon,
+  Mic,
+  MoreVertical,
+  Palette,
   Pencil,
   Phone,
+  Reply,
   RefreshCw,
   Search,
   SendHorizonal,
-  Share2,
   SmilePlus,
   Sparkles,
   Trash2,
+  UserRound,
   Users,
   Video,
   X,
 } from "lucide-react";
 
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-} from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -50,24 +54,29 @@ import {
   reactToMessage,
 } from "@/services/message.service";
 import {
+  applyConversationTheme,
+} from "@/services/conversation.service";
+import {
   MEDIA_LIMITS,
   getUploadValidationError,
   uploadImage,
 } from "@/services/upload.service";
 import { SOCKET_EVENTS } from "@/socket/socket-events";
-import {
-  Message,
-  useSocketStore,
-} from "@/store/socket-store";
+import { Message, useSocketStore } from "@/store/socket-store";
 import { useCallStore } from "@/store/call-store";
 import { useNotificationStore } from "@/store/notification-store";
 import { useToastStore } from "@/store/toast-store";
 import { updateConversationInQueryCache } from "@/lib/conversation-query-cache";
 import type { ConversationQueryCache } from "@/lib/conversation-query-cache";
 import { queryKeys } from "@/lib/query-keys";
+import { generateId } from "@/lib/uuid";
+import { formatDisplayName } from "@/lib/user-display";
 import {
-  formatDisplayName,
-} from "@/lib/user-display";
+  CHAT_THEMES,
+  DEFAULT_CHAT_THEME_ID,
+  getChatTheme,
+  getChatThemeStyle,
+} from "@/lib/chat-themes";
 import { useConversationStore } from "@/stores/conversation.store";
 import {
   mergeMessageIntoQueryCache,
@@ -77,42 +86,29 @@ import type { MessageQueryCache } from "@/lib/message-query-cache";
 
 const RENDER_WINDOW_SIZE = 360;
 const EMPTY_MESSAGES: Message[] = [];
-const QUICK_REACTIONS = [
-  "👍",
-  "❤️",
-  "😂",
-  "🔥",
-  "👏",
-  "😮",
-  "😢",
-];
-const MESSAGE_TIME_FORMATTER =
-  new Intl.DateTimeFormat("en", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-const DATE_DIVIDER_FORMATTER =
-  new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-  });
-const DATE_DIVIDER_WITH_YEAR_FORMATTER =
-  new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+const QUICK_REACTIONS = ["👍", "❤️", "😂", "🔥", "👏", "😮", "😢"];
+const MESSAGE_TIME_FORMATTER = new Intl.DateTimeFormat("en", {
+  hour: "numeric",
+  minute: "2-digit",
+});
+const DATE_DIVIDER_FORMATTER = new Intl.DateTimeFormat("en", {
+  month: "short",
+  day: "numeric",
+});
+const DATE_DIVIDER_WITH_YEAR_FORMATTER = new Intl.DateTimeFormat("en", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
 
 function hasOnlinePeer(
   memberIds: string[] | undefined,
   onlineUsers: ReadonlySet<string>,
-  currentUserId?: string
+  currentUserId?: string,
 ) {
   return (
     memberIds?.some(
-      (memberId) =>
-        memberId !== currentUserId &&
-        onlineUsers.has(memberId)
+      (memberId) => memberId !== currentUserId && onlineUsers.has(memberId),
     ) ?? false
   );
 }
@@ -125,14 +121,12 @@ function getConversationAvatar(
       avatar?: string | null;
     }[];
   },
-  currentUserId?: string
+  currentUserId?: string,
 ) {
   return (
     conversation.avatar ??
     conversation.members?.find(
-      (member) =>
-        member.id !== currentUserId &&
-        member.avatar
+      (member) => member.id !== currentUserId && member.avatar,
     )?.avatar ??
     null
   );
@@ -143,9 +137,18 @@ function formatMessageTime(createdAt?: string) {
     return "";
   }
 
-  return MESSAGE_TIME_FORMATTER.format(
-    new Date(createdAt)
-  );
+  return MESSAGE_TIME_FORMATTER.format(new Date(createdAt));
+}
+
+function formatDuration(seconds: number) {
+  const safeSeconds =
+    Math.max(0, Math.floor(seconds));
+  const minutes =
+    Math.floor(safeSeconds / 60);
+  const remainingSeconds =
+    safeSeconds % 60;
+
+  return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 }
 
 function formatDateDivider(createdAt?: string) {
@@ -162,10 +165,7 @@ function formatDateDivider(createdAt?: string) {
     return "Today";
   }
 
-  if (
-    date.toDateString() ===
-    yesterday.toDateString()
-  ) {
+  if (date.toDateString() === yesterday.toDateString()) {
     return "Yesterday";
   }
 
@@ -176,37 +176,59 @@ function formatDateDivider(createdAt?: string) {
   ).format(date);
 }
 
-function isSameMessageDay(
-  left?: string,
-  right?: string
-) {
+function formatLastSeen(value?: string | null) {
+  if (!value) {
+    return "Last Seen Recently";
+  }
+
+  const time = new Date(value).getTime();
+
+  if (Number.isNaN(time)) {
+    return "Last Seen Recently";
+  }
+
+  const diffSeconds = Math.max(
+    0,
+    Math.round((Date.now() - time) / 1000),
+  );
+
+  if (diffSeconds < 60) {
+    return "Last Seen Just Now";
+  }
+
+  if (diffSeconds < 60 * 60) {
+    return `Last Seen ${Math.round(diffSeconds / 60)}m Ago`;
+  }
+
+  if (diffSeconds < 60 * 60 * 24) {
+    return `Last Seen ${Math.round(diffSeconds / 60 / 60)}h Ago`;
+  }
+
+  return `Last Seen ${DATE_DIVIDER_WITH_YEAR_FORMATTER.format(new Date(time))}`;
+}
+
+function isSameMessageDay(left?: string, right?: string) {
   if (!left || !right) {
     return false;
   }
 
-  return (
-    new Date(left).toDateString() ===
-    new Date(right).toDateString()
-  );
+  return new Date(left).toDateString() === new Date(right).toDateString();
 }
 
 function isImageAttachment(url: string) {
-  return /\.(png|jpe?g|gif|webp|avif)$/i.test(url);
+  return /\.(png|jpe?g|gif|webp|avif|heic|heif)(\?|$)/i.test(url);
 }
 
 function isVideoAttachment(url: string) {
-  return /\.(mp4|webm|ogg|mov|m4v)$/i.test(url);
+  return /\.(mp4|webm|ogg|mov|m4v|3gp|3gpp|3g2|3gpp2)(\?|$)/i.test(url);
 }
 
 function getAttachmentLabel(url: string) {
   try {
     const parsedUrl = new URL(url);
-    const filename =
-      parsedUrl.pathname.split("/").pop();
+    const filename = parsedUrl.pathname.split("/").pop();
 
-    return filename
-      ? decodeURIComponent(filename)
-      : "Attachment";
+    return filename ? decodeURIComponent(filename) : "Attachment";
   } catch {
     return "Attachment";
   }
@@ -219,101 +241,109 @@ function getMessagePreviewText(message: {
   deletedAt?: string | null;
   forwardedFrom?: unknown;
 }) {
-  const body =
-    message.deletedAt
-      ? "Message deleted"
-      : message.text?.trim() ||
-        (message.audio
-          ? "Voice message"
-          : message.attachment
-            ? "Attachment"
-            : "New message");
+  const body = message.deletedAt
+    ? "Message deleted"
+    : message.text?.trim() ||
+      (message.audio
+        ? "Voice message"
+        : message.attachment
+          ? isImageAttachment(message.attachment)
+            ? "Photo"
+            : isVideoAttachment(message.attachment)
+              ? "Video"
+              : "File"
+          : "New message");
 
-  return message.forwardedFrom
-    ? `Forwarded: ${body}`
-    : body;
+  return message.forwardedFrom ? `Forwarded: ${body}` : body;
+}
+
+function shouldUseLongPressActions() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.matchMedia("(hover: none), (pointer: coarse)").matches;
+}
+
+function isInteractiveMessageTarget(target: EventTarget | null) {
+  if (typeof HTMLElement === "undefined" || !(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return Boolean(
+    target.closest(
+      "a,button,input,textarea,select,video,audio,[role='menu'],[data-message-overlay='true']",
+    ),
+  );
+}
+
+function getVoiceRecorderMimeType() {
+  if (
+    typeof MediaRecorder ===
+    "undefined"
+  ) {
+    return "";
+  }
+
+  return [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus",
+    "audio/ogg",
+  ].find((mimeType) =>
+    MediaRecorder.isTypeSupported(
+      mimeType
+    )
+  ) ?? "";
 }
 
 function sortMessages(messages: Message[]) {
   return [...messages].sort((left, right) => {
-    const leftTime = left.createdAt
-      ? new Date(left.createdAt).getTime()
-      : 0;
-    const rightTime = right.createdAt
-      ? new Date(right.createdAt).getTime()
-      : 0;
+    const leftTime = left.createdAt ? new Date(left.createdAt).getTime() : 0;
+    const rightTime = right.createdAt ? new Date(right.createdAt).getTime() : 0;
 
     return leftTime - rightTime;
   });
 }
 
-function mergeMessages(
-  serverMessages: Message[],
-  realtimeMessages: Message[]
-) {
+function mergeMessages(serverMessages: Message[], realtimeMessages: Message[]) {
   const merged: Message[] = [];
-  const messageIndexByKey = new Map<
-    string,
-    number
-  >();
+  const messageIndexByKey = new Map<string, number>();
 
-  [...serverMessages, ...realtimeMessages].forEach(
-    (message) => {
-      const messageKeys = [
-        message.id,
-        message.tempId,
-      ].filter(Boolean) as string[];
-      const existingIndex = messageKeys
-        .map((key) =>
-          messageIndexByKey.get(key)
-        )
-        .find(
-          (index) => index !== undefined
-        );
+  [...serverMessages, ...realtimeMessages].forEach((message) => {
+    const messageKeys = [message.id, message.tempId].filter(
+      Boolean,
+    ) as string[];
+    const existingIndex = messageKeys
+      .map((key) => messageIndexByKey.get(key))
+      .find((index) => index !== undefined);
 
-      if (existingIndex === undefined) {
-        merged.push(message);
-        messageKeys.forEach((key) => {
-          messageIndexByKey.set(
-            key,
-            merged.length - 1
-          );
-        });
-        return;
-      }
-
-      merged[existingIndex] = {
-        ...merged[existingIndex],
-        ...message,
-        optimistic:
-          message.optimistic ??
-          merged[existingIndex].optimistic,
-      };
-      [
-        merged[existingIndex].id,
-        merged[existingIndex].tempId,
-      ]
-        .filter(Boolean)
-        .forEach((key) => {
-          messageIndexByKey.set(
-            key as string,
-            existingIndex
-          );
-        });
+    if (existingIndex === undefined) {
+      merged.push(message);
+      messageKeys.forEach((key) => {
+        messageIndexByKey.set(key, merged.length - 1);
+      });
+      return;
     }
-  );
+
+    merged[existingIndex] = {
+      ...merged[existingIndex],
+      ...message,
+      optimistic: message.optimistic ?? merged[existingIndex].optimistic,
+    };
+    [merged[existingIndex].id, merged[existingIndex].tempId]
+      .filter(Boolean)
+      .forEach((key) => {
+        messageIndexByKey.set(key as string, existingIndex);
+      });
+  });
 
   return sortMessages(merged);
 }
 
 function getTimeAwareGreeting(name?: string | null) {
   const hour = new Date().getHours();
-  const period =
-    hour < 12
-      ? "morning"
-      : hour < 17
-        ? "afternoon"
-        : "evening";
+  const period = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
 
   return `Good ${period}${name ? ` ${formatDisplayName(name)}` : ""}, how can I help you?`;
 }
@@ -327,21 +357,17 @@ function buildLocalAiResponse({
   messages: Message[];
   conversationName: string;
 }) {
-  const normalizedPrompt =
-    prompt.trim().toLowerCase();
+  const normalizedPrompt = prompt.trim().toLowerCase();
   const recentMessages = messages
     .filter(
       (message) =>
         !message.deletedAt &&
-        (message.text?.trim() ||
-          message.attachment ||
-          message.audio)
+        (message.text?.trim() || message.attachment || message.audio),
     )
     .slice(-12);
-  const recentTextMessages =
-    recentMessages
-      .map((message) => message.text?.trim())
-      .filter(Boolean) as string[];
+  const recentTextMessages = recentMessages
+    .map((message) => message.text?.trim())
+    .filter(Boolean) as string[];
 
   if (
     normalizedPrompt.includes("summar") ||
@@ -362,9 +388,7 @@ function buildLocalAiResponse({
     normalizedPrompt.includes("rewrite") ||
     normalizedPrompt.includes("write")
   ) {
-    const seed =
-      recentTextMessages.at(-1) ??
-      prompt.trim();
+    const seed = recentTextMessages.at(-1) ?? prompt.trim();
 
     return `Try this: "${seed ? `Thanks for the update. ${seed.length > 90 ? "I will take a closer look and get back to you shortly." : "That works for me."}` : "Thanks for the update. I will get back to you shortly."}"`;
   }
@@ -391,9 +415,7 @@ function MessageSkeleton() {
         <div
           key={index}
           className={`flex ${
-            index % 3 === 0
-              ? "justify-end"
-              : "justify-start"
+            index % 3 === 0 ? "justify-end" : "justify-start"
           }`}
         >
           <div className="h-16 w-[min(72%,420px)] animate-pulse rounded-3xl bg-white/[0.05]" />
@@ -409,17 +431,10 @@ type ChatMessageRowProps = {
   mine: boolean;
   reducedMotion: boolean;
   onRetry: (messageId: string) => void;
-  onEdit: (
-    message: Message,
-    text: string
-  ) => Promise<boolean>;
-  onDelete: (
-    message: Message
-  ) => Promise<boolean>;
-  onReact: (
-    message: Message,
-    emoji: string
-  ) => Promise<boolean>;
+  onEdit: (message: Message, text: string) => Promise<boolean>;
+  onDelete: (message: Message) => Promise<boolean>;
+  onReact: (message: Message, emoji: string) => Promise<boolean>;
+  onReply: (message: Message) => void;
   onShare: (message: Message) => void;
 };
 
@@ -436,8 +451,7 @@ function ReactionPicker({
   onClose,
   onSelect,
 }: ReactionPickerProps) {
-  const pickerRef =
-    useRef<HTMLDivElement | null>(null);
+  const pickerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -447,79 +461,47 @@ function ReactionPicker({
     }
 
     function handlePointerDown(event: PointerEvent) {
-      const target =
-        event.target as Node | null;
+      const target = event.target as Node | null;
 
-      if (
-        target &&
-        pickerRef.current?.contains(target)
-      ) {
+      if (target && pickerRef.current?.contains(target)) {
         return;
       }
 
       onClose();
     }
 
-    document.addEventListener(
-      "keydown",
-      handleKeyDown
-    );
-    document.addEventListener(
-      "pointerdown",
-      handlePointerDown
-    );
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("pointerdown", handlePointerDown);
 
     return () => {
-      document.removeEventListener(
-        "keydown",
-        handleKeyDown
-      );
-      document.removeEventListener(
-        "pointerdown",
-        handlePointerDown
-      );
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("pointerdown", handlePointerDown);
     };
   }, [onClose]);
 
-  if (
-    typeof window === "undefined" ||
-    typeof document === "undefined"
-  ) {
+  if (typeof window === "undefined" || typeof document === "undefined") {
     return null;
   }
 
   const gap = 10;
-  const viewportWidth =
-    window.innerWidth;
-  const viewportHeight =
-    window.innerHeight;
-  const pickerWidth =
-    Math.min(292, viewportWidth - 24);
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const pickerWidth = Math.min(292, viewportWidth - 24);
   const pickerHeight = 54;
   const left = Math.min(
-    Math.max(
-      12,
-      anchorRect.left +
-        anchorRect.width / 2 -
-        pickerWidth / 2
-    ),
-    viewportWidth - pickerWidth - 12
+    Math.max(12, anchorRect.left + anchorRect.width / 2 - pickerWidth / 2),
+    viewportWidth - pickerWidth - 12,
   );
-  const preferredTop =
-    anchorRect.top - pickerHeight - gap;
+  const preferredTop = anchorRect.top - pickerHeight - gap;
   const top =
     preferredTop >= 12
       ? preferredTop
-      : Math.min(
-          anchorRect.bottom + gap,
-          viewportHeight -
-            pickerHeight -
-            12
-        );
+      : Math.min(anchorRect.bottom + gap, viewportHeight - pickerHeight - 12);
 
   return createPortal(
     <motion.div
       ref={pickerRef}
+      data-message-overlay="true"
       initial={{
         opacity: 0,
         y: 6,
@@ -560,522 +542,553 @@ function ReactionPicker({
         </button>
       ))}
     </motion.div>,
-    document.body
+    document.body,
   );
 }
 
-const ChatMessageRow = memo(
-  function ChatMessageRow({
-    message,
-    previous,
-    mine,
-    reducedMotion,
-    onRetry,
-    onEdit,
-    onDelete,
-    onReact,
-    onShare,
-  }: ChatMessageRowProps) {
-    const reactionButtonRef =
-      useRef<HTMLButtonElement | null>(null);
-    const [
-      reactionAnchorRect,
-      setReactionAnchorRect,
-    ] = useState<DOMRect | null>(null);
-    const [isEditing, setIsEditing] =
-      useState(false);
-    const [draftText, setDraftText] =
-      useState(message.text ?? "");
-    const [isMutating, setIsMutating] =
-      useState(false);
-    const grouped =
-      previous?.senderId === message.senderId &&
-      isSameMessageDay(
-        previous?.createdAt,
-        message.createdAt
-      );
-    const showDateDivider =
-      !previous ||
-      !isSameMessageDay(
-        previous.createdAt,
-        message.createdAt
-      );
-    const isDeleted = !!message.deletedAt;
-    const isSettled =
-      !message.optimistic &&
-      message.status !== "sending";
-    const canEdit =
-      mine &&
-      isSettled &&
-      !isDeleted &&
-      !message.attachment &&
-      !message.audio &&
-      !!message.text;
-    const canDelete =
-      mine && isSettled && !isDeleted;
-    const showLegacyInlineReactionPicker =
-      false;
+const ChatMessageRow = memo(function ChatMessageRow({
+  message,
+  previous,
+  mine,
+  reducedMotion,
+  onRetry,
+  onEdit,
+  onDelete,
+  onReact,
+  onReply,
+  onShare,
+}: ChatMessageRowProps) {
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const reactionButtonRef = useRef<HTMLButtonElement | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [reactionAnchorRect, setReactionAnchorRect] = useState<DOMRect | null>(
+    null,
+  );
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftText, setDraftText] = useState(message.text ?? "");
+  const [isMutating, setIsMutating] = useState(false);
+  const grouped =
+    previous?.senderId === message.senderId &&
+    isSameMessageDay(previous?.createdAt, message.createdAt);
+  const showDateDivider =
+    !previous || !isSameMessageDay(previous.createdAt, message.createdAt);
+  const isDeleted = !!message.deletedAt;
+  const isSettled = !message.optimistic && message.status !== "sending";
+  const canEdit =
+    mine &&
+    isSettled &&
+    !isDeleted &&
+    !message.attachment &&
+    !message.audio &&
+    !!message.text;
+  const canDelete = mine && isSettled && !isDeleted;
+  const canReply = isSettled && !isDeleted;
+  const showLegacyInlineReactionPicker = false;
+  const actionsVisible = actionsOpen || !!reactionAnchorRect;
 
-    async function submitEdit() {
-      const nextText = draftText.trim();
+  const clearLongPressTimer = useCallback(() => {
+    if (!longPressTimerRef.current) {
+      return;
+    }
 
-      if (!nextText || nextText === message.text) {
-        setIsEditing(false);
-        setDraftText(message.text ?? "");
+    clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
+  }, []);
+
+  async function submitEdit() {
+    const nextText = draftText.trim();
+
+    if (!nextText || nextText === message.text) {
+      setIsEditing(false);
+      setDraftText(message.text ?? "");
+      return;
+    }
+
+    setIsMutating(true);
+    const ok = await onEdit(message, nextText);
+    setIsMutating(false);
+
+    if (ok) {
+      setIsEditing(false);
+      setReactionAnchorRect(null);
+      setActionsOpen(false);
+    }
+  }
+
+  async function submitDelete() {
+    setIsMutating(true);
+    const ok = await onDelete(message);
+    setIsMutating(false);
+
+    if (ok) {
+      setReactionAnchorRect(null);
+      setActionsOpen(false);
+    }
+  }
+
+  async function submitReaction(emoji: string) {
+    setIsMutating(true);
+    const ok = await onReact(message, emoji);
+    setIsMutating(false);
+
+    if (ok) {
+      setReactionAnchorRect(null);
+      setActionsOpen(false);
+    }
+  }
+
+  function toggleReactionPicker() {
+    const anchor = reactionButtonRef.current;
+
+    if (!anchor || !isSettled || isDeleted) {
+      return;
+    }
+
+    setActionsOpen(true);
+    setReactionAnchorRect((current) =>
+      current ? null : anchor.getBoundingClientRect(),
+    );
+  }
+
+  function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (
+      !shouldUseLongPressActions() ||
+      isEditing ||
+      isInteractiveMessageTarget(event.target)
+    ) {
+      return;
+    }
+
+    clearLongPressTimer();
+
+    longPressTimerRef.current = setTimeout(() => {
+      setActionsOpen(true);
+      longPressTimerRef.current = null;
+    }, 420);
+  }
+
+  function handleContextMenu(event: ReactMouseEvent<HTMLDivElement>) {
+    if (!shouldUseLongPressActions()) {
+      return;
+    }
+
+    event.preventDefault();
+    clearLongPressTimer();
+    setActionsOpen(true);
+  }
+
+  useEffect(() => {
+    if (!actionsOpen && !reactionAnchorRect) {
+      return;
+    }
+
+    function handleOutsidePointerDown(event: PointerEvent) {
+      const target = event.target as Node | null;
+
+      if (target && rowRef.current?.contains(target)) {
         return;
       }
 
-      setIsMutating(true);
-      const ok = await onEdit(message, nextText);
-      setIsMutating(false);
-
-      if (ok) {
-        setIsEditing(false);
-        setReactionAnchorRect(null);
-      }
-    }
-
-    async function submitDelete() {
-      setIsMutating(true);
-      const ok = await onDelete(message);
-      setIsMutating(false);
-
-      if (ok) {
-        setReactionAnchorRect(null);
-      }
-    }
-
-    async function submitReaction(emoji: string) {
-      setIsMutating(true);
-      const ok = await onReact(message, emoji);
-      setIsMutating(false);
-
-      if (ok) {
-        setReactionAnchorRect(null);
-      }
-    }
-
-    function toggleReactionPicker() {
-      const anchor =
-        reactionButtonRef.current;
-
-      if (!anchor || !isSettled || isDeleted) {
+      if (
+        typeof HTMLElement !== "undefined" &&
+        event.target instanceof HTMLElement &&
+        event.target.closest("[data-message-overlay='true']")
+      ) {
         return;
       }
 
-      setReactionAnchorRect((current) =>
-        current
-          ? null
-          : anchor.getBoundingClientRect()
-      );
+      setActionsOpen(false);
+      setReactionAnchorRect(null);
     }
 
-    return (
-      <Fragment>
-        {showDateDivider ? (
-          <div className="my-5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-white/10" />
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-medium text-zinc-400 backdrop-blur-xl">
-              {formatDateDivider(
-                message.createdAt
-              )}
-            </span>
-            <div className="h-px flex-1 bg-white/10" />
-          </div>
-        ) : null}
+    document.addEventListener("pointerdown", handleOutsidePointerDown);
 
-        <motion.div
-          initial={
-            reducedMotion
-              ? false
-              : {
-                  opacity: 0,
-                  y: 10,
-                  scale: 0.98,
-                }
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsidePointerDown);
+    };
+  }, [actionsOpen, reactionAnchorRect]);
+
+  useEffect(
+    () => () => {
+      clearLongPressTimer();
+    },
+    [clearLongPressTimer],
+  );
+
+  return (
+    <Fragment>
+      {showDateDivider ? (
+        <div className="my-5 flex items-center gap-3">
+          <div className="h-px flex-1 bg-white/10" />
+          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-medium text-zinc-400 backdrop-blur-xl">
+            {formatDateDivider(message.createdAt)}
+          </span>
+          <div className="h-px flex-1 bg-white/10" />
+        </div>
+      ) : null}
+
+      <motion.div
+        ref={rowRef}
+        initial={
+          reducedMotion
+            ? false
+            : {
+                opacity: 0,
+                y: 10,
+                scale: 0.98,
+              }
+        }
+        animate={{
+          opacity: 1,
+          y: 0,
+          scale: 1,
+        }}
+        transition={{
+          duration: reducedMotion ? 0 : 0.18,
+        }}
+        drag={canReply && !isEditing ? "x" : false}
+        dragDirectionLock
+        dragConstraints={{
+          left: 0,
+          right: 92,
+        }}
+        dragElastic={0.16}
+        onDragEnd={(_, info) => {
+          if (
+            canReply &&
+            (info.offset.x > 72 || info.velocity.x > 540)
+          ) {
+            setActionsOpen(false);
+            setReactionAnchorRect(null);
+            onReply(message);
           }
-          animate={{
-            opacity: 1,
-            y: 0,
-            scale: 1,
-          }}
-          transition={{
-            duration:
-              reducedMotion
-                ? 0
-                : 0.18,
-          }}
-          className={`flex ${
-            grouped
-              ? "mt-1"
-              : "mt-4"
-          } ${
+        }}
+        className={`flex ${grouped ? "mt-1" : "mt-4"} ${
+          mine ? "justify-end" : "justify-start"
+        } group/message relative`}
+        onPointerDown={handlePointerDown}
+        onPointerUp={clearLongPressTimer}
+        onPointerCancel={clearLongPressTimer}
+        onPointerLeave={clearLongPressTimer}
+        onContextMenu={handleContextMenu}
+      >
+        <div
+          style={
+            !isDeleted
+              ? {
+                  background: mine
+                    ? "var(--fc-own-bubble)"
+                    : "var(--fc-their-bubble)",
+                  color: mine ? "#fff" : "var(--fc-theme-text)",
+                }
+              : undefined
+          }
+          className={`relative max-w-[86%] rounded-3xl px-4 py-3 text-sm text-white shadow-[0_14px_45px_rgba(0,0,0,0.22)] sm:max-w-[70%] sm:px-5 sm:py-4 ${
             mine
-              ? "justify-end"
-              : "justify-start"
-          } group/message relative`}
+              ? "rounded-br-md shadow-purple-950/30"
+              : "rounded-bl-md border border-white/10 backdrop-blur-2xl"
+          } ${message.status === "failed" ? "ring-1 ring-red-400/35" : ""} ${
+            isDeleted
+              ? "border border-white/10 bg-white/[0.035] text-white/60"
+              : ""
+          }`}
         >
-          <div
-            className={`relative max-w-[86%] rounded-3xl px-4 py-3 text-sm text-white shadow-[0_14px_45px_rgba(0,0,0,0.22)] sm:max-w-[70%] sm:px-5 sm:py-4 ${
-              mine
-                ? "rounded-br-md bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 shadow-purple-950/30"
-                : "rounded-bl-md border border-white/10 bg-white/[0.055] backdrop-blur-2xl"
-            } ${
-              message.status === "failed"
-                ? "ring-1 ring-red-400/35"
-                : ""
-            } ${
-              isDeleted
-                ? "border border-white/10 bg-white/[0.035] text-white/60"
-                : ""
-            }`}
-          >
-            {message.replyTo ? (
-              <div className="mb-3 rounded-2xl border border-white/10 bg-black/[0.15] px-3 py-2 text-xs text-white/70">
-                <p className="font-medium text-white/85">
-                  Reply
-                </p>
-                <p className="mt-1 line-clamp-2">
-                  {message.replyTo.text}
-                </p>
-              </div>
-            ) : null}
+          {message.replyTo ? (
+            <div className="mb-3 rounded-2xl border border-white/10 bg-black/[0.15] px-3 py-2 text-xs text-white/70">
+              <p className="font-medium text-white/85">Reply</p>
+              <p className="mt-1 line-clamp-2">{message.replyTo.text}</p>
+            </div>
+          ) : null}
 
-            {message.forwardedFrom &&
-            !isDeleted ? (
-              <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/55">
-                <Share2 size={12} />
-                <span className="truncate">
-                  Forwarded
-                  {message.forwardedFrom
-                    .senderName
-                    ? ` from ${formatDisplayName(
-                        message.forwardedFrom
-                          .senderName
-                      )}`
-                    : ""}
-                </span>
-              </div>
-            ) : null}
+          {message.forwardedFrom && !isDeleted ? (
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/55">
+              <Forward size={12} />
+              <span className="truncate">
+                Forwarded
+                {message.forwardedFrom.senderName
+                  ? ` from ${formatDisplayName(
+                      message.forwardedFrom.senderName,
+                    )}`
+                  : ""}
+              </span>
+            </div>
+          ) : null}
 
-            {isDeleted ? (
-              <p className="italic text-white/65">
-                Message deleted
-              </p>
-            ) : null}
+          {isDeleted ? (
+            <p className="italic text-white/65">Message deleted</p>
+          ) : null}
 
-            {!isDeleted && message.attachment ? (
-              isImageAttachment(
-                message.attachment
-              ) ? (
-                <a
-                  href={message.attachment}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mb-3 block overflow-hidden rounded-2xl border border-white/10"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={message.attachment}
-                    alt="Attachment"
-                    loading="lazy"
-                    decoding="async"
-                    className="max-h-72 w-full bg-black/25 object-contain"
-                  />
-                </a>
-              ) : isVideoAttachment(
-                  message.attachment
-                ) ? (
-                <video
-                  controls
-                  preload="metadata"
-                  playsInline
-                  src={message.attachment}
-                  className="mb-3 aspect-video max-h-80 w-full rounded-2xl border border-white/10 bg-black object-contain"
-                />
-              ) : (
-                <a
-                  href={message.attachment}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mb-3 flex items-center gap-3 rounded-2xl border border-white/10 bg-black/[0.15] px-3 py-3 text-xs text-white/80"
-                >
-                  <FileText size={16} />
-                  <span className="truncate">
-                    {getAttachmentLabel(
-                      message.attachment
-                    )}
-                  </span>
-                </a>
-              )
-            ) : null}
-
-            {!isDeleted && message.audio ? (
-              <audio
-                controls
-                src={message.audio}
-                className="mb-3 w-full max-w-[260px]"
-              />
-            ) : null}
-
-            {!isDeleted && isEditing ? (
-              <div className="space-y-3">
-                <textarea
-                  value={draftText}
-                  onChange={(event) =>
-                    setDraftText(
-                      event.target.value.slice(
-                        0,
-                        4000
-                      )
-                    )
-                  }
-                  autoFocus
-                  rows={3}
-                  className="w-full resize-none rounded-2xl border border-white/15 bg-black/20 px-3 py-2 text-sm leading-relaxed text-white outline-none transition focus:border-white/35"
-                />
-
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDraftText(
-                        message.text ?? ""
-                      );
-                      setIsEditing(false);
-                    }}
-                    disabled={isMutating}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/10 transition hover:bg-white/15 disabled:cursor-wait disabled:opacity-60"
-                    aria-label="Cancel edit"
-                  >
-                    <X size={15} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void submitEdit();
-                    }}
-                    disabled={
-                      isMutating ||
-                      !draftText.trim()
-                    }
-                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-purple-700 transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
-                    aria-label="Save edit"
-                  >
-                    <Check size={15} />
-                  </button>
-                </div>
-              </div>
-            ) : !isDeleted && message.text ? (
-              <p className="whitespace-pre-wrap break-words leading-relaxed">
-                {message.text}
-              </p>
-            ) : null}
-
-            {!isDeleted && message.reactions?.length ? (
-              <div className="mt-2 flex flex-wrap justify-end gap-1.5">
-                {message.reactions.map(
-                  (reaction) => (
-                    <span
-                      key={reaction.emoji}
-                      className="rounded-full border border-white/10 bg-black/15 px-2 py-1 text-xs shadow-sm"
-                    >
-                      {reaction.emoji}{" "}
-                      {reaction.count}
-                    </span>
-                  )
-                )}
-              </div>
-            ) : null}
-
-            {!isEditing ? (
-              <div
-                className={`absolute top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-2xl border border-white/10 bg-[#07101E]/95 p-1 text-white shadow-2xl shadow-black/35 backdrop-blur-xl transition max-sm:bottom-full max-sm:left-auto max-sm:right-0 max-sm:top-auto max-sm:mb-2 max-sm:translate-y-0 ${
-                  mine
-                    ? "right-full mr-2"
-                    : "left-full ml-2"
-                } ${
-                  reactionAnchorRect
-                    ? "opacity-100"
-                    : "opacity-100 sm:pointer-events-none sm:opacity-0 sm:group-hover/message:pointer-events-auto sm:group-hover/message:opacity-100 sm:group-focus-within/message:pointer-events-auto sm:group-focus-within/message:opacity-100"
-                }`}
+          {!isDeleted && message.attachment ? (
+            isImageAttachment(message.attachment) ? (
+              <a
+                href={message.attachment}
+                target="_blank"
+                rel="noreferrer"
+                className="mb-3 block overflow-hidden rounded-2xl border border-white/10"
               >
-                {!isDeleted ? (
-                  <>
-                    {["👍", "❤️", "😂"].map(
-                      (emoji) => (
-                        <button
-                          key={emoji}
-                          type="button"
-                          onClick={() => {
-                            void submitReaction(
-                              emoji
-                            );
-                          }}
-                          disabled={
-                            isMutating || !isSettled
-                          }
-                          className="hidden h-8 w-8 items-center justify-center rounded-xl text-base transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-60"
-                          aria-label={`React ${emoji}`}
-                        >
-                          {emoji}
-                        </button>
-                      )
-                    )}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={message.attachment}
+                  alt="Attachment"
+                  loading="lazy"
+                  decoding="async"
+                  className="max-h-72 w-full bg-black/25 object-contain"
+                />
+              </a>
+            ) : isVideoAttachment(message.attachment) ? (
+              <video
+                controls
+                preload="metadata"
+                playsInline
+                src={message.attachment}
+                className="mb-3 aspect-video max-h-80 w-full rounded-2xl border border-white/10 bg-black object-contain"
+              />
+            ) : (
+              <a
+                href={message.attachment}
+                target="_blank"
+                rel="noreferrer"
+                className="mb-3 flex items-center gap-3 rounded-2xl border border-white/10 bg-black/[0.15] px-3 py-3 text-xs text-white/80"
+              >
+                <FileText size={16} />
+                <span className="truncate">
+                  {getAttachmentLabel(message.attachment)}
+                </span>
+              </a>
+            )
+          ) : null}
 
-                    <button
-                      ref={reactionButtonRef}
-                      type="button"
-                      onPointerDown={(event) => {
-                        event.stopPropagation();
-                      }}
-                      onClick={
-                        toggleReactionPicker
-                      }
-                      disabled={
-                        isMutating || !isSettled
-                      }
-                      className={`flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 active:scale-95 disabled:cursor-wait disabled:opacity-60 ${
-                        reactionAnchorRect
-                          ? "bg-white/10 text-purple-100"
-                          : ""
-                      }`}
-                      aria-expanded={
-                        !!reactionAnchorRect
-                      }
-                      aria-label="Add reaction"
-                    >
-                      <SmilePlus size={15} />
-                    </button>
-                  </>
-                ) : null}
+          {!isDeleted && message.audio ? (
+            <audio
+              controls
+              src={message.audio}
+              className="mb-3 w-full max-w-[260px]"
+            />
+          ) : null}
+
+          {!isDeleted && isEditing ? (
+            <div className="space-y-3">
+              <textarea
+                value={draftText}
+                onChange={(event) =>
+                  setDraftText(event.target.value.slice(0, 4000))
+                }
+                autoFocus
+                rows={3}
+                className="w-full resize-none rounded-2xl border border-white/15 bg-black/20 px-3 py-2 text-sm leading-relaxed text-white outline-none transition focus:border-white/35"
+              />
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraftText(message.text ?? "");
+                    setIsEditing(false);
+                  }}
+                  disabled={isMutating}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/10 transition hover:bg-white/15 disabled:cursor-wait disabled:opacity-60"
+                  aria-label="Cancel edit"
+                >
+                  <X size={15} />
+                </button>
 
                 <button
                   type="button"
-                  onClick={() => onShare(message)}
-                  className="flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10"
-                  aria-label="Forward message"
+                  onClick={() => {
+                    void submitEdit();
+                  }}
+                  disabled={isMutating || !draftText.trim()}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-purple-700 transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Save edit"
                 >
-                  <Share2 size={15} />
+                  <Check size={15} />
                 </button>
-
-                {canEdit ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDraftText(
-                        message.text ?? ""
-                      );
-                      setIsEditing(true);
-                      setReactionAnchorRect(null);
-                    }}
-                    className="flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10"
-                    aria-label="Edit message"
-                  >
-                    <Pencil size={15} />
-                  </button>
-                ) : null}
-
-                {canDelete ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void submitDelete();
-                    }}
-                    disabled={isMutating}
-                    className="flex h-8 w-8 items-center justify-center rounded-xl text-red-200 transition hover:bg-red-500/20 disabled:cursor-wait disabled:opacity-60"
-                    aria-label="Delete message"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                ) : null}
               </div>
-            ) : null}
+            </div>
+          ) : !isDeleted && message.text ? (
+            <p className="whitespace-pre-wrap break-words leading-relaxed">
+              {message.text}
+            </p>
+          ) : null}
 
-            {showLegacyInlineReactionPicker &&
-            reactionAnchorRect &&
-            !isDeleted ? (
-              <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/10 pt-3">
-                {["🔥", "👏", "😮", "😢"].map(
-                  (emoji) => (
+          {!isDeleted && message.reactions?.length ? (
+            <div className="mt-2 flex flex-wrap justify-end gap-1.5">
+              {message.reactions.map((reaction) => (
+                <span
+                  key={reaction.emoji}
+                  className="rounded-full border border-white/10 bg-black/15 px-2 py-1 text-xs shadow-sm"
+                >
+                  {reaction.emoji} {reaction.count}
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          {!isEditing ? (
+            <div
+              className={`absolute top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-2xl border border-white/10 bg-[#07101E]/95 p-1 text-white shadow-2xl shadow-black/35 backdrop-blur-xl transition max-sm:bottom-full max-sm:left-auto max-sm:right-0 max-sm:top-auto max-sm:mb-2 max-sm:translate-y-0 ${
+                mine ? "right-full mr-2" : "left-full ml-2"
+              } ${
+                actionsVisible
+                  ? "pointer-events-auto opacity-100"
+                  : "pointer-events-none opacity-0 [@media(hover:hover)]:group-hover/message:pointer-events-auto [@media(hover:hover)]:group-hover/message:opacity-100 [@media(hover:hover)]:group-focus-within/message:pointer-events-auto [@media(hover:hover)]:group-focus-within/message:opacity-100"
+              }`}
+            >
+              {!isDeleted ? (
+                <>
+                  {["👍", "❤️", "😂"].map((emoji) => (
                     <button
                       key={emoji}
                       type="button"
                       onClick={() => {
                         void submitReaction(emoji);
                       }}
-                      disabled={
-                        isMutating || !isSettled
-                      }
-                      className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-base transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60"
+                      disabled={isMutating || !isSettled}
+                      className="hidden h-8 w-8 items-center justify-center rounded-xl text-base transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-60"
                       aria-label={`React ${emoji}`}
                     >
                       {emoji}
                     </button>
-                  )
-                )}
-              </div>
-            ) : null}
+                  ))}
 
-            <AnimatePresence>
-              {reactionAnchorRect &&
-              !isDeleted ? (
-                <ReactionPicker
-                  anchorRect={
-                    reactionAnchorRect
-                  }
-                  disabled={
-                    isMutating || !isSettled
-                  }
-                  onClose={() =>
-                    setReactionAnchorRect(null)
-                  }
-                  onSelect={(emoji) => {
-                    void submitReaction(
-                      emoji
-                    );
-                  }}
-                />
-              ) : null}
-            </AnimatePresence>
-
-            <div className="mt-2 flex items-center justify-end gap-2 text-[11px] text-white/65">
-              {message.editedAt && !isDeleted ? (
-                <span>edited</span>
-              ) : null}
-              <span>
-                {formatMessageTime(
-                  message.createdAt
-                )}
-              </span>
-
-              {mine ? (
-                message.status ===
-                "failed" ? (
                   <button
+                    ref={reactionButtonRef}
                     type="button"
-                    onClick={() =>
-                      onRetry(message.id)
-                    }
-                    className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-[10px] font-medium text-white transition hover:bg-white/20"
+                    onPointerDown={(event) => {
+                      event.stopPropagation();
+                    }}
+                    onClick={toggleReactionPicker}
+                    disabled={isMutating || !isSettled}
+                    className={`flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 active:scale-95 disabled:cursor-wait disabled:opacity-60 ${
+                      reactionAnchorRect ? "bg-white/10 text-purple-100" : ""
+                    }`}
+                    aria-expanded={!!reactionAnchorRect}
+                    aria-label="Add reaction"
                   >
-                    <RefreshCw size={11} />
-                    Retry
+                    <SmilePlus size={15} />
                   </button>
-                ) : (
-                  <MessageStatus
-                    status={message.status}
-                  />
-                )
+                </>
+              ) : null}
+
+              {canReply ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActionsOpen(false);
+                    setReactionAnchorRect(null);
+                    onReply(message);
+                  }}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10"
+                  aria-label="Reply to message"
+                >
+                  <Reply size={15} />
+                </button>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActionsOpen(false);
+                  onShare(message);
+                }}
+                className="flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10"
+                aria-label="Forward message"
+              >
+                <Forward size={15} />
+              </button>
+
+              {canEdit ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraftText(message.text ?? "");
+                    setIsEditing(true);
+                    setReactionAnchorRect(null);
+                    setActionsOpen(false);
+                  }}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10"
+                  aria-label="Edit message"
+                >
+                  <Pencil size={15} />
+                </button>
+              ) : null}
+
+              {canDelete ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActionsOpen(false);
+                    void submitDelete();
+                  }}
+                  disabled={isMutating}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl text-red-200 transition hover:bg-red-500/20 disabled:cursor-wait disabled:opacity-60"
+                  aria-label="Delete message"
+                >
+                  <Trash2 size={15} />
+                </button>
               ) : null}
             </div>
+          ) : null}
+
+          {showLegacyInlineReactionPicker &&
+          reactionAnchorRect &&
+          !isDeleted ? (
+            <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/10 pt-3">
+              {["🔥", "👏", "😮", "😢"].map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => {
+                    void submitReaction(emoji);
+                  }}
+                  disabled={isMutating || !isSettled}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-base transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60"
+                  aria-label={`React ${emoji}`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          <AnimatePresence>
+            {reactionAnchorRect && !isDeleted ? (
+              <ReactionPicker
+                anchorRect={reactionAnchorRect}
+                disabled={isMutating || !isSettled}
+                onClose={() => setReactionAnchorRect(null)}
+                onSelect={(emoji) => {
+                  void submitReaction(emoji);
+                }}
+              />
+            ) : null}
+          </AnimatePresence>
+
+          <div className="mt-2 flex items-center justify-end gap-2 text-[11px] text-white/65">
+            {message.editedAt && !isDeleted ? <span>edited</span> : null}
+            <span>{formatMessageTime(message.createdAt)}</span>
+
+            {mine ? (
+              message.status === "failed" ? (
+                <button
+                  type="button"
+                  onClick={() => onRetry(message.id)}
+                  className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-[10px] font-medium text-white transition hover:bg-white/20"
+                >
+                  <RefreshCw size={11} />
+                  Retry
+                </button>
+              ) : (
+                <MessageStatus status={message.status} />
+              )
+            ) : null}
           </div>
-        </motion.div>
-      </Fragment>
-    );
-  }
-);
+        </div>
+      </motion.div>
+    </Fragment>
+  );
+});
 
 type ChatConversationProps = {
   onOpenNotifications?: () => void;
@@ -1083,6 +1096,11 @@ type ChatConversationProps = {
   activeNowOpen?: boolean;
   onToggleDiscover?: () => void;
   onToggleActiveNow?: () => void;
+};
+
+type FailedAttachmentUpload = {
+  file: File;
+  message: string;
 };
 
 export default function ChatConversation({
@@ -1095,40 +1113,48 @@ export default function ChatConversation({
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
-  const [
-    forwardingMessage,
-    setForwardingMessage,
-  ] = useState<Message | null>(null);
-  const [forwardSearch, setForwardSearch] =
-    useState("");
-  const [
-    selectedForwardConversationIds,
-    setSelectedForwardConversationIds,
-  ] = useState<Set<string>>(
-    () => new Set()
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(
+    null,
   );
-  const [isForwarding, setIsForwarding] =
-    useState(false);
-  const [aiOpen, setAiOpen] =
-    useState(false);
-  const [aiPrompt, setAiPrompt] =
-    useState("");
-  const [aiResponse, setAiResponse] =
-    useState("");
-  const [
-    isUploadingAttachment,
-    setIsUploadingAttachment,
-  ] = useState(false);
-  const [
-    largeVideoFile,
-    setLargeVideoFile,
-  ] = useState<File | null>(null);
-  const typingTimeoutRef =
-    useRef<ReturnType<typeof setTimeout> | null>(null);
-  const fileInputRef =
-    useRef<HTMLInputElement | null>(null);
-  const textareaRef =
-    useRef<HTMLTextAreaElement | null>(null);
+  const [forwardSearch, setForwardSearch] = useState("");
+  const [selectedForwardConversationIds, setSelectedForwardConversationIds] =
+    useState<Set<string>>(() => new Set());
+  const [isForwarding, setIsForwarding] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
+  const [themeSheetOpen, setThemeSheetOpen] = useState(false);
+  const [themeApplying, setThemeApplying] = useState<{
+    themeId: string | null;
+    scope: "me" | "both";
+  } | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profilePictureOpen, setProfilePictureOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiResponse, setAiResponse] = useState("");
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [attachmentUploadProgress, setAttachmentUploadProgress] = useState(0);
+  const [largeVideoFile, setLargeVideoFile] = useState<File | null>(null);
+  const [failedAttachmentUpload, setFailedAttachmentUpload] =
+    useState<FailedAttachmentUpload | null>(null);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
+  const recordingChunksRef = useRef<BlobPart[]>([]);
+  const recordingStartedAtRef = useRef(0);
+  const recordingPointerStartRef = useRef<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const recordingShouldCancelRef = useRef(false);
+  const recordingPointerActiveRef = useRef(false);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
   const typingActiveRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -1136,46 +1162,31 @@ export default function ChatConversation({
   const hasAnchoredInitialMessagesRef = useRef(false);
   const scrollFrameRef = useRef<number | null>(null);
   const scrollMeasureFrameRef = useRef<number | null>(null);
-  const seenMessageIdsRef = useRef<Set<string>>(
-    new Set()
-  );
+  const seenMessageIdsRef = useRef<Set<string>>(new Set());
   const reducedMotion = useReducedMotion();
-  const pushToast =
-    useToastStore(
-      (state) => state.pushToast
-    );
-  const unreadNotificationCount =
-    useNotificationStore(
-      (state) =>
-        state.notifications.filter(
-          (notification) =>
-            !notification.read
-        ).length
-    );
+  const pushToast = useToastStore((state) => state.pushToast);
+  const unreadNotificationCount = useNotificationStore(
+    (state) =>
+      state.notifications.filter((notification) => !notification.read).length,
+  );
 
-  const conversationsQuery =
-    useConversationsQuery();
-  const activeConversationId =
-    useConversationStore(
-      (state) => state.activeConversationId
-    );
-  const activeConversationPatch =
-    useConversationStore(
-      useCallback(
-        (state) =>
-          activeConversationId
-            ? state.conversationPatches[
-                activeConversationId
-              ]
-            : undefined,
-        [activeConversationId]
-      )
-    );
+  const conversationsQuery = useConversationsQuery();
+  const activeConversationId = useConversationStore(
+    (state) => state.activeConversationId,
+  );
+  const activeConversationPatch = useConversationStore(
+    useCallback(
+      (state) =>
+        activeConversationId
+          ? state.conversationPatches[activeConversationId]
+          : undefined,
+      [activeConversationId],
+    ),
+  );
   const activeConversation = useMemo(() => {
     const conversation =
       conversationsQuery.data?.find(
-        (item) =>
-          item.id === activeConversationId
+        (item) => item.id === activeConversationId,
       ) ?? null;
 
     if (!conversation) {
@@ -1188,238 +1199,171 @@ export default function ChatConversation({
           ...activeConversationPatch,
         }
       : conversation;
-  }, [
-    activeConversationId,
-    activeConversationPatch,
-    conversationsQuery.data,
-  ]);
+  }, [activeConversationId, activeConversationPatch, conversationsQuery.data]);
   const conversationId = activeConversationId;
-  const messagesQuery = useMessagesQuery(
-    conversationId
-  );
-  const {
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = messagesQuery;
+  const messagesQuery = useMessagesQuery(conversationId);
+  const { fetchNextPage, hasNextPage, isFetchingNextPage } = messagesQuery;
   const realtimeMessages = useSocketStore(
     useCallback(
       (state) =>
         conversationId
-          ? state.messagesByConversation[
-              conversationId
-            ] ?? EMPTY_MESSAGES
+          ? (state.messagesByConversation[conversationId] ?? EMPTY_MESSAGES)
           : EMPTY_MESSAGES,
-      [conversationId]
-    )
+      [conversationId],
+    ),
   );
   const socket = useSocketStore((state) => state.socket);
-  const isConnected = useSocketStore(
-    (state) => state.isConnected
-  );
+  const isConnected = useSocketStore((state) => state.isConnected);
   const typingUsers = useSocketStore((state) => state.typingUsers);
   const onlineUsers = useSocketStore((state) => state.onlineUsers);
-  const onlineUserIds = useMemo(
-    () => new Set(onlineUsers),
-    [onlineUsers]
+  const onlineUserIds = useMemo(() => new Set(onlineUsers), [onlineUsers]);
+  const joinConversation = useSocketStore((state) => state.joinConversation);
+  const leaveConversation = useSocketStore((state) => state.leaveConversation);
+  const sendSocketMessage = useSocketStore((state) => state.sendMessage);
+  const startTyping = useSocketStore((state) => state.startTyping);
+  const stopTyping = useSocketStore((state) => state.stopTyping);
+  const retryMessage = useSocketStore((state) => state.retryMessage);
+  const setConnectionError = useSocketStore(
+    (state) => state.setConnectionError,
   );
-  const joinConversation = useSocketStore(
-    (state) => state.joinConversation
-  );
-  const leaveConversation = useSocketStore(
-    (state) => state.leaveConversation
-  );
-  const sendSocketMessage = useSocketStore(
-    (state) => state.sendMessage
-  );
-  const startTyping = useSocketStore(
-    (state) => state.startTyping
-  );
-  const stopTyping = useSocketStore(
-    (state) => state.stopTyping
-  );
-  const retryMessage = useSocketStore(
-    (state) => state.retryMessage
-  );
-  const setConnectionError =
-    useSocketStore(
-      (state) =>
-        state.setConnectionError
-    );
   const markConversationRead = useConversationStore(
-    (state) => state.markConversationRead
+    (state) => state.markConversationRead,
   );
-  const updateConversationMessage =
-    useConversationStore(
-      (state) =>
-        state.updateConversationMessage
-    );
-  const startCall = useCallStore(
-    (state) => state.startCall
+  const updateConversationMessage = useConversationStore(
+    (state) => state.updateConversationMessage,
   );
+  const startCall = useCallStore((state) => state.startCall);
 
-  const mergeMutatedMessage =
-    useCallback(
-      (message: Message) => {
-        queryClient.setQueryData<MessageQueryCache>(
-          queryKeys.messages.list(
-            message.conversationId
-          ),
-          (cache) =>
-            mergeMessageIntoQueryCache(
-              cache,
-              message
-            )
-        );
-        useSocketStore
-          .getState()
-          .addMessage(message);
-      },
-      [queryClient]
-    );
+  const mergeMutatedMessage = useCallback(
+    (message: Message) => {
+      queryClient.setQueryData<MessageQueryCache>(
+        queryKeys.messages.list(message.conversationId),
+        (cache) => mergeMessageIntoQueryCache(cache, message),
+      );
+      useSocketStore.getState().addMessage(message);
+    },
+    [queryClient],
+  );
 
   const handleRetryMessage = useCallback(
     (messageId: string) => {
       retryMessage(messageId);
     },
-    [retryMessage]
+    [retryMessage],
   );
 
-  const handleEditMessage =
-    useCallback(
-      async (
-        message: Message,
-        nextText: string
-      ) => {
-        try {
-          const updatedMessage =
-            await editMessage({
-              messageId: message.id,
-              conversationId:
-                message.conversationId,
-              text: nextText,
-            });
+  const handleEditMessage = useCallback(
+    async (message: Message, nextText: string) => {
+      try {
+        const updatedMessage = await editMessage({
+          messageId: message.id,
+          conversationId: message.conversationId,
+          text: nextText,
+        });
 
-          mergeMutatedMessage(
-            updatedMessage as Message
-          );
-          pushToast({
-            title: "Message updated",
-            variant: "success",
-          });
+        mergeMutatedMessage(updatedMessage as Message);
+        pushToast({
+          title: "Message updated",
+          variant: "success",
+        });
 
-          return true;
-        } catch {
-          pushToast({
-            title: "Edit failed",
-            message:
-              "That message could not be updated right now.",
-            variant: "error",
-          });
+        return true;
+      } catch {
+        pushToast({
+          title: "Edit failed",
+          message: "That message could not be updated right now.",
+          variant: "error",
+        });
 
-          return false;
-        }
-      },
-      [
-        mergeMutatedMessage,
-        pushToast,
-      ]
-    );
+        return false;
+      }
+    },
+    [mergeMutatedMessage, pushToast],
+  );
 
-  const handleDeleteMessage =
-    useCallback(
-      async (message: Message) => {
-        try {
-          const deletedMessage =
-            await deleteMessage({
-              messageId: message.id,
-              conversationId:
-                message.conversationId,
-            });
+  const handleDeleteMessage = useCallback(
+    async (message: Message) => {
+      try {
+        const deletedMessage = await deleteMessage({
+          messageId: message.id,
+          conversationId: message.conversationId,
+        });
 
-          mergeMutatedMessage(
-            deletedMessage as Message
-          );
-          pushToast({
-            title: "Message deleted",
-            variant: "success",
-          });
+        mergeMutatedMessage(deletedMessage as Message);
+        pushToast({
+          title: "Message deleted",
+          variant: "success",
+        });
 
-          return true;
-        } catch {
-          pushToast({
-            title: "Delete failed",
-            message:
-              "That message could not be deleted right now.",
-            variant: "error",
-          });
+        return true;
+      } catch {
+        pushToast({
+          title: "Delete failed",
+          message: "That message could not be deleted right now.",
+          variant: "error",
+        });
 
-          return false;
-        }
-      },
-      [
-        mergeMutatedMessage,
-        pushToast,
-      ]
-    );
+        return false;
+      }
+    },
+    [mergeMutatedMessage, pushToast],
+  );
 
-  const handleReactMessage =
-    useCallback(
-      async (
-        message: Message,
-        emoji: string
-      ) => {
-        try {
-          const updatedMessage =
-            await reactToMessage({
-              messageId: message.id,
-              conversationId:
-                message.conversationId,
-              emoji,
-            });
+  const handleReactMessage = useCallback(
+    async (message: Message, emoji: string) => {
+      try {
+        const updatedMessage = await reactToMessage({
+          messageId: message.id,
+          conversationId: message.conversationId,
+          emoji,
+        });
 
-          mergeMutatedMessage(
-            updatedMessage as Message
-          );
+        mergeMutatedMessage(updatedMessage as Message);
 
-          return true;
-        } catch {
-          pushToast({
-            title: "Reaction failed",
-            message:
-              "We could not sync that reaction.",
-            variant: "warning",
-          });
+        return true;
+      } catch {
+        pushToast({
+          title: "Reaction failed",
+          message: "We could not sync that reaction.",
+          variant: "warning",
+        });
 
-          return false;
-        }
-      },
-      [
-        mergeMutatedMessage,
-        pushToast,
-      ]
-    );
+        return false;
+      }
+    },
+    [mergeMutatedMessage, pushToast],
+  );
 
-  const handleShareMessage =
-    useCallback(
-      (message: Message) => {
-        if (message.deletedAt) {
-          pushToast({
-            title:
-              "Deleted messages can't be forwarded",
-            variant: "info",
-          });
-          return;
-        }
+  const handleReplyMessage = useCallback(
+    (message: Message) => {
+      if (message.deletedAt) {
+        return;
+      }
 
-        setForwardingMessage(message);
-        setForwardSearch("");
-        setSelectedForwardConversationIds(
-          new Set()
-        );
-      },
-      [pushToast]
-    );
+      setReplyingTo(message);
+      window.setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 0);
+    },
+    [],
+  );
+
+  const handleShareMessage = useCallback(
+    (message: Message) => {
+      if (message.deletedAt) {
+        pushToast({
+          title: "Deleted messages can't be forwarded",
+          variant: "info",
+        });
+        return;
+      }
+
+      setForwardingMessage(message);
+      setForwardSearch("");
+      setSelectedForwardConversationIds(new Set());
+    },
+    [pushToast],
+  );
 
   const clearTypingTimeout = useCallback(() => {
     if (typingTimeoutRef.current) {
@@ -1428,21 +1372,16 @@ export default function ChatConversation({
     }
   }, []);
 
-  const resizeComposer =
-    useCallback(() => {
-      const textarea =
-        textareaRef.current;
+  const resizeComposer = useCallback(() => {
+    const textarea = textareaRef.current;
 
-      if (!textarea) {
-        return;
-      }
+    if (!textarea) {
+      return;
+    }
 
-      textarea.style.height = "auto";
-      textarea.style.height = `${Math.min(
-        textarea.scrollHeight,
-        128
-      )}px`;
-    }, []);
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 128)}px`;
+  }, []);
 
   const stopActiveTyping = useCallback(
     (targetConversationId: string) => {
@@ -1455,126 +1394,96 @@ export default function ChatConversation({
       stopTyping(targetConversationId);
       typingActiveRef.current = false;
     },
-    [
-      clearTypingTimeout,
-      stopTyping,
-    ]
+    [clearTypingTimeout, stopTyping],
   );
 
   const handleLoadOlderMessages = useCallback(async () => {
-    if (
-      !hasNextPage ||
-      isFetchingNextPage
-    ) {
+    if (!hasNextPage || isFetchingNextPage) {
       return;
     }
 
     const element = containerRef.current;
-    const previousScrollHeight =
-      element?.scrollHeight ?? 0;
+    const previousScrollHeight = element?.scrollHeight ?? 0;
 
     await fetchNextPage();
 
     requestAnimationFrame(() => {
       const nextElement = containerRef.current;
 
-      if (
-        !nextElement ||
-        !previousScrollHeight
-      ) {
+      if (!nextElement || !previousScrollHeight) {
         return;
       }
 
-      nextElement.scrollTop +=
-        nextElement.scrollHeight -
-        previousScrollHeight;
+      nextElement.scrollTop += nextElement.scrollHeight - previousScrollHeight;
     });
-  }, [
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  ]);
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   const visibleMessages = useMemo(() => {
     if (!conversationId) {
       return [];
     }
 
-    const serverMessages =
-      (messagesQuery.data ?? []) as Message[];
+    const serverMessages = (messagesQuery.data ?? []) as Message[];
 
-    return mergeMessages(
-      serverMessages,
-      realtimeMessages
-    )
-      .slice(-RENDER_WINDOW_SIZE);
-  }, [
-    conversationId,
-    realtimeMessages,
-    messagesQuery.data,
-  ]);
+    return mergeMessages(serverMessages, realtimeMessages).slice(
+      -RENDER_WINDOW_SIZE,
+    );
+  }, [conversationId, realtimeMessages, messagesQuery.data]);
 
   const remoteTypingUsers = useMemo(
-    () =>
-      typingUsers.filter(
-        (typingUserId) =>
-          typingUserId !== user?.id
-      ),
-    [
-      typingUsers,
-      user?.id,
-    ]
+    () => typingUsers.filter((typingUserId) => typingUserId !== user?.id),
+    [typingUsers, user?.id],
   );
 
-  const isOnline =
-    activeConversation
-      ? hasOnlinePeer(
-          activeConversation.memberIds,
-          onlineUserIds,
-          user?.id
-        )
-      : false;
-  const activeUnreadCount =
-    activeConversation?.unreadCount ?? 0;
+  const isOnline = activeConversation
+    ? hasOnlinePeer(activeConversation.memberIds, onlineUserIds, user?.id)
+    : false;
+  const activeUnreadCount = activeConversation?.unreadCount ?? 0;
   const showInitialMessageSkeleton =
-    messagesQuery.isLoading &&
-    !visibleMessages.length;
-  const callTargetUserId =
-    activeConversation?.memberIds?.find(
-      (memberId) =>
-        memberId !== user?.id
-    );
-  const activeConversationAvatar =
-    activeConversation
-      ? getConversationAvatar(
-          activeConversation,
-          user?.id
-        )
-      : null;
-  const activeConversationDisplayName =
-    formatDisplayName(
-      activeConversation?.name ?? "FlexChat"
-    );
-  const compactChat =
-    !!discoverOpen && !!activeNowOpen;
+    messagesQuery.isLoading && !visibleMessages.length;
+  const callTargetUserId = activeConversation?.memberIds?.find(
+    (memberId) => memberId !== user?.id,
+  );
+  const activeConversationAvatar = activeConversation
+    ? getConversationAvatar(activeConversation, user?.id)
+    : null;
+  const activeConversationDisplayName = formatDisplayName(
+    activeConversation?.name ?? "FlexChat",
+  );
+  const profileMembers =
+    activeConversation?.members ?? [];
+  const remoteMember =
+    activeConversation?.members?.find(
+      (member) => member.id !== user?.id
+    ) ?? null;
+  const presenceLabel =
+    remoteTypingUsers.length
+      ? "Typing..."
+      : isOnline
+        ? "Online"
+        : formatLastSeen(remoteMember?.lastSeenAt);
+  const activeTheme = getChatTheme(
+    activeConversation?.localThemeId ??
+      activeConversation?.sharedThemeId ??
+      DEFAULT_CHAT_THEME_ID,
+  );
+  const activeThemeStyle =
+    getChatThemeStyle(activeTheme);
+  const compactChat = !!discoverOpen && !!activeNowOpen;
   const headerActionClass = `flex shrink-0 items-center justify-center border border-white/10 bg-white/[0.04] text-zinc-200 transition hover:border-purple-400/30 hover:bg-purple-500/[0.15] disabled:cursor-not-allowed disabled:opacity-40 ${
-    compactChat
-      ? "h-9 w-9 rounded-xl"
-      : "h-11 w-11 rounded-2xl"
+    compactChat ? "h-9 w-9 rounded-xl" : "h-11 w-11 rounded-2xl"
   }`;
-  const headerIconSize =
-    compactChat ? 16 : 18;
+  const headerIconSize = compactChat ? 16 : 18;
   const aiSuggestions = useMemo(
     () => [
       "Summarize recent messages",
       "Help me write a warm reply",
       "What media can I send?",
     ],
-    []
+    [],
   );
   const forwardConversations = useMemo(() => {
-    const normalizedSearch =
-      forwardSearch.trim().toLowerCase();
+    const normalizedSearch = forwardSearch.trim().toLowerCase();
 
     return (conversationsQuery.data ?? [])
       .filter((conversation) => {
@@ -1583,17 +1492,11 @@ export default function ChatConversation({
         }
 
         return (
-          conversation.name
-            ?.toLowerCase()
-            .includes(normalizedSearch) ??
-          false
+          conversation.name?.toLowerCase().includes(normalizedSearch) ?? false
         );
       })
       .slice(0, 60);
-  }, [
-    conversationsQuery.data,
-    forwardSearch,
-  ]);
+  }, [conversationsQuery.data, forwardSearch]);
 
   useEffect(() => {
     if (!conversationId) {
@@ -1606,18 +1509,10 @@ export default function ChatConversation({
       stopActiveTyping(conversationId);
       leaveConversation(conversationId);
     };
-  }, [
-    conversationId,
-    joinConversation,
-    leaveConversation,
-    stopActiveTyping,
-  ]);
+  }, [conversationId, joinConversation, leaveConversation, stopActiveTyping]);
 
   useEffect(() => {
-    if (
-      !conversationId ||
-      activeUnreadCount <= 0
-    ) {
+    if (!conversationId || activeUnreadCount <= 0) {
       return;
     }
 
@@ -1631,55 +1526,41 @@ export default function ChatConversation({
           (conversation) => ({
             ...conversation,
             unreadCount: 0,
-          })
-        )
+          }),
+        ),
     );
-  }, [
-    activeUnreadCount,
-    conversationId,
-    markConversationRead,
-    queryClient,
-  ]);
+  }, [activeUnreadCount, conversationId, markConversationRead, queryClient]);
 
   useEffect(() => {
     if (!isNearBottomRef.current) {
       return;
     }
 
-    const behavior: ScrollBehavior =
-      hasAnchoredInitialMessagesRef.current
-        ? "smooth"
-        : "auto";
+    const behavior: ScrollBehavior = hasAnchoredInitialMessagesRef.current
+      ? "smooth"
+      : "auto";
 
     if (scrollFrameRef.current) {
-      cancelAnimationFrame(
-        scrollFrameRef.current
-      );
+      cancelAnimationFrame(scrollFrameRef.current);
     }
 
-    scrollFrameRef.current =
-      requestAnimationFrame(() => {
-        bottomRef.current?.scrollIntoView({
-          behavior,
-          block: "end",
-        });
-
-        hasAnchoredInitialMessagesRef.current = true;
-        scrollFrameRef.current = null;
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({
+        behavior,
+        block: "end",
       });
+
+      hasAnchoredInitialMessagesRef.current = true;
+      scrollFrameRef.current = null;
+    });
 
     return () => {
       if (scrollFrameRef.current) {
-        cancelAnimationFrame(
-          scrollFrameRef.current
-        );
+        cancelAnimationFrame(scrollFrameRef.current);
         scrollFrameRef.current = null;
       }
     };
-  }, [
-    visibleMessages.length,
-    remoteTypingUsers.length,
-  ]);
+  }, [visibleMessages.length, remoteTypingUsers.length]);
 
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -1694,85 +1575,84 @@ export default function ChatConversation({
       }
 
       if (scrollFrameRef.current) {
-        cancelAnimationFrame(
-          scrollFrameRef.current
-        );
+        cancelAnimationFrame(scrollFrameRef.current);
       }
 
-      scrollFrameRef.current =
-        requestAnimationFrame(() => {
-          bottomRef.current?.scrollIntoView({
-            behavior: "auto",
-            block: "end",
-          });
-
-          scrollFrameRef.current = null;
+      scrollFrameRef.current = requestAnimationFrame(() => {
+        bottomRef.current?.scrollIntoView({
+          behavior: "auto",
+          block: "end",
         });
+
+        scrollFrameRef.current = null;
+      });
     }
 
-    viewport.addEventListener(
-      "resize",
-      handleViewportResize
-    );
+    viewport.addEventListener("resize", handleViewportResize);
 
     return () => {
-      viewport.removeEventListener(
-        "resize",
-        handleViewportResize
-      );
+      viewport.removeEventListener("resize", handleViewportResize);
     };
   }, []);
 
   useEffect(
     () => () => {
       if (scrollMeasureFrameRef.current) {
-        cancelAnimationFrame(
-          scrollMeasureFrameRef.current
-        );
+        cancelAnimationFrame(scrollMeasureFrameRef.current);
         scrollMeasureFrameRef.current = null;
       }
     },
-    []
+    [],
+  );
+
+  useEffect(
+    () => () => {
+      stopRecordingTimer();
+      stopRecordingStream();
+
+      if (
+        mediaRecorderRef.current &&
+        mediaRecorderRef.current.state !==
+          "inactive"
+      ) {
+        mediaRecorderRef.current.stop();
+      }
+    },
+    [],
   );
 
   useEffect(() => {
     resizeComposer();
-  }, [
-    resizeComposer,
-    text,
-  ]);
+  }, [resizeComposer, text]);
 
   useEffect(() => {
     if (!conversationId || !user?.id || !isConnected) {
       return;
     }
 
-    const unreadRemoteMessageIds =
-      visibleMessages.reduce<string[]>(
-        (messageIds, message) => {
-          if (
-            message.senderId === user.id ||
-            message.senderId === "me" ||
-            message.status === "read" ||
-            seenMessageIdsRef.current.has(message.id)
-          ) {
-            return messageIds;
-          }
-
-          messageIds.push(message.id);
+    const unreadRemoteMessageIds = visibleMessages.reduce<string[]>(
+      (messageIds, message) => {
+        if (
+          message.senderId === user.id ||
+          message.senderId === "me" ||
+          message.status === "read" ||
+          seenMessageIdsRef.current.has(message.id)
+        ) {
           return messageIds;
-        },
-        []
-      );
+        }
+
+        messageIds.push(message.id);
+        return messageIds;
+      },
+      [],
+    );
 
     if (!unreadRemoteMessageIds.length) {
       return;
     }
 
     unreadRemoteMessageIds.forEach((messageId) => {
-      if (
-        seenMessageIdsRef.current.has(messageId)
-      ) {
+      if (seenMessageIdsRef.current.has(messageId)) {
         return;
       }
 
@@ -1783,17 +1663,12 @@ export default function ChatConversation({
       conversationId,
       messageIds: unreadRemoteMessageIds,
     });
-  }, [
-    conversationId,
-    isConnected,
-    socket,
-    user?.id,
-    visibleMessages,
-  ]);
+  }, [conversationId, isConnected, socket, user?.id, visibleMessages]);
 
   useEffect(() => {
     seenMessageIdsRef.current.clear();
     hasAnchoredInitialMessagesRef.current = false;
+    setReplyingTo(null);
   }, [conversationId]);
 
   function handleScroll() {
@@ -1801,22 +1676,18 @@ export default function ChatConversation({
       return;
     }
 
-    scrollMeasureFrameRef.current =
-      requestAnimationFrame(() => {
-        const element = containerRef.current;
+    scrollMeasureFrameRef.current = requestAnimationFrame(() => {
+      const element = containerRef.current;
 
-        if (!element) {
-          scrollMeasureFrameRef.current = null;
-          return;
-        }
-
-        isNearBottomRef.current =
-          element.scrollHeight -
-            element.scrollTop -
-            element.clientHeight <
-          180;
+      if (!element) {
         scrollMeasureFrameRef.current = null;
-      });
+        return;
+      }
+
+      isNearBottomRef.current =
+        element.scrollHeight - element.scrollTop - element.clientHeight < 180;
+      scrollMeasureFrameRef.current = null;
+    });
   }
 
   function handleTyping(value: string) {
@@ -1843,33 +1714,232 @@ export default function ChatConversation({
     }, 900);
   }
 
-  async function handleAttachmentUpload(
-    file?: File
-  ) {
+  function stopRecordingTimer() {
+    if (!recordingTimerRef.current) {
+      return;
+    }
+
+    clearInterval(recordingTimerRef.current);
+    recordingTimerRef.current = null;
+  }
+
+  function stopRecordingStream() {
+    recordingStreamRef.current?.getTracks().forEach((track) => {
+      track.stop();
+    });
+    recordingStreamRef.current = null;
+  }
+
+  async function uploadVoiceNote(blob: Blob) {
+    if (!conversationId) {
+      return;
+    }
+
+    const extension =
+      blob.type.includes("ogg") ? "ogg" : "webm";
+    const audioMimeType =
+      extension === "ogg"
+        ? "audio/ogg"
+        : "audio/webm";
+    const file = new File(
+      [blob],
+      `voice-note-${Date.now()}.${extension}`,
+      {
+        type: audioMimeType,
+      },
+    );
+
+    setIsUploadingAttachment(true);
+    setAttachmentUploadProgress(4);
+
+    try {
+      const audioUrl = await uploadImage(file, {
+        onProgress: (progress) => {
+          setAttachmentUploadProgress(Math.min(96, Math.max(6, progress)));
+        },
+      });
+
+      sendSocketMessage({
+        conversationId,
+        text: "",
+        audio: audioUrl,
+        replyTo: replyingTo
+          ? {
+              id: replyingTo.id,
+              text: getMessagePreviewText(replyingTo),
+            }
+          : undefined,
+      });
+
+      isNearBottomRef.current = true;
+      setReplyingTo(null);
+      setConnectionError(null);
+      setAttachmentUploadProgress(100);
+    } catch (error) {
+      setConnectionError("Voice note upload failed");
+      pushToast({
+        title: "Voice note failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "We could not send that voice note.",
+        variant: "error",
+      });
+    } finally {
+      setIsUploadingAttachment(false);
+      window.setTimeout(() => {
+        setAttachmentUploadProgress(0);
+      }, 350);
+    }
+  }
+
+  async function finishVoiceRecording(shouldSend: boolean) {
+    const recorder = mediaRecorderRef.current;
+
+    if (!recorder) {
+      return;
+    }
+
+    const startedAt = recordingStartedAtRef.current;
+
+    await new Promise<void>((resolve) => {
+      recorder.onstop = () => resolve();
+
+      if (recorder.state !== "inactive") {
+        recorder.stop();
+        return;
+      }
+
+      resolve();
+    });
+
+    stopRecordingTimer();
+    stopRecordingStream();
+    mediaRecorderRef.current = null;
+    setIsRecordingVoice(false);
+    setRecordingSeconds(0);
+
+    const durationMs = Date.now() - startedAt;
+    const chunks = recordingChunksRef.current;
+    recordingChunksRef.current = [];
+
+    if (!shouldSend || durationMs < 650 || !chunks.length) {
+      return;
+    }
+
+    const blob = new Blob(chunks, {
+      type: recorder.mimeType || "audio/webm",
+    });
+
+    await uploadVoiceNote(blob);
+  }
+
+  async function startVoiceRecording() {
     if (
-      !file ||
       !conversationId ||
-      isUploadingAttachment
+      isUploadingAttachment ||
+      isRecordingVoice
     ) {
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      pushToast({
+        title: "Microphone unavailable",
+        message: "This browser cannot record voice notes.",
+        variant: "warning",
+      });
+      return;
+    }
+
+    const mimeType =
+      getVoiceRecorderMimeType();
+
+    if (!mimeType) {
+      pushToast({
+        title: "Voice notes unavailable",
+        message: "This browser cannot encode voice notes.",
+        variant: "warning",
+      });
+      return;
+    }
+
+    try {
+      const stream =
+        await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+
+      if (!recordingPointerActiveRef.current) {
+        stream.getTracks().forEach((track) => {
+          track.stop();
+        });
+        return;
+      }
+
+      const recorder =
+        new MediaRecorder(stream, {
+          mimeType,
+        });
+
+      recordingChunksRef.current = [];
+      recordingStreamRef.current = stream;
+      recordingStartedAtRef.current = Date.now();
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) {
+          recordingChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.start(250);
+      setIsRecordingVoice(true);
+      setRecordingSeconds(0);
+      stopRecordingTimer();
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds(
+          Math.floor(
+            (Date.now() - recordingStartedAtRef.current) / 1000,
+          ),
+        );
+      }, 250);
+    } catch (error) {
+      stopRecordingStream();
+      pushToast({
+        title: "Microphone access denied",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Check browser microphone permissions.",
+        variant: "error",
+      });
+    }
+  }
+
+  async function handleAttachmentUpload(file?: File) {
+    if (!file || !conversationId || isUploadingAttachment) {
       return;
     }
 
     if (
       file.type.startsWith("video/") &&
-      file.size > MEDIA_LIMITS.video
+      file.size > MEDIA_LIMITS.videoInput
     ) {
       setLargeVideoFile(file);
 
       if (fileInputRef.current) {
-        fileInputRef.current.value =
-          "";
+        fileInputRef.current.value = "";
       }
 
       return;
     }
 
-    const validationError =
-      getUploadValidationError(file);
+    const validationError = getUploadValidationError(file);
 
     if (validationError) {
       pushToast({
@@ -1879,50 +1949,66 @@ export default function ChatConversation({
       });
 
       if (fileInputRef.current) {
-        fileInputRef.current.value =
-          "";
+        fileInputRef.current.value = "";
       }
 
       return;
     }
 
     setIsUploadingAttachment(true);
+    setAttachmentUploadProgress(4);
+    setFailedAttachmentUpload(null);
 
     try {
-      const attachmentUrl =
-        await uploadImage(file);
-      const caption =
-        text.trim();
+      const attachmentUrl = await uploadImage(file, {
+        onProgress: (progress) => {
+          setAttachmentUploadProgress(Math.min(96, Math.max(6, progress)));
+        },
+      });
+      const caption = text.trim();
 
       sendSocketMessage({
         conversationId,
         text: caption,
-        attachment:
-          attachmentUrl,
+        attachment: attachmentUrl,
+        replyTo: replyingTo
+          ? {
+              id: replyingTo.id,
+              text: getMessagePreviewText(replyingTo),
+            }
+          : undefined,
       });
 
       isNearBottomRef.current = true;
       setText("");
+      setReplyingTo(null);
       stopActiveTyping(conversationId);
       setConnectionError(null);
+      setAttachmentUploadProgress(100);
     } catch (error) {
-      setConnectionError(
-        "Attachment upload failed"
-      );
+      const message =
+        error instanceof Error
+          ? error.message
+          : "We could not attach that file. Please try again.";
+
+      setConnectionError("Attachment upload failed");
+      setFailedAttachmentUpload({
+        file,
+        message,
+      });
       pushToast({
         title: "Upload failed",
-        message:
-          error instanceof Error
-            ? error.message
-            : "We could not attach that file. Please try again.",
+        message,
         variant: "error",
       });
     } finally {
       setIsUploadingAttachment(false);
+      window.setTimeout(() => {
+        setAttachmentUploadProgress(0);
+      }, 350);
 
       if (fileInputRef.current) {
-        fileInputRef.current.value =
-          "";
+        fileInputRef.current.value = "";
       }
     }
   }
@@ -1941,10 +2027,17 @@ export default function ChatConversation({
     sendSocketMessage({
       conversationId,
       text: nextText,
+      replyTo: replyingTo
+        ? {
+            id: replyingTo.id,
+            text: getMessagePreviewText(replyingTo),
+          }
+        : undefined,
     });
 
     isNearBottomRef.current = true;
     setText("");
+    setReplyingTo(null);
     stopActiveTyping(conversationId);
   }
 
@@ -1953,19 +2046,79 @@ export default function ChatConversation({
       buildLocalAiResponse({
         prompt: aiPrompt,
         messages: visibleMessages,
-        conversationName:
-          activeConversationDisplayName,
-      })
+        conversationName: activeConversationDisplayName,
+      }),
     );
   }
 
-  function handleStartCall(
-    kind: "voice" | "video"
+  async function handleApplyTheme(
+    themeId: string | null,
+    scope: "me" | "both",
   ) {
-    if (
-      !conversationId ||
-      !callTargetUserId
-    ) {
+    if (!conversationId) {
+      return;
+    }
+
+    setThemeApplying({
+      themeId,
+      scope,
+    });
+
+    try {
+      const conversation = await applyConversationTheme({
+        conversationId,
+        themeId,
+        scope,
+      });
+
+      queryClient.setQueryData<ConversationQueryCache>(
+        queryKeys.conversations.all,
+        (cache) =>
+          updateConversationInQueryCache(
+            cache,
+            conversation.id,
+            () => conversation,
+          ),
+      );
+
+      useConversationStore.setState((state) => ({
+        conversationPatches: {
+          ...state.conversationPatches,
+          [conversation.id]: {
+            ...state.conversationPatches[conversation.id],
+            localThemeId: conversation.localThemeId ?? null,
+            sharedThemeId: conversation.sharedThemeId ?? null,
+            themeUpdatedAt: conversation.themeUpdatedAt ?? null,
+          },
+        },
+      }));
+
+      setThemeSheetOpen(false);
+      setChatSettingsOpen(false);
+      pushToast({
+        title: "Theme updated",
+        message:
+          scope === "both"
+            ? "This chat theme was synced for both people."
+            : "This chat theme is only visible to you.",
+        variant: "success",
+      });
+    } catch (error) {
+      pushToast({
+        title: "Theme unavailable",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Please try changing the theme again.",
+        variant: "error",
+      });
+    } finally {
+      setThemeApplying(null);
+    }
+  }
+
+  function handleStartCall(kind: "voice" | "video") {
+    if (!conversationId || !callTargetUserId) {
       return;
     }
 
@@ -1982,33 +2135,25 @@ export default function ChatConversation({
     }
 
     setForwardingMessage(null);
-    setSelectedForwardConversationIds(
-      new Set()
-    );
+    setSelectedForwardConversationIds(new Set());
     setForwardSearch("");
   }
 
-  function toggleForwardTarget(
-    conversationId: string
-  ) {
-    setSelectedForwardConversationIds(
-      (current) => {
-        const next = new Set(current);
+  function toggleForwardTarget(conversationId: string) {
+    setSelectedForwardConversationIds((current) => {
+      const next = new Set(current);
 
-        if (next.has(conversationId)) {
-          next.delete(conversationId);
-        } else {
-          next.add(conversationId);
-        }
-
-        return next;
+      if (next.has(conversationId)) {
+        next.delete(conversationId);
+      } else {
+        next.add(conversationId);
       }
-    );
+
+      return next;
+    });
   }
 
-  function removeOptimisticForwardMessages(
-    messageIds: string[]
-  ) {
+  function removeOptimisticForwardMessages(messageIds: string[]) {
     if (!messageIds.length) {
       return;
     }
@@ -2019,65 +2164,42 @@ export default function ChatConversation({
       {
         queryKey: ["messages"],
       },
-      (cache) =>
-        removeMessagesFromQueryCache(
-          cache,
-          messageIds
-        )
+      (cache) => removeMessagesFromQueryCache(cache, messageIds),
     );
 
     useSocketStore.setState((state) => {
-      const filterMessages = (
-        messages: Message[]
-      ) =>
+      const filterMessages = (messages: Message[]) =>
         messages.filter(
           (message) =>
             !ids.has(message.id) &&
-            !(
-              message.tempId &&
-              ids.has(message.tempId)
-            )
+            !(message.tempId && ids.has(message.tempId)),
         );
-      const nextBuckets:
-        Record<string, Message[]> = {};
+      const nextBuckets: Record<string, Message[]> = {};
 
-      Object.entries(
-        state.messagesByConversation
-      ).forEach(
+      Object.entries(state.messagesByConversation).forEach(
         ([conversationId, messages]) => {
-          nextBuckets[conversationId] =
-            filterMessages(messages);
-        }
+          nextBuckets[conversationId] = filterMessages(messages);
+        },
       );
 
       return {
-        messages:
-          filterMessages(state.messages),
-        messagesByConversation:
-          nextBuckets,
+        messages: filterMessages(state.messages),
+        messagesByConversation: nextBuckets,
       };
     });
   }
 
   async function handleForwardSubmit() {
-    if (
-      !forwardingMessage ||
-      isForwarding ||
-      !user?.id
-    ) {
+    if (!forwardingMessage || isForwarding || !user?.id) {
       return;
     }
 
-    const targetConversationIds =
-      Array.from(
-        selectedForwardConversationIds
-      );
+    const targetConversationIds = Array.from(selectedForwardConversationIds);
 
     if (!targetConversationIds.length) {
       pushToast({
         title: "Choose a conversation",
-        message:
-          "Select where this message should be forwarded.",
+        message: "Select where this message should be forwarded.",
         variant: "info",
       });
       return;
@@ -2085,90 +2207,66 @@ export default function ChatConversation({
 
     const optimisticIds: string[] = [];
     const now = new Date().toISOString();
-    const sourceAttribution =
-      forwardingMessage.forwardedFrom ?? {
-        messageId: forwardingMessage.id,
-        senderId:
-          forwardingMessage.senderId,
-        senderName:
-          forwardingMessage.senderId ===
-          user.id
-            ? user.username
-            : activeConversationDisplayName,
-      };
+    const sourceAttribution = forwardingMessage.forwardedFrom ?? {
+      messageId: forwardingMessage.id,
+      senderId: forwardingMessage.senderId,
+      senderName:
+        forwardingMessage.senderId === user.id
+          ? user.username
+          : activeConversationDisplayName,
+    };
 
     setIsForwarding(true);
 
-    targetConversationIds.forEach(
-      (targetConversationId) => {
-        const optimisticId =
-          crypto.randomUUID();
-        optimisticIds.push(optimisticId);
+    targetConversationIds.forEach((targetConversationId) => {
+      const optimisticId = generateId();
+      optimisticIds.push(optimisticId);
 
-        const optimisticMessage: Message = {
-          ...forwardingMessage,
-          id: optimisticId,
-          tempId: optimisticId,
-          conversationId:
+      const optimisticMessage: Message = {
+        ...forwardingMessage,
+        id: optimisticId,
+        tempId: optimisticId,
+        conversationId: targetConversationId,
+        senderId: user.id,
+        createdAt: now,
+        status: "sending",
+        optimistic: true,
+        reactions: [],
+        forwardedFrom: sourceAttribution,
+      };
+
+      mergeMutatedMessage(optimisticMessage);
+
+      const latestMessage = getMessagePreviewText(optimisticMessage);
+
+      queryClient.setQueryData<ConversationQueryCache>(
+        queryKeys.conversations.all,
+        (cache) =>
+          updateConversationInQueryCache(
+            cache,
             targetConversationId,
-          senderId: user.id,
-          createdAt: now,
-          status: "sending",
-          optimistic: true,
-          reactions: [],
-          forwardedFrom:
-            sourceAttribution,
-        };
+            (conversation) => ({
+              ...conversation,
+              latestMessage,
+              lastActivityAt: now,
+            }),
+          ),
+      );
 
-        mergeMutatedMessage(
-          optimisticMessage
-        );
-
-        const latestMessage =
-          getMessagePreviewText(
-            optimisticMessage
-          );
-
-        queryClient.setQueryData<ConversationQueryCache>(
-          queryKeys.conversations.all,
-          (cache) =>
-            updateConversationInQueryCache(
-              cache,
-              targetConversationId,
-              (conversation) => ({
-                ...conversation,
-                latestMessage,
-                lastActivityAt: now,
-              })
-            )
-        );
-
-        updateConversationMessage(
-          targetConversationId,
-          latestMessage
-        );
-      }
-    );
+      updateConversationMessage(targetConversationId, latestMessage);
+    });
 
     try {
-      const forwardedMessages =
-        await forwardMessage({
-          messageId:
-            forwardingMessage.id,
-          targetConversationIds,
-        });
+      const forwardedMessages = await forwardMessage({
+        messageId: forwardingMessage.id,
+        targetConversationIds,
+      });
 
-      removeOptimisticForwardMessages(
-        optimisticIds
-      );
+      removeOptimisticForwardMessages(optimisticIds);
 
-      forwardedMessages.forEach(
-        (message) => {
-          mergeMutatedMessage(
-            message as Message
-          );
-        }
-      );
+      forwardedMessages.forEach((message) => {
+        mergeMutatedMessage(message as Message);
+      });
 
       pushToast({
         title: "Message forwarded",
@@ -2180,18 +2278,13 @@ export default function ChatConversation({
       });
 
       setForwardingMessage(null);
-      setSelectedForwardConversationIds(
-        new Set()
-      );
+      setSelectedForwardConversationIds(new Set());
       setForwardSearch("");
       void queryClient.invalidateQueries({
-        queryKey:
-          queryKeys.conversations.all,
+        queryKey: queryKeys.conversations.all,
       });
     } catch (error) {
-      removeOptimisticForwardMessages(
-        optimisticIds
-      );
+      removeOptimisticForwardMessages(optimisticIds);
       pushToast({
         title: "Forward failed",
         message:
@@ -2201,8 +2294,7 @@ export default function ChatConversation({
         variant: "error",
       });
       void queryClient.invalidateQueries({
-        queryKey:
-          queryKeys.conversations.all,
+        queryKey: queryKeys.conversations.all,
       });
     } finally {
       setIsForwarding(false);
@@ -2225,11 +2317,14 @@ export default function ChatConversation({
   }
 
   return (
-    <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_50%_0%,rgba(168,85,247,0.10),transparent_32%),linear-gradient(180deg,rgba(8,17,31,0.72),rgba(5,8,18,0.92))]">
+    <section
+      style={activeThemeStyle}
+      className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[var(--fc-chat-bg)] text-[var(--fc-theme-text)]"
+    >
       <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.7)_1px,transparent_0)] [background-size:24px_24px]" />
 
       <div
-        className={`relative z-10 flex shrink-0 items-center justify-between border-b border-white/10 bg-[#08111f]/[0.62] shadow-lg shadow-black/10 backdrop-blur-2xl ${
+        className={`relative z-10 flex shrink-0 items-center justify-between border-b border-white/10 bg-[var(--fc-chat-header)] shadow-lg shadow-black/10 backdrop-blur-2xl ${
           compactChat
             ? "gap-2 px-3 py-3 sm:px-4 sm:py-3"
             : "gap-3 px-4 py-4 sm:px-6 sm:py-5"
@@ -2237,59 +2332,48 @@ export default function ChatConversation({
       >
         <div
           className={`flex min-w-0 flex-1 items-center ${
-            compactChat
-              ? "gap-2"
-              : "gap-3 sm:gap-4"
+            compactChat ? "gap-2" : "gap-3 sm:gap-4"
           }`}
         >
-          <FlexAvatar
-            src={activeConversationAvatar}
-            name={
-              activeConversation.name
-            }
-            className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-sm font-bold text-white shadow-lg shadow-purple-950/30 sm:h-12 sm:w-12 sm:text-base"
-          />
+          <button
+            type="button"
+            onClick={() => setProfileOpen(true)}
+            className="shrink-0 rounded-2xl outline-none transition active:scale-95 focus-visible:ring-2 focus-visible:ring-purple-300/70"
+            aria-label="Open profile"
+          >
+            <FlexAvatar
+              src={activeConversationAvatar}
+              name={activeConversation.name}
+              className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-sm font-bold text-white shadow-lg shadow-purple-950/30 sm:h-12 sm:w-12 sm:text-base"
+            />
+          </button>
 
           <div className="min-w-0 flex-1">
             <h2
               className={`truncate font-semibold text-white ${
-                compactChat
-                  ? "text-sm"
-                  : ""
+                compactChat ? "text-sm" : ""
               }`}
             >
               {activeConversationDisplayName}
             </h2>
 
             <p
-              className={`truncate ${
-                compactChat
-                  ? "text-xs"
-                  : "text-sm"
-              } ${
+              className={`truncate ${compactChat ? "text-xs" : "text-sm"} ${
                 remoteTypingUsers.length
                   ? "text-cyan-300"
                   : isOnline
-                  ? "text-green-400"
-                  : "text-zinc-500"
+                    ? "text-green-400"
+                    : "text-zinc-500"
               }`}
             >
-              {remoteTypingUsers.length
-                ? "typing..."
-                : isOnline
-                ? "Online"
-                : isConnected
-                  ? "Realtime ready"
-                  : "Reconnecting..."}
+              {isConnected ? presenceLabel : "Reconnecting..."}
             </p>
           </div>
         </div>
 
         <div
-          className={`flex shrink-0 items-center ${
-            compactChat
-              ? "gap-1.5"
-              : "gap-2"
+          className={`flex max-w-[58vw] shrink-0 items-center overflow-x-auto pl-1 sm:max-w-none sm:overflow-visible sm:pl-0 ${
+            compactChat ? "gap-1.5" : "gap-2"
           }`}
         >
           <button
@@ -2332,20 +2416,16 @@ export default function ChatConversation({
             <Bell size={headerIconSize} />
             {unreadNotificationCount ? (
               <span className="absolute right-2 top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white shadow-lg shadow-red-500/50">
-                {unreadNotificationCount > 9
-                  ? "9+"
-                  : unreadNotificationCount}
+                {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
               </span>
             ) : null}
           </button>
 
           <button
             type="button"
-            onClick={() =>
-              handleStartCall("voice")
-            }
+            onClick={() => handleStartCall("voice")}
             disabled={!callTargetUserId}
-            className={`${headerActionClass} ${compactChat ? "hidden 2xl:flex" : ""}`}
+            className={headerActionClass}
             aria-label="Start voice call"
           >
             <Phone size={headerIconSize} />
@@ -2353,14 +2433,23 @@ export default function ChatConversation({
 
           <button
             type="button"
-            onClick={() =>
-              handleStartCall("video")
-            }
+            onClick={() => handleStartCall("video")}
             disabled={!callTargetUserId}
-            className={`${headerActionClass} ${compactChat ? "hidden 2xl:flex" : ""}`}
+            className={headerActionClass}
             aria-label="Start video call"
           >
             <Video size={headerIconSize} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setChatSettingsOpen(true)
+            }
+            className={headerActionClass}
+            aria-label="Open chat settings"
+          >
+            <MoreVertical size={headerIconSize} />
           </button>
         </div>
       </div>
@@ -2384,17 +2473,11 @@ export default function ChatConversation({
               <div className="mb-5 flex justify-center">
                 <button
                   type="button"
-                  onClick={
-                    handleLoadOlderMessages
-                  }
-                  disabled={
-                    isFetchingNextPage
-                  }
+                  onClick={handleLoadOlderMessages}
+                  disabled={isFetchingNextPage}
                   className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-medium text-zinc-300 backdrop-blur-xl transition hover:border-purple-400/30 hover:bg-purple-500/10 hover:text-white disabled:cursor-wait disabled:opacity-60"
                 >
-                  {isFetchingNextPage
-                    ? "Loading..."
-                    : "Load earlier"}
+                  {isFetchingNextPage ? "Loading..." : "Load earlier"}
                 </button>
               </div>
             ) : null}
@@ -2411,10 +2494,8 @@ export default function ChatConversation({
 
             {visibleMessages.map((message, index) => {
               const mine =
-                message.senderId === user?.id ||
-                message.senderId === "me";
-              const previous =
-                visibleMessages[index - 1];
+                message.senderId === user?.id || message.senderId === "me";
+              const previous = visibleMessages[index - 1];
 
               return (
                 <ChatMessageRow
@@ -2422,24 +2503,13 @@ export default function ChatConversation({
                   message={message}
                   previous={previous}
                   mine={mine}
-                  reducedMotion={
-                    !!reducedMotion
-                  }
-                  onRetry={
-                    handleRetryMessage
-                  }
-                  onEdit={
-                    handleEditMessage
-                  }
-                  onDelete={
-                    handleDeleteMessage
-                  }
-                  onReact={
-                    handleReactMessage
-                  }
-                  onShare={
-                    handleShareMessage
-                  }
+                  reducedMotion={!!reducedMotion}
+                  onRetry={handleRetryMessage}
+                  onEdit={handleEditMessage}
+                  onDelete={handleDeleteMessage}
+                  onReact={handleReactMessage}
+                  onReply={handleReplyMessage}
+                  onShare={handleShareMessage}
                 />
               );
             })}
@@ -2456,9 +2526,7 @@ export default function ChatConversation({
                             ? false
                             : {
                                 y: [0, -5, 0],
-                                opacity: [
-                                  0.4, 1, 0.4,
-                                ],
+                                opacity: [0.4, 1, 0.4],
                               }
                         }
                         transition={{
@@ -2480,12 +2548,82 @@ export default function ChatConversation({
       </div>
 
       <div
-        className={`relative z-10 shrink-0 border-t border-white/10 bg-[#08111f]/[0.72] shadow-[0_-18px_60px_rgba(0,0,0,0.24)] backdrop-blur-2xl ${
+        className={`relative z-10 shrink-0 border-t border-white/10 bg-[var(--fc-chat-header)] shadow-[0_-18px_60px_rgba(0,0,0,0.24)] backdrop-blur-2xl ${
           compactChat
             ? "p-2.5 pb-[calc(0.65rem+env(safe-area-inset-bottom))] sm:p-3 sm:pb-[calc(0.8rem+env(safe-area-inset-bottom))]"
             : "p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-5 sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
         }`}
       >
+        {replyingTo ? (
+          <div className="mb-2 flex items-center gap-3 rounded-2xl border border-purple-300/20 bg-purple-500/[0.10] p-3 text-sm text-purple-50">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/20">
+              <Reply size={16} />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold uppercase text-purple-200">
+                Replying
+              </p>
+              <p className="truncate text-xs text-white/75">
+                {getMessagePreviewText(replyingTo)}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setReplyingTo(null)}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 transition hover:bg-white/15"
+              aria-label="Cancel reply"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        ) : null}
+
+        {failedAttachmentUpload ? (
+          <div className="mb-2 flex items-center gap-3 rounded-2xl border border-red-400/20 bg-red-500/[0.08] p-3 text-sm text-red-100">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/20">
+              <AlertCircle size={16} />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">Upload failed</p>
+              <p className="truncate text-xs text-red-100/70">
+                {failedAttachmentUpload.message}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const failed =
+                  failedAttachmentUpload;
+
+                setFailedAttachmentUpload(null);
+                void handleAttachmentUpload(
+                  failed.file
+                );
+              }}
+              disabled={isUploadingAttachment}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 transition hover:bg-white/15 disabled:cursor-wait disabled:opacity-60"
+              aria-label="Retry attachment upload"
+            >
+              <RefreshCw size={15} />
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setFailedAttachmentUpload(null)
+              }
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 transition hover:bg-white/15"
+              aria-label="Dismiss upload error"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        ) : null}
+
         <div className="flex items-end gap-2 sm:gap-2.5">
           <input
             ref={fileInputRef}
@@ -2493,19 +2631,15 @@ export default function ChatConversation({
             accept="image/*,audio/*,video/*,application/pdf"
             className="hidden"
             onChange={(event) => {
-              void handleAttachmentUpload(
-                event.target.files?.[0]
-              );
+              void handleAttachmentUpload(event.target.files?.[0]);
             }}
           />
 
           <button
             type="button"
-            onClick={() =>
-              fileInputRef.current?.click()
-            }
+            onClick={() => fileInputRef.current?.click()}
             disabled={isUploadingAttachment}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] transition-all hover:border-purple-300/25 hover:bg-white/[0.07] active:scale-95 disabled:cursor-wait disabled:opacity-60 sm:h-11 sm:w-11"
+            className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] transition-all hover:border-purple-300/25 hover:bg-white/[0.07] active:scale-95 disabled:cursor-wait disabled:opacity-70 sm:h-11 sm:w-11"
             aria-label="Upload attachment"
           >
             <ImageIcon
@@ -2516,63 +2650,591 @@ export default function ChatConversation({
                   : "text-zinc-400"
               }
             />
+            {isUploadingAttachment ? (
+              <span className="absolute inset-x-1.5 bottom-1.5 h-1 overflow-hidden rounded-full bg-white/15">
+                <span
+                  className="block h-full rounded-full bg-purple-200 transition-[width]"
+                  style={{
+                    width: `${attachmentUploadProgress}%`,
+                  }}
+                />
+              </span>
+            ) : null}
           </button>
 
           <button
             type="button"
-            onClick={() =>
-              setAiOpen(true)
-            }
+            onClick={() => setAiOpen(true)}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-purple-300/20 bg-purple-500/[0.10] text-purple-100 shadow-lg shadow-purple-950/15 transition-all hover:bg-purple-500/[0.18] active:scale-95 sm:h-11 sm:w-11"
             aria-label="Open AI assistant"
           >
             <Sparkles size={18} />
           </button>
 
-          <div className="min-w-0 flex-1 rounded-[24px] border border-white/10 bg-white/[0.04] px-3 transition-all duration-200 focus-within:border-purple-400/40 focus-within:bg-white/[0.065] focus-within:shadow-[0_0_0_3px_rgba(147,51,234,0.10)] sm:px-4">
-            <textarea
-              ref={textareaRef}
-              rows={1}
-              value={text}
-              onChange={(event) =>
-                handleTyping(
-                  event.target.value
-                )
-              }
-              onKeyDown={(event) => {
-                if (
-                  event.key === "Enter" &&
-                  !event.shiftKey
-                ) {
-                  event.preventDefault();
-                  handleSend();
-                }
-              }}
-              onBlur={() => {
-                if (conversationId) {
-                  stopActiveTyping(
-                    conversationId
-                  );
-                }
-              }}
-              placeholder="Write a message..."
-              className="max-h-32 min-h-[40px] w-full resize-none overflow-y-auto border-0 bg-transparent py-2.5 text-sm leading-5 text-white outline-none ring-0 placeholder:text-zinc-500 focus:border-0 focus:outline-none focus:ring-0 sm:min-h-[44px] sm:py-3"
-            />
+          <div className="min-w-0 flex-1 rounded-[24px] border border-white/10 bg-[var(--fc-chat-composer)] px-3 transition-all duration-200 focus-within:border-purple-400/40 focus-within:shadow-[0_0_0_3px_rgba(147,51,234,0.10)] sm:px-4">
+            {isRecordingVoice ? (
+              <div className="flex min-h-[40px] items-center gap-3 py-2.5 sm:min-h-[44px] sm:py-3">
+                <button
+                  type="button"
+                  onPointerDown={(event) =>
+                    event.stopPropagation()
+                  }
+                  onClick={() => {
+                    void finishVoiceRecording(false);
+                  }}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-red-300/20 bg-red-500/15 text-red-100"
+                  aria-label="Cancel voice note"
+                >
+                  <X size={15} />
+                </button>
+
+                <div className="flex min-w-0 flex-1 items-center gap-1">
+                  {Array.from({
+                    length: 18,
+                  }).map((_, index) => (
+                    <motion.span
+                      key={index}
+                      animate={{
+                        height: [
+                          8,
+                          18 + ((index % 5) * 3),
+                          8,
+                        ],
+                        opacity: [0.4, 1, 0.4],
+                      }}
+                      transition={{
+                        duration: 0.9,
+                        repeat: Infinity,
+                        delay: index * 0.035,
+                      }}
+                      className="w-1 rounded-full bg-purple-200"
+                    />
+                  ))}
+                </div>
+
+                <span className="shrink-0 text-xs font-medium text-purple-100">
+                  {formatDuration(recordingSeconds)}
+                </span>
+              </div>
+            ) : (
+              <textarea
+                ref={textareaRef}
+                rows={1}
+                value={text}
+                onChange={(event) => handleTyping(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    handleSend();
+                  }
+                }}
+                onBlur={() => {
+                  if (conversationId) {
+                    stopActiveTyping(conversationId);
+                  }
+                }}
+                placeholder="Write a message..."
+                className="max-h-32 min-h-[40px] w-full resize-none overflow-y-auto border-0 bg-transparent py-2.5 text-sm leading-5 text-white shadow-none outline-none ring-0 placeholder:text-zinc-500 focus:border-0 focus:outline-none focus:ring-0 focus-visible:shadow-none sm:min-h-[44px] sm:py-3"
+              />
+            )}
           </div>
 
           <button
             type="button"
-            onClick={handleSend}
+            onPointerDown={(event) => {
+              event.currentTarget.setPointerCapture(event.pointerId);
+              recordingPointerActiveRef.current = true;
+              recordingPointerStartRef.current = {
+                x: event.clientX,
+                y: event.clientY,
+              };
+              recordingShouldCancelRef.current = false;
+              void startVoiceRecording();
+            }}
+            onPointerMove={(event) => {
+              const start =
+                recordingPointerStartRef.current;
+
+              if (!start) {
+                return;
+              }
+
+              const horizontalDelta =
+                event.clientX - start.x;
+              const verticalDelta =
+                event.clientY - start.y;
+
+              recordingShouldCancelRef.current =
+                horizontalDelta < -52 ||
+                Math.abs(verticalDelta) > 88;
+            }}
+            onPointerUp={(event) => {
+              if (
+                event.currentTarget.hasPointerCapture(
+                  event.pointerId
+                )
+              ) {
+                event.currentTarget.releasePointerCapture(
+                  event.pointerId
+                );
+              }
+
+              const shouldSend =
+                !recordingShouldCancelRef.current;
+
+              recordingPointerActiveRef.current = false;
+              recordingPointerStartRef.current = null;
+              recordingShouldCancelRef.current = false;
+              void finishVoiceRecording(shouldSend);
+            }}
+            onPointerCancel={() => {
+              recordingPointerActiveRef.current = false;
+              recordingPointerStartRef.current = null;
+              recordingShouldCancelRef.current = false;
+              void finishVoiceRecording(false);
+            }}
+            onContextMenu={(event) => event.preventDefault()}
             disabled={
-              !text.trim() ||
-              isUploadingAttachment
+              !conversationId ||
+              isUploadingAttachment ||
+              !!text.trim()
             }
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 sm:h-11 sm:w-11 ${
+              isRecordingVoice
+                ? "border-red-300/30 bg-red-500/20 text-red-100"
+                : "border-white/10 bg-white/[0.03] text-zinc-400 hover:border-purple-300/25 hover:bg-white/[0.07]"
+            }`}
+            aria-label="Hold to record voice note"
+          >
+            <Mic size={18} />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={!text.trim() || isUploadingAttachment || isRecordingVoice}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 text-white shadow-2xl shadow-purple-600/30 transition-all hover:scale-105 hover:shadow-purple-500/40 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:w-11"
           >
             <SendHorizonal size={19} />
           </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {chatSettingsOpen ? (
+          <motion.div
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+            }}
+            className="fixed inset-0 z-[268] flex items-end justify-center bg-black/60 p-3 backdrop-blur-xl sm:items-center sm:p-6"
+            onClick={() =>
+              setChatSettingsOpen(false)
+            }
+          >
+            <motion.div
+              initial={{
+                opacity: 0,
+                y: 24,
+                scale: 0.96,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                scale: 1,
+              }}
+              exit={{
+                opacity: 0,
+                y: 24,
+                scale: 0.96,
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 30,
+              }}
+              className="w-full max-w-sm overflow-hidden rounded-[30px] border border-white/10 bg-[#0B111C]/[0.97] text-white shadow-[0_28px_90px_rgba(0,0,0,0.62)]"
+              onClick={(event) =>
+                event.stopPropagation()
+              }
+            >
+              <div className="flex items-center justify-between border-b border-white/10 p-5">
+                <div className="min-w-0">
+                  <h2 className="truncate font-semibold">
+                    Chat Settings
+                  </h2>
+                  <p className="mt-1 truncate text-xs text-zinc-500">
+                    {activeConversationDisplayName}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setChatSettingsOpen(false)
+                  }
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] transition hover:bg-white/[0.08]"
+                  aria-label="Close chat settings"
+                >
+                  <X size={17} />
+                </button>
+              </div>
+
+              <div className="grid gap-2 p-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setThemeSheetOpen(true);
+                    setChatSettingsOpen(false);
+                  }}
+                  className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-zinc-100 transition hover:bg-white/[0.07]"
+                >
+                  <Palette
+                    size={18}
+                    className="text-purple-200"
+                  />
+                  Change Theme
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {themeSheetOpen ? (
+          <motion.div
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+            }}
+            className="fixed inset-0 z-[269] flex items-end justify-center bg-black/65 p-3 backdrop-blur-xl sm:items-center sm:p-6"
+            onClick={() =>
+              setThemeSheetOpen(false)
+            }
+          >
+            <motion.div
+              initial={{
+                opacity: 0,
+                y: 24,
+                scale: 0.96,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                scale: 1,
+              }}
+              exit={{
+                opacity: 0,
+                y: 24,
+                scale: 0.96,
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 30,
+              }}
+              className="flex max-h-[min(86dvh,720px)] w-full max-w-xl flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[#0B111C]/[0.98] text-white shadow-[0_28px_90px_rgba(0,0,0,0.62)]"
+              onClick={(event) =>
+                event.stopPropagation()
+              }
+            >
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+                <div className="min-w-0">
+                  <h2 className="font-semibold">
+                    Change Theme
+                  </h2>
+                  <p className="truncate text-xs text-zinc-500">
+                    {activeTheme.name}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setThemeSheetOpen(false)
+                  }
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white transition hover:bg-white/[0.08]"
+                  aria-label="Close theme picker"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="chat-safe-scroll min-h-0 flex-1 overflow-y-auto p-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {CHAT_THEMES.map((theme) => {
+                    const selected =
+                      theme.id === activeTheme.id;
+                    const applyingForMe =
+                      themeApplying?.themeId ===
+                        theme.id &&
+                      themeApplying.scope === "me";
+                    const applyingForBoth =
+                      themeApplying?.themeId ===
+                        theme.id &&
+                      themeApplying.scope === "both";
+
+                    return (
+                      <div
+                        key={theme.id}
+                        className={`overflow-hidden rounded-2xl border p-3 ${
+                          selected
+                            ? "border-purple-300/45 bg-purple-500/[0.12]"
+                            : "border-white/10 bg-white/[0.035]"
+                        }`}
+                      >
+                        <div
+                          className="h-20 rounded-xl border border-white/10"
+                          style={{
+                            background:
+                              theme.background,
+                          }}
+                        >
+                          <div className="flex h-full items-end gap-2 p-3">
+                            <span
+                              className="h-8 flex-1 rounded-2xl"
+                              style={{
+                                background:
+                                  theme.theirBubble,
+                              }}
+                            />
+                            <span
+                              className="h-10 flex-1 rounded-2xl"
+                              style={{
+                                background:
+                                  theme.ownBubble,
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          <p className="truncate text-sm font-medium">
+                            {theme.name}
+                          </p>
+                          <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] uppercase text-zinc-400">
+                            {theme.mode}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void handleApplyTheme(
+                                theme.id,
+                                "me"
+                              );
+                            }}
+                            disabled={!!themeApplying}
+                            className="flex h-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-xs font-medium text-zinc-100 transition hover:bg-white/[0.1] disabled:cursor-wait disabled:opacity-60"
+                          >
+                            {applyingForMe
+                              ? "Applying"
+                              : "Apply For Me"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void handleApplyTheme(
+                                theme.id,
+                                "both"
+                              );
+                            }}
+                            disabled={!!themeApplying}
+                            className="flex h-10 items-center justify-center rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 text-xs font-semibold text-white shadow-lg shadow-purple-600/20 transition hover:scale-[1.01] disabled:cursor-wait disabled:opacity-60"
+                          >
+                            {applyingForBoth
+                              ? "Applying"
+                              : "Apply For Both"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {profileOpen ? (
+          <motion.div
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+            }}
+            className="fixed inset-0 z-[274] flex items-end justify-center bg-black/[0.66] p-3 backdrop-blur-xl sm:items-center sm:p-6"
+            onClick={() => setProfileOpen(false)}
+          >
+            <motion.div
+              initial={{
+                opacity: 0,
+                y: 26,
+                scale: 0.96,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                scale: 1,
+              }}
+              exit={{
+                opacity: 0,
+                y: 26,
+                scale: 0.96,
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 30,
+              }}
+              className="w-full max-w-md overflow-hidden rounded-[32px] border border-white/10 bg-[#0B111C]/[0.97] text-white shadow-[0_28px_90px_rgba(0,0,0,0.62)]"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="relative bg-gradient-to-br from-purple-600 via-fuchsia-600 to-cyan-500 px-6 pb-8 pt-8 text-center">
+                <button
+                  type="button"
+                  onClick={() => setProfileOpen(false)}
+                  className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-2xl border border-white/20 bg-black/20 text-white backdrop-blur-xl"
+                  aria-label="Close profile"
+                >
+                  <X size={18} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setProfilePictureOpen(true)}
+                  className="mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-[36px] border border-white/25 bg-white/[0.15] text-4xl font-bold shadow-2xl shadow-black/25"
+                  aria-label="View profile picture"
+                >
+                  <FlexAvatar
+                    src={activeConversationAvatar}
+                    name={activeConversationDisplayName}
+                    className="flex h-full w-full items-center justify-center overflow-hidden rounded-[36px] bg-gradient-to-br from-purple-600 to-fuchsia-600 text-4xl font-bold"
+                  />
+                </button>
+
+                <h2 className="mt-5 text-2xl font-bold">
+                  {activeConversationDisplayName}
+                </h2>
+                <p className="mt-1 text-sm text-white/80">
+                  {isConnected ? presenceLabel : "Reconnecting"}
+                </p>
+              </div>
+
+              <div className="space-y-3 p-5">
+                <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-purple-300/20 bg-purple-500/15 text-purple-100">
+                    <UserRound size={19} />
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-xs text-zinc-500">
+                      Profile
+                    </p>
+                    <p className="truncate text-sm font-medium text-zinc-100">
+                      {activeConversation.type === "direct"
+                        ? "Direct conversation"
+                        : `${profileMembers.length} members`}
+                    </p>
+                  </div>
+                </div>
+
+                {profileMembers.length ? (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+                    <p className="mb-2 px-1 text-xs font-medium text-zinc-500">
+                      Members
+                    </p>
+                    <div className="space-y-2">
+                      {profileMembers.map((member) => (
+                        <div
+                          key={member.id}
+                          className="flex items-center gap-3 rounded-xl px-1 py-2"
+                        >
+                          <FlexAvatar
+                            src={member.avatar}
+                            name={member.username}
+                            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-xs font-bold"
+                          />
+                          <p className="truncate text-sm text-zinc-100">
+                            {formatDisplayName(member.username)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {profilePictureOpen ? (
+          <motion.div
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+            }}
+            className="fixed inset-0 z-[276] flex items-center justify-center bg-black/[0.86] p-5 backdrop-blur-xl"
+            onClick={() => setProfilePictureOpen(false)}
+          >
+            <button
+              type="button"
+              className="absolute right-5 top-[calc(1rem+env(safe-area-inset-top))] flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white"
+              onClick={() => setProfilePictureOpen(false)}
+              aria-label="Close profile picture"
+            >
+              <X size={18} />
+            </button>
+
+            <motion.div
+              initial={{
+                scale: 0.92,
+              }}
+              animate={{
+                scale: 1,
+              }}
+              exit={{
+                scale: 0.92,
+              }}
+              className="flex aspect-square w-full max-w-[min(82vw,420px)] items-center justify-center overflow-hidden rounded-[42px] bg-gradient-to-br from-purple-600 to-fuchsia-600 text-6xl font-bold text-white shadow-[0_32px_100px_rgba(0,0,0,0.7)]"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <FlexAvatar
+                src={activeConversationAvatar}
+                name={activeConversationDisplayName}
+                className="flex h-full w-full items-center justify-center overflow-hidden rounded-[42px] bg-gradient-to-br from-purple-600 to-fuchsia-600 text-6xl font-bold"
+              />
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <AnimatePresence>
         {forwardingMessage ? (
@@ -2613,13 +3275,9 @@ export default function ChatConversation({
             >
               <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
                 <div className="min-w-0">
-                  <h2 className="font-semibold">
-                    Forward message
-                  </h2>
+                  <h2 className="font-semibold">Forward message</h2>
                   <p className="truncate text-xs text-zinc-500">
-                    {getMessagePreviewText(
-                      forwardingMessage
-                    )}
+                    {getMessagePreviewText(forwardingMessage)}
                   </p>
                 </div>
 
@@ -2642,11 +3300,7 @@ export default function ChatConversation({
                   />
                   <input
                     value={forwardSearch}
-                    onChange={(event) =>
-                      setForwardSearch(
-                        event.target.value
-                      )
-                    }
+                    onChange={(event) => setForwardSearch(event.target.value)}
                     placeholder="Search conversations..."
                     className="h-11 w-full rounded-2xl border border-white/10 bg-white/[0.04] pl-11 pr-4 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-purple-400/40"
                   />
@@ -2655,67 +3309,55 @@ export default function ChatConversation({
 
               <div className="chat-safe-scroll min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
                 {forwardConversations.length ? (
-                  forwardConversations.map(
-                    (conversation) => {
-                      const selected =
-                        selectedForwardConversationIds.has(
-                          conversation.id
-                        );
-                      const avatar =
-                        getConversationAvatar(
-                          conversation,
-                          user?.id
-                        );
-                      const displayName =
-                        formatDisplayName(
-                          conversation.name
-                        );
+                  forwardConversations.map((conversation) => {
+                    const selected = selectedForwardConversationIds.has(
+                      conversation.id,
+                    );
+                    const avatar = getConversationAvatar(
+                      conversation,
+                      user?.id,
+                    );
+                    const displayName = formatDisplayName(conversation.name);
 
-                      return (
-                        <button
-                          key={conversation.id}
-                          type="button"
-                          onClick={() =>
-                            toggleForwardTarget(
-                              conversation.id
-                            )
-                          }
-                          disabled={isForwarding}
-                          className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition ${
+                    return (
+                      <button
+                        key={conversation.id}
+                        type="button"
+                        onClick={() => toggleForwardTarget(conversation.id)}
+                        disabled={isForwarding}
+                        className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition ${
+                          selected
+                            ? "border-purple-300/35 bg-purple-500/[0.14]"
+                            : "border-white/10 bg-white/[0.035] hover:bg-white/[0.06]"
+                        } disabled:cursor-wait disabled:opacity-70`}
+                      >
+                        <FlexAvatar
+                          src={avatar}
+                          name={displayName}
+                          className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-sm font-bold text-white"
+                        />
+
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-white">
+                            {displayName}
+                          </p>
+                          <p className="truncate text-xs text-zinc-500">
+                            {conversation.latestMessage ?? "No messages yet"}
+                          </p>
+                        </div>
+
+                        <span
+                          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border ${
                             selected
-                              ? "border-purple-300/35 bg-purple-500/[0.14]"
-                              : "border-white/10 bg-white/[0.035] hover:bg-white/[0.06]"
-                          } disabled:cursor-wait disabled:opacity-70`}
+                              ? "border-purple-300/40 bg-purple-500 text-white"
+                              : "border-white/10 bg-white/[0.03] text-transparent"
+                          }`}
                         >
-                          <FlexAvatar
-                            src={avatar}
-                            name={displayName}
-                            className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-sm font-bold text-white"
-                          />
-
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-white">
-                              {displayName}
-                            </p>
-                            <p className="truncate text-xs text-zinc-500">
-                              {conversation.latestMessage ??
-                                "No messages yet"}
-                            </p>
-                          </div>
-
-                          <span
-                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border ${
-                              selected
-                                ? "border-purple-300/40 bg-purple-500 text-white"
-                                : "border-white/10 bg-white/[0.03] text-transparent"
-                            }`}
-                          >
-                            <Check size={14} />
-                          </span>
-                        </button>
-                      );
-                    }
-                  )
+                          <Check size={14} />
+                        </span>
+                      </button>
+                    );
+                  })
                 ) : (
                   <div className="flex min-h-32 items-center justify-center px-4 text-center text-sm text-zinc-500">
                     No conversations found
@@ -2739,18 +3381,14 @@ export default function ChatConversation({
                     void handleForwardSubmit();
                   }}
                   disabled={
-                    isForwarding ||
-                    !selectedForwardConversationIds.size
+                    isForwarding || !selectedForwardConversationIds.size
                   }
                   className="flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-fuchsia-600 text-sm font-semibold text-white shadow-xl shadow-purple-600/25 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-55"
                 >
                   {isForwarding ? (
-                    <RefreshCw
-                      size={16}
-                      className="motion-safe:animate-spin"
-                    />
+                    <RefreshCw size={16} className="motion-safe:animate-spin" />
                   ) : (
-                    <Share2 size={16} />
+                    <Forward size={16} />
                   )}
                   Forward
                 </button>
@@ -2818,9 +3456,7 @@ export default function ChatConversation({
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() =>
-                    setLargeVideoFile(null)
-                  }
+                  onClick={() => setLargeVideoFile(null)}
                   className="h-12 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08]"
                 >
                   Cancel
@@ -2828,11 +3464,13 @@ export default function ChatConversation({
 
                 <button
                   type="button"
-                  disabled
-                  className="h-12 rounded-2xl bg-white/[0.08] text-sm font-semibold text-zinc-400"
-                  title="Video compression is not available in this build."
+                  onClick={() => {
+                    setLargeVideoFile(null);
+                    fileInputRef.current?.click();
+                  }}
+                  className="h-12 rounded-2xl bg-gradient-to-r from-purple-600 to-fuchsia-600 text-sm font-semibold text-white shadow-xl shadow-purple-600/25 transition hover:scale-[1.01]"
                 >
-                  Compress & Send
+                  Choose another
                 </button>
               </div>
             </motion.div>
@@ -2883,20 +3521,14 @@ export default function ChatConversation({
                     <Sparkles size={19} />
                   </div>
                   <div>
-                    <h2 className="font-semibold">
-                      FlexChat AI
-                    </h2>
-                    <p className="text-xs text-zinc-500">
-                      Local assistant
-                    </p>
+                    <h2 className="font-semibold">FlexChat AI</h2>
+                    <p className="text-xs text-zinc-500">Local assistant</p>
                   </div>
                 </div>
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setAiOpen(false)
-                  }
+                  onClick={() => setAiOpen(false)}
                   className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white transition hover:bg-white/[0.08]"
                   aria-label="Close AI assistant"
                 >
@@ -2907,52 +3539,36 @@ export default function ChatConversation({
               <div className="space-y-4 p-5">
                 <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
                   <p className="text-sm font-medium text-white">
-                    {getTimeAwareGreeting(
-                      user?.username
-                    )}
+                    {getTimeAwareGreeting(user?.username)}
                   </p>
                 </div>
 
                 <div className="grid gap-2">
-                  {aiSuggestions.map(
-                    (suggestion) => (
-                      <button
-                        key={suggestion}
-                        type="button"
-                        onClick={() => {
-                          setAiPrompt(
-                            suggestion
-                          );
-                          setAiResponse(
-                            buildLocalAiResponse(
-                              {
-                                prompt:
-                                  suggestion,
-                                messages:
-                                  visibleMessages,
-                                conversationName:
-                                  activeConversationDisplayName,
-                              }
-                            )
-                          );
-                        }}
-                        className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-left text-sm text-zinc-200 transition hover:border-purple-300/25 hover:bg-purple-500/10 hover:text-white"
-                      >
-                        {suggestion}
-                      </button>
-                    )
-                  )}
+                  {aiSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => {
+                        setAiPrompt(suggestion);
+                        setAiResponse(
+                          buildLocalAiResponse({
+                            prompt: suggestion,
+                            messages: visibleMessages,
+                            conversationName: activeConversationDisplayName,
+                          }),
+                        );
+                      }}
+                      className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-left text-sm text-zinc-200 transition hover:border-purple-300/25 hover:bg-purple-500/10 hover:text-white"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
                 </div>
 
                 <textarea
                   value={aiPrompt}
                   onChange={(event) =>
-                    setAiPrompt(
-                      event.target.value.slice(
-                        0,
-                        600
-                      )
-                    )
+                    setAiPrompt(event.target.value.slice(0, 600))
                   }
                   rows={5}
                   placeholder="Ask for a summary, rewrite, or reply idea..."

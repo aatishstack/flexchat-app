@@ -27,7 +27,7 @@ export interface CallSession {
   callerId: string;
   calleeId: string;
   kind: CallKind;
-  status: "ringing" | "active";
+  status: "calling" | "ringing" | "active";
   startedAt: string;
 }
 
@@ -86,6 +86,8 @@ interface CallState {
 
 let peerConnection: RTCPeerConnection | null = null;
 let pendingIceCandidates: RTCIceCandidateInit[] = [];
+let remoteMediaStream: MediaStream | null = null;
+let isMakingOffer = false;
 
 function getIceServers(): RTCIceServer[] {
   const stunUrls =
@@ -130,13 +132,19 @@ function stopStream(stream: MediaStream | null) {
   });
 }
 
+function streamHasLiveTracks(stream: MediaStream | null) {
+  return (
+    !!stream &&
+    stream.getTracks().some((track) => track.readyState === "live")
+  );
+}
+
 function closePeerConnection() {
-  peerConnection?.getSenders().forEach((sender) => {
-    sender.track?.stop();
-  });
   peerConnection?.close();
   peerConnection = null;
   pendingIceCandidates = [];
+  remoteMediaStream = null;
+  isMakingOffer = false;
 }
 
 async function flushPendingIceCandidates() {
@@ -316,6 +324,30 @@ function emitSignal(
   });
 }
 
+async function createAndSendOffer(
+  call: CallSession,
+  pc: RTCPeerConnection,
+  options?: RTCOfferOptions
+) {
+  if (isMakingOffer || pc.signalingState !== "stable") {
+    return;
+  }
+
+  isMakingOffer = true;
+
+  try {
+    const offer = await pc.createOffer(options);
+
+    await pc.setLocalDescription(offer);
+    emitSignal(call.id, {
+      type: "offer",
+      description: pc.localDescription?.toJSON() ?? offer,
+    });
+  } finally {
+    isMakingOffer = false;
+  }
+}
+
 async function makePeerConnection(
   call: CallSession,
   localStream: MediaStream,
@@ -348,15 +380,28 @@ async function makePeerConnection(
   };
 
   pc.ontrack = (event) => {
-    const [remoteStream] = event.streams;
+    const remoteStream =
+      event.streams[0] ??
+      remoteMediaStream ??
+      new MediaStream();
 
-    if (remoteStream) {
-      set({
-        remoteStream,
-        phase: "active",
-        networkState: "stable",
-      });
+    if (!event.streams[0]) {
+      const hasTrack = remoteStream
+        .getTracks()
+        .some((track) => track.id === event.track.id);
+
+      if (!hasTrack) {
+        remoteStream.addTrack(event.track);
+      }
     }
+
+    remoteMediaStream = remoteStream;
+
+    set({
+      remoteStream,
+      phase: "active",
+      networkState: "stable",
+    });
   };
 
   pc.onconnectionstatechange = () => {
@@ -390,6 +435,14 @@ async function makePeerConnection(
 
       if (pc.connectionState === "failed") {
         pc.restartIce();
+        if (
+          call.callerId ===
+          useAuthStore.getState().user?.id
+        ) {
+          void createAndSendOffer(call, pc, {
+            iceRestart: true,
+          }).catch(() => undefined);
+        }
       }
     }
   };
@@ -425,6 +478,14 @@ async function makePeerConnection(
 
       if (pc.iceConnectionState === "failed") {
         pc.restartIce();
+        if (
+          call.callerId ===
+          useAuthStore.getState().user?.id
+        ) {
+          void createAndSendOffer(call, pc, {
+            iceRestart: true,
+          }).catch(() => undefined);
+        }
       }
     }
   };
@@ -432,6 +493,49 @@ async function makePeerConnection(
   peerConnection = pc;
 
   return pc;
+}
+
+async function prepareLocalCallMedia(
+  call: CallSession,
+  get: () => CallState,
+  set: (
+    partial:
+      | Partial<CallState>
+      | ((state: CallState) => Partial<CallState>)
+  ) => void
+) {
+  let localStream = get().localStream;
+
+  if (!streamHasLiveTracks(localStream)) {
+    localStream = await getLocalMedia(call.kind);
+
+    set({
+      localStream,
+      isMuted: false,
+      isVideoEnabled:
+        call.kind === "video",
+      networkState: "connecting",
+    });
+  }
+
+  if (!localStream) {
+    throw new Error("Local media was not ready for this call.");
+  }
+
+  let pc = peerConnection;
+
+  if (!pc || pc.connectionState === "closed") {
+    pc = await makePeerConnection(
+      call,
+      localStream,
+      set
+    );
+  }
+
+  return {
+    localStream,
+    pc,
+  };
 }
 
 export const useCallStore =
@@ -537,22 +641,12 @@ export const useCallStore =
           error: null,
         });
 
-        const localStream =
-          await getLocalMedia(call.kind);
-
-        await makePeerConnection(
-          call,
-          localStream,
-          set
-        );
-
-        set({
-          localStream,
-          isMuted: false,
-          isVideoEnabled:
-            call.kind === "video",
-          networkState: "connecting",
-        });
+        const { localStream } =
+          await prepareLocalCallMedia(
+            call,
+            get,
+            set
+          );
 
         const ack =
           await emitCallWithAck(
@@ -720,15 +814,9 @@ export const useCallStore =
         get().currentCall;
 
       if (
-        !currentCall ||
+        currentCall &&
         currentCall.id !== call.id
       ) {
-        set({
-          currentCall: call,
-          phase: "connecting",
-          error: null,
-          networkState: "connecting",
-        });
         return;
       }
 
@@ -739,44 +827,20 @@ export const useCallStore =
         networkState: "connecting",
       });
 
-      if (
-        call.callerId !==
-        useAuthStore.getState().user?.id
-      ) {
-        return;
-      }
-
-      const localStream =
-        get().localStream;
-
-      if (!localStream) {
-        pushCallToast({
-          title: "Call media unavailable",
-          message:
-            "Local media was not ready for this call.",
-        });
-        set({
-          error:
-            "Local media was not ready for this call",
-        });
-        return;
-      }
-
       void (async () => {
-        const pc =
-          await makePeerConnection(
+        const { pc } =
+          await prepareLocalCallMedia(
             call,
-            localStream,
+            get,
             set
           );
-        const offer =
-          await pc.createOffer();
 
-        await pc.setLocalDescription(offer);
-        emitSignal(call.id, {
-          type: "offer",
-          description: offer,
-        });
+        if (
+          call.callerId ===
+          useAuthStore.getState().user?.id
+        ) {
+          await createAndSendOffer(call, pc);
+        }
       })().catch((error) => {
         pushCallToast({
           title: "Unable to prepare call",
@@ -848,6 +912,26 @@ export const useCallStore =
       }
 
       get().resetCall();
+
+      if (
+        payload.reason === "unreachable" ||
+        payload.reason === "missed" ||
+        payload.reason === "participant_disconnected"
+      ) {
+        pushCallToast({
+          title:
+            payload.reason === "unreachable"
+              ? "User unreachable"
+              : payload.reason === "missed"
+                ? "Call missed"
+                : "Call disconnected",
+          message:
+            payload.reason === "unreachable"
+              ? "The other person is not reachable right now."
+              : undefined,
+          variant: "info",
+        });
+      }
     },
 
     handleCallSignal: (payload) => {
@@ -867,21 +951,12 @@ export const useCallStore =
           signal.type === "offer" &&
           signal.description
         ) {
-          const pc =
-            peerConnection ??
-            (get().localStream
-              ? await makePeerConnection(
-                  call,
-                  get().localStream as MediaStream,
-                  set
-                )
-              : null);
-
-          if (!pc) {
-            throw new Error(
-              "Local media was not ready for the incoming offer"
+          const { pc } =
+            await prepareLocalCallMedia(
+              call,
+              get,
+              set
             );
-          }
 
           await pc.setRemoteDescription(
             signal.description

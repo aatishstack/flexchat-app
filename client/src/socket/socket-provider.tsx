@@ -16,8 +16,12 @@ import {
   updateMessageStatusInQueryCache,
 } from "@/lib/message-query-cache";
 import type { MessageQueryCache } from "@/lib/message-query-cache";
-import { updateConversationInQueryCache } from "@/lib/conversation-query-cache";
+import {
+  removeConversationFromQueryCache,
+  updateConversationInQueryCache,
+} from "@/lib/conversation-query-cache";
 import type { ConversationQueryCache } from "@/lib/conversation-query-cache";
+import type { Conversation } from "@/types/conversation";
 import { useAuthStore } from "@/stores/auth.store";
 import { useConversationStore } from "@/stores/conversation.store";
 import { queryKeys } from "@/lib/query-keys";
@@ -55,6 +59,29 @@ type ConversationUpdatedPayload = {
   createdAt?: string;
 };
 
+type ConversationArchiveUpdatedPayload = {
+  conversationId?: string;
+  archivedAt?: string | null;
+};
+
+type ConversationDeletedPayload = {
+  conversationId?: string;
+  hiddenAt?: string;
+};
+
+type ConversationThemeUpdatedPayload = {
+  conversationId?: string;
+  scope?: "me" | "both";
+  themeId?: string | null;
+  updatedAt?: string;
+};
+
+type PresenceUpdatedPayload = {
+  userId?: string;
+  status?: "online" | "offline";
+  lastSeenAt?: string;
+};
+
 type StoryViewedPayload = {
   storyId?: string;
   viewerId?: string;
@@ -69,6 +96,19 @@ type StoryDeletedPayload = {
 type AccountDeletedPayload = {
   userId?: string;
   deletedAt?: string;
+};
+
+type UserUpdatedPayload = {
+  user?: {
+    id?: string;
+    username?: string;
+    email?: string;
+    avatar?: string | null;
+  };
+};
+
+type DiscoverUserDismissedPayload = {
+  userId?: string;
 };
 
 type CallLifecyclePayload = {
@@ -124,6 +164,30 @@ function getConversationNameFromCache(
   );
 }
 
+function hasConversationInCache(
+  cache: ConversationQueryCache,
+  conversationId: string
+) {
+  if (!cache) {
+    return false;
+  }
+
+  const conversations =
+    Array.isArray(cache)
+      ? cache
+      : "pages" in cache
+        ? cache.pages.flatMap(
+            (page) =>
+              page.conversations
+          )
+        : [];
+
+  return conversations.some(
+    (conversation) =>
+      conversation.id === conversationId
+  );
+}
+
 function hasSeenConversationUpdate(
   messageId?: string
 ) {
@@ -159,9 +223,13 @@ function getMessagePreview(message: Message) {
       ? "Message deleted"
       : message.text?.trim() ||
         (message.audio
-          ? "Voice message"
-          : message.attachment
-            ? "Attachment"
+        ? "Voice message"
+        : message.attachment
+            ? /\.(png|jpe?g|gif|webp|avif|heic|heif)(\?|$)/i.test(message.attachment)
+              ? "Photo"
+              : /\.(mp4|webm|ogg|mov|m4v|3gp|3gpp|3g2|3gpp2)(\?|$)/i.test(message.attachment)
+                ? "Video"
+                : "File"
             : "New message");
 
   return message.forwardedFrom
@@ -213,6 +281,13 @@ export default function SocketProvider({
       socketState.rejoinActiveConversation();
       socketState.flushPendingMessages();
 
+      if (useCallStore.getState().currentCall) {
+        useCallStore.setState({
+          networkState: "connecting",
+          error: null,
+        });
+      }
+
       void queryClient.refetchQueries({
         queryKey:
           queryKeys.conversations.all,
@@ -230,6 +305,12 @@ export default function SocketProvider({
 
     function onDisconnect(reason: string) {
       resetPendingMessageFlights();
+
+      if (useCallStore.getState().currentCall) {
+        useCallStore.setState({
+          networkState: "reconnecting",
+        });
+      }
 
       useSocketStore.setState({
         isConnected: false,
@@ -258,6 +339,74 @@ export default function SocketProvider({
 
     function onOnlineUsers(users: string[]) {
       setOnlineUsers(users);
+    }
+
+    function onPresenceUpdated(
+      payload: PresenceUpdatedPayload
+    ) {
+      if (!payload.userId) {
+        return;
+      }
+
+      useSocketStore.setState((state) => {
+        const users = new Set(state.onlineUsers);
+
+        if (payload.status === "online") {
+          users.add(payload.userId ?? "");
+        } else if (payload.status === "offline") {
+          users.delete(payload.userId ?? "");
+        }
+
+        return {
+          onlineUsers: Array.from(users)
+            .filter(Boolean)
+            .sort(),
+        };
+      });
+
+      queryClient.setQueryData<ConversationQueryCache>(
+        queryKeys.conversations.all,
+        (cache) => {
+          if (!cache || !payload.lastSeenAt) {
+            return cache;
+          }
+
+          const updateMembers = (conversation: Conversation): Conversation => ({
+            ...conversation,
+            members:
+              conversation.members?.map((member) =>
+                member.id === payload.userId
+                  ? {
+                      ...member,
+                      lastSeenAt:
+                        payload.lastSeenAt ?? member.lastSeenAt,
+                    }
+                  : member
+              ) ?? conversation.members,
+          });
+
+          if (Array.isArray(cache)) {
+            return cache.map((conversation) =>
+              updateMembers(conversation)
+            );
+          }
+
+          if ("pages" in cache) {
+            return {
+              ...cache,
+              pages: cache.pages.map((page) => ({
+                ...page,
+                conversations:
+                  page.conversations.map((conversation) =>
+                    updateMembers(conversation)
+                  ),
+              })),
+            };
+          }
+
+          return cache;
+        }
+      );
     }
 
     function onReceiveMessage(message: Message) {
@@ -357,6 +506,13 @@ export default function SocketProvider({
           ),
           payload.conversationId
         );
+      const conversationWasCached =
+        hasConversationInCache(
+          queryClient.getQueryData<ConversationQueryCache>(
+            queryKeys.conversations.all
+          ),
+          payload.conversationId
+        );
       let nextUnreadCount:
         | number
         | undefined;
@@ -413,6 +569,13 @@ export default function SocketProvider({
               new Date().toISOString(),
             read: false,
           });
+      }
+
+      if (!conversationWasCached) {
+        void queryClient.invalidateQueries({
+          queryKey:
+            queryKeys.conversations.all,
+        });
       }
     }
 
@@ -507,6 +670,133 @@ export default function SocketProvider({
       );
     }
 
+    function onConversationArchiveUpdated(
+      payload: ConversationArchiveUpdatedPayload
+    ) {
+      if (!payload.conversationId) {
+        return;
+      }
+
+      queryClient.setQueryData<ConversationQueryCache>(
+        queryKeys.conversations.all,
+        (cache) =>
+          updateConversationInQueryCache(
+            cache,
+            payload.conversationId ?? "",
+            (conversation) => ({
+              ...conversation,
+              archivedAt:
+                payload.archivedAt ?? null,
+            })
+          )
+      );
+
+      useConversationStore.setState((state) => ({
+        conversationPatches: {
+          ...state.conversationPatches,
+          [payload.conversationId ?? ""]: {
+            ...state.conversationPatches[
+              payload.conversationId ?? ""
+            ],
+            archivedAt:
+              payload.archivedAt ?? null,
+          },
+        },
+      }));
+    }
+
+    function onConversationDeleted(
+      payload: ConversationDeletedPayload
+    ) {
+      if (!payload.conversationId) {
+        return;
+      }
+
+      const conversationId =
+        payload.conversationId;
+
+      queryClient.setQueryData<ConversationQueryCache>(
+        queryKeys.conversations.all,
+        (cache) =>
+          removeConversationFromQueryCache(
+            cache,
+            conversationId
+          )
+      );
+
+      useConversationStore.setState((state) => {
+        const conversationPatches = {
+          ...state.conversationPatches,
+        };
+
+        delete conversationPatches[conversationId];
+
+        return {
+          activeConversationId:
+            state.activeConversationId === conversationId
+              ? null
+              : state.activeConversationId,
+          conversationPatches,
+        };
+      });
+    }
+
+    function onConversationThemeUpdated(
+      payload: ConversationThemeUpdatedPayload
+    ) {
+      if (!payload.conversationId) {
+        return;
+      }
+
+      queryClient.setQueryData<ConversationQueryCache>(
+        queryKeys.conversations.all,
+        (cache) =>
+          updateConversationInQueryCache(
+            cache,
+            payload.conversationId ?? "",
+            (conversation) => ({
+              ...conversation,
+              localThemeId:
+                payload.scope === "me"
+                  ? payload.themeId ?? null
+                  : payload.scope === "both"
+                    ? null
+                  : conversation.localThemeId,
+              sharedThemeId:
+                payload.scope === "both"
+                  ? payload.themeId ?? null
+                  : conversation.sharedThemeId,
+              themeUpdatedAt:
+                payload.updatedAt ?? conversation.themeUpdatedAt,
+            })
+          )
+      );
+
+      useConversationStore.setState((state) => ({
+        conversationPatches: {
+          ...state.conversationPatches,
+          [payload.conversationId ?? ""]: {
+            ...state.conversationPatches[
+              payload.conversationId ?? ""
+            ],
+            ...(payload.scope === "me"
+              ? {
+                  localThemeId:
+                    payload.themeId ?? null,
+                }
+              : {
+                  localThemeId: null,
+                  sharedThemeId:
+                    payload.themeId ?? null,
+                }),
+            themeUpdatedAt:
+              payload.updatedAt ??
+              new Date().toISOString(),
+          },
+        },
+      }));
+    }
+
     function onStoryCreated(story: Story) {
       if (!story?.id) {
         return;
@@ -546,6 +836,14 @@ export default function SocketProvider({
               : story
           ) ?? []
       );
+
+      void queryClient.invalidateQueries({
+        queryKey: [
+          ...queryKeys.stories.all,
+          payload.storyId,
+          "viewers",
+        ],
+      });
     }
 
     function onStoryDeleted(
@@ -609,6 +907,121 @@ export default function SocketProvider({
       });
     }
 
+    function onUserUpdated(
+      payload: UserUpdatedPayload
+    ) {
+      const updatedUser =
+        payload.user;
+
+      if (
+        !updatedUser?.id ||
+        !updatedUser.username
+      ) {
+        return;
+      }
+
+      const updatedUserId = updatedUser.id;
+      const updatedUsername = updatedUser.username;
+      const updatedAvatar = updatedUser.avatar ?? null;
+
+      const publicUpdate = {
+        id: updatedUserId,
+        username: updatedUsername,
+        avatar: updatedAvatar,
+      };
+
+      if (
+        updatedUserId ===
+        useAuthStore.getState().user?.id
+      ) {
+        useAuthStore
+          .getState()
+          .updateUser({
+            ...publicUpdate,
+            email: updatedUser.email,
+          });
+
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.auth.me,
+        });
+      }
+
+      queryClient.setQueryData<Story[]>(
+        queryKeys.stories.all,
+        (stories) =>
+          stories?.map((story) =>
+            story.userId === updatedUserId
+              ? {
+                  ...story,
+                  user: {
+                    ...story.user,
+                    username: updatedUsername,
+                    avatar: updatedAvatar,
+                  },
+                }
+              : story
+          ) ?? []
+      );
+
+      queryClient.setQueriesData<
+        {
+          id: string;
+          username: string;
+          avatar?: string | null;
+        }[]
+      >(
+        {
+          queryKey: ["users"],
+        },
+        (users) =>
+          users?.map((user) =>
+            user.id === updatedUserId
+              ? {
+                  ...user,
+                  username: updatedUsername,
+                  avatar: updatedAvatar,
+                }
+              : user
+          ) ?? users
+      );
+
+      void queryClient.invalidateQueries({
+        queryKey:
+          queryKeys.conversations.all,
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["users"],
+      });
+    }
+
+    function onDiscoverUserDismissed(
+      payload: DiscoverUserDismissedPayload
+    ) {
+      if (!payload.userId) {
+        return;
+      }
+
+      queryClient.setQueriesData<
+        {
+          id: string;
+          username: string;
+          avatar?: string | null;
+        }[]
+      >(
+        {
+          queryKey: [
+            "users",
+            "discover",
+          ],
+        },
+        (users) =>
+          users?.filter(
+            (user) =>
+              user.id !== payload.userId
+          ) ?? users
+      );
+    }
+
     function onCallIncoming(
       call: CallSession
     ) {
@@ -669,6 +1082,7 @@ export default function SocketProvider({
     socket.on(SOCKET_EVENTS.DISCONNECT, onDisconnect);
     socket.on(SOCKET_EVENTS.CONNECT_ERROR, onConnectError);
     socket.on(SOCKET_EVENTS.ONLINE_USERS, onOnlineUsers);
+    socket.on(SOCKET_EVENTS.PRESENCE_UPDATED, onPresenceUpdated);
     socket.on(SOCKET_EVENTS.RECEIVE_MESSAGE, onReceiveMessage);
     socket.on(SOCKET_EVENTS.MESSAGE_UPDATED, mergeRealtimeMessage);
     socket.on(SOCKET_EVENTS.MESSAGE_DELETED, mergeRealtimeMessage);
@@ -678,10 +1092,27 @@ export default function SocketProvider({
     socket.on(SOCKET_EVENTS.MESSAGE_DELIVERED, onMessageDelivered);
     socket.on(SOCKET_EVENTS.MESSAGE_SEEN, onMessageSeen);
     socket.on(SOCKET_EVENTS.CONVERSATION_ERROR, onConversationError);
+    socket.on(
+      SOCKET_EVENTS.CONVERSATION_ARCHIVE_UPDATED,
+      onConversationArchiveUpdated
+    );
+    socket.on(
+      SOCKET_EVENTS.CONVERSATION_DELETED,
+      onConversationDeleted
+    );
+    socket.on(
+      SOCKET_EVENTS.CONVERSATION_THEME_UPDATED,
+      onConversationThemeUpdated
+    );
     socket.on(SOCKET_EVENTS.STORY_CREATED, onStoryCreated);
     socket.on(SOCKET_EVENTS.STORY_VIEWED, onStoryViewed);
     socket.on(SOCKET_EVENTS.STORY_DELETED, onStoryDeleted);
     socket.on(SOCKET_EVENTS.ACCOUNT_DELETED, onAccountDeleted);
+    socket.on(SOCKET_EVENTS.USER_UPDATED, onUserUpdated);
+    socket.on(
+      SOCKET_EVENTS.DISCOVER_USER_DISMISSED,
+      onDiscoverUserDismissed
+    );
     socket.on(SOCKET_EVENTS.CALL_INCOMING, onCallIncoming);
     socket.on(SOCKET_EVENTS.CALL_ACCEPTED, onCallAccepted);
     socket.on(SOCKET_EVENTS.CALL_REJECTED, onCallRejected);
@@ -697,6 +1128,7 @@ export default function SocketProvider({
       socket.off(SOCKET_EVENTS.DISCONNECT, onDisconnect);
       socket.off(SOCKET_EVENTS.CONNECT_ERROR, onConnectError);
       socket.off(SOCKET_EVENTS.ONLINE_USERS, onOnlineUsers);
+      socket.off(SOCKET_EVENTS.PRESENCE_UPDATED, onPresenceUpdated);
       socket.off(SOCKET_EVENTS.RECEIVE_MESSAGE, onReceiveMessage);
       socket.off(SOCKET_EVENTS.MESSAGE_UPDATED, mergeRealtimeMessage);
       socket.off(SOCKET_EVENTS.MESSAGE_DELETED, mergeRealtimeMessage);
@@ -706,10 +1138,27 @@ export default function SocketProvider({
       socket.off(SOCKET_EVENTS.MESSAGE_DELIVERED, onMessageDelivered);
       socket.off(SOCKET_EVENTS.MESSAGE_SEEN, onMessageSeen);
       socket.off(SOCKET_EVENTS.CONVERSATION_ERROR, onConversationError);
+      socket.off(
+        SOCKET_EVENTS.CONVERSATION_ARCHIVE_UPDATED,
+        onConversationArchiveUpdated
+      );
+      socket.off(
+        SOCKET_EVENTS.CONVERSATION_DELETED,
+        onConversationDeleted
+      );
+      socket.off(
+        SOCKET_EVENTS.CONVERSATION_THEME_UPDATED,
+        onConversationThemeUpdated
+      );
       socket.off(SOCKET_EVENTS.STORY_CREATED, onStoryCreated);
       socket.off(SOCKET_EVENTS.STORY_VIEWED, onStoryViewed);
       socket.off(SOCKET_EVENTS.STORY_DELETED, onStoryDeleted);
       socket.off(SOCKET_EVENTS.ACCOUNT_DELETED, onAccountDeleted);
+      socket.off(SOCKET_EVENTS.USER_UPDATED, onUserUpdated);
+      socket.off(
+        SOCKET_EVENTS.DISCOVER_USER_DISMISSED,
+        onDiscoverUserDismissed
+      );
       socket.off(SOCKET_EVENTS.CALL_INCOMING, onCallIncoming);
       socket.off(SOCKET_EVENTS.CALL_ACCEPTED, onCallAccepted);
       socket.off(SOCKET_EVENTS.CALL_REJECTED, onCallRejected);
