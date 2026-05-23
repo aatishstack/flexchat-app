@@ -54,20 +54,24 @@ interface CallState {
   phase: CallPhase;
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
+  answerKind: CallKind | null;
   isMuted: boolean;
   isVideoEnabled: boolean;
   isMinimized: boolean;
   networkState: CallNetworkState;
   error: string | null;
+  modalError: string | null;
   startCall: (input: StartCallInput) => Promise<void>;
-  acceptIncomingCall: () => Promise<void>;
+  acceptIncomingCall: (answerKind?: CallKind) => Promise<void>;
   rejectIncomingCall: () => void;
   cancelOutgoingCall: () => void;
   endCall: () => void;
   toggleMute: () => void;
   toggleVideo: () => void;
+  switchCamera: () => Promise<void>;
   minimizeCall: () => void;
   restoreCall: () => void;
+  dismissCallModal: () => void;
   handleIncomingCall: (call: CallSession) => void;
   handleCallAccepted: (call: CallSession) => void;
   handleCallRejected: (payload: { callId?: string }) => void;
@@ -88,42 +92,14 @@ let peerConnection: RTCPeerConnection | null = null;
 let pendingIceCandidates: RTCIceCandidateInit[] = [];
 let remoteMediaStream: MediaStream | null = null;
 let isMakingOffer = false;
+let preferredFacingMode: "user" | "environment" = "user";
 
 function getIceServers(): RTCIceServer[] {
-  const stunUrls =
-    process.env.NEXT_PUBLIC_STUN_URLS?.split(",")
-      .map((url) => url.trim())
-      .filter(Boolean) ?? [
-      "stun:stun.l.google.com:19302",
-      "stun:global.stun.twilio.com:3478",
-    ];
-  const turnUrls =
-    process.env.NEXT_PUBLIC_TURN_URLS?.split(",")
-      .map((url) => url.trim())
-      .filter(Boolean) ?? [];
-  const turnUsername =
-    process.env.NEXT_PUBLIC_TURN_USERNAME;
-  const turnCredential =
-    process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
-  const iceServers: RTCIceServer[] = [
+  return [
     {
-      urls: stunUrls,
+      urls: "stun:stun.l.google.com:19302",
     },
   ];
-
-  if (
-    turnUrls.length &&
-    turnUsername &&
-    turnCredential
-  ) {
-    iceServers.push({
-      urls: turnUrls,
-      username: turnUsername,
-      credential: turnCredential,
-    });
-  }
-
-  return iceServers;
 }
 
 function stopStream(stream: MediaStream | null) {
@@ -140,7 +116,13 @@ function streamHasLiveTracks(stream: MediaStream | null) {
 }
 
 function closePeerConnection() {
-  peerConnection?.close();
+  if (peerConnection) {
+    peerConnection.onicecandidate = null;
+    peerConnection.ontrack = null;
+    peerConnection.onconnectionstatechange = null;
+    peerConnection.oniceconnectionstatechange = null;
+    peerConnection.close();
+  }
   peerConnection = null;
   pendingIceCandidates = [];
   remoteMediaStream = null;
@@ -246,12 +228,8 @@ function getMediaAccessFeedback(
 
   if (denied) {
     return {
-      title:
-        kind === "video"
-          ? "Camera access denied"
-          : "Microphone access denied",
-      message:
-        "Check your browser and system privacy settings.",
+      title: "Permission needed",
+      message: "Please allow microphone/camera in browser settings",
     };
   }
 
@@ -264,22 +242,14 @@ function getMediaAccessFeedback(
     )
   ) {
     return {
-      title:
-        kind === "video"
-          ? "Camera unavailable"
-          : "Microphone unavailable",
-      message:
-        "Connect a device and try the call again.",
+      title: "Call device unavailable",
+      message: "Connect a microphone or camera and try again.",
     };
   }
 
   return {
-    title:
-      kind === "video"
-        ? "Camera or microphone unavailable"
-        : "Microphone unavailable",
-    message:
-      "FlexChat could not prepare your call devices.",
+    title: "Call device unavailable",
+    message: "FlexChat could not prepare your call devices.",
   };
 }
 
@@ -308,6 +278,9 @@ async function getLocalMedia(kind: CallKind) {
             frameRate: {
               ideal: 30,
               max: 30,
+          },
+            facingMode: {
+              ideal: preferredFacingMode,
             },
           }
         : false,
@@ -318,9 +291,25 @@ function emitSignal(
   callId: string,
   signal: SignalPayload
 ) {
-  socket.emit(SOCKET_EVENTS.CALL_SIGNAL, {
+  if (signal.type === "offer") {
+    socket.emit(SOCKET_EVENTS.CALL_OFFER, {
+      callId,
+      description: signal.description,
+    });
+    return;
+  }
+
+  if (signal.type === "answer") {
+    socket.emit(SOCKET_EVENTS.CALL_ANSWER, {
+      callId,
+      description: signal.description,
+    });
+    return;
+  }
+
+  socket.emit(SOCKET_EVENTS.CALL_ICE_CANDIDATE, {
     callId,
-    signal,
+    candidate: signal.candidate,
   });
 }
 
@@ -505,15 +494,16 @@ async function prepareLocalCallMedia(
   ) => void
 ) {
   let localStream = get().localStream;
+  const mediaKind = get().answerKind ?? call.kind;
 
   if (!streamHasLiveTracks(localStream)) {
-    localStream = await getLocalMedia(call.kind);
+    localStream = await getLocalMedia(mediaKind);
 
     set({
       localStream,
       isMuted: false,
       isVideoEnabled:
-        call.kind === "video",
+        mediaKind === "video",
       networkState: "connecting",
     });
   }
@@ -544,11 +534,13 @@ export const useCallStore =
     phase: "idle",
     localStream: null,
     remoteStream: null,
+    answerKind: null,
     isMuted: false,
     isVideoEnabled: true,
     isMinimized: false,
     networkState: "stable",
     error: null,
+    modalError: null,
 
     startCall: async (input) => {
       if (get().currentCall) {
@@ -568,7 +560,9 @@ export const useCallStore =
         set({
           phase: "connecting",
           error: null,
+          modalError: null,
           isMinimized: false,
+          answerKind: input.kind,
         });
 
         const localStream =
@@ -595,10 +589,10 @@ export const useCallStore =
             phase: "idle",
             networkState: "stable",
             error: null,
+            answerKind: null,
           });
-          pushCallToast({
-            title: "Unable to start call",
-            message:
+          set({
+            modalError:
               ack.error ??
               "Please try again in a moment.",
           });
@@ -623,12 +617,13 @@ export const useCallStore =
           localStream: null,
           networkState: "stable",
           error: null,
+          answerKind: null,
+          modalError: feedback.message,
         });
-        pushCallToast(feedback);
       }
     },
 
-    acceptIncomingCall: async () => {
+    acceptIncomingCall: async (answerKind) => {
       const call = get().currentCall;
 
       if (!call || get().phase !== "incoming") {
@@ -639,6 +634,8 @@ export const useCallStore =
         set({
           phase: "connecting",
           error: null,
+          modalError: null,
+          answerKind: answerKind ?? call.kind,
         });
 
         const { localStream } =
@@ -666,37 +663,33 @@ export const useCallStore =
             phase: "idle",
             networkState: "stable",
             error: null,
+            answerKind: null,
           });
-          pushCallToast({
-            title: "Unable to accept call",
-            message:
+          set({
+            modalError:
               ack.error ??
               "Please try again in a moment.",
           });
         }
       } catch (error) {
-        socket.emit(
-          SOCKET_EVENTS.CALL_REJECT,
-          {
-            callId: call.id,
-          }
-        );
-        stopStream(get().localStream);
-        closePeerConnection();
-        set({
-          currentCall: null,
-          localStream: null,
-          remoteStream: null,
-          phase: "idle",
-          networkState: "stable",
-          error: null,
-        });
-        pushCallToast(
+        const feedback =
           getMediaAccessFeedback(
             error,
-            call.kind
-          )
-        );
+            answerKind ?? call.kind
+          );
+
+        closePeerConnection();
+        set({
+          currentCall: call,
+          localStream: null,
+          remoteStream: null,
+          phase: "incoming",
+          networkState: "stable",
+          error:
+            "Permission is needed before joining. Allow access, then tap answer again.",
+          answerKind: null,
+          modalError: feedback.message,
+        });
       }
     },
 
@@ -708,9 +701,10 @@ export const useCallStore =
       }
 
       socket.emit(
-        SOCKET_EVENTS.CALL_REJECT,
+        SOCKET_EVENTS.CALL_END,
         {
           callId: call.id,
+          reason: "declined",
         }
       );
 
@@ -722,9 +716,10 @@ export const useCallStore =
 
       if (call) {
         socket.emit(
-          SOCKET_EVENTS.CALL_CANCEL,
+          SOCKET_EVENTS.CALL_END,
           {
             callId: call.id,
+            reason: "canceled",
           }
         );
       }
@@ -740,6 +735,7 @@ export const useCallStore =
           SOCKET_EVENTS.CALL_END,
           {
             callId: call.id,
+            reason: "ended",
           }
         );
       }
@@ -779,6 +775,74 @@ export const useCallStore =
       });
     },
 
+    switchCamera: async () => {
+      const call = get().currentCall;
+      const localStream = get().localStream;
+
+      if (!call || call.kind !== "video" || !localStream) {
+        return;
+      }
+
+      preferredFacingMode =
+        preferredFacingMode === "user" ? "environment" : "user";
+
+      try {
+        const nextStream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            width: {
+              ideal: 1280,
+            },
+            height: {
+              ideal: 720,
+            },
+            frameRate: {
+              ideal: 30,
+              max: 30,
+            },
+            facingMode: {
+              ideal: preferredFacingMode,
+            },
+          },
+        });
+        const nextVideoTrack = nextStream.getVideoTracks()[0];
+
+        if (!nextVideoTrack) {
+          stopStream(nextStream);
+          return;
+        }
+
+        const sender = peerConnection
+          ?.getSenders()
+          .find((item) => item.track?.kind === "video");
+
+        await sender?.replaceTrack(nextVideoTrack);
+
+        localStream.getVideoTracks().forEach((track) => {
+          track.stop();
+          localStream.removeTrack(track);
+        });
+        localStream.addTrack(nextVideoTrack);
+
+        set({
+          localStream: new MediaStream(localStream.getTracks()),
+          isVideoEnabled: true,
+          error: null,
+        });
+      } catch (error) {
+        preferredFacingMode =
+          preferredFacingMode === "user" ? "environment" : "user";
+        pushCallToast({
+          title: "Camera switch failed",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Please try again in a moment.",
+          variant: "warning",
+        });
+      }
+    },
+
     minimizeCall: () =>
       set({
         isMinimized: true,
@@ -792,13 +856,16 @@ export const useCallStore =
     handleIncomingCall: (call) => {
       if (get().currentCall) {
         socket.emit(
-          SOCKET_EVENTS.CALL_REJECT,
+          SOCKET_EVENTS.CALL_END,
           {
             callId: call.id,
+            reason: "busy",
           }
         );
         return;
       }
+
+      navigator.vibrate?.([240, 120, 240, 120, 360]);
 
       set({
         currentCall: call,
@@ -806,6 +873,7 @@ export const useCallStore =
         isMinimized: false,
         error: null,
         networkState: "connecting",
+        answerKind: null,
       });
     },
 
@@ -820,12 +888,13 @@ export const useCallStore =
         return;
       }
 
-      set({
-        currentCall: call,
-        phase: "connecting",
-        error: null,
-        networkState: "connecting",
-      });
+        set({
+          currentCall: call,
+          phase: "connecting",
+          error: null,
+          networkState: "connecting",
+          modalError: null,
+        });
 
       void (async () => {
         const { pc } =
@@ -842,15 +911,12 @@ export const useCallStore =
           await createAndSendOffer(call, pc);
         }
       })().catch((error) => {
-        pushCallToast({
-          title: "Unable to prepare call",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Please try again in a moment.",
-        });
         set({
           error:
+            error instanceof Error
+              ? error.message
+              : "Unable to prepare call",
+          modalError:
             error instanceof Error
               ? error.message
               : "Unable to prepare call",
@@ -916,6 +982,7 @@ export const useCallStore =
       if (
         payload.reason === "unreachable" ||
         payload.reason === "missed" ||
+        payload.reason === "declined" ||
         payload.reason === "participant_disconnected"
       ) {
         pushCallToast({
@@ -924,7 +991,9 @@ export const useCallStore =
               ? "User unreachable"
               : payload.reason === "missed"
                 ? "Call missed"
-                : "Call disconnected",
+                : payload.reason === "declined"
+                  ? "Call declined"
+                  : "Call disconnected",
           message:
             payload.reason === "unreachable"
               ? "The other person is not reachable right now."
@@ -1008,16 +1077,12 @@ export const useCallStore =
           );
         }
       })().catch((error) => {
-        pushCallToast({
-          title: "Call connection issue",
-          message:
-            error instanceof Error
-              ? error.message
-              : "FlexChat is reconnecting the call.",
-          variant: "warning",
-        });
         set({
           error:
+            error instanceof Error
+              ? error.message
+              : "Call signal failed",
+          modalError:
             error instanceof Error
               ? error.message
               : "Call signal failed",
@@ -1041,13 +1106,9 @@ export const useCallStore =
         error:
           payload.message ??
           "Call connection issue",
-      });
-      pushCallToast({
-        title: "Call connection issue",
-        message:
+        modalError:
           payload.message ??
-          "FlexChat is reconnecting the call.",
-        variant: "warning",
+          "Call connection issue",
       });
     },
 
@@ -1061,11 +1122,18 @@ export const useCallStore =
         phase: "idle",
         localStream: null,
         remoteStream: null,
+        answerKind: null,
         isMuted: false,
         isVideoEnabled: true,
         isMinimized: false,
         networkState: "stable",
         error: null,
+        modalError: null,
       });
     },
+
+    dismissCallModal: () =>
+      set({
+        modalError: null,
+      }),
   }));

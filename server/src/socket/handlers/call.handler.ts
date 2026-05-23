@@ -39,9 +39,19 @@ const callIdSchema = z.object({
   callId: z.string().trim().min(1).max(128),
 });
 
-const callSignalSchema = z.object({
+const callEndSchema = z.object({
   callId: z.string().trim().min(1).max(128),
-  signal: z.unknown(),
+  reason: z.string().trim().max(64).optional(),
+});
+
+const callDescriptionSchema = z.object({
+  callId: z.string().trim().min(1).max(128),
+  description: z.unknown(),
+});
+
+const callCandidateSchema = z.object({
+  callId: z.string().trim().min(1).max(128),
+  candidate: z.unknown(),
 });
 
 const calls = new Map<string, CallSession>();
@@ -130,6 +140,30 @@ function emitCallError(socket: Socket, message: string, callId?: string) {
   socket.emit(SOCKET_EVENTS.CALL_ERROR, {
     callId,
     message,
+  });
+}
+
+function relayCallPayload(
+  socket: Socket,
+  callId: string,
+  event:
+    | typeof SOCKET_EVENTS.CALL_OFFER
+    | typeof SOCKET_EVENTS.CALL_ANSWER
+    | typeof SOCKET_EVENTS.CALL_ICE_CANDIDATE,
+  payload: Record<string, unknown>,
+) {
+  const call = calls.get(callId);
+  const targetUserId = call && getOtherParticipant(call, socket.data.user.id);
+
+  if (!call || !targetUserId) {
+    emitCallError(socket, "Call unavailable", callId);
+    return;
+  }
+
+  socket.to(`user:${targetUserId}`).emit(event, {
+    callId: call.id,
+    fromUserId: socket.data.user.id,
+    ...payload,
   });
 }
 
@@ -339,7 +373,7 @@ export function registerCallHandlers(io: Server, socket: Socket) {
   });
 
   socket.on(SOCKET_EVENTS.CALL_END, (payload: unknown) => {
-    const parsed = callIdSchema.safeParse(payload);
+    const parsed = callEndSchema.safeParse(payload);
 
     if (!parsed.success) {
       return;
@@ -352,30 +386,57 @@ export function registerCallHandlers(io: Server, socket: Socket) {
       return;
     }
 
-    closeCall(io, call.id, "ended");
+    closeCall(io, call.id, parsed.data.reason ?? "ended");
   });
 
-  socket.on(SOCKET_EVENTS.CALL_SIGNAL, (payload: unknown) => {
-    const parsed = callSignalSchema.safeParse(payload);
+  socket.on(SOCKET_EVENTS.CALL_OFFER, (payload: unknown) => {
+    const parsed = callDescriptionSchema.safeParse(payload);
 
     if (!parsed.success) {
-      emitCallError(socket, "Invalid call signal");
+      emitCallError(socket, "Invalid call offer");
+      return;
+    }
+
+    relayCallPayload(socket, parsed.data.callId, SOCKET_EVENTS.CALL_OFFER, {
+      description: parsed.data.description,
+    });
+  });
+
+  socket.on(SOCKET_EVENTS.CALL_ANSWER, (payload: unknown) => {
+    const parsed = callDescriptionSchema.safeParse(payload);
+
+    if (!parsed.success) {
+      emitCallError(socket, "Invalid call answer");
       return;
     }
 
     const call = calls.get(parsed.data.callId);
-    const targetUserId = call && getOtherParticipant(call, userId);
 
-    if (!call || !targetUserId) {
-      emitCallError(socket, "Call unavailable", parsed.data.callId);
+    if (call && getOtherParticipant(call, userId)) {
+      call.status = "active";
+    }
+
+    relayCallPayload(socket, parsed.data.callId, SOCKET_EVENTS.CALL_ANSWER, {
+      description: parsed.data.description,
+    });
+  });
+
+  socket.on(SOCKET_EVENTS.CALL_ICE_CANDIDATE, (payload: unknown) => {
+    const parsed = callCandidateSchema.safeParse(payload);
+
+    if (!parsed.success) {
+      emitCallError(socket, "Invalid ICE candidate");
       return;
     }
 
-    io.to(`user:${targetUserId}`).emit(SOCKET_EVENTS.CALL_SIGNAL_RELAY, {
-      callId: call.id,
-      fromUserId: userId,
-      signal: parsed.data.signal,
-    });
+    relayCallPayload(
+      socket,
+      parsed.data.callId,
+      SOCKET_EVENTS.CALL_ICE_CANDIDATE,
+      {
+        candidate: parsed.data.candidate,
+      },
+    );
   });
 
   socket.on(SOCKET_EVENTS.DISCONNECT, () => {

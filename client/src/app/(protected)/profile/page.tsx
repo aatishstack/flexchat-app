@@ -160,29 +160,35 @@ export default function ProfilePage() {
       return;
     }
 
-    setSavedProfiles((current) => {
-      const existing =
-        current[user.id] ?? readStoredProfile(user);
-      const nextProfile = {
-        ...existing,
-        displayName: user.username,
-        avatar: user.avatar ?? null,
-      };
+    const frameId = window.requestAnimationFrame(() => {
+      setSavedProfiles((current) => {
+        const existing =
+          current[user.id] ?? readStoredProfile(user);
+        const nextProfile = {
+          ...existing,
+          displayName: user.username,
+          avatar: user.avatar ?? null,
+        };
 
-      try {
-        window.localStorage.setItem(
-          profileStorageKey(user.id),
-          JSON.stringify(nextProfile)
-        );
-      } catch {
-        // Local profile extras are non-critical; /me remains authoritative.
-      }
+        try {
+          window.localStorage.setItem(
+            profileStorageKey(user.id),
+            JSON.stringify(nextProfile)
+          );
+        } catch {
+          // Local profile extras are non-critical; /me remains authoritative.
+        }
 
-      return {
-        ...current,
-        [user.id]: nextProfile,
-      };
+        return {
+          ...current,
+          [user.id]: nextProfile,
+        };
+      });
     });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
   }, [
     user,
   ]);
@@ -364,14 +370,16 @@ export default function ProfilePage() {
 
   const avatar =
     profile.avatar ?? user.avatar;
-  const joinedDate =
-    new Date().toLocaleDateString("en", {
+  const joinedDate = user.createdAt
+    ? new Date(user.createdAt).toLocaleDateString("en", {
       month: "long",
       year: "numeric",
-    });
+      timeZone: "UTC",
+    })
+    : "";
 
   return (
-    <main className="modal-safe-scroll h-dvh min-h-svh overflow-y-auto bg-[linear-gradient(135deg,rgba(168,85,247,0.20)_0%,transparent_34%),linear-gradient(225deg,rgba(6,182,212,0.10)_0%,transparent_28%),linear-gradient(135deg,#050816,#0B111C)] px-4 py-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-white sm:px-6 sm:py-8">
+    <main className="modal-safe-scroll h-dvh min-h-svh overflow-y-auto bg-[var(--fc-app-bg)] px-4 py-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 sm:py-8">
       <section className="mx-auto flex min-h-[calc(100dvh-3rem)] max-w-3xl flex-col">
         <div className="mb-5 flex items-center justify-between gap-3">
           <button
@@ -502,7 +510,7 @@ export default function ProfilePage() {
               {
                 icon: CalendarDays,
                 label: "Joined",
-                value: joinedDate,
+                value: joinedDate || "Not available",
               },
             ].map((item) => {
               const Icon = item.icon;

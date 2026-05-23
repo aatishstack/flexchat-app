@@ -11,6 +11,8 @@ export interface AuthResponse {
     email: string;
 
     avatar?: string | null;
+
+    createdAt?: string | null;
   };
 }
 

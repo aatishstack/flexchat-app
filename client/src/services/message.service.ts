@@ -16,6 +16,16 @@ export interface Message {
     | "read"
     | "failed";
 
+  type?: "text" | "image" | "video" | "file";
+
+  mediaId?: string | null;
+
+  fileName?: string | null;
+
+  fileSize?: number | null;
+
+  mimeType?: string | null;
+
   createdAt?: string;
 
   attachment?: string | null;

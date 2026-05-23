@@ -10,6 +10,8 @@ interface User {
   email: string;
 
   avatar?: string | null;
+
+  createdAt?: string | null;
 }
 
 interface AuthState {

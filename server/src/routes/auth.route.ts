@@ -45,12 +45,17 @@ function publicUser(user: {
   username: string;
   email: string;
   avatar?: string | null;
+  createdAt?: Date | string | null;
 }) {
   return {
     id: user.id,
     username: user.username,
     email: user.email,
     avatar: user.avatar ?? null,
+    createdAt:
+      user.createdAt instanceof Date
+        ? user.createdAt.toISOString()
+        : (user.createdAt ?? null),
   };
 }
 
@@ -171,16 +176,37 @@ export async function authRoutes(app: FastifyInstance) {
         password: hashedPassword,
       };
 
-      await db.insert(users).values(newUser);
+      const insertedUsers = await db.execute<UserRow>(sql`
+        insert into users (
+          id,
+          username,
+          email,
+          password
+        )
+        values (
+          ${newUser.id},
+          ${newUser.username},
+          ${newUser.email},
+          ${newUser.password}
+        )
+        returning
+          id,
+          username,
+          email,
+          password,
+          avatar,
+          created_at as "createdAt"
+      `);
+      const createdUser = insertedUsers[0] ?? newUser;
 
       const token = signToken({
-        id: newUser.id,
+        id: createdUser.id,
       });
 
       return {
         token,
 
-        user: publicUser(newUser),
+        user: publicUser(createdUser),
       };
     },
   );

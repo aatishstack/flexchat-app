@@ -1,4 +1,4 @@
-export type StoryMediaType = "image" | "video";
+export type StoryMediaType = "image" | "video" | "text";
 
 export interface Story {
   id: string;
@@ -9,6 +9,7 @@ export interface Story {
   createdAt: string;
   expiresAt: string;
   viewed: boolean;
+  viewCount: number;
   user: {
     id: string;
     username: string;

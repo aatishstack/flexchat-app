@@ -14,8 +14,16 @@ import { getSocketServer } from "../socket/socket-hub.js";
 
 const storyBodySchema = z.object({
   mediaUrl: z.string().url().max(2048),
-  mediaType: z.enum(["image", "video"]),
+  mediaType: z.enum(["image", "video", "text"]),
   caption: z.string().trim().max(220).optional(),
+}).superRefine((value, context) => {
+  if (value.mediaType === "text" && !value.caption?.trim()) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["caption"],
+      message: "Text stories need story text",
+    });
+  }
 });
 
 const storyParamsSchema = z.object({
@@ -26,11 +34,12 @@ type StoryRow = {
   id: string;
   userId: string;
   mediaUrl: string;
-  mediaType: "image" | "video";
+  mediaType: "image" | "video" | "text";
   caption: string | null;
   createdAt: Date | string;
   expiresAt: Date | string;
   viewed: boolean | null;
+  viewCount: number | string | null;
   user: {
     id: string;
     username: string;
@@ -61,6 +70,7 @@ function serializeStory(story: StoryRow) {
         ? story.expiresAt.toISOString()
         : story.expiresAt,
     viewed: Boolean(story.viewed),
+    viewCount: Number(story.viewCount ?? 0),
     user: story.user,
   };
 }
@@ -146,6 +156,12 @@ async function getStoryById(storyId: string, viewerId: string) {
       s.created_at as "createdAt",
       s.expires_at as "expiresAt",
       (sv.id is not null) as viewed,
+      (
+        select count(*)::int
+        from story_views viewer_count
+        where viewer_count.story_id = s.id
+          and viewer_count.user_id <> s.user_id
+      ) as "viewCount",
       jsonb_build_object(
         'id', u.id,
         'username', u.username,
@@ -205,6 +221,12 @@ export async function storyRoutes(app: FastifyInstance) {
             s.created_at as "createdAt",
             s.expires_at as "expiresAt",
             (sv.id is not null) as viewed,
+            (
+              select count(*)::int
+              from story_views viewer_count
+              where viewer_count.story_id = s.id
+                and viewer_count.user_id <> s.user_id
+            ) as "viewCount",
             jsonb_build_object(
               'id', u.id,
               'username', u.username,
@@ -342,7 +364,7 @@ export async function storyRoutes(app: FastifyInstance) {
         });
       }
 
-      await db.execute(sql`
+      const insertedViews = await db.execute<{ id: string }>(sql`
         insert into story_views (
           id,
           story_id,
@@ -355,15 +377,18 @@ export async function storyRoutes(app: FastifyInstance) {
         )
         on conflict (story_id, user_id)
         do nothing
+        returning id
       `);
 
-      getSocketServer()
-        ?.to(`user:${story.userId}`)
-        .emit(SOCKET_EVENTS.STORY_VIEWED, {
-          storyId: story.id,
-          viewerId: userId,
-          viewedAt: new Date().toISOString(),
-        });
+      if (insertedViews.length && story.userId !== userId) {
+        getSocketServer()
+          ?.to(`user:${story.userId}`)
+          .emit(SOCKET_EVENTS.STORY_VIEWED, {
+            storyId: story.id,
+            viewerId: userId,
+            viewedAt: new Date().toISOString(),
+          });
+      }
 
       return {
         ok: true,

@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { generateId } from "@/lib/uuid";
 import { queryClient } from "@/lib/query-client";
 import { queryKeys } from "@/lib/query-keys";
+import { getServerNow } from "@/lib/server-time";
 import {
   mergeMessageIntoQueryCache,
   updateMessageStatusInQueryCache,
@@ -25,6 +26,11 @@ export interface Message {
   senderId: string;
   conversationId: string;
   status: MessageStatus;
+  type?: "text" | "image" | "video" | "file";
+  mediaId?: string | null;
+  fileName?: string | null;
+  fileSize?: number | null;
+  mimeType?: string | null;
   createdAt?: string;
   editedAt?: string;
   deletedAt?: string;
@@ -50,6 +56,11 @@ export interface Message {
 interface SendMessageInput {
   conversationId: string;
   text: string;
+  type?: "text" | "image" | "video" | "file";
+  mediaId?: string | null;
+  fileName?: string | null;
+  fileSize?: number | null;
+  mimeType?: string | null;
   attachment?: string | null;
   audio?: string | null;
   replyTo?: {
@@ -509,6 +520,11 @@ export const useSocketStore = create<SocketState>((set, get) => ({
         {
           conversationId: pending.conversationId,
           text: pending.text,
+          type: pending.type,
+          mediaId: pending.mediaId ?? null,
+          fileName: pending.fileName ?? null,
+          fileSize: pending.fileSize ?? null,
+          mimeType: pending.mimeType ?? null,
           attachment: pending.attachment ?? null,
           audio: pending.audio ?? null,
           replyTo: pending.replyTo,
@@ -584,6 +600,11 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     pendingMessages.set(tempId, {
       conversationId: message.conversationId,
       text: message.text,
+      type: message.type,
+      mediaId: message.mediaId ?? null,
+      fileName: message.fileName ?? null,
+      fileSize: message.fileSize ?? null,
+      mimeType: message.mimeType ?? null,
       attachment: message.attachment ?? null,
       audio: message.audio ?? null,
       replyTo: message.replyTo,
@@ -665,7 +686,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   sendMessage: (data) => {
     const text = data.text.trim();
 
-    if (!text && !data.attachment && !data.audio) {
+    if (!text && !data.attachment && !data.audio && !data.mediaId) {
       return;
     }
 
@@ -675,6 +696,11 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       id: tempId,
       tempId,
       text,
+      type: data.type,
+      mediaId: data.mediaId ?? null,
+      fileName: data.fileName ?? null,
+      fileSize: data.fileSize ?? null,
+      mimeType: data.mimeType ?? null,
       attachment: data.attachment ?? null,
       audio: data.audio ?? null,
       reactions: [],
@@ -683,7 +709,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       senderId: "me",
       status: "sending",
       optimistic: true,
-      createdAt: new Date().toISOString(),
+      createdAt: new Date(getServerNow()).toISOString(),
     };
 
     pendingMessages.set(tempId, {

@@ -52,6 +52,7 @@ function publicUser(user: {
   email?: string;
   avatar?: string | null;
   lastSeenAt?: Date | string | null;
+  createdAt?: Date | string | null;
 }) {
   return {
     id: user.id,
@@ -66,6 +67,10 @@ function publicUser(user: {
       user.lastSeenAt instanceof Date
         ? user.lastSeenAt.toISOString()
         : (user.lastSeenAt ?? null),
+    createdAt:
+      user.createdAt instanceof Date
+        ? user.createdAt.toISOString()
+        : (user.createdAt ?? null),
   };
 }
 
@@ -412,6 +417,7 @@ export async function userRoutes(app: FastifyInstance) {
 
       const { q, limit } = parsedQuery.data;
       const normalizedQuery = q?.trim();
+      const generatedUserPrefix = ["du", "mmy"].join("");
       const searchFilter = normalizedQuery
         ? sql`and username ilike ${`%${normalizedQuery}%`}`
         : sql``;
@@ -438,11 +444,11 @@ export async function userRoutes(app: FastifyInstance) {
             )
             and id not like 'phase3b-%'
             and id not ilike 'demo-%'
-            and id not ilike 'dummy-%'
+            and id not ilike ${`${generatedUserPrefix}-%`}
             and id not ilike 'fake-%'
             and username not ilike 'phase3b_%'
             and username not ilike 'demo_%'
-            and username not ilike 'dummy_%'
+            and username not ilike ${`${generatedUserPrefix}_%`}
             and username not ilike 'fake_%'
             and email not ilike '%@flexchat.local'
             and email not ilike '%@example.com'

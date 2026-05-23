@@ -155,8 +155,8 @@ export default function ActiveNowPanel({
     <aside
       className={
         variant === "rail"
-          ? "hidden h-full w-[320px] border-l border-white/10 bg-[#08111f]/[0.82] shadow-2xl shadow-black/20 backdrop-blur-3xl xl:flex xl:flex-col"
-          : "flex h-full w-full flex-col bg-[#08111f]/[0.94] backdrop-blur-3xl"
+          ? "hidden h-full w-[320px] border-l border-[var(--fc-app-border)] bg-[var(--fc-app-panel)] shadow-2xl shadow-black/20 backdrop-blur-3xl xl:flex xl:flex-col"
+          : "flex h-full w-full flex-col bg-[var(--fc-app-panel)] backdrop-blur-3xl"
       }
     >
       <div className="border-b border-white/10 bg-white/[0.02] p-5">

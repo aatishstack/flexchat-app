@@ -17,7 +17,7 @@ export interface Conversation {
     id: string;
     username: string;
     avatar?: string | null;
-    lastSeenAt?: string | null;
+    lastSeenAt?: string | number | null;
   }[];
 
   unreadCount?: number;

@@ -51,8 +51,8 @@ const CallLayer = dynamic(
 
 export default function ChatPage() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [discoverOpen, setDiscoverOpen] = useState(true);
-  const [activeNowOpen, setActiveNowOpen] = useState(true);
+  const [discoverOpen, setDiscoverOpen] = useState(false);
+  const [activeNowOpen, setActiveNowOpen] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<"discover" | "active" | null>(
     null,
   );
@@ -77,6 +77,21 @@ export default function ChatPage() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [setGlobalSearchOpen]);
+
+  useEffect(() => {
+    const pendingConversationId = window.sessionStorage.getItem(
+      "flexchat:pending-conversation",
+    );
+
+    if (!pendingConversationId) {
+      return;
+    }
+
+    window.sessionStorage.removeItem("flexchat:pending-conversation");
+    useConversationStore.setState({
+      activeConversationId: pendingConversationId,
+    });
+  }, []);
 
   useEffect(() => {
     if (!activeConversationId) {
@@ -125,7 +140,7 @@ export default function ChatPage() {
             "calc(5.75rem + env(safe-area-inset-bottom))",
         } as CSSProperties
       }
-      className="relative h-dvh min-h-svh overflow-hidden bg-[radial-gradient(circle_at_18%_0%,rgba(168,85,247,0.18),transparent_30%),radial-gradient(circle_at_86%_18%,rgba(6,182,212,0.08),transparent_24%),linear-gradient(135deg,#050816_0%,#090d19_48%,#0b1020_100%)] text-white"
+      className="relative h-dvh min-h-svh overflow-hidden bg-[var(--fc-app-bg)] text-[var(--fc-theme-text)]"
     >
       {/* SEARCH */}
       <GlobalSearch />
@@ -205,7 +220,7 @@ export default function ChatPage() {
               stiffness: 260,
               damping: 28,
             }}
-            className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-[calc(var(--chat-right-rail-width)+var(--chat-panel-gap))] top-[calc(5rem+env(safe-area-inset-top))] z-[180] hidden w-[var(--chat-notification-panel-width)] overflow-hidden rounded-[32px] border border-white/10 bg-[#0B111C]/95 shadow-2xl shadow-black/45 backdrop-blur-2xl xl:flex"
+            className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-[calc(var(--chat-right-rail-width)+var(--chat-panel-gap))] top-[calc(5rem+env(safe-area-inset-top))] z-[180] hidden w-[var(--chat-notification-panel-width)] overflow-hidden rounded-[32px] border border-[var(--fc-app-border)] bg-[var(--fc-app-surface)] shadow-2xl shadow-black/45 backdrop-blur-2xl xl:flex"
           >
             <NotificationPanel onClose={() => setNotificationsOpen(false)} />
           </motion.aside>
@@ -251,7 +266,7 @@ export default function ChatPage() {
                 stiffness: 260,
                 damping: 30,
               }}
-              className="absolute inset-x-0 bottom-0 h-[min(82dvh,720px)] overflow-hidden rounded-t-[32px] border border-white/10 bg-[#08111f] shadow-[0_-24px_90px_rgba(0,0,0,0.55)]"
+              className="absolute inset-x-0 bottom-0 h-[min(82dvh,720px)] overflow-hidden rounded-t-[32px] border border-[var(--fc-app-border)] bg-[var(--fc-app-panel)] shadow-[0_-24px_90px_rgba(0,0,0,0.55)]"
             >
               <button
                 type="button"

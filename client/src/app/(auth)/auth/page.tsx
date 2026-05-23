@@ -484,8 +484,6 @@ export default function AuthPage() {
 
                         router.replace("/chat");
                       } catch (error: unknown) {
-                        console.error(error);
-
                         if (
                           error instanceof FirebaseError &&
                           (error.code === "auth/popup-closed-by-user" ||

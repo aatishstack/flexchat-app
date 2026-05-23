@@ -18,14 +18,10 @@ export function resolveLocalRuntimeUrl(
   const currentHost =
     window.location.hostname;
 
-  if (!LOCAL_HOSTS.has(currentHost)) {
-    return resolvedUrl;
-  }
-
   try {
     const url = new URL(resolvedUrl);
 
-    if (LOCAL_HOSTS.has(url.hostname)) {
+    if (!LOCAL_HOSTS.has(url.hostname)) {
       return resolvedUrl;
     }
 

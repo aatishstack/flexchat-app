@@ -36,6 +36,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { useConversationsQuery } from "@/hooks/queries/use-conversations-query";
+import { useServerNow } from "@/hooks/use-server-now";
 import StoryTray from "@/components/chat/stories/story-tray";
 import FlexAvatar from "@/components/chat/flex-avatar";
 import { clearClientSession } from "@/lib/session-cleanup";
@@ -80,7 +81,8 @@ const RELATIVE_TIME_FORMATTER =
   });
 
 function formatConversationTime(
-  value?: string
+  value?: string,
+  now = Date.now()
 ) {
   if (!value) {
     return "";
@@ -95,7 +97,7 @@ function formatConversationTime(
 
   const diffSeconds =
     Math.round(
-      (time - Date.now()) / 1000
+      (time - now) / 1000
     );
   const absoluteSeconds =
     Math.abs(diffSeconds);
@@ -173,6 +175,7 @@ type ConversationListButtonProps = {
   isOnline: boolean;
   currentUserId?: string;
   muted: boolean;
+  now: number;
   onSelect: (
     conversation: Conversation
   ) => void;
@@ -188,6 +191,7 @@ const ConversationListButton = memo(
     isOnline,
     currentUserId,
     muted,
+    now,
     onSelect,
     onContextOpen,
   }: ConversationListButtonProps) {
@@ -321,7 +325,8 @@ const ConversationListButton = memo(
             <span className="text-xs text-zinc-500">
               {formatConversationTime(
                 conversation.lastActivityAt ??
-                  conversation.createdAt
+                  conversation.createdAt,
+                now
               )}
             </span>
           </div>
@@ -377,6 +382,7 @@ export default function ChatSidebar() {
   ] = useState<Set<string>>(
     () => new Set()
   );
+  const now = useServerNow();
   const deferredSearch =
     useDeferredValue(search);
 
@@ -757,7 +763,7 @@ export default function ChatSidebar() {
   ]);
 
   return (
-    <aside className="flex h-full w-full border-r border-white/10 bg-[#08111f]/[0.88] shadow-[18px_0_80px_rgba(0,0,0,0.34)] backdrop-blur-3xl lg:w-[360px]">
+    <aside className="flex h-full w-full border-r border-[var(--fc-app-border)] bg-[var(--fc-app-panel)] shadow-[18px_0_80px_rgba(0,0,0,0.34)] backdrop-blur-3xl lg:w-[360px]">
       <div className="flex w-full flex-col">
         <div className="relative overflow-hidden border-b border-white/10 bg-white/[0.025] p-5">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-purple-300/45 to-transparent" />
@@ -866,7 +872,7 @@ export default function ChatSidebar() {
             ))}
           </div>
 
-          <StoryTray />
+          {deferredSearch.trim() ? null : <StoryTray />}
         </div>
 
         <div className="chat-safe-scroll flex-1 space-y-2 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
@@ -911,6 +917,7 @@ export default function ChatSidebar() {
                   muted={mutedConversationIds.has(
                     conversation.id
                   )}
+                  now={now}
                   onSelect={
                     handleSelectConversation
                   }

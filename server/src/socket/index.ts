@@ -64,11 +64,12 @@ export function setupSocket(server: HttpServer) {
         return;
       }
 
-      const lastSeenAt = new Date().toISOString();
+      const lastSeenAt = Date.now();
+      const lastSeenIso = new Date(lastSeenAt).toISOString();
 
       void db.execute(sql`
         update users
-        set last_seen_at = ${lastSeenAt}
+        set last_seen_at = ${lastSeenIso}
         where id = ${changedUserId}
           and is_deleted = false
       `).catch((error) => {
@@ -124,7 +125,7 @@ export function setupSocket(server: HttpServer) {
     io.emit(SOCKET_EVENTS.PRESENCE_UPDATED, {
       userId,
       status: "online",
-      lastSeenAt: new Date().toISOString(),
+      lastSeenAt: Date.now(),
     });
 
     registerMessageHandlers(io, socket);
@@ -141,7 +142,8 @@ export function setupSocket(server: HttpServer) {
         getOnlineUserIds();
       const isStillOnline =
         removedUserId ? nextOnlineUsers.includes(removedUserId) : false;
-      const lastSeenAt = new Date().toISOString();
+      const lastSeenAt = Date.now();
+      const lastSeenIso = new Date(lastSeenAt).toISOString();
 
       if (
         previousOnlineUsers !==
@@ -156,7 +158,7 @@ export function setupSocket(server: HttpServer) {
       if (removedUserId && !isStillOnline) {
         void db.execute(sql`
           update users
-          set last_seen_at = ${lastSeenAt}
+          set last_seen_at = ${lastSeenIso}
           where id = ${removedUserId}
             and is_deleted = false
         `).catch((error) => {

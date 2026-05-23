@@ -27,6 +27,7 @@ const NOTIFICATION_TIME_FORMATTER =
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZone: "UTC",
   });
 
 function formatNotificationTime(
@@ -185,7 +186,7 @@ export default function NotificationPanel({
             </h2>
 
             <p className="text-sm text-zinc-500">
-              Realtime activity
+              Calls and account events
             </p>
           </div>
         </div>

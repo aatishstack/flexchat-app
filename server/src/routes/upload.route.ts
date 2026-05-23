@@ -179,16 +179,29 @@ const allowedMediaTypes = new Map<
 ]);
 
 function getAllowedMediaType(mimeType: string, extension: string) {
-  const mediaType = allowedMediaTypes.get(normalizeMimeType(mimeType));
+  const normalizedMimeType = normalizeMimeType(mimeType);
+  const mediaType = allowedMediaTypes.get(normalizedMimeType);
 
   if (
-    !mediaType ||
-    (extension && !mediaType.extensions.includes(extension))
+    mediaType &&
+    (!extension || mediaType.extensions.includes(extension))
   ) {
-    return null;
+    return {
+      ...mediaType,
+      mimeType: normalizedMimeType,
+    };
   }
 
-  return mediaType;
+  for (const [fallbackMimeType, fallbackMediaType] of allowedMediaTypes) {
+    if (extension && fallbackMediaType.extensions.includes(extension)) {
+      return {
+        ...fallbackMediaType,
+        mimeType: fallbackMimeType,
+      };
+    }
+  }
+
+  return null;
 }
 
 function normalizeMimeType(mimeType: string) {
@@ -425,7 +438,7 @@ export async function uploadRoutes(app: FastifyInstance) {
 
       const header = await readFileHeader(filepath);
 
-      if (!isFileSignatureAllowed(normalizedMimeType, header)) {
+      if (!isFileSignatureAllowed(mediaType.mimeType, header)) {
         await removeFileIfExists(filepath);
 
         return reply.status(415).send({

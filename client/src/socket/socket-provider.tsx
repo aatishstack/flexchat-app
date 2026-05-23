@@ -26,6 +26,7 @@ import { useAuthStore } from "@/stores/auth.store";
 import { useConversationStore } from "@/stores/conversation.store";
 import { queryKeys } from "@/lib/query-keys";
 import { clearClientSession } from "@/lib/session-cleanup";
+import { getServerNow } from "@/lib/server-time";
 import { useNotificationStore } from "@/store/notification-store";
 import {
   useCallStore,
@@ -79,7 +80,7 @@ type ConversationThemeUpdatedPayload = {
 type PresenceUpdatedPayload = {
   userId?: string;
   status?: "online" | "offline";
-  lastSeenAt?: string;
+  lastSeenAt?: string | number;
 };
 
 type StoryViewedPayload = {
@@ -118,11 +119,8 @@ type CallLifecyclePayload = {
 
 type CallSignalRelayPayload = {
   callId?: string;
-  signal?: {
-    type: "offer" | "answer" | "candidate";
-    description?: RTCSessionDescriptionInit;
-    candidate?: RTCIceCandidateInit;
-  };
+  description?: RTCSessionDescriptionInit;
+  candidate?: RTCIceCandidateInit;
 };
 
 type CallErrorPayload = {
@@ -132,6 +130,8 @@ type CallErrorPayload = {
 
 const CONVERSATION_UPDATE_DEDUPE_TTL_MS =
   2 * 60 * 1000;
+const PENDING_NOTIFICATION_CONVERSATION_KEY =
+  "flexchat:pending-conversation";
 
 const recentConversationUpdates = new Map<
   string,
@@ -237,6 +237,77 @@ function getMessagePreview(message: Message) {
     : body;
 }
 
+function openConversationFromNotification(conversationId: string) {
+  try {
+    window.sessionStorage.setItem(
+      PENDING_NOTIFICATION_CONVERSATION_KEY,
+      conversationId,
+    );
+  } catch {
+    // Session storage is best-effort; Zustand still opens the chat in-session.
+  }
+
+  useConversationStore.setState({
+    activeConversationId: conversationId,
+  });
+
+  window.dispatchEvent(new CustomEvent("flexchat:conversation-selected"));
+
+  if (!window.location.pathname.includes("/chat")) {
+    window.location.assign("/chat");
+  } else {
+    window.focus();
+  }
+}
+
+async function showIncomingMessageNotification(input: {
+  id: string;
+  title: string;
+  message: string;
+  conversationId: string;
+}) {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    return;
+  }
+
+  let permission = Notification.permission;
+
+  if (permission === "default") {
+    permission = await Notification.requestPermission().catch(() => "denied");
+  }
+
+  if (permission !== "granted") {
+    return;
+  }
+
+  const notification = new Notification(input.title, {
+    body: input.message,
+    tag: `flexchat-message-${input.conversationId}`,
+    silent: false,
+  });
+
+  notification.onclick = () => {
+    notification.close();
+    openConversationFromNotification(input.conversationId);
+  };
+}
+
+function addCallNotification(input: {
+  id: string;
+  title: string;
+  message: string;
+  kind: "call" | "missed_call" | "call_accepted" | "call_rejected";
+}) {
+  useNotificationStore.getState().addNotification({
+    id: input.id,
+    title: input.title,
+    message: input.message,
+    kind: input.kind,
+    createdAt: new Date(getServerNow()).toISOString(),
+    read: false,
+  });
+}
+
 export default function SocketProvider({
   children,
 }: {
@@ -303,7 +374,7 @@ export default function SocketProvider({
       }
     }
 
-    function onDisconnect(reason: string) {
+    function onDisconnect() {
       resetPendingMessageFlights();
 
       if (useCallStore.getState().currentCall) {
@@ -317,17 +388,9 @@ export default function SocketProvider({
         isConnecting: false,
         typingUsers: [],
       });
-
-      if (reason === "io server disconnect") {
-        setConnectionError(
-          "Realtime disconnected by server"
-        );
-      }
     }
 
     function onConnectError(error: Error) {
-      setConnectionError(error.message);
-
       if (
         error.message
           .toLowerCase()
@@ -556,19 +619,12 @@ export default function SocketProvider({
       );
 
       if (shouldIncrementUnread) {
-        useNotificationStore
-          .getState()
-          .addNotification({
-            id: payload.messageId,
-            title: conversationName,
-            message:
-              latestMessage ||
-              "New message",
-            createdAt:
-              payload.createdAt ??
-              new Date().toISOString(),
-            read: false,
-          });
+        void showIncomingMessageNotification({
+          id: payload.messageId,
+          title: conversationName,
+          message: latestMessage || "New message",
+          conversationId: payload.conversationId,
+        });
       }
 
       if (!conversationWasCached) {
@@ -635,19 +691,6 @@ export default function SocketProvider({
         receipt.messageId,
         "read",
         receipt.serverId
-      );
-    }
-
-    function onReconnectAttempt() {
-      useSocketStore.setState({
-        isConnecting: true,
-        connectionError: null,
-      });
-    }
-
-    function onReconnectFailed() {
-      setConnectionError(
-        "Realtime reconnect failed"
       );
     }
 
@@ -791,7 +834,7 @@ export default function SocketProvider({
                 }),
             themeUpdatedAt:
               payload.updatedAt ??
-              new Date().toISOString(),
+              new Date(getServerNow()).toISOString(),
           },
         },
       }));
@@ -832,6 +875,12 @@ export default function SocketProvider({
                     useAuthStore.getState().user?.id
                       ? true
                       : story.viewed,
+                  viewCount:
+                    payload.viewerId &&
+                    payload.viewerId !== story.userId &&
+                    payload.viewerId !== useAuthStore.getState().user?.id
+                      ? (story.viewCount ?? 0) + 1
+                      : story.viewCount,
                 }
               : story
           ) ?? []
@@ -1025,6 +1074,12 @@ export default function SocketProvider({
     function onCallIncoming(
       call: CallSession
     ) {
+      addCallNotification({
+        id: `call-incoming-${call.id}`,
+        title: call.kind === "video" ? "Incoming video call" : "Incoming call",
+        message: "Tap the call screen to answer or decline.",
+        kind: "call",
+      });
       useCallStore
         .getState()
         .handleIncomingCall(call);
@@ -1033,6 +1088,12 @@ export default function SocketProvider({
     function onCallAccepted(
       call: CallSession
     ) {
+      addCallNotification({
+        id: `call-accepted-${call.id}`,
+        title: call.kind === "video" ? "Video call accepted" : "Call accepted",
+        message: "The call is connecting.",
+        kind: "call_accepted",
+      });
       useCallStore
         .getState()
         .handleCallAccepted(call);
@@ -1041,6 +1102,14 @@ export default function SocketProvider({
     function onCallRejected(
       payload: CallLifecyclePayload
     ) {
+      if (payload.callId) {
+        addCallNotification({
+          id: `call-rejected-${payload.callId}`,
+          title: "Call rejected",
+          message: "The call was declined.",
+          kind: "call_rejected",
+        });
+      }
       useCallStore
         .getState()
         .handleCallRejected(payload);
@@ -1057,17 +1126,55 @@ export default function SocketProvider({
     function onCallEnded(
       payload: CallLifecyclePayload
     ) {
+      if (
+        payload.callId &&
+        (payload.reason === "missed" ||
+          payload.reason === "unreachable" ||
+          payload.reason === "participant_disconnected")
+      ) {
+        addCallNotification({
+          id: `call-ended-${payload.callId}-${payload.reason}`,
+          title: payload.reason === "missed" ? "Missed call" : "Call ended",
+          message:
+            payload.reason === "unreachable"
+              ? "The other person was unreachable."
+              : payload.reason === "participant_disconnected"
+                ? "The call disconnected."
+                : "You missed a call.",
+          kind: "missed_call",
+        });
+      }
       useCallStore
         .getState()
         .handleCallEnded(payload);
     }
 
     function onCallSignalRelay(
+      type: "offer" | "answer" | "candidate",
       payload: CallSignalRelayPayload
     ) {
       useCallStore
         .getState()
-        .handleCallSignal(payload);
+        .handleCallSignal({
+          callId: payload.callId,
+          signal: {
+            type,
+            description: payload.description,
+            candidate: payload.candidate,
+          },
+        });
+    }
+
+    function onCallOffer(payload: CallSignalRelayPayload) {
+      onCallSignalRelay("offer", payload);
+    }
+
+    function onCallAnswer(payload: CallSignalRelayPayload) {
+      onCallSignalRelay("answer", payload);
+    }
+
+    function onCallIceCandidate(payload: CallSignalRelayPayload) {
+      onCallSignalRelay("candidate", payload);
     }
 
     function onCallError(
@@ -1118,10 +1225,10 @@ export default function SocketProvider({
     socket.on(SOCKET_EVENTS.CALL_REJECTED, onCallRejected);
     socket.on(SOCKET_EVENTS.CALL_CANCELED, onCallCanceled);
     socket.on(SOCKET_EVENTS.CALL_ENDED, onCallEnded);
-    socket.on(SOCKET_EVENTS.CALL_SIGNAL_RELAY, onCallSignalRelay);
+    socket.on(SOCKET_EVENTS.CALL_OFFER, onCallOffer);
+    socket.on(SOCKET_EVENTS.CALL_ANSWER, onCallAnswer);
+    socket.on(SOCKET_EVENTS.CALL_ICE_CANDIDATE, onCallIceCandidate);
     socket.on(SOCKET_EVENTS.CALL_ERROR, onCallError);
-    socket.io.on("reconnect_attempt", onReconnectAttempt);
-    socket.io.on("reconnect_failed", onReconnectFailed);
 
     return () => {
       socket.off(SOCKET_EVENTS.CONNECT, onConnect);
@@ -1164,10 +1271,10 @@ export default function SocketProvider({
       socket.off(SOCKET_EVENTS.CALL_REJECTED, onCallRejected);
       socket.off(SOCKET_EVENTS.CALL_CANCELED, onCallCanceled);
       socket.off(SOCKET_EVENTS.CALL_ENDED, onCallEnded);
-      socket.off(SOCKET_EVENTS.CALL_SIGNAL_RELAY, onCallSignalRelay);
+      socket.off(SOCKET_EVENTS.CALL_OFFER, onCallOffer);
+      socket.off(SOCKET_EVENTS.CALL_ANSWER, onCallAnswer);
+      socket.off(SOCKET_EVENTS.CALL_ICE_CANDIDATE, onCallIceCandidate);
       socket.off(SOCKET_EVENTS.CALL_ERROR, onCallError);
-      socket.io.off("reconnect_attempt", onReconnectAttempt);
-      socket.io.off("reconnect_failed", onReconnectFailed);
     };
   }, [
     addMessage,

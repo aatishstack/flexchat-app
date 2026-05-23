@@ -9,7 +9,8 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "db:push": "drizzle-kit push",
-    "db:migrate:commercial": "tsx src/scripts/apply-commercial-migrations.ts"
+    "db:migrate:commercial": "tsx src/scripts/apply-commercial-migrations.ts",
+    "stories:cleanup": "tsx src/scripts/cleanup-stories.ts"
   },
   "keywords": [],
   "author": "",

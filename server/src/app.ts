@@ -142,6 +142,87 @@ async function removeUploadedAsset(uploadsDir: string, url?: string | null) {
   }
 }
 
+function resolveUploadPath(uploadsDir: string, mediaId: string) {
+  const decodedId = decodeURIComponent(mediaId);
+  const basename = path.basename(decodedId);
+
+  if (!basename || basename !== decodedId || basename.includes("..")) {
+    return null;
+  }
+
+  const directPath = path.resolve(uploadsDir, basename);
+
+  if (directPath.startsWith(`${uploadsDir}${path.sep}`)) {
+    return directPath;
+  }
+
+  return null;
+}
+
+async function findUploadByMediaId(uploadsDir: string, mediaId: string) {
+  const directPath = resolveUploadPath(uploadsDir, mediaId);
+
+  if (directPath && await fs.promises.stat(directPath).then((stat) => stat.isFile()).catch(() => false)) {
+    return directPath;
+  }
+
+  if (path.extname(mediaId)) {
+    return null;
+  }
+
+  const entries = await fs.promises.readdir(uploadsDir, {
+    withFileTypes: true,
+  });
+  const match = entries.find(
+    (entry) =>
+      entry.isFile() &&
+      path.parse(entry.name).name === mediaId,
+  );
+
+  return match ? path.resolve(uploadsDir, match.name) : null;
+}
+
+function getContentType(filename: string) {
+  const extension = path.extname(filename).toLowerCase();
+
+  switch (extension) {
+    case ".avif":
+      return "image/avif";
+    case ".gif":
+      return "image/gif";
+    case ".heic":
+      return "image/heic";
+    case ".heif":
+      return "image/heif";
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".png":
+      return "image/png";
+    case ".webp":
+      return "image/webp";
+    case ".mp4":
+    case ".m4v":
+      return "video/mp4";
+    case ".mov":
+      return "video/quicktime";
+    case ".webm":
+      return "video/webm";
+    case ".mp3":
+      return "audio/mpeg";
+    case ".m4a":
+      return "audio/mp4";
+    case ".ogg":
+      return "audio/ogg";
+    case ".wav":
+      return "audio/wav";
+    case ".pdf":
+      return "application/pdf";
+    default:
+      return "application/octet-stream";
+  }
+}
+
 async function ensureCriticalSchema() {
   await db.execute(sql`
     alter table users
@@ -327,6 +408,26 @@ export async function buildApp() {
     prefix: "/uploads/",
   });
 
+  app.get("/media/:mediaId", async (request, reply) => {
+    const mediaId =
+      (request.params as { mediaId?: string }).mediaId ?? "";
+    const filepath = await findUploadByMediaId(uploadsDir, mediaId);
+
+    if (!filepath) {
+      return reply.status(404).send({
+        message: "Media unavailable",
+      });
+    }
+
+    const stat = await fs.promises.stat(filepath);
+
+    reply.header("Content-Type", getContentType(filepath));
+    reply.header("Content-Length", stat.size);
+    reply.header("Cache-Control", "private, max-age=3600");
+
+    return reply.send(fs.createReadStream(filepath));
+  });
+
   const uploadCleanupTimer = setInterval(
     () => {
       void cleanupExpiredUploads(uploadsDir).catch((error) => {
@@ -423,6 +524,15 @@ export async function buildApp() {
       service: "flexchat-api",
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
+    };
+  });
+
+  app.get("/time", async () => {
+    const now = new Date();
+
+    return {
+      utc: now.toISOString(),
+      epochMs: now.getTime(),
     };
   });
 

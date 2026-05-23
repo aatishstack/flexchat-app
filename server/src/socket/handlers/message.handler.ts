@@ -274,6 +274,50 @@ async function getReplyTargetPreview(
     return null;
   }
 
+  if (parsedReplyTo.data.id.startsWith("story:")) {
+    const storyId = parsedReplyTo.data.id.slice("story:".length);
+
+    if (!storyId.trim()) {
+      return null;
+    }
+
+    const storyRows = await db.execute<{
+      id: string;
+      mediaType: "image" | "video" | "text";
+      caption: string | null;
+    }>(sql`
+      select
+        s.id,
+        s.media_type as "mediaType",
+        s.caption
+      from stories s
+      inner join conversation_members cm
+        on cm.conversation_id = ${conversationId}
+        and cm.user_id = s.user_id
+      where s.id = ${storyId}
+        and s.deleted_at is null
+        and s.expires_at > now()
+      limit 1
+    `);
+
+    const story = storyRows[0];
+
+    if (!story) {
+      return null;
+    }
+
+    return {
+      id: parsedReplyTo.data.id,
+      text:
+        story.caption?.trim() ||
+        (story.mediaType === "video"
+          ? "Story: Video"
+          : story.mediaType === "image"
+            ? "Story: Photo"
+            : "Story"),
+    };
+  }
+
   const replyRows = await db.execute<{
     id: string;
     text: string;

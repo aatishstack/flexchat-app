@@ -3,14 +3,25 @@ import axios from "axios";
 import { resolveLocalRuntimeUrl } from "@/lib/runtime-url";
 import { tokenStorage } from "@/lib/token";
 
+function getApiBaseUrl() {
+  if (
+    typeof window !== "undefined" &&
+    window.location.protocol === "https:" &&
+    !window.location.hostname.includes("localhost")
+  ) {
+    return "/api/backend";
+  }
+
+  return resolveLocalRuntimeUrl(
+    process.env
+      .NEXT_PUBLIC_API_URL,
+    "http://localhost:5000"
+  );
+}
+
 export const api =
   axios.create({
-    baseURL:
-      resolveLocalRuntimeUrl(
-        process.env
-          .NEXT_PUBLIC_API_URL,
-        "http://localhost:5000"
-      ),
+    baseURL: getApiBaseUrl(),
   });
 
 type RefreshResponse = {

@@ -90,41 +90,44 @@ export const SOCKET_EVENTS = {
     "story_deleted",
 
   CALL_INVITE:
-    "call_invite",
+    "call:initiate",
 
   CALL_INCOMING:
-    "call_incoming",
+    "call:incoming",
 
   CALL_ACCEPT:
-    "call_accept",
+    "call:accept",
 
   CALL_ACCEPTED:
-    "call_accepted",
+    "call:accepted",
 
   CALL_REJECT:
-    "call_reject",
+    "call:reject",
 
   CALL_REJECTED:
-    "call_rejected",
+    "call:rejected",
 
   CALL_CANCEL:
-    "call_cancel",
+    "call:cancel",
 
   CALL_CANCELED:
-    "call_canceled",
+    "call:canceled",
 
   CALL_END:
-    "call_end",
+    "call:end",
 
   CALL_ENDED:
-    "call_ended",
+    "call:end",
 
-  CALL_SIGNAL:
-    "call_signal",
+  CALL_OFFER:
+    "call:offer",
 
-  CALL_SIGNAL_RELAY:
-    "call_signal_relay",
+  CALL_ANSWER:
+    "call:answer",
+
+  CALL_ICE_CANDIDATE:
+    "call:ice-candidate",
 
   CALL_ERROR:
-    "call_error",
+    "call:error",
 } as const;

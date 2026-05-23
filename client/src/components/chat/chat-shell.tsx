@@ -99,7 +99,7 @@ export default function ChatShell({
       {/* Chat */}
       <div className="relative flex min-w-0 flex-1 flex-col">
         {/* Mobile Topbar */}
-        <div className="flex min-h-16 shrink-0 items-center border-b border-white/10 bg-[#08111f]/80 px-4 pt-[env(safe-area-inset-top)] shadow-lg shadow-black/20 backdrop-blur-2xl sm:px-5 lg:hidden">
+        <div className="flex min-h-16 shrink-0 items-center border-b border-[var(--fc-app-border)] bg-[var(--fc-app-panel)] px-4 pt-[env(safe-area-inset-top)] shadow-lg shadow-black/20 backdrop-blur-2xl sm:px-5 lg:hidden">
           <button
             type="button"
             onClick={() =>

@@ -10,10 +10,12 @@ import {
 
 import {
   AlertTriangle,
+  BellOff,
   ChevronLeft,
   ChevronRight,
   Eye,
   Loader2,
+  SendHorizonal,
   Trash2,
   X,
 } from "lucide-react";
@@ -29,6 +31,7 @@ import {
 } from "@tanstack/react-query";
 
 import { queryKeys } from "@/lib/query-keys";
+import { useServerNow } from "@/hooks/use-server-now";
 import FlexAvatar from "@/components/chat/flex-avatar";
 import { formatDisplayName } from "@/lib/user-display";
 import {
@@ -36,8 +39,15 @@ import {
   getStoryViewers,
   markStoryViewed,
 } from "@/services/story.service";
+import { createDirectConversation } from "@/services/conversation.service";
 import { useToastStore } from "@/store/toast-store";
+import { useSocketStore } from "@/store/socket-store";
 import { useAuthStore } from "@/stores/auth.store";
+import { useConversationStore } from "@/stores/conversation.store";
+import {
+  upsertConversationInQueryCache,
+  type ConversationQueryCache,
+} from "@/lib/conversation-query-cache";
 import type { Story } from "@/types/story";
 
 type StoryGroup = {
@@ -54,19 +64,20 @@ type Props = {
   onGroupIndexChange: (
     index: number | null
   ) => void;
+  onMuteUser: (userId: string) => void;
   onClose: () => void;
 };
 
 const STORY_DURATION_MS = 5500;
 const VIDEO_FALLBACK_DURATION_MS = 12000;
 
-function formatStoryTime(value?: string) {
+function formatStoryTime(value?: string, now = Date.now()) {
   if (!value) {
     return "";
   }
 
   const diffMs =
-    Date.now() -
+    now -
     new Date(value).getTime();
   const diffMinutes =
     Math.max(1, Math.round(diffMs / 60000));
@@ -78,11 +89,30 @@ function formatStoryTime(value?: string) {
   return `${Math.round(diffMinutes / 60)}h`;
 }
 
+function getStoryReplyPreview(story: Story) {
+  const caption = story.caption?.trim();
+
+  if (caption) {
+    return `Story: ${caption.slice(0, 120)}`;
+  }
+
+  if (story.mediaType === "video") {
+    return "Story: Video";
+  }
+
+  if (story.mediaType === "image") {
+    return "Story: Photo";
+  }
+
+  return "Story";
+}
+
 export default function StoryViewer({
   group,
   groups,
   groupIndex,
   onGroupIndexChange,
+  onMuteUser,
   onClose,
 }: Props) {
   const [storyIndex, setStoryIndex] =
@@ -90,6 +120,8 @@ export default function StoryViewer({
   const [progress, setProgress] =
     useState(0);
   const [isPaused, setIsPaused] =
+    useState(false);
+  const [replyFocused, setReplyFocused] =
     useState(false);
   const [
     deleteConfirmOpen,
@@ -99,6 +131,11 @@ export default function StoryViewer({
     viewerListOpen,
     setViewerListOpen,
   ] = useState(false);
+  const [replyText, setReplyText] =
+    useState("");
+  const [isSendingReply, setIsSendingReply] =
+    useState(false);
+  const now = useServerNow();
   const [
     videoDuration,
     setVideoDuration,
@@ -120,6 +157,14 @@ export default function StoryViewer({
     useToastStore(
       (state) => state.pushToast
     );
+  const sendSocketMessage =
+    useSocketStore(
+      (state) => state.sendMessage
+    );
+  const setActiveConversation =
+    useConversationStore(
+      (state) => state.setActiveConversation
+    );
   const currentUserId =
     useAuthStore(
       (state) => state.user?.id
@@ -133,13 +178,20 @@ export default function StoryViewer({
     currentStory?.mediaType;
   const isOwnStory =
     currentStory?.userId === currentUserId;
+  const timerPaused =
+    isPaused ||
+    replyFocused ||
+    !!replyText.trim() ||
+    isSendingReply ||
+    deleteConfirmOpen ||
+    viewerListOpen;
   const duration =
     currentStory?.mediaType === "video"
       ? videoDuration.storyId ===
         currentStory.id
         ? videoDuration.durationMs
         : VIDEO_FALLBACK_DURATION_MS
-      : STORY_DURATION_MS;
+    : STORY_DURATION_MS;
 
   const {
     mutate: markStoryAsViewed,
@@ -165,8 +217,7 @@ export default function StoryViewer({
     useQuery({
       enabled:
         !!currentStoryId &&
-        isOwnStory &&
-        viewerListOpen,
+        isOwnStory,
       queryKey: [
         ...queryKeys.stories.all,
         currentStoryId,
@@ -182,6 +233,25 @@ export default function StoryViewer({
   const deleteStoryMutation =
     useMutation({
       mutationFn: deleteStory,
+      onMutate: async (storyId) => {
+        await queryClient.cancelQueries({
+          queryKey: queryKeys.stories.all,
+        });
+        const previousStories =
+          queryClient.getQueryData<Story[]>(queryKeys.stories.all);
+
+        queryClient.setQueryData<Story[]>(
+          queryKeys.stories.all,
+          (stories) =>
+            (stories ?? []).filter(
+              (story) => story.id !== storyId
+            )
+        );
+
+        return {
+          previousStories,
+        };
+      },
       onSuccess: (_, storyId) => {
         queryClient.setQueryData<Story[]>(
           queryKeys.stories.all,
@@ -200,7 +270,14 @@ export default function StoryViewer({
           variant: "success",
         });
       },
-      onError: () => {
+      onError: (_error, _storyId, context) => {
+        if (context?.previousStories) {
+          queryClient.setQueryData(
+            queryKeys.stories.all,
+            context.previousStories
+          );
+        }
+
         pushToast({
           title:
             "Stories temporarily unavailable",
@@ -238,6 +315,61 @@ export default function StoryViewer({
     onClose,
     onGroupIndexChange,
     storyIndex,
+  ]);
+
+  const handleStoryReply = useCallback(async () => {
+    const story = currentStory;
+    const text = replyText.trim();
+
+    if (!story || isOwnStory || !text || isSendingReply) {
+      return;
+    }
+
+    setIsSendingReply(true);
+
+    try {
+      const conversation = await createDirectConversation(story.userId);
+
+      queryClient.setQueryData<ConversationQueryCache>(
+        queryKeys.conversations.all,
+        (cache) => upsertConversationInQueryCache(cache, conversation),
+      );
+      setActiveConversation(conversation);
+      sendSocketMessage({
+        conversationId: conversation.id,
+        text,
+        replyTo: {
+          id: `story:${story.id}`,
+          text: getStoryReplyPreview(story),
+        },
+      });
+      setReplyText("");
+      onClose();
+      window.dispatchEvent(new CustomEvent("flexchat:conversation-selected"));
+      pushToast({
+        title: "Story reply sent",
+        message: "Opened the direct message with your reply.",
+        variant: "success",
+      });
+    } catch {
+      pushToast({
+        title: "Could not reply to story",
+        message: "Please try again in a moment.",
+        variant: "error",
+      });
+    } finally {
+      setIsSendingReply(false);
+    }
+  }, [
+    currentStory,
+    isOwnStory,
+    isSendingReply,
+    onClose,
+    pushToast,
+    queryClient,
+    replyText,
+    sendSocketMessage,
+    setActiveConversation,
   ]);
 
   const goPrevious = useCallback(() => {
@@ -319,7 +451,7 @@ export default function StoryViewer({
   }, [progress]);
 
   useEffect(() => {
-    if (!currentStoryId || isPaused) {
+    if (!currentStoryId || timerPaused) {
       return;
     }
 
@@ -360,7 +492,7 @@ export default function StoryViewer({
   }, [
     currentStoryId,
     duration,
-    isPaused,
+    timerPaused,
     goNext,
   ]);
 
@@ -372,7 +504,7 @@ export default function StoryViewer({
       return;
     }
 
-    if (isPaused) {
+    if (timerPaused) {
       videoRef.current.pause();
       return;
     }
@@ -381,7 +513,7 @@ export default function StoryViewer({
   }, [
     currentStoryId,
     currentStoryMediaType,
-    isPaused,
+    timerPaused,
   ]);
 
   const progressBars = useMemo(() => {
@@ -505,8 +637,16 @@ export default function StoryViewer({
                     </h3>
                     <p className="text-xs text-white/60">
                       {formatStoryTime(
-                        currentStory.createdAt
+                        currentStory.createdAt,
+                        now
                       )}
+                      {isOwnStory
+                        ? ` - ${currentStory.viewCount ?? 0} ${
+                            (currentStory.viewCount ?? 0) === 1
+                              ? "view"
+                              : "views"
+                          }`
+                        : ""}
                     </p>
                   </div>
                 </div>
@@ -539,7 +679,20 @@ export default function StoryViewer({
                         <Trash2 size={17} />
                       </button>
                     </>
-                  ) : null}
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (currentStory?.userId) {
+                          onMuteUser(currentStory.userId);
+                        }
+                      }}
+                      className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white transition hover:bg-white/20"
+                      aria-label="Mute story"
+                    >
+                      <BellOff size={17} />
+                    </button>
+                  )}
 
                   <button
                     type="button"
@@ -566,7 +719,13 @@ export default function StoryViewer({
               aria-label="Next story"
             />
 
-            {currentStory.mediaType === "video" ? (
+            {currentStory.mediaType === "text" ? (
+              <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_30%_20%,rgba(168,85,247,0.34),transparent_42%),linear-gradient(135deg,#12081f,#07111d)] p-7">
+                <p className="whitespace-pre-wrap break-words text-center text-2xl font-semibold leading-snug text-white sm:text-3xl">
+                  {currentStory.caption}
+                </p>
+              </div>
+            ) : currentStory.mediaType === "video" ? (
               <video
                 ref={videoRef}
                 key={currentStory.id}
@@ -613,12 +772,59 @@ export default function StoryViewer({
               />
             )}
 
-            {currentStory.caption ? (
+            {currentStory.caption && currentStory.mediaType !== "text" ? (
               <div className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/80 via-black/30 to-transparent px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-16">
                 <p className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm leading-relaxed backdrop-blur-xl">
                   {currentStory.caption}
                 </p>
               </div>
+            ) : null}
+
+            {isOwnStory ? (
+              <button
+                type="button"
+                onClick={() => setViewerListOpen(true)}
+                className="absolute inset-x-5 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30 rounded-2xl bg-black/45 px-4 py-3 text-left text-sm font-semibold text-white backdrop-blur-xl transition hover:bg-black/60"
+              >
+                Seen by {storyViewersQuery.data?.length ?? currentStory.viewCount ?? 0}
+              </button>
+            ) : null}
+
+            {!isOwnStory ? (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleStoryReply();
+                }}
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerUp={(event) => event.stopPropagation()}
+                className="absolute inset-x-0 bottom-0 z-30 flex items-end gap-2 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-16"
+              >
+                <textarea
+                  value={replyText}
+                  onChange={(event) =>
+                    setReplyText(event.target.value.slice(0, 500))
+                  }
+                  onFocus={() => setReplyFocused(true)}
+                  onBlur={() => setReplyFocused(false)}
+                  rows={1}
+                  placeholder="Reply..."
+                  className="max-h-24 min-h-11 flex-1 resize-none rounded-2xl border border-white/10 bg-white/[0.10] px-4 py-3 text-sm leading-5 text-white outline-none backdrop-blur-xl placeholder:text-white/45 focus:border-purple-300/45"
+                />
+
+                <button
+                  type="submit"
+                  disabled={!replyText.trim() || isSendingReply}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-purple-500 text-white shadow-xl shadow-purple-500/25 transition hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Send story reply"
+                >
+                  {isSendingReply ? (
+                    <Loader2 size={17} className="motion-safe:animate-spin" />
+                  ) : (
+                    <SendHorizonal size={17} />
+                  )}
+                </button>
+              </form>
             ) : null}
 
             <div className="pointer-events-none absolute inset-y-0 left-3 z-20 hidden items-center sm:flex">
@@ -725,7 +931,7 @@ export default function StoryViewer({
                                 {formatDisplayName(viewer.username)}
                               </p>
                               <p className="text-xs text-zinc-500">
-                                {formatStoryTime(viewer.viewedAt)} ago
+                                {formatStoryTime(viewer.viewedAt, now)} ago
                               </p>
                             </div>
                           </div>

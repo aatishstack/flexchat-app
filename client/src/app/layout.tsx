@@ -5,12 +5,15 @@ import "./globals.css";
 import AuthRouteGate from "@/components/auth/auth-route-gate";
 
 import LiveToast from "@/components/chat/sidebar/live-toast";
+import HttpsBanner from "@/components/shared/HttpsBanner";
 
 import AuthProvider from "@/providers/auth-provider";
 
 import QueryProvider from "@/providers/query-provider";
+import ServerTimeProvider from "@/providers/server-time-provider";
 
 import SocketProvider from "@/socket/socket-provider";
+import GlobalThemeProvider from "@/components/theme/global-theme-provider";
 
 export const metadata: Metadata = {
   title: "FlexChat",
@@ -26,16 +29,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="bg-[#070B14] text-white antialiased">
+      <body className="bg-[var(--fc-chat-bg)] text-[var(--fc-theme-text)] antialiased">
         <QueryProvider>
-          <SocketProvider>
-            <AuthProvider>
-              <AuthRouteGate>
-                {children}
-              </AuthRouteGate>
-              <LiveToast />
-            </AuthProvider>
-          </SocketProvider>
+          <ServerTimeProvider>
+            <SocketProvider>
+              <AuthProvider>
+                <GlobalThemeProvider>
+                  <AuthRouteGate>
+                    <HttpsBanner />
+                    {children}
+                  </AuthRouteGate>
+                </GlobalThemeProvider>
+                <LiveToast />
+              </AuthProvider>
+            </SocketProvider>
+          </ServerTimeProvider>
         </QueryProvider>
       </body>
     </html>

@@ -195,32 +195,75 @@ function normalizeMimeType(mimeType: string) {
   );
 }
 
+function getMediaTypeByExtension(extension: string) {
+  if (!extension) {
+    return null;
+  }
+
+  for (const [mimeType, mediaType] of allowedMediaTypes.entries()) {
+    if (mediaType.extensions.includes(extension)) {
+      return {
+        mimeType,
+        mediaType,
+      };
+    }
+  }
+
+  return null;
+}
+
 function getNormalizedUploadFile(file: File) {
   const extension = getFileExtension(file);
+  const normalizedMimeType = normalizeMimeType(file.type);
+  const extensionMediaType = getMediaTypeByExtension(extension);
   const mediaType =
     allowedMediaTypes.get(
-      normalizeMimeType(file.type)
-    );
+      normalizedMimeType
+    ) ?? extensionMediaType?.mediaType;
+  const mimeType = mediaType
+    ? normalizedMimeType || extensionMediaType?.mimeType || file.type
+    : file.type;
 
   if (
     !mediaType ||
-    mediaType.extensions.includes(extension)
+    (mediaType.extensions.includes(extension) && file.type)
   ) {
     return file;
   }
 
-  const filename = `flexchat-upload-${Date.now()}.${
-    mediaType.extensions[0]
-  }`;
+  const targetExtension = mediaType.extensions.includes(extension)
+    ? extension
+    : mediaType.extensions[0];
+  const filename = `flexchat-upload-${Date.now()}.${targetExtension}`;
 
   return new File(
     [file],
     filename,
     {
-      type: file.type,
+      type: mimeType,
       lastModified:
         file.lastModified,
     }
+  );
+}
+
+function shouldTranscodeForVideoCompatibility(file: File) {
+  const extension = getFileExtension(file);
+  const normalizedMimeType = normalizeMimeType(file.type);
+
+  if (!file.type || ["mov", "3gp", "3gpp", "3g2", "3gpp2"].includes(extension)) {
+    return true;
+  }
+
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  const video = document.createElement("video");
+
+  return (
+    normalizedMimeType.startsWith("video/") &&
+    !video.canPlayType(normalizedMimeType)
   );
 }
 
@@ -493,13 +536,22 @@ async function prepareUploadFile(
     normalizedFile.type.startsWith(
       "video/"
     ) &&
-    normalizedFile.size >
-      MEDIA_LIMITS.videoCompressionThreshold
+    (normalizedFile.size >
+      MEDIA_LIMITS.videoCompressionThreshold ||
+      shouldTranscodeForVideoCompatibility(normalizedFile))
   ) {
-    return compressVideoFile(
-      normalizedFile,
-      onProgress
-    );
+    try {
+      return await compressVideoFile(
+        normalizedFile,
+        onProgress
+      );
+    } catch (error) {
+      if (normalizedFile.size <= MEDIA_LIMITS.video) {
+        return normalizedFile;
+      }
+
+      throw error;
+    }
   }
 
   return normalizedFile;
@@ -510,7 +562,7 @@ export function getUploadValidationError(file: File) {
   const mediaType =
     allowedMediaTypes.get(
       normalizeMimeType(file.type)
-    );
+    ) ?? getMediaTypeByExtension(extension)?.mediaType;
 
   if (
     !mediaType ||

@@ -96,5 +96,32 @@ export function getChatThemeStyle(theme: ChatTheme) {
     "--fc-theme-accent": theme.accent,
     "--fc-theme-text": theme.text,
     "--fc-theme-muted": theme.mutedText,
+    "--fc-app-bg": `radial-gradient(circle at 18% 0%, ${theme.accent}22, transparent 30%), linear-gradient(135deg, ${theme.background} 0%, #090d19 52%, ${theme.background} 100%)`,
+    "--fc-app-panel": theme.header,
+    "--fc-app-surface": theme.mode === "light" ? "rgba(255,255,255,0.78)" : "rgba(11,17,28,0.88)",
+    "--fc-app-border": theme.mode === "light" ? "rgba(15,23,42,0.10)" : "rgba(255,255,255,0.10)",
   } as CSSProperties;
+}
+
+export const APP_THEME_STORAGE_KEY = "flexchat:app-theme";
+
+export function applyGlobalChatTheme(themeId?: string | null) {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  const theme = getChatTheme(themeId);
+  const style = getChatThemeStyle(theme);
+  const root = document.documentElement;
+
+  Object.entries(style).forEach(([key, value]) => {
+    root.style.setProperty(key, String(value));
+  });
+  root.dataset.flexchatTheme = theme.id;
+
+  try {
+    window.localStorage.setItem(APP_THEME_STORAGE_KEY, theme.id);
+  } catch {
+    return;
+  }
 }

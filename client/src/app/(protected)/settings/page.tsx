@@ -385,7 +385,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="modal-safe-scroll h-dvh min-h-svh overflow-y-auto bg-[linear-gradient(135deg,rgba(168,85,247,0.20)_0%,transparent_34%),linear-gradient(225deg,rgba(6,182,212,0.10)_0%,transparent_28%),linear-gradient(135deg,#050816_0%,#080d19_48%,#0b1020_100%)] px-4 py-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-white sm:px-6 sm:py-8">
+    <main className="modal-safe-scroll h-dvh min-h-svh overflow-y-auto bg-[var(--fc-app-bg)] px-4 py-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 sm:py-8">
       <section className="mx-auto flex min-h-[calc(100dvh-3rem)] max-w-4xl flex-col">
         <div className="mb-5 flex items-center justify-between gap-3">
           <button
