@@ -11,16 +11,13 @@ const globalSocket = globalThis as typeof globalThis & {
 export const socket =
   globalSocket.__flexchatSocket ??
   io(SOCKET_URL, {
-    path: "/socket.io/",
     autoConnect: true,
-    transports: ["polling"],
-    upgrade: false,
-    forceNew: true,
+    transports: ["websocket", "polling"],
+    withCredentials: false,
     reconnection: true,
     reconnectionAttempts: Infinity,
-    reconnectionDelay: 2000,
-    timeout: 30000,
-    withCredentials: false,
+    reconnectionDelay: 1000,
+    timeout: 20000,
     auth: {
       token: tokenStorage.get(),
     },
@@ -28,14 +25,6 @@ export const socket =
       token: tokenStorage.get(),
     },
   });
-
-socket.on("connect", () => {
-  console.log("Socket connected:", socket.id);
-});
-
-socket.on("connect_error", (error) => {
-  console.log("Socket error:", error.message);
-});
 
 socket.on("reconnect_attempt", () => {
   const token = tokenStorage.get();
