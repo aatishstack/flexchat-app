@@ -359,63 +359,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   messages: [],
   messagesByConversation: {},
 
- connectSocket: (token) => {
-  const nextToken = token?.trim();
-
-  if (!nextToken) {
-    socket.disconnect();
-    socket.auth = {};
-
-    set({
-      token: null,
-      isConnected: false,
-      isConnecting: false,
-      connectionError: "Missing socket auth token",
-    });
-
-    return;
-  }
-
-  const currentToken = get().token;
-
-  if (socket.connected && currentToken === nextToken) {
-    set({
-      isConnected: true,
-      isConnecting: false,
-      connectionError: null,
-    });
-
-    return;
-  }
-
-  if (!socket.connected && socket.active && currentToken === nextToken) {
-    set({
-      isConnecting: true,
-      connectionError: null,
-    });
-
-    return;
-  }
-
-  if ((socket.connected || socket.active) && currentToken !== nextToken) {
-    socket.disconnect();
-  }
-
-  socket.auth = {
-    token: nextToken,
-  };
-
-  socket.io.opts.transports = ["websocket", "polling"];
-  socket.io.opts.withCredentials = false;
-
-  set({
-    token: nextToken,
-    isConnecting: true,
-    connectionError: null,
-  });
-
-  socket.connect();
-},
+ 
 
   disconnectSocket: () => {
     socket.disconnect();
