@@ -4,6 +4,7 @@ import { Server } from "socket.io";
 import { sql } from "drizzle-orm";
 
 import { db } from "../db/index.js";
+import { isAllowedOrigin } from "../lib/origins.js";
 import { authenticateSocket } from "./socket-auth.js";
 import { SOCKET_EVENTS } from "./socket-events.js";
 import {
@@ -19,11 +20,12 @@ import { registerCallHandlers } from "./handlers/call.handler.js";
 import { setSocketServer } from "./socket-hub.js";
 
 export function setupSocket(server: HttpServer) {
-  const io = new Server(server, {
+   Server(server, {
     cors: {
-      origin: "*",
-      methods: ["GET", "POST"],
-      credentials: false,
+      origin: (origin, callback) => {
+        callback(null, isAllowedOrigin(origin));
+      },
+      credentials: true,
     },
     connectionStateRecovery: {
       maxDisconnectionDuration: 2 * 60 * 1000,
@@ -32,22 +34,29 @@ export function setupSocket(server: HttpServer) {
   });
 
   setSocketServer(io);
-
   const presenceCleanupTimer = setInterval(() => {
-    const previousOnlineUsers = getOnlineUserIds().join(",");
-
-    const changedUserIds = removeMissingOnlineSockets(
-      new Set(io.sockets.sockets.keys()),
-    );
+    const previousOnlineUsers =
+      getOnlineUserIds().join(",");
+    const changedUserIds =
+      removeMissingOnlineSockets(
+        new Set(io.sockets.sockets.keys())
+      );const io = new
 
     if (!changedUserIds.length) {
       return;
     }
 
-    const nextOnlineUsers = getOnlineUserIds();
+    const nextOnlineUsers =
+      getOnlineUserIds();
 
-    if (previousOnlineUsers !== nextOnlineUsers.join(",")) {
-      io.emit(SOCKET_EVENTS.ONLINE_USERS, nextOnlineUsers);
+    if (
+      previousOnlineUsers !==
+      nextOnlineUsers.join(",")
+    ) {
+      io.emit(
+        SOCKET_EVENTS.ONLINE_USERS,
+        nextOnlineUsers
+      );
     }
 
     changedUserIds.forEach((changedUserId) => {
@@ -56,21 +65,16 @@ export function setupSocket(server: HttpServer) {
       }
 
       const lastSeenAt = Date.now();
-
       const lastSeenIso = new Date(lastSeenAt).toISOString();
 
-      void db
-        .execute(
-          sql`
-          update users
-          set last_seen_at = ${lastSeenIso}
-          where id = ${changedUserId}
-            and is_deleted = false
-        `,
-        )
-        .catch((error) => {
-          console.error("Failed to persist cleaned-up last seen", error);
-        });
+      void db.execute(sql`
+        update users
+        set last_seen_at = ${lastSeenIso}
+        where id = ${changedUserId}
+          and is_deleted = false
+      `).catch((error) => {
+        console.error("Failed to persist cleaned-up last seen", error);
+      });
 
       io.emit(SOCKET_EVENTS.PRESENCE_UPDATED, {
         userId: changedUserId,
@@ -83,7 +87,8 @@ export function setupSocket(server: HttpServer) {
   presenceCleanupTimer.unref?.();
 
   io.use(async (socket, next) => {
-    const authenticated = await authenticateSocket(socket);
+    const authenticated =
+      await authenticateSocket(socket);
 
     if (!authenticated) {
       next(new Error("Unauthorized"));
@@ -95,21 +100,26 @@ export function setupSocket(server: HttpServer) {
 
   io.on(SOCKET_EVENTS.CONNECTION, (socket) => {
     const userId = socket.data.user.id as string;
-
-    const previousOnlineUsers = getOnlineUserIds().join(",");
+    const previousOnlineUsers =
+      getOnlineUserIds().join(",");
 
     addOnlineSocket(userId, socket.id);
-
     socket.join(`user:${userId}`);
-
     socket.onAny(() => {
       touchOnlineSocket(socket.id);
     });
 
-    const nextOnlineUsers = getOnlineUserIds();
+    const nextOnlineUsers =
+      getOnlineUserIds();
 
-    if (previousOnlineUsers !== nextOnlineUsers.join(",")) {
-      io.emit(SOCKET_EVENTS.ONLINE_USERS, nextOnlineUsers);
+    if (
+      previousOnlineUsers !==
+      nextOnlineUsers.join(",")
+    ) {
+      io.emit(
+        SOCKET_EVENTS.ONLINE_USERS,
+        nextOnlineUsers
+      );
     }
 
     io.emit(SOCKET_EVENTS.PRESENCE_UPDATED, {
@@ -123,37 +133,37 @@ export function setupSocket(server: HttpServer) {
     registerCallHandlers(io, socket);
 
     socket.on(SOCKET_EVENTS.DISCONNECT, () => {
-      const previousOnlineUsers = getOnlineUserIds().join(",");
+      const previousOnlineUsers =
+        getOnlineUserIds().join(",");
 
       const removedUserId = removeOnlineSocket(socket.id);
 
-      const nextOnlineUsers = getOnlineUserIds();
-
-      const isStillOnline = removedUserId
-        ? nextOnlineUsers.includes(removedUserId)
-        : false;
-
+      const nextOnlineUsers =
+        getOnlineUserIds();
+      const isStillOnline =
+        removedUserId ? nextOnlineUsers.includes(removedUserId) : false;
       const lastSeenAt = Date.now();
-
       const lastSeenIso = new Date(lastSeenAt).toISOString();
 
-      if (previousOnlineUsers !== nextOnlineUsers.join(",")) {
-        io.emit(SOCKET_EVENTS.ONLINE_USERS, nextOnlineUsers);
+      if (
+        previousOnlineUsers !==
+        nextOnlineUsers.join(",")
+      ) {
+        io.emit(
+          SOCKET_EVENTS.ONLINE_USERS,
+          nextOnlineUsers
+        );
       }
 
       if (removedUserId && !isStillOnline) {
-        void db
-          .execute(
-            sql`
-                update users
-                set last_seen_at = ${lastSeenIso}
-                where id = ${removedUserId}
-                  and is_deleted = false
-              `,
-          )
-          .catch((error) => {
-            console.error("Failed to persist last seen", error);
-          });
+        void db.execute(sql`
+          update users
+          set last_seen_at = ${lastSeenIso}
+          where id = ${removedUserId}
+            and is_deleted = false
+        `).catch((error) => {
+          console.error("Failed to persist last seen", error);
+        });
 
         io.emit(SOCKET_EVENTS.PRESENCE_UPDATED, {
           userId: removedUserId,
