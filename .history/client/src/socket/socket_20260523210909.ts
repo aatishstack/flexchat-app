@@ -1,13 +1,10 @@
-import {
-  io,
-  type Socket,
-} from "socket.io-client";
+import { io, type Socket } from "socket.io-client";
 
 import { resolveLocalRuntimeUrl } from "@/lib/runtime-url";
 
 const SOCKET_URL = resolveLocalRuntimeUrl(
   process.env.NEXT_PUBLIC_SOCKET_URL,
-  "https://flexchat-app-production.up.railway.app"
+  "https://flexchat-app-production.up.railway.app",
 );
 
 const globalSocket = globalThis as typeof globalThis & {
@@ -26,10 +23,7 @@ export const socket =
 globalSocket.__flexchatSocket = socket;
 
 let reconnectDelay = 1000;
-
-let reconnectTimer:
-  | ReturnType<typeof setTimeout>
-  | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 socket.on("connect", () => {
   reconnectDelay = 1000;
@@ -41,11 +35,7 @@ socket.on("connect", () => {
 });
 
 socket.on("disconnect", () => {
-  if (
-    reconnectTimer ||
-    !socket.auth ||
-    !("token" in socket.auth)
-  ) {
+  if (reconnectTimer || !socket.auth || !("token" in socket.auth)) {
     return;
   }
 
@@ -54,8 +44,5 @@ socket.on("disconnect", () => {
     socket.connect();
   }, reconnectDelay);
 
-  reconnectDelay = Math.min(
-    reconnectDelay * 2,
-    30000
-  );
+  reconnectDelay = Math.min(reconnectDelay * 2, 30000);
 });
