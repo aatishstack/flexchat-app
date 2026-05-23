@@ -73,10 +73,7 @@ async function getVisibleStoryUserIds(userId: string) {
   return rows.map((row) => row.userId);
 }
 
-async function getStoryById(
-  storyId: string,
-  viewerId: string
-) {
+async function getStoryById(storyId: string, viewerId: string) {
   const rows = await db.execute<StoryRow>(sql`
     with visible_users as (
       select distinct cm2.user_id
@@ -128,7 +125,7 @@ export async function storyRoutes(app: FastifyInstance) {
     },
     async (request, reply) => {
       try {
-        const userId = request.user?.id;
+        const userId = (request.user as any)?.id;
 
         if (!userId) {
           return reply.status(401).send({
@@ -182,15 +179,12 @@ export async function storyRoutes(app: FastifyInstance) {
           {
             err: error,
           },
-          "Stories temporarily unavailable"
+          "Stories temporarily unavailable",
         );
-        reply.header(
-          "x-flexchat-stories-error",
-          "unavailable"
-        );
+        reply.header("x-flexchat-stories-error", "unavailable");
         return [];
       }
-    }
+    },
   );
 
   app.post(
@@ -199,7 +193,7 @@ export async function storyRoutes(app: FastifyInstance) {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const userId = request.user?.id;
+      const userId = (request.user as any)?.id;
 
       if (!userId) {
         return reply.status(401).send({
@@ -207,9 +201,7 @@ export async function storyRoutes(app: FastifyInstance) {
         });
       }
 
-      const parsedBody = storyBodySchema.safeParse(
-        request.body
-      );
+      const parsedBody = storyBodySchema.safeParse(request.body);
 
       if (!parsedBody.success) {
         return reply.status(400).send({
@@ -218,9 +210,7 @@ export async function storyRoutes(app: FastifyInstance) {
       }
 
       const storyId = crypto.randomUUID();
-      const expiresAt = new Date(
-        Date.now() + 24 * 60 * 60 * 1000
-      );
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
       await db.execute(sql`
         insert into stories (
@@ -253,19 +243,18 @@ export async function storyRoutes(app: FastifyInstance) {
       const io = getSocketServer();
 
       if (io) {
-        const audienceUserIds =
-          await getVisibleStoryUserIds(userId);
+        const audienceUserIds = await getVisibleStoryUserIds(userId);
 
         audienceUserIds.forEach((audienceUserId) => {
           io.to(`user:${audienceUserId}`).emit(
             SOCKET_EVENTS.STORY_CREATED,
-            serializedStory
+            serializedStory,
           );
         });
       }
 
       return reply.status(201).send(serializedStory);
-    }
+    },
   );
 
   app.post(
@@ -274,7 +263,7 @@ export async function storyRoutes(app: FastifyInstance) {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const userId = request.user?.id;
+      const userId = (request.user as any)?.id;
 
       if (!userId) {
         return reply.status(401).send({
@@ -282,9 +271,7 @@ export async function storyRoutes(app: FastifyInstance) {
         });
       }
 
-      const parsedParams = storyParamsSchema.safeParse(
-        request.params
-      );
+      const parsedParams = storyParamsSchema.safeParse(request.params);
 
       if (!parsedParams.success) {
         return reply.status(400).send({
@@ -292,10 +279,7 @@ export async function storyRoutes(app: FastifyInstance) {
         });
       }
 
-      const story = await getStoryById(
-        parsedParams.data.storyId,
-        userId
-      );
+      const story = await getStoryById(parsedParams.data.storyId, userId);
 
       if (!story) {
         return reply.status(404).send({
@@ -329,7 +313,7 @@ export async function storyRoutes(app: FastifyInstance) {
       return {
         ok: true,
       };
-    }
+    },
   );
 
   app.delete(
@@ -338,7 +322,7 @@ export async function storyRoutes(app: FastifyInstance) {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const userId = request.user?.id;
+      const userId = (request.user as any)?.id;
 
       if (!userId) {
         return reply.status(401).send({
@@ -346,9 +330,7 @@ export async function storyRoutes(app: FastifyInstance) {
         });
       }
 
-      const parsedParams = storyParamsSchema.safeParse(
-        request.params
-      );
+      const parsedParams = storyParamsSchema.safeParse(request.params);
 
       if (!parsedParams.success) {
         return reply.status(400).send({
@@ -367,23 +349,19 @@ export async function storyRoutes(app: FastifyInstance) {
       const io = getSocketServer();
 
       if (io) {
-        const audienceUserIds =
-          await getVisibleStoryUserIds(userId);
+        const audienceUserIds = await getVisibleStoryUserIds(userId);
 
         audienceUserIds.forEach((audienceUserId) => {
-          io.to(`user:${audienceUserId}`).emit(
-            SOCKET_EVENTS.STORY_DELETED,
-            {
-              storyId: parsedParams.data.storyId,
-              deletedAt: new Date().toISOString(),
-            }
-          );
+          io.to(`user:${audienceUserId}`).emit(SOCKET_EVENTS.STORY_DELETED, {
+            storyId: parsedParams.data.storyId,
+            deletedAt: new Date().toISOString(),
+          });
         });
       }
 
       return {
         ok: true,
       };
-    }
+    },
   );
 }

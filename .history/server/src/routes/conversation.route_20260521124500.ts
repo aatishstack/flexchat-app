@@ -10,20 +10,12 @@ import { authMiddleware } from "../middleware/auth.middleware.js";
 type QueryExecutor = Pick<typeof db, "execute">;
 
 const conversationListQuerySchema = z.object({
-  limit:
-    z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(500)
-      .default(200),
-  cursor:
-    z.string().trim().max(512).optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(200),
+  cursor: z.string().trim().max(512).optional(),
 });
 
 const directConversationBodySchema = z.object({
-  targetUserId:
-    z.string().trim().min(1).max(128),
+  targetUserId: z.string().trim().min(1).max(128),
 });
 
 type ConversationCursor = {
@@ -55,32 +47,22 @@ function serializeConversation(conversation: ConversationRow) {
     id: conversation.id,
     name: conversation.name,
     type: conversation.type,
-    avatar:
-      conversation.avatar ?? undefined,
-    createdAt:
-      conversation.createdAt,
-    latestMessage:
-      conversation.latestMessage ?? undefined,
-    unreadCount:
-      Number(
-        conversation.unreadCount ?? 0
-      ),
-    memberIds:
-      conversation.memberIds ?? [],
-    members:
-      conversation.members ?? [],
-    lastActivityAt:
-      conversation.lastActivityAt,
+    avatar: conversation.avatar ?? undefined,
+    createdAt: conversation.createdAt,
+    latestMessage: conversation.latestMessage ?? undefined,
+    unreadCount: Number(conversation.unreadCount ?? 0),
+    memberIds: conversation.memberIds ?? [],
+    members: conversation.members ?? [],
+    lastActivityAt: conversation.lastActivityAt,
   };
 }
 
 async function getHydratedConversation(
   executor: QueryExecutor,
   userId: string,
-  conversationId: string
+  conversationId: string,
 ) {
-  const rows =
-    await executor.execute<ConversationRow>(sql`
+  const rows = await executor.execute<ConversationRow>(sql`
       with user_conversations as (
         select distinct
           c.id,
@@ -222,42 +204,30 @@ async function getHydratedConversation(
       limit 1
     `);
 
-  return rows[0]
-    ? serializeConversation(rows[0])
-    : null;
+  return rows[0] ? serializeConversation(rows[0]) : null;
 }
 
 function encodeConversationCursor(row: ConversationRow) {
   return `${encodeURIComponent(
-    new Date(row.lastActivityAt).toISOString()
+    new Date(row.lastActivityAt).toISOString(),
   )}|${encodeURIComponent(row.id)}`;
 }
 
-function decodeConversationCursor(
-  cursor?: string
-): ConversationCursor | null {
+function decodeConversationCursor(cursor?: string): ConversationCursor | null {
   if (!cursor) {
     return null;
   }
 
-  const [
-    rawLastActivityAt,
-    rawId,
-  ] = cursor.split("|");
+  const [rawLastActivityAt, rawId] = cursor.split("|");
 
   if (!rawLastActivityAt || !rawId) {
     return null;
   }
 
-  const lastActivityAt = new Date(
-    decodeURIComponent(rawLastActivityAt)
-  );
+  const lastActivityAt = new Date(decodeURIComponent(rawLastActivityAt));
   const id = decodeURIComponent(rawId);
 
-  if (
-    Number.isNaN(lastActivityAt.getTime()) ||
-    !id.trim()
-  ) {
+  if (Number.isNaN(lastActivityAt.getTime()) || !id.trim()) {
     return null;
   }
 
@@ -271,26 +241,22 @@ export async function conversationRoutes(app: FastifyInstance) {
   app.get(
     "/conversations",
     {
-      preHandler:
-        authMiddleware,
+      preHandler: authMiddleware,
     },
 
     async (request, reply) => {
       try {
-        const parsedQuery =
-          conversationListQuerySchema.safeParse(
-            request.query
-          );
+        const parsedQuery = conversationListQuerySchema.safeParse(
+          request.query,
+        );
 
         if (!parsedQuery.success) {
           return reply.status(400).send({
-            message:
-              "Invalid conversation list request",
+            message: "Invalid conversation list request",
           });
         }
 
-        const userId =
-          request.user?.id;
+        const userId = (request.user as any)?.id;
 
         if (!userId) {
           return reply.status(401).send({
@@ -298,24 +264,15 @@ export async function conversationRoutes(app: FastifyInstance) {
           });
         }
 
-        const cursor =
-          decodeConversationCursor(
-            parsedQuery.data.cursor
-          );
+        const cursor = decodeConversationCursor(parsedQuery.data.cursor);
 
-        if (
-          parsedQuery.data.cursor &&
-          !cursor
-        ) {
+        if (parsedQuery.data.cursor && !cursor) {
           return reply.status(400).send({
-            message:
-              "Invalid conversation cursor",
+            message: "Invalid conversation cursor",
           });
         }
 
-        const {
-          limit,
-        } = parsedQuery.data;
+        const { limit } = parsedQuery.data;
         const cursorFilter = cursor
           ? sql`
               where (
@@ -328,8 +285,7 @@ export async function conversationRoutes(app: FastifyInstance) {
             `
           : sql``;
 
-        const rows =
-          await db.execute<ConversationRow>(sql`
+        const rows = await db.execute<ConversationRow>(sql`
             with user_conversations as (
               select distinct
                 c.id,
@@ -480,21 +436,17 @@ export async function conversationRoutes(app: FastifyInstance) {
         if (nextRow) {
           reply.header(
             "x-next-cursor",
-            encodeConversationCursor(
-              pageRows[pageRows.length - 1]
-            )
+            encodeConversationCursor(pageRows[pageRows.length - 1]),
           );
         }
 
-        return pageRows.map(
-          serializeConversation
-        );
+        return pageRows.map(serializeConversation);
       } catch (error) {
         request.log.error(
           {
             err: error,
           },
-          "Failed to fetch conversations"
+          "Failed to fetch conversations",
         );
 
         return reply.status(500).send({
@@ -507,28 +459,19 @@ export async function conversationRoutes(app: FastifyInstance) {
   app.post(
     "/conversations/direct",
     {
-      preHandler:
-        authMiddleware,
+      preHandler: authMiddleware,
     },
-    async (
-      request,
-      reply
-    ) => {
+    async (request, reply) => {
       try {
-        const parsedBody =
-          directConversationBodySchema.safeParse(
-            request.body
-          );
+        const parsedBody = directConversationBodySchema.safeParse(request.body);
 
         if (!parsedBody.success) {
           return reply.status(400).send({
-            message:
-              "Invalid direct conversation request",
+            message: "Invalid direct conversation request",
           });
         }
 
-        const userId =
-          request.user?.id;
+        const userId = (request.user as any)?.id;
 
         if (!userId) {
           return reply.status(401).send({
@@ -536,20 +479,17 @@ export async function conversationRoutes(app: FastifyInstance) {
           });
         }
 
-        const { targetUserId } =
-          parsedBody.data;
+        const { targetUserId } = parsedBody.data;
 
         if (targetUserId === userId) {
           return reply.status(400).send({
-            message:
-              "Cannot start a direct conversation with yourself",
+            message: "Cannot start a direct conversation with yourself",
           });
         }
 
-        const targetUsers =
-          await db.execute<{
-            id: string;
-          }>(sql`
+        const targetUsers = await db.execute<{
+          id: string;
+        }>(sql`
             select id
             from users
             where id = ${targetUserId}
@@ -559,29 +499,22 @@ export async function conversationRoutes(app: FastifyInstance) {
 
         if (!targetUsers.length) {
           return reply.status(404).send({
-            message:
-              "User not found",
+            message: "User not found",
           });
         }
 
-        const participantKey =
-          [userId, targetUserId]
-            .sort()
-            .join(":");
+        const participantKey = [userId, targetUserId].sort().join(":");
 
-        const conversation =
-          await db.transaction(
-            async (tx) => {
-              await tx.execute(sql`
+        const conversation = await db.transaction(async (tx) => {
+          await tx.execute(sql`
                 select pg_advisory_xact_lock(
                   hashtext(${participantKey})
                 )
               `);
 
-              const existingConversations =
-                await tx.execute<{
-                  id: string;
-                }>(sql`
+          const existingConversations = await tx.execute<{
+            id: string;
+          }>(sql`
                   select c.id
                   from conversations c
                   where c.type = 'direct'
@@ -605,12 +538,11 @@ export async function conversationRoutes(app: FastifyInstance) {
                   limit 1
                 `);
 
-              const conversationId =
-                existingConversations[0]?.id ??
-                crypto.randomUUID();
+          const conversationId =
+            existingConversations[0]?.id ?? crypto.randomUUID();
 
-              if (!existingConversations.length) {
-                await tx.execute(sql`
+          if (!existingConversations.length) {
+            await tx.execute(sql`
                   insert into conversations (
                     id,
                     type
@@ -621,7 +553,7 @@ export async function conversationRoutes(app: FastifyInstance) {
                   )
                 `);
 
-                await tx.execute(sql`
+            await tx.execute(sql`
                   insert into conversation_members (
                     id,
                     conversation_id,
@@ -639,20 +571,14 @@ export async function conversationRoutes(app: FastifyInstance) {
                       ${targetUserId}
                     )
                 `);
-              }
+          }
 
-              return getHydratedConversation(
-                tx,
-                userId,
-                conversationId
-              );
-            }
-          );
+          return getHydratedConversation(tx, userId, conversationId);
+        });
 
         if (!conversation) {
           return reply.status(500).send({
-            message:
-              "Failed to create conversation",
+            message: "Failed to create conversation",
           });
         }
 
@@ -662,14 +588,13 @@ export async function conversationRoutes(app: FastifyInstance) {
           {
             err: error,
           },
-          "Failed to create direct conversation"
+          "Failed to create direct conversation",
         );
 
         return reply.status(500).send({
-          message:
-            "Failed to create direct conversation",
+          message: "Failed to create direct conversation",
         });
       }
-    }
+    },
   );
 }

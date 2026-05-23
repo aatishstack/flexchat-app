@@ -126,7 +126,7 @@ export async function storyRoutes(app: FastifyInstance) {
     },
     async (request, reply) => {
       try {
-        const userId = request.user?.id;
+        const userId = (request.user as any)?.id;
 
         if (!userId) {
           return reply.status(401).send({
@@ -194,7 +194,7 @@ export async function storyRoutes(app: FastifyInstance) {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const userId = request.user?.id;
+      const userId = (request.user as any)?.id;
 
       if (!userId) {
         return reply.status(401).send({
@@ -264,7 +264,7 @@ export async function storyRoutes(app: FastifyInstance) {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const userId = request.user?.id;
+      const userId = (request.user as any)?.id;
 
       if (!userId) {
         return reply.status(401).send({
@@ -323,7 +323,7 @@ export async function storyRoutes(app: FastifyInstance) {
       preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const userId = request.user?.id;
+      const userId = (request.user as any)?.id;
 
       if (!userId) {
         return reply.status(401).send({

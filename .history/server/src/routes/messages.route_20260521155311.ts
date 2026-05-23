@@ -1,24 +1,12 @@
-import {
-  FastifyInstance,
-} from "fastify";
+import { FastifyInstance } from "fastify";
 
-import {
-  and,
-  desc,
-  eq,
-  lt,
-  or,
-  sql,
-} from "drizzle-orm";
+import { and, desc, eq, lt, or, sql } from "drizzle-orm";
 
 import { z } from "zod";
 
 import { db } from "../db/index.js";
 
-import {
-  messageReactions,
-  messages,
-} from "../db/schema/messages.js";
+import { messageReactions, messages } from "../db/schema/messages.js";
 import {
   getConversationMembers,
   isConversationMember,
@@ -28,60 +16,38 @@ import { getSocketServer } from "../socket/socket-hub.js";
 import { SOCKET_EVENTS } from "../socket/socket-events.js";
 
 const messageHistoryParamsSchema = z.object({
-  conversationId:
-    z.string().trim().min(1).max(128),
+  conversationId: z.string().trim().min(1).max(128),
 });
 
 const messageActionParamsSchema = z.object({
-  messageId:
-    z.string().trim().min(1).max(128),
+  messageId: z.string().trim().min(1).max(128),
 });
 
 const editMessageBodySchema = z.object({
-  conversationId:
-    z.string().trim().min(1).max(128),
-  text:
-    z.string().trim().min(1).max(4000),
+  conversationId: z.string().trim().min(1).max(128),
+  text: z.string().trim().min(1).max(4000),
 });
 
 const deleteMessageBodySchema = z.object({
-  conversationId:
-    z.string().trim().min(1).max(128),
+  conversationId: z.string().trim().min(1).max(128),
 });
 
 const reactMessageBodySchema = z.object({
-  conversationId:
-    z.string().trim().min(1).max(128),
-  emoji:
-    z
-      .string()
-      .trim()
-      .min(1)
-      .max(16),
+  conversationId: z.string().trim().min(1).max(128),
+  emoji: z.string().trim().min(1).max(16),
 });
 
 const forwardMessageBodySchema = z.object({
-  targetConversationIds:
-    z
-      .array(
-        z.string().trim().min(1).max(128)
-      )
-      .min(1)
-      .max(20),
+  targetConversationIds: z
+    .array(z.string().trim().min(1).max(128))
+    .min(1)
+    .max(20),
 });
 
 const messageHistoryQuerySchema = z.object({
-  limit:
-    z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(150)
-      .default(120),
-  before:
-    z.string().datetime().optional(),
-  cursor:
-    z.string().trim().max(512).optional(),
+  limit: z.coerce.number().int().min(1).max(150).default(120),
+  before: z.string().datetime().optional(),
+  cursor: z.string().trim().max(512).optional(),
 });
 
 type MessageCursor = {
@@ -114,35 +80,25 @@ type ForwardSourceRow = {
 
 function encodeMessageCursor(row: MessageCursorRow) {
   return `${encodeURIComponent(
-    new Date(row.createdAt).toISOString()
+    new Date(row.createdAt).toISOString(),
   )}|${encodeURIComponent(row.id)}`;
 }
 
-function decodeMessageCursor(
-  cursor?: string
-): MessageCursor | null {
+function decodeMessageCursor(cursor?: string): MessageCursor | null {
   if (!cursor) {
     return null;
   }
 
-  const [
-    rawCreatedAt,
-    rawId,
-  ] = cursor.split("|");
+  const [rawCreatedAt, rawId] = cursor.split("|");
 
   if (!rawCreatedAt || !rawId) {
     return null;
   }
 
-  const createdAt = new Date(
-    decodeURIComponent(rawCreatedAt)
-  );
+  const createdAt = new Date(decodeURIComponent(rawCreatedAt));
   const id = decodeURIComponent(rawId);
 
-  if (
-    Number.isNaN(createdAt.getTime()) ||
-    !id.trim()
-  ) {
+  if (Number.isNaN(createdAt.getTime()) || !id.trim()) {
     return null;
   }
 
@@ -157,9 +113,7 @@ function toIsoString(value?: Date | string | null) {
     return undefined;
   }
 
-  return value instanceof Date
-    ? value.toISOString()
-    : value;
+  return value instanceof Date ? value.toISOString() : value;
 }
 
 async function getReactionMap(messageIds: string[]) {
@@ -183,15 +137,14 @@ async function getReactionMap(messageIds: string[]) {
     from message_reactions
     where message_id in (${sql.join(
       messageIds.map((messageId) => sql`${messageId}`),
-      sql`, `
+      sql`, `,
     )})
     group by message_id, emoji
     order by count(*) desc, emoji asc
   `);
 
   rows.forEach((row) => {
-    const reactions =
-      reactionMap.get(row.messageId) ?? [];
+    const reactions = reactionMap.get(row.messageId) ?? [];
 
     reactions.push({
       emoji: row.emoji,
@@ -210,38 +163,26 @@ function serializeMessage(
         emoji: string;
         count: number;
       }[]
-    | undefined
+    | undefined,
 ) {
   return {
     id: message.id,
     conversationId: message.conversationId,
     senderId: message.senderId,
-    text: message.deletedAt
-      ? ""
-      : message.text,
-    attachment: message.deletedAt
-      ? null
-      : message.attachment ?? null,
-    audio: message.deletedAt
-      ? null
-      : message.audio ?? null,
+    text: message.deletedAt ? "" : message.text,
+    attachment: message.deletedAt ? null : (message.attachment ?? null),
+    audio: message.deletedAt ? null : (message.audio ?? null),
     status: message.status,
-    createdAt:
-      toIsoString(message.createdAt) ?? new Date().toISOString(),
+    createdAt: toIsoString(message.createdAt) ?? new Date().toISOString(),
     editedAt: toIsoString(message.editedAt),
     deletedAt: toIsoString(message.deletedAt),
-    reactions: message.deletedAt ? [] : reactions ?? [],
+    reactions: message.deletedAt ? [] : (reactions ?? []),
     forwardedFrom:
-      message.forwardedFromMessageId &&
-      !message.deletedAt
+      message.forwardedFromMessageId && !message.deletedAt
         ? {
-            messageId:
-              message.forwardedFromMessageId,
-            senderId:
-              message.forwardedFromSenderId,
-            senderName:
-              message.forwardedFromSenderName ??
-              "FlexChat User",
+            messageId: message.forwardedFromMessageId,
+            senderId: message.forwardedFromSenderId,
+            senderName: message.forwardedFromSenderName ?? "FlexChat User",
           }
         : undefined,
   };
@@ -266,9 +207,7 @@ function getLatestMessagePreview(message: {
         ? "Attachment"
         : "New message");
 
-  return message.forwardedFrom
-    ? `Forwarded: ${body}`
-    : body;
+  return message.forwardedFrom ? `Forwarded: ${body}` : body;
 }
 
 async function getSerializedMessage(messageId: string) {
@@ -284,13 +223,9 @@ async function getSerializedMessage(messageId: string) {
     return null;
   }
 
-  const reactionMap =
-    await getReactionMap([message.id]);
+  const reactionMap = await getReactionMap([message.id]);
 
-  return serializeMessage(
-    message,
-    reactionMap.get(message.id)
-  );
+  return serializeMessage(message, reactionMap.get(message.id));
 }
 
 async function emitMessageMutation(
@@ -298,9 +233,7 @@ async function emitMessageMutation(
     | typeof SOCKET_EVENTS.MESSAGE_UPDATED
     | typeof SOCKET_EVENTS.MESSAGE_DELETED
     | typeof SOCKET_EVENTS.MESSAGE_REACTION_UPDATED,
-  message: NonNullable<
-    Awaited<ReturnType<typeof getSerializedMessage>>
-  >
+  message: NonNullable<Awaited<ReturnType<typeof getSerializedMessage>>>,
 ) {
   const io = getSocketServer();
 
@@ -308,10 +241,7 @@ async function emitMessageMutation(
     return;
   }
 
-  const members =
-    await getConversationMembers([
-      message.conversationId,
-    ]);
+  const members = await getConversationMembers([message.conversationId]);
 
   members.forEach((member) => {
     io.to(`user:${member.userId}`).emit(event, message);
@@ -319,25 +249,15 @@ async function emitMessageMutation(
 }
 
 async function emitLatestConversationIfNeeded(
-  message: NonNullable<
-    Awaited<ReturnType<typeof getSerializedMessage>>
-  >
+  message: NonNullable<Awaited<ReturnType<typeof getSerializedMessage>>>,
 ) {
   const latestMessages = await db
     .select({
       id: messages.id,
     })
     .from(messages)
-    .where(
-      eq(
-        messages.conversationId,
-        message.conversationId
-      )
-    )
-    .orderBy(
-      desc(messages.createdAt),
-      desc(messages.id)
-    )
+    .where(eq(messages.conversationId, message.conversationId))
+    .orderBy(desc(messages.createdAt), desc(messages.id))
     .limit(1);
 
   if (latestMessages[0]?.id !== message.id) {
@@ -350,212 +270,50 @@ async function emitLatestConversationIfNeeded(
     return;
   }
 
-  const latestMessage =
-    getLatestMessagePreview(message);
-  const members =
-    await getConversationMembers([
-      message.conversationId,
-    ]);
+  const latestMessage = getLatestMessagePreview(message);
+  const members = await getConversationMembers([message.conversationId]);
 
   members.forEach((member) => {
-    io.to(`user:${member.userId}`).emit(
-      SOCKET_EVENTS.CONVERSATION_UPDATED,
-      {
-        conversationId:
-          message.conversationId,
-        messageId: message.id,
-        latestMessage,
-        senderId: message.senderId,
-        createdAt: message.createdAt,
-      }
-    );
+    io.to(`user:${member.userId}`).emit(SOCKET_EVENTS.CONVERSATION_UPDATED, {
+      conversationId: message.conversationId,
+      messageId: message.id,
+      latestMessage,
+      senderId: message.senderId,
+      createdAt: message.createdAt,
+    });
   });
 }
 
-export async function messageRoutes(
-  app: FastifyInstance
-) {
+export async function messageRoutes(app: FastifyInstance) {
   // GET HISTORY
   app.get(
     "/messages/:conversationId",
 
     {
-      preHandler:
-        authMiddleware,
+      preHandler: authMiddleware,
     },
 
-    async (
-      request,
-      reply
-    ) => {
-      const parsedParams =
-        messageHistoryParamsSchema.safeParse(
-          request.params
-        );
-      const parsedQuery =
-        messageHistoryQuerySchema.safeParse(
-          request.query
-        );
-
-      if (
-        !parsedParams.success ||
-        !parsedQuery.success
-      ) {
-        return reply
-          .status(400)
-          .send({
-            message:
-              "Invalid message history request",
-          });
-      }
-
-      const { conversationId } =
-        parsedParams.data;
-      const {
-        before,
-        cursor: rawCursor,
-        limit,
-      } = parsedQuery.data;
-      const cursor =
-        decodeMessageCursor(rawCursor);
-
-      if (rawCursor && !cursor) {
-        return reply
-          .status(400)
-          .send({
-            message:
-              "Invalid message cursor",
-          });
-      }
-
-      const userId =
-        request.user?.id;
-
-      if (!userId) {
-        return reply
-          .status(401)
-          .send({
-            message:
-              "Unauthorized",
-          });
-      }
-
-      const allowed =
-        await isConversationMember(
-          userId,
-          conversationId
-        );
-
-      if (!allowed) {
-        return reply
-          .status(403)
-          .send({
-            message:
-              "Conversation unavailable",
-          });
-      }
-
-      const historyBoundary =
-        cursor
-          ? or(
-              lt(
-                messages.createdAt,
-                cursor.createdAt
-              ),
-              and(
-                eq(
-                  messages.createdAt,
-                  cursor.createdAt
-                ),
-                lt(messages.id, cursor.id)
-              )
-            )
-          : before
-            ? lt(
-                messages.createdAt,
-                new Date(before)
-              )
-            : undefined;
-
-      const whereClause = historyBoundary
-        ? and(
-            eq(
-              messages.conversationId,
-              conversationId
-            ),
-            historyBoundary
-          )
-        : eq(
-            messages.conversationId,
-            conversationId
-          );
-
-      const data =
-        await db
-          .select()
-          .from(messages)
-          .where(whereClause)
-          .orderBy(
-            desc(
-              messages.createdAt
-            ),
-            desc(messages.id)
-          )
-          .limit(limit + 1);
-
-      const pageRows = data.slice(0, limit);
-      const nextRow = data[limit];
-      const reactionMap =
-        await getReactionMap(
-          pageRows.map((message) => message.id)
-        );
-
-      if (nextRow && pageRows.length) {
-        reply.header(
-          "x-next-cursor",
-          encodeMessageCursor(
-            pageRows[pageRows.length - 1]
-          )
-        );
-      }
-
-      return pageRows
-        .reverse()
-        .map((message) =>
-          serializeMessage(
-            message,
-            reactionMap.get(message.id)
-          )
-        );
-    }
-  );
-
-  app.patch(
-    "/messages/:messageId",
-    {
-      preHandler:
-        authMiddleware,
-    },
     async (request, reply) => {
-      const parsedParams =
-        messageActionParamsSchema.safeParse(
-          request.params
-        );
-      const parsedBody =
-        editMessageBodySchema.safeParse(
-          request.body
-        );
+      const parsedParams = messageHistoryParamsSchema.safeParse(request.params);
+      const parsedQuery = messageHistoryQuerySchema.safeParse(request.query);
 
-      if (
-        !parsedParams.success ||
-        !parsedBody.success
-      ) {
+      if (!parsedParams.success || !parsedQuery.success) {
         return reply.status(400).send({
-          message: "Invalid message edit request",
+          message: "Invalid message history request",
         });
       }
 
-      const userId = request.user?.id;
+      const { conversationId } = parsedParams.data;
+      const { before, cursor: rawCursor, limit } = parsedQuery.data;
+      const cursor = decodeMessageCursor(rawCursor);
+
+      if (rawCursor && !cursor) {
+        return reply.status(400).send({
+          message: "Invalid message cursor",
+        });
+      }
+
+      const userId = (request.user as any)?.id;
 
       if (!userId) {
         return reply.status(401).send({
@@ -563,11 +321,7 @@ export async function messageRoutes(
         });
       }
 
-      const allowed =
-        await isConversationMember(
-          userId,
-          parsedBody.data.conversationId
-        );
+      const allowed = await isConversationMember(userId, conversationId);
 
       if (!allowed) {
         return reply.status(403).send({
@@ -575,8 +329,85 @@ export async function messageRoutes(
         });
       }
 
-      const updatedMessages =
-        await db.execute<MessageRow>(sql`
+      const historyBoundary = cursor
+        ? or(
+            lt(messages.createdAt, cursor.createdAt),
+            and(
+              eq(messages.createdAt, cursor.createdAt),
+              lt(messages.id, cursor.id),
+            ),
+          )
+        : before
+          ? lt(messages.createdAt, new Date(before))
+          : undefined;
+
+      const whereClause = historyBoundary
+        ? and(eq(messages.conversationId, conversationId), historyBoundary)
+        : eq(messages.conversationId, conversationId);
+
+      const data = await db
+        .select()
+        .from(messages)
+        .where(whereClause)
+        .orderBy(desc(messages.createdAt), desc(messages.id))
+        .limit(limit + 1);
+
+      const pageRows = data.slice(0, limit);
+      const nextRow = data[limit];
+      const reactionMap = await getReactionMap(
+        pageRows.map((message) => message.id),
+      );
+
+      if (nextRow && pageRows.length) {
+        reply.header(
+          "x-next-cursor",
+          encodeMessageCursor(pageRows[pageRows.length - 1]),
+        );
+      }
+
+      return pageRows
+        .reverse()
+        .map((message) =>
+          serializeMessage(message, reactionMap.get(message.id)),
+        );
+    },
+  );
+
+  app.patch(
+    "/messages/:messageId",
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const parsedParams = messageActionParamsSchema.safeParse(request.params);
+      const parsedBody = editMessageBodySchema.safeParse(request.body);
+
+      if (!parsedParams.success || !parsedBody.success) {
+        return reply.status(400).send({
+          message: "Invalid message edit request",
+        });
+      }
+
+      const userId = (request.user as any)?.id;
+
+      if (!userId) {
+        return reply.status(401).send({
+          message: "Unauthorized",
+        });
+      }
+
+      const allowed = await isConversationMember(
+        userId,
+        parsedBody.data.conversationId,
+      );
+
+      if (!allowed) {
+        return reply.status(403).send({
+          message: "Conversation unavailable",
+        });
+      }
+
+      const updatedMessages = await db.execute<MessageRow>(sql`
           update messages
           set
             text = ${parsedBody.data.text},
@@ -588,20 +419,15 @@ export async function messageRoutes(
           returning *
         `);
 
-      const updatedMessage =
-        updatedMessages[0];
+      const updatedMessage = updatedMessages[0];
 
       if (!updatedMessage) {
         return reply.status(404).send({
-          message:
-            "Message unavailable or no longer editable",
+          message: "Message unavailable or no longer editable",
         });
       }
 
-      const message =
-        await getSerializedMessage(
-          updatedMessage.id
-        );
+      const message = await getSerializedMessage(updatedMessage.id);
 
       if (!message) {
         return reply.status(404).send({
@@ -609,42 +435,29 @@ export async function messageRoutes(
         });
       }
 
-      await emitMessageMutation(
-        SOCKET_EVENTS.MESSAGE_UPDATED,
-        message
-      );
+      await emitMessageMutation(SOCKET_EVENTS.MESSAGE_UPDATED, message);
       await emitLatestConversationIfNeeded(message);
 
       return message;
-    }
+    },
   );
 
   app.delete(
     "/messages/:messageId",
     {
-      preHandler:
-        authMiddleware,
+      preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const parsedParams =
-        messageActionParamsSchema.safeParse(
-          request.params
-        );
-      const parsedBody =
-        deleteMessageBodySchema.safeParse(
-          request.body
-        );
+      const parsedParams = messageActionParamsSchema.safeParse(request.params);
+      const parsedBody = deleteMessageBodySchema.safeParse(request.body);
 
-      if (
-        !parsedParams.success ||
-        !parsedBody.success
-      ) {
+      if (!parsedParams.success || !parsedBody.success) {
         return reply.status(400).send({
           message: "Invalid message delete request",
         });
       }
 
-      const userId = request.user?.id;
+      const userId = (request.user as any)?.id;
 
       if (!userId) {
         return reply.status(401).send({
@@ -652,11 +465,10 @@ export async function messageRoutes(
         });
       }
 
-      const allowed =
-        await isConversationMember(
-          userId,
-          parsedBody.data.conversationId
-        );
+      const allowed = await isConversationMember(
+        userId,
+        parsedBody.data.conversationId,
+      );
 
       if (!allowed) {
         return reply.status(403).send({
@@ -664,8 +476,7 @@ export async function messageRoutes(
         });
       }
 
-      const deletedMessages =
-        await db.execute<MessageRow>(sql`
+      const deletedMessages = await db.execute<MessageRow>(sql`
           update messages
           set
             text = '',
@@ -678,29 +489,19 @@ export async function messageRoutes(
           returning *
         `);
 
-      const deletedMessage =
-        deletedMessages[0];
+      const deletedMessage = deletedMessages[0];
 
       if (!deletedMessage) {
         return reply.status(404).send({
-          message:
-            "Message unavailable or no longer deletable",
+          message: "Message unavailable or no longer deletable",
         });
       }
 
       await db
         .delete(messageReactions)
-        .where(
-          eq(
-            messageReactions.messageId,
-            deletedMessage.id
-          )
-        );
+        .where(eq(messageReactions.messageId, deletedMessage.id));
 
-      const message =
-        await getSerializedMessage(
-          deletedMessage.id
-        );
+      const message = await getSerializedMessage(deletedMessage.id);
 
       if (!message) {
         return reply.status(404).send({
@@ -708,43 +509,29 @@ export async function messageRoutes(
         });
       }
 
-      await emitMessageMutation(
-        SOCKET_EVENTS.MESSAGE_DELETED,
-        message
-      );
+      await emitMessageMutation(SOCKET_EVENTS.MESSAGE_DELETED, message);
       await emitLatestConversationIfNeeded(message);
 
       return message;
-    }
+    },
   );
 
   app.post(
     "/messages/:messageId/forward",
     {
-      preHandler:
-        authMiddleware,
+      preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const parsedParams =
-        messageActionParamsSchema.safeParse(
-          request.params
-        );
-      const parsedBody =
-        forwardMessageBodySchema.safeParse(
-          request.body
-        );
+      const parsedParams = messageActionParamsSchema.safeParse(request.params);
+      const parsedBody = forwardMessageBodySchema.safeParse(request.body);
 
-      if (
-        !parsedParams.success ||
-        !parsedBody.success
-      ) {
+      if (!parsedParams.success || !parsedBody.success) {
         return reply.status(400).send({
-          message:
-            "Invalid message forward request",
+          message: "Invalid message forward request",
         });
       }
 
-      const userId = request.user?.id;
+      const userId = (request.user as any)?.id;
 
       if (!userId) {
         return reply.status(401).send({
@@ -752,8 +539,7 @@ export async function messageRoutes(
         });
       }
 
-      const sourceRows =
-        await db.execute<ForwardSourceRow>(sql`
+      const sourceRows = await db.execute<ForwardSourceRow>(sql`
           select
             m.id,
             m.conversation_id as "conversationId",
@@ -773,8 +559,7 @@ export async function messageRoutes(
           limit 1
         `);
 
-      const sourceMessage =
-        sourceRows[0];
+      const sourceMessage = sourceRows[0];
 
       if (!sourceMessage) {
         return reply.status(404).send({
@@ -782,11 +567,10 @@ export async function messageRoutes(
         });
       }
 
-      const canReadSource =
-        await isConversationMember(
-          userId,
-          sourceMessage.conversationId
-        );
+      const canReadSource = await isConversationMember(
+        userId,
+        sourceMessage.conversationId,
+      );
 
       if (!canReadSource) {
         return reply.status(403).send({
@@ -794,58 +578,44 @@ export async function messageRoutes(
         });
       }
 
-      const targetConversationIds =
-        Array.from(
-          new Set(
-            parsedBody.data.targetConversationIds
-          )
-        );
+      const targetConversationIds = Array.from(
+        new Set(parsedBody.data.targetConversationIds),
+      );
 
-      const targetRows =
-        await db.execute<{
-          conversationId: string;
-        }>(sql`
+      const targetRows = await db.execute<{
+        conversationId: string;
+      }>(sql`
           select conversation_id as "conversationId"
           from conversation_members
           where user_id = ${userId}
             and conversation_id in (${sql.join(
               targetConversationIds.map(
-                (conversationId) => sql`${conversationId}`
+                (conversationId) => sql`${conversationId}`,
               ),
-              sql`, `
+              sql`, `,
             )})
         `);
-      const allowedTargetIds =
-        new Set(
-          targetRows.map(
-            (row) => row.conversationId
-          )
-        );
+      const allowedTargetIds = new Set(
+        targetRows.map((row) => row.conversationId),
+      );
 
       if (
         targetConversationIds.some(
-          (conversationId) =>
-            !allowedTargetIds.has(
-              conversationId
-            )
+          (conversationId) => !allowedTargetIds.has(conversationId),
         )
       ) {
         return reply.status(403).send({
-          message:
-            "One or more conversations are unavailable",
+          message: "One or more conversations are unavailable",
         });
       }
 
-      const forwardedMessageIds =
-        await db.transaction(
-          async (tx) => {
-            const insertedIds: string[] = [];
+      const forwardedMessageIds = await db.transaction(async (tx) => {
+        const insertedIds: string[] = [];
 
-            for (const targetConversationId of targetConversationIds) {
-              const messageId =
-                crypto.randomUUID();
+        for (const targetConversationId of targetConversationIds) {
+          const messageId = crypto.randomUUID();
 
-              await tx.execute(sql`
+          await tx.execute(sql`
                 insert into messages (
                   id,
                   conversation_id,
@@ -872,28 +642,24 @@ export async function messageRoutes(
                 )
               `);
 
-              insertedIds.push(messageId);
-            }
+          insertedIds.push(messageId);
+        }
 
-            return insertedIds;
-          }
-        );
+        return insertedIds;
+      });
 
       const forwardedMessages = (
         await Promise.all(
-          forwardedMessageIds.map(
-            (messageId) =>
-              getSerializedMessage(messageId)
-          )
+          forwardedMessageIds.map((messageId) =>
+            getSerializedMessage(messageId),
+          ),
         )
       ).filter(
         (
-          message
+          message,
         ): message is NonNullable<
-          Awaited<
-            ReturnType<typeof getSerializedMessage>
-          >
-        > => Boolean(message)
+          Awaited<ReturnType<typeof getSerializedMessage>>
+        > => Boolean(message),
       );
 
       const io = getSocketServer();
@@ -902,47 +668,35 @@ export async function messageRoutes(
         for (const message of forwardedMessages) {
           io.to(message.conversationId).emit(
             SOCKET_EVENTS.RECEIVE_MESSAGE,
-            message
+            message,
           );
 
-          await emitLatestConversationIfNeeded(
-            message
-          );
+          await emitLatestConversationIfNeeded(message);
         }
       }
 
       return reply.status(201).send({
         messages: forwardedMessages,
       });
-    }
+    },
   );
 
   app.post(
     "/messages/:messageId/reactions",
     {
-      preHandler:
-        authMiddleware,
+      preHandler: authMiddleware,
     },
     async (request, reply) => {
-      const parsedParams =
-        messageActionParamsSchema.safeParse(
-          request.params
-        );
-      const parsedBody =
-        reactMessageBodySchema.safeParse(
-          request.body
-        );
+      const parsedParams = messageActionParamsSchema.safeParse(request.params);
+      const parsedBody = reactMessageBodySchema.safeParse(request.body);
 
-      if (
-        !parsedParams.success ||
-        !parsedBody.success
-      ) {
+      if (!parsedParams.success || !parsedBody.success) {
         return reply.status(400).send({
           message: "Invalid reaction request",
         });
       }
 
-      const userId = request.user?.id;
+      const userId = (request.user as any)?.id;
 
       if (!userId) {
         return reply.status(401).send({
@@ -950,11 +704,10 @@ export async function messageRoutes(
         });
       }
 
-      const allowed =
-        await isConversationMember(
-          userId,
-          parsedBody.data.conversationId
-        );
+      const allowed = await isConversationMember(
+        userId,
+        parsedBody.data.conversationId,
+      );
 
       if (!allowed) {
         return reply.status(403).send({
@@ -970,20 +723,13 @@ export async function messageRoutes(
         .from(messages)
         .where(
           and(
-            eq(
-              messages.id,
-              parsedParams.data.messageId
-            ),
-            eq(
-              messages.conversationId,
-              parsedBody.data.conversationId
-            )
-          )
+            eq(messages.id, parsedParams.data.messageId),
+            eq(messages.conversationId, parsedBody.data.conversationId),
+          ),
         )
         .limit(1);
 
-      const targetMessage =
-        foundMessages[0];
+      const targetMessage = foundMessages[0];
 
       if (!targetMessage || targetMessage.deletedAt) {
         return reply.status(404).send({
@@ -996,60 +742,36 @@ export async function messageRoutes(
         .from(messageReactions)
         .where(
           and(
-            eq(
-              messageReactions.messageId,
-              targetMessage.id
-            ),
-            eq(
-              messageReactions.userId,
-              userId
-            )
-          )
+            eq(messageReactions.messageId, targetMessage.id),
+            eq(messageReactions.userId, userId),
+          ),
         )
         .limit(1);
 
-      const existingReaction =
-        existingReactions[0];
+      const existingReaction = existingReactions[0];
 
-      if (
-        existingReaction?.emoji ===
-        parsedBody.data.emoji
-      ) {
+      if (existingReaction?.emoji === parsedBody.data.emoji) {
         await db
           .delete(messageReactions)
-          .where(
-            eq(
-              messageReactions.id,
-              existingReaction.id
-            )
-          );
+          .where(eq(messageReactions.id, existingReaction.id));
       } else if (existingReaction) {
         await db
           .update(messageReactions)
           .set({
             emoji: parsedBody.data.emoji,
           })
-          .where(
-            eq(
-              messageReactions.id,
-              existingReaction.id
-            )
-          );
+          .where(eq(messageReactions.id, existingReaction.id));
       } else {
         await db.insert(messageReactions).values({
           id: crypto.randomUUID(),
           messageId: targetMessage.id,
-          conversationId:
-            parsedBody.data.conversationId,
+          conversationId: parsedBody.data.conversationId,
           userId,
           emoji: parsedBody.data.emoji,
         });
       }
 
-      const message =
-        await getSerializedMessage(
-          targetMessage.id
-        );
+      const message = await getSerializedMessage(targetMessage.id);
 
       if (!message) {
         return reply.status(404).send({
@@ -1059,10 +781,10 @@ export async function messageRoutes(
 
       await emitMessageMutation(
         SOCKET_EVENTS.MESSAGE_REACTION_UPDATED,
-        message
+        message,
       );
 
       return message;
-    }
+    },
   );
 }
