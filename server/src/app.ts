@@ -177,12 +177,22 @@ export async function buildApp() {
     };
   });
 
-  app.get("/health", async () => {
-    return {
-      status: "ok",
-      ts: Date.now(),
-    };
-  });
+  app.get(
+    "/health",
+    {
+      config: {
+        rateLimit: false,
+      },
+    },
+    async (_request, reply) => {
+      reply.header("cache-control", "no-store");
+
+      return {
+        status: "ok",
+        ts: Date.now(),
+      };
+    },
+  );
 
   app.get("/ready", async (request, reply) => {
     try {

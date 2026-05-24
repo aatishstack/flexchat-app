@@ -28,7 +28,9 @@ Hotfix applied:
 
 - `/health` is now lightweight process liveness; database readiness is exposed
   separately on `/ready` with a four-second timeout.
-- Docker health checks target `process.env.PORT || 5000`.
+- Docker health checks target `process.env.PORT || 8080`, matching the
+  Railway-facing container default.
+- Railway config-as-code pins `/health` as the deployment healthcheck path.
 - REST and Socket.IO auth now distinguish invalid JWTs from database lookup
   unavailability. Temporary backend failure no longer erases a valid token.
 - Client API failures log request URL/status without logging token values.

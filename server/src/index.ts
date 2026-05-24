@@ -81,14 +81,49 @@ process.on(
   }
 );
 
-const PORT =
-  Number(process.env.PORT) || 5000;
+const DEFAULT_PORT = 5000;
+const HOST = "0.0.0.0";
+
+function getPort() {
+  if (!process.env.PORT) {
+    return DEFAULT_PORT;
+  }
+
+  const port = Number(process.env.PORT);
+
+  if (
+    !Number.isInteger(port) ||
+    port <= 0 ||
+    port > 65_535
+  ) {
+    throw new Error(
+      `Invalid PORT value: ${process.env.PORT}`
+    );
+  }
+
+  return port;
+}
+
+const PORT = getPort();
 
 app.log.info(
-  `FlexChat server running on port ${PORT}`
+  {
+    host: HOST,
+    port: PORT,
+  },
+  "FlexChat server starting"
 );
 
-await app.listen({
+const address = await app.listen({
   port: PORT,
-  host: "0.0.0.0",
+  host: HOST,
 });
+
+app.log.info(
+  {
+    address,
+    host: HOST,
+    port: PORT,
+  },
+  `FlexChat server running on port ${PORT}`
+);
