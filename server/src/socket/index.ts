@@ -101,10 +101,17 @@ export function setupSocket(server: HttpServer) {
   presenceCleanupTimer.unref?.();
 
   io.use(async (socket, next) => {
-    const authenticated = await authenticateSocket(socket);
+    const authentication =
+      await authenticateSocket(socket);
 
-    if (!authenticated) {
+    if (authentication === "unauthorized") {
       next(new Error("Unauthorized"));
+
+      return;
+    }
+
+    if (authentication === "unavailable") {
+      next(new Error("Auth unavailable"));
 
       return;
     }

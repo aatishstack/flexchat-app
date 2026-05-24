@@ -37,17 +37,38 @@ export async function authenticateSocket(
   }
 
   if (!token) {
-    console.log(
-      "Socket auth failed: missing token",
+    console.warn(
+      "Socket auth rejected: missing token",
+      {
+        socketId: socket.id,
+        transport: socket.conn.transport.name,
+      },
     );
 
-    return false;
+    return "unauthorized" as const;
+  }
+
+  let decoded: ReturnType<typeof verifyToken>;
+
+  try {
+    decoded = verifyToken(token);
+  } catch (error) {
+    console.warn(
+      "Socket auth rejected: token verification failed",
+      {
+        socketId: socket.id,
+        transport: socket.conn.transport.name,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unknown verification error",
+      },
+    );
+
+    return "unauthorized" as const;
   }
 
   try {
-    const decoded =
-      verifyToken(token);
-
     const activeUsers =
       await db
         .select({
@@ -66,24 +87,37 @@ export async function authenticateSocket(
         .limit(1);
 
     if (!activeUsers.length) {
-      console.log(
-        "Socket auth failed: user not found",
+      console.warn(
+        "Socket auth rejected: token user is unavailable",
+        {
+          socketId: socket.id,
+          userId: decoded.id,
+          transport: socket.conn.transport.name,
+        },
       );
 
-      return false;
+      return "unauthorized" as const;
     }
 
     socket.data.user = {
       id: decoded.id,
     };
 
-    return true;
+    return "authorized" as const;
   } catch (error) {
-    console.log(
-      "Socket auth failed:",
-      error,
+    console.error(
+      "Socket auth unavailable: user lookup failed",
+      {
+        socketId: socket.id,
+        userId: decoded.id,
+        transport: socket.conn.transport.name,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unknown database error",
+      },
     );
 
-    return false;
+    return "unavailable" as const;
   }
 }

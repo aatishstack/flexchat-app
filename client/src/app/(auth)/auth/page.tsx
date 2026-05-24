@@ -43,6 +43,25 @@ import PremiumInput from "@/components/ui/premium-input";
 
 import PremiumButton from "@/components/ui/premium-button";
 
+function getAuthenticationErrorMessage(error: unknown) {
+  if (axios.isAxiosError(error)) {
+    if (
+      !error.response ||
+      (error.response.status >= 500 &&
+        error.response.status <= 599)
+    ) {
+      return "Authentication service is temporarily unavailable. Please retry.";
+    }
+
+    return (
+      error.response?.data?.message ||
+      "Authentication failed"
+    );
+  }
+
+  return "Authentication failed";
+}
+
 export default function AuthPage() {
   const router = useRouter();
 
@@ -93,6 +112,9 @@ export default function AuthPage() {
       setLoading(true);
 
       setError("");
+      console.info("[FlexChat Auth] credential sign-in started", {
+        mode: isLogin ? "login" : "register",
+      });
 
       const response = isLogin
         ? await login({
@@ -115,13 +137,21 @@ export default function AuthPage() {
 
       connectSocket(response.token);
 
+      console.info("[FlexChat Auth] credential sign-in succeeded", {
+        userId: response.user.id,
+      });
       router.replace("/chat");
     } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
-        setError(error.response?.data?.message || "Authentication failed");
-      } else {
-        setError("Authentication failed");
-      }
+      console.error("[FlexChat Auth] credential sign-in failed", {
+        status: axios.isAxiosError(error)
+          ? error.response?.status ?? "network_error"
+          : "client_error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unknown sign-in failure",
+      });
+      setError(getAuthenticationErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -456,6 +486,9 @@ export default function AuthPage() {
                         setGoogleLoading(true);
 
                         setError("");
+                        console.info(
+                          "[FlexChat Auth] opening Google sign-in popup",
+                        );
 
                         const firebaseResult = await signInWithPopup(
                           getFirebaseAuth(),
@@ -464,6 +497,9 @@ export default function AuthPage() {
 
                         const idToken = await firebaseResult.user.getIdToken();
 
+                        console.info(
+                          "[FlexChat Auth] exchanging Google identity token with API",
+                        );
                         const response =
                           await loginWithFirebaseIdToken(idToken);
 
@@ -476,6 +512,12 @@ export default function AuthPage() {
 
                         connectSocket(response.token);
 
+                        console.info(
+                          "[FlexChat Auth] Google sign-in succeeded",
+                          {
+                            userId: response.user.id,
+                          },
+                        );
                         pushToast({
                           title: "Welcome to FlexChat",
                           message: "Google sign-in connected securely.",
@@ -498,8 +540,24 @@ export default function AuthPage() {
                           return;
                         }
 
+                        console.error(
+                          "[FlexChat Auth] Google sign-in failed",
+                          {
+                            source: axios.isAxiosError(error)
+                              ? "api_exchange"
+                              : "firebase_popup",
+                            status: axios.isAxiosError(error)
+                              ? error.response?.status ?? "network_error"
+                              : undefined,
+                            code:
+                              error instanceof FirebaseError
+                                ? error.code
+                                : undefined,
+                          },
+                        );
+
                         const message = axios.isAxiosError(error)
-                          ? error.response?.data?.message
+                          ? getAuthenticationErrorMessage(error)
                           : error instanceof FirebaseError
                             ? error.message
                             : "Please try again in a moment.";

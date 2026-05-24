@@ -17,8 +17,8 @@ import { notificationRoutes } from "./routes/notification.route.js";
 import { storyRoutes } from "./routes/story.route.js";
 import { uploadRoutes } from "./routes/upload.route.js";
 import { userRoutes } from "./routes/user.route.js";
-import { getSocketServer } from "./socket/socket-hub.js";
-import { SOCKET_EVENTS } from "./socket/socket-events.js";
+
+const READINESS_TIMEOUT_MS = 4_000;
 
 function buildCorsOrigin() {
   if (env.NODE_ENV !== "production") {
@@ -37,6 +37,25 @@ function buildCorsOrigin() {
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
+}
+
+async function checkDatabaseReady() {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    await Promise.race([
+      db.execute(sql`select 1`),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => {
+          reject(new Error("Database readiness check timed out"));
+        }, READINESS_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
 }
 
 export async function buildApp() {
@@ -58,9 +77,71 @@ export async function buildApp() {
         ? 1
         : false,
   });
+  const corsOrigin = buildCorsOrigin();
+
+  app.addHook("onRequest", async (request) => {
+    const origin = request.headers.origin;
+
+    request.log.info(
+      {
+        method: request.method,
+        url: request.url,
+        origin,
+        hasAuthorization: Boolean(request.headers.authorization),
+      },
+      "API request received",
+    );
+
+    if (
+      env.NODE_ENV === "production" &&
+      origin &&
+      Array.isArray(corsOrigin) &&
+      !corsOrigin.includes(origin)
+    ) {
+      request.log.warn(
+        {
+          method: request.method,
+          url: request.url,
+          origin,
+        },
+        "CORS origin not allowed",
+      );
+    }
+  });
+
+  app.addHook("onResponse", async (request, reply) => {
+    if (reply.statusCode < 400) {
+      return;
+    }
+
+    request.log.warn(
+      {
+        method: request.method,
+        url: request.url,
+        statusCode: reply.statusCode,
+        responseTimeMs: reply.elapsedTime,
+        origin: request.headers.origin,
+        hasAuthorization: Boolean(request.headers.authorization),
+      },
+      "API request returned an error response",
+    );
+  });
+
+  app.addHook("onError", async (request, _reply, error) => {
+    request.log.error(
+      {
+        err: error,
+        method: request.method,
+        url: request.url,
+        origin: request.headers.origin,
+        hasAuthorization: Boolean(request.headers.authorization),
+      },
+      "API request failed unexpectedly",
+    );
+  });
 
   await app.register(cors, {
-    origin: buildCorsOrigin(),
+    origin: corsOrigin,
     credentials: false,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -96,16 +177,29 @@ export async function buildApp() {
     };
   });
 
-  app.get("/health", async (_, reply) => {
+  app.get("/health", async () => {
+    return {
+      status: "ok",
+      ts: Date.now(),
+    };
+  });
+
+  app.get("/ready", async (request, reply) => {
     try {
-      await db.execute(sql`select 1`);
+      await checkDatabaseReady();
 
       return {
         status: "ok",
         db: "ok",
         ts: Date.now(),
       };
-    } catch {
+    } catch (error) {
+      request.log.error(
+        {
+          err: error,
+        },
+        "Database readiness check failed",
+      );
       reply.status(503);
 
       return {

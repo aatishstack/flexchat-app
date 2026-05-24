@@ -1,5 +1,51 @@
 # FlexChat Production Stabilization
 
+## Emergency API/Auth Hotfix - May 24, 2026
+
+Observed production failure:
+
+- Direct requests to the Railway root route, `/health`, Socket.IO polling
+  handshake, and `/auth/firebase/google` returned Railway edge
+  `502 Application failed to respond`.
+- Requests through Vercel `/api/backend/*` returned the same Railway `502`.
+- The Vercel frontend itself continued returning HTML normally.
+
+Root cause:
+
+- The immediate user-facing cause is that Railway had no responding backend
+  instance behind its edge, so REST auth, conversations, stories, Google token
+  exchange, and Socket.IO all failed before application route logic ran.
+- The stabilization deploy changed `/health` from process liveness to a
+  database query. The Docker `HEALTHCHECK` calls `/health`, so database latency
+  or unavailability can make an otherwise running API fail liveness and be
+  removed from traffic. Railway service logs should be checked after redeploy
+  to confirm the triggering health failures.
+- The Docker health probe also used hardcoded port `5000` while the server
+  listens on Railway's `PORT`; this is now corrected to avoid a second
+  no-healthy-instance path.
+
+Hotfix applied:
+
+- `/health` is now lightweight process liveness; database readiness is exposed
+  separately on `/ready` with a four-second timeout.
+- Docker health checks target `process.env.PORT || 5000`.
+- REST and Socket.IO auth now distinguish invalid JWTs from database lookup
+  unavailability. Temporary backend failure no longer erases a valid token.
+- Client API failures log request URL/status without logging token values.
+  Authenticated data-read `502`, `503`, `504`, and network failures enter a
+  contained session recovery state and retry; rejected refresh/token
+  validation performs a full reset.
+- Hydration timeout now aborts the pending `/me` request so recovery retries do
+  not accumulate stalled HTTP requests.
+- General API calls time out after 15 seconds; large uploads retain a
+  dedicated two-minute allowance.
+- The previous half-connected protected UI is replaced by a recovery screen
+  with `Retry now` and `Sign out`; the socket and query-backed runtime are
+  stopped while REST authentication is unavailable.
+- Added diagnostic logs for query failures, socket reconnect/errors,
+  authentication hydration, server request failures, CORS origin rejection,
+  token rejection, and Google token verification failures.
+
 ## Issues And Fixes
 
 ### Session Hydration Freeze
@@ -10,7 +56,8 @@ mobile connection, leaving protected routes on the session restoration screen.
 Fix applied:
 
 - Added an 8-second hydration timeout with a retained-token degraded mode.
-- Added a visible `Reconnecting...` state that allows the protected UI to load.
+- Added a recovery screen that keeps protected queries inactive while the API
+  cannot validate the retained token.
 - Added a 3-second retry loop for transient hydration failures.
 - Added a 12-second safety release so route hydration cannot remain blocked.
 - Socket connection starts only after authentication has hydrated successfully.
@@ -95,7 +142,8 @@ Fix applied:
 - Production REST and Socket.IO CORS origins use `CORS_ORIGIN`.
 - Production Fastify trusts the Railway proxy for correct client IP handling.
 - Multipart uploads are capped at 50 MB.
-- `/health` verifies database connectivity and returns `503` if unavailable.
+- `/health` verifies process liveness without depending on the database.
+- `/ready` verifies database connectivity and returns `503` if unavailable.
 
 ## Environment Checklist
 
@@ -136,5 +184,13 @@ Include all deployed client domains in `CORS_ORIGIN`, separated by commas.
   Wi-Fi and one peer on mobile data.
 - Disable connectivity during a call and restore it; verify ICE recovery or a
   clean timeout rather than a stuck call screen.
-- Call Railway `/health` with the database available and unavailable; verify
+- After deployment, call Railway `/health`; it must return `200` even while
+  database readiness is impaired.
+- Call Railway `/ready` with the database available and unavailable; verify
   `200`/`503` behavior.
+- Call Railway root, `/me`, `/stories`, the Socket.IO handshake, and Google
+  sign-in exchange after deploy; no endpoint should return Railway edge `502`.
+- With a valid stored session, temporarily make the API unavailable; verify the
+  recovery screen replaces chat content, retries work, and the token remains.
+- With an invalid token, verify the app clears socket/query/auth state and
+  returns cleanly to sign-in.

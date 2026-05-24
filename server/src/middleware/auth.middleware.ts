@@ -18,33 +18,79 @@ export async function authMiddleware(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
+  const authHeader = request.headers.authorization;
+
+  if (
+    !authHeader ||
+    !authHeader.startsWith("Bearer ")
+  ) {
+    request.log.warn(
+      {
+        method: request.method,
+        url: request.url,
+        hasAuthorization: Boolean(authHeader),
+      },
+      "Auth rejected: missing bearer token",
+    );
+
+    return reply
+      .status(401)
+      .send({
+        message:
+          "Unauthorized",
+      });
+  }
+
+  const token = authHeader
+    .slice("Bearer ".length)
+    .trim();
+
+  if (!token) {
+    request.log.warn(
+      {
+        method: request.method,
+        url: request.url,
+      },
+      "Auth rejected: empty bearer token",
+    );
+
+    return reply
+      .status(401)
+      .send({
+        message:
+          "Unauthorized",
+      });
+  }
+
+  let decoded: ReturnType<typeof verifyToken>;
+
   try {
-    const authHeader =
-      request.headers
-        .authorization;
+    decoded = verifyToken(token);
+  } catch (error) {
+    request.log.warn(
+      {
+        err:
+          error instanceof Error
+            ? {
+                name: error.name,
+                message: error.message,
+              }
+            : "Unknown token verification error",
+        method: request.method,
+        url: request.url,
+      },
+      "Auth rejected: token verification failed",
+    );
 
-    if (
-      !authHeader
-    ) {
-      return reply
-        .status(401)
-        .send({
-          message:
-            "Unauthorized",
-        });
-    }
+    return reply
+      .status(401)
+      .send({
+        message:
+          "Invalid token",
+      });
+  }
 
-    const token =
-      authHeader.replace(
-        "Bearer ",
-        ""
-      );
-
-    const decoded =
-      verifyToken(
-        token
-      );
-
+  try {
     const activeUsers =
       await db
         .select({
@@ -60,6 +106,15 @@ export async function authMiddleware(
         .limit(1);
 
     if (!activeUsers.length) {
+      request.log.warn(
+        {
+          method: request.method,
+          url: request.url,
+          userId: decoded.id,
+        },
+        "Auth rejected: token user is unavailable",
+      );
+
       return reply
         .status(401)
         .send({
@@ -68,14 +123,23 @@ export async function authMiddleware(
         });
     }
 
-    request.user =
-      decoded;
-  } catch {
+    request.user = decoded;
+  } catch (error) {
+    request.log.error(
+      {
+        err: error,
+        method: request.method,
+        url: request.url,
+        userId: decoded.id,
+      },
+      "Auth service unavailable during user lookup",
+    );
+
     return reply
-      .status(401)
+      .status(503)
       .send({
         message:
-          "Invalid token",
+          "Authentication service unavailable",
       });
   }
 }

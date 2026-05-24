@@ -354,6 +354,10 @@ export default function SocketProvider({
 
   useEffect(() => {
     function onConnect() {
+      console.info("[FlexChat Socket] connected", {
+        transport: socket.io.engine?.transport.name,
+      });
+
       useSocketStore.setState((state) => ({
         isConnected: true,
         isConnecting: false,
@@ -390,7 +394,11 @@ export default function SocketProvider({
       }
     }
 
-    function onDisconnect() {
+    function onDisconnect(reason: string) {
+      console.warn("[FlexChat Socket] disconnected", {
+        reason,
+      });
+
       resetPendingMessageFlights();
 
       if (useCallStore.getState().currentCall) {
@@ -407,13 +415,21 @@ export default function SocketProvider({
     }
 
     function onConnectError(error: Error) {
+      console.error("[FlexChat Socket] connect_error", {
+        message: error.message,
+      });
+
       if (
         error.message
           .toLowerCase()
           .includes("unauthorized")
       ) {
+        socket.disconnect();
         clearClientSession();
+        return;
       }
+
+      setConnectionError(error.message);
     }
 
     function onOnlineUsers(users: string[]) {
@@ -1202,6 +1218,8 @@ export default function SocketProvider({
     }
 
     function handleOffline() {
+      console.warn("[FlexChat Socket] browser is offline");
+
       useSocketStore.setState({
         isConnected: false,
         isConnecting: false,

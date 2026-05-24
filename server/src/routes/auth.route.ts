@@ -227,7 +227,20 @@ export async function authRoutes(app: FastifyInstance) {
         parsedBody.data.idToken,
         true,
       );
-    } catch {
+    } catch (error) {
+      request.log.warn(
+        {
+          err:
+            error instanceof Error
+              ? {
+                  name: error.name,
+                  message: error.message,
+                }
+              : "Unknown Firebase verification error",
+        },
+        "Google sign-in token verification failed",
+      );
+
       return reply.status(401).send({
         message: "Google sign-in could not be verified",
       });
@@ -304,6 +317,10 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     if (!user) {
+      request.log.error(
+        "Google sign-in did not yield a user record",
+      );
+
       return reply.status(500).send({
         message: "Google sign-in failed",
       });

@@ -9,6 +9,11 @@ import {
 import { isAxiosError } from "axios";
 
 import {
+  API_AUTH_INVALID_EVENT,
+  API_UNAVAILABLE_EVENT,
+  SESSION_RETRY_EVENT,
+} from "@/lib/session-events";
+import {
   TOKEN_CHANGE_EVENT,
   TOKEN_KEY,
   tokenStorage,
@@ -25,13 +30,15 @@ const AUTH_SAFETY_TIMEOUT_MS = 12_000;
 
 async function getCurrentUserWithTimeout() {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const controller = new AbortController();
 
   try {
     return await Promise.race([
-      getCurrentUser(),
+      getCurrentUser(controller.signal),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
           reject(new Error(AUTH_TIMEOUT_ERROR));
+          controller.abort();
         }, AUTH_TIMEOUT_MS);
       }),
     ]);
@@ -79,6 +86,12 @@ export default function AuthProvider({
 
     function scheduleRetry() {
       clearRetry();
+      console.info(
+        "[FlexChat Auth] scheduling session hydration retry",
+        {
+          delayMs: AUTH_RETRY_DELAY_MS,
+        },
+      );
       retryTimer = setTimeout(() => {
         retryTimer = undefined;
         void hydrate();
@@ -103,12 +116,23 @@ export default function AuthProvider({
           ? tokenStorage.get()
           : tokenOverride;
 
+      console.info(
+        "[FlexChat Auth] hydrating session",
+        {
+          hasToken: Boolean(token),
+          version: hydrateVersion,
+        },
+      );
+
       if (!token) {
         if (!isCurrentHydration()) {
           return;
         }
 
         clearRetry();
+        console.info(
+          "[FlexChat Auth] no stored token; using signed-out state",
+        );
         setSessionRecovering(false);
         resetClientSessionState();
         return;
@@ -139,6 +163,12 @@ export default function AuthProvider({
         }
 
         clearRetry();
+        console.info(
+          "[FlexChat Auth] session restored",
+          {
+            userId: user.id,
+          },
+        );
         setAuth({
           user,
           token: activeToken,
@@ -159,6 +189,12 @@ export default function AuthProvider({
           status === 404;
 
         if (tokenIsInvalid) {
+          console.warn(
+            "[FlexChat Auth] stored token was rejected; resetting session",
+            {
+              status,
+            },
+          );
           clearRetry();
           setSessionRecovering(false);
           tokenStorage.remove();
@@ -166,16 +202,20 @@ export default function AuthProvider({
           return;
         }
 
-        if (
-          error instanceof Error &&
-          error.message !== AUTH_TIMEOUT_ERROR
-        ) {
-          console.warn(
-            "Session hydration unavailable; retrying.",
-            error.message,
-          );
-        }
+        console.warn(
+          "[FlexChat Auth] session endpoint unavailable; entering recovery",
+          {
+            status: status ?? "network_or_timeout",
+            reason:
+              error instanceof Error
+                ? error.message
+                : "Unknown hydration failure",
+          },
+        );
 
+        useSocketStore
+          .getState()
+          .disconnectSocket();
         setSessionRecovering(true);
         setHydrated(true);
         scheduleRetry();
@@ -207,6 +247,40 @@ export default function AuthProvider({
       void hydrate(token);
     }
 
+    function handleApiUnavailable(event: Event) {
+      if (!tokenStorage.exists()) {
+        return;
+      }
+
+      console.warn(
+        "[FlexChat Auth] authenticated API became unavailable; suspending live session",
+        (event as CustomEvent).detail,
+      );
+      clearRetry();
+      resetClientSessionState();
+      setSessionRecovering(true);
+      setHydrated(true);
+      scheduleRetry();
+    }
+
+    function handleInvalidApiSession(event: Event) {
+      console.warn(
+        "[FlexChat Auth] API invalidated the session",
+        (event as CustomEvent).detail,
+      );
+      clearRetry();
+      tokenStorage.remove();
+      resetClientSessionState();
+    }
+
+    function handleSessionRetry() {
+      console.info(
+        "[FlexChat Auth] user requested session retry",
+      );
+      clearRetry();
+      void hydrate();
+    }
+
     const safetyTimer = setTimeout(() => {
       if (
         disposed ||
@@ -216,6 +290,9 @@ export default function AuthProvider({
       }
 
       if (tokenStorage.exists()) {
+        useSocketStore
+          .getState()
+          .disconnectSocket();
         setSessionRecovering(true);
         scheduleRetry();
       }
@@ -231,6 +308,18 @@ export default function AuthProvider({
       TOKEN_CHANGE_EVENT,
       handleTokenChange,
     );
+    window.addEventListener(
+      API_UNAVAILABLE_EVENT,
+      handleApiUnavailable,
+    );
+    window.addEventListener(
+      API_AUTH_INVALID_EVENT,
+      handleInvalidApiSession,
+    );
+    window.addEventListener(
+      SESSION_RETRY_EVENT,
+      handleSessionRetry,
+    );
 
     return () => {
       disposed = true;
@@ -244,6 +333,18 @@ export default function AuthProvider({
       window.removeEventListener(
         TOKEN_CHANGE_EVENT,
         handleTokenChange,
+      );
+      window.removeEventListener(
+        API_UNAVAILABLE_EVENT,
+        handleApiUnavailable,
+      );
+      window.removeEventListener(
+        API_AUTH_INVALID_EVENT,
+        handleInvalidApiSession,
+      );
+      window.removeEventListener(
+        SESSION_RETRY_EVENT,
+        handleSessionRetry,
       );
     };
   }, [

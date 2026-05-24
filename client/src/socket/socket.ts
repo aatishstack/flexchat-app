@@ -71,9 +71,14 @@ export const socket: Socket =
 
     createdSocket.io.on(
       "reconnect_attempt",
-      () => {
+      (attempt) => {
         const token =
           tokenStorage.get();
+
+        console.info("[FlexChat Socket] reconnect attempt", {
+          attempt,
+          hasToken: Boolean(token),
+        });
 
         createdSocket.auth = token
           ? {

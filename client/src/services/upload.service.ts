@@ -654,6 +654,7 @@ export async function uploadImage(
           "/upload",
           formData,
           {
+            timeout: 120_000,
             onUploadProgress: (
               progressEvent: AxiosProgressEvent
             ) => {

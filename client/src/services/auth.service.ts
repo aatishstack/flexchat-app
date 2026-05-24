@@ -64,10 +64,15 @@ export async function loginWithFirebaseIdToken(
   return response.data;
 }
 
-export async function getCurrentUser() {
+export async function getCurrentUser(
+  signal?: AbortSignal,
+) {
   const response =
     await api.get(
-      "/me"
+      "/me",
+      {
+        signal,
+      },
     );
 
   return response.data;

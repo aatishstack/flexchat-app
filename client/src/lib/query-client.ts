@@ -1,4 +1,6 @@
 import {
+  MutationCache,
+  QueryCache,
   QueryClient,
 } from "@tanstack/react-query";
 
@@ -25,6 +27,28 @@ function shouldRetryQuery(
 
 export const queryClient =
   new QueryClient({
+    queryCache: new QueryCache({
+      onError: (error, query) => {
+        console.error("[FlexChat Query] request failed", {
+          queryKey: query.queryKey,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Unknown query failure",
+        });
+      },
+    }),
+    mutationCache: new MutationCache({
+      onError: (error, _variables, _context, mutation) => {
+        console.error("[FlexChat Mutation] request failed", {
+          mutationKey: mutation.options.mutationKey,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Unknown mutation failure",
+        });
+      },
+    }),
     defaultOptions: {
       queries: {
         gcTime: 5 * 60 * 1000,

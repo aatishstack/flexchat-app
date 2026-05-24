@@ -6,6 +6,8 @@ import { motion } from "framer-motion";
 import { usePathname, useRouter } from "next/navigation";
 
 import { useAuth } from "@/hooks/useAuth";
+import { clearClientSession } from "@/lib/session-cleanup";
+import { SESSION_RETRY_EVENT } from "@/lib/session-events";
 import { TOKEN_CHANGE_EVENT, TOKEN_KEY, tokenStorage } from "@/lib/token";
 
 const protectedPrefixes = [
@@ -77,12 +79,41 @@ function RouteGateLoader() {
   );
 }
 
-function SessionReconnectBanner() {
+function SessionRecoveryScreen() {
   return (
-    <div className="fixed inset-x-0 top-0 z-[10010] flex justify-center px-4 pt-[calc(0.75rem+env(safe-area-inset-top))]">
-      <p className="rounded-full border border-amber-300/25 bg-[#111827]/95 px-4 py-2 text-xs font-medium text-amber-100 shadow-xl shadow-black/30 backdrop-blur-xl">
-        Reconnecting...
-      </p>
+    <div className="flex min-h-screen items-center justify-center bg-[#070B14] px-6 text-white">
+      <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-white/[0.04] p-7 text-center shadow-2xl shadow-black/30">
+        <div className="mx-auto h-12 w-12 animate-spin rounded-xl border border-amber-300/30 border-t-amber-200" />
+        <h1 className="mt-6 text-xl font-semibold">
+          Restoring your session
+        </h1>
+        <p className="mt-3 text-sm leading-6 text-zinc-400">
+          FlexChat cannot reach the API right now. Your sign-in is preserved
+          while we reconnect safely.
+        </p>
+        <div className="mt-7 flex gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(
+                new Event(SESSION_RETRY_EVENT),
+              );
+            }}
+            className="flex-1 rounded-xl bg-purple-600 px-4 py-3 text-sm font-semibold transition hover:bg-purple-500"
+          >
+            Retry now
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              clearClientSession();
+            }}
+            className="flex-1 rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-zinc-200 transition hover:bg-white/[0.06]"
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -174,11 +205,17 @@ export default function AuthRouteGate({
     router,
   ]);
 
-  if (
-    authPath &&
-    (isAuthenticated ||
-      hasStoredToken)
-  ) {
+  const isRecoveringStoredSession =
+    isHydrated &&
+    isSessionRecovering &&
+    hasStoredToken &&
+    !isAuthenticated;
+
+  if (isRecoveringStoredSession) {
+    return <SessionRecoveryScreen />;
+  }
+
+  if (authPath && (isAuthenticated || hasStoredToken)) {
     return null;
   }
 
@@ -187,19 +224,6 @@ export default function AuthRouteGate({
   }
 
   if (!isHydrated || (!isAuthenticated && hasStoredToken)) {
-    if (
-      isHydrated &&
-      isSessionRecovering &&
-      hasStoredToken
-    ) {
-      return (
-        <>
-          <SessionReconnectBanner />
-          {children}
-        </>
-      );
-    }
-
     return <RouteGateLoader />;
   }
 
