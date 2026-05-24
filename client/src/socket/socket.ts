@@ -1,12 +1,3 @@
-/**
- * FlexChat — single Socket.IO client singleton.
- * autoConnect: false — store drives connect/disconnect explicitly.
- * transports: websocket + polling — polling fallback is critical for Railway
- * cold-start and LTE carrier proxy environments.
- * withCredentials: false — JWT auth, not cookies. true causes CORS errors on
- * Railway/Vercel that permanently block polling fallback.
- * reconnection: true — Socket.IO built-in engine only, no second timer.
- */
 import { io, type Socket } from "socket.io-client";
 import { tokenStorage } from "@/lib/token";
 
@@ -47,12 +38,13 @@ function buildSocket(): Socket {
     auth: token ? { token } : {},
     query: token ? { token } : {},
   });
-  // Refresh token on every reconnect attempt
+
   instance.io.on("reconnect_attempt", () => {
     const latestToken = tokenStorage.get();
     instance.auth = latestToken ? { token: latestToken } : {};
     instance.io.opts.query = latestToken ? { token: latestToken } : {};
   });
+
   return instance;
 }
 

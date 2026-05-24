@@ -409,14 +409,9 @@ export default function SocketProvider({
     function onConnectError(error: Error) {
       console.error("[FlexChat Socket] connect_error", {
         message: error.message,
-        transport:
-          socket.io.engine?.transport?.name ??
-          "none",
-        url:
-          (socket.io as unknown as {
-            uri?: string;
-          }).uri ?? "unknown",
-        online: navigator.onLine,
+        transport: socket.io.engine?.transport?.name ?? "none",
+        url: (socket.io as unknown as { uri?: string }).uri,
+        online: typeof navigator !== "undefined" ? navigator.onLine : true,
       });
 
       useSocketStore.setState({
@@ -424,19 +419,10 @@ export default function SocketProvider({
         connectionError: error.message,
       });
 
-      const normalizedMessage =
-        error.message.toLowerCase();
-
-      if (
-        normalizedMessage.includes("unauthorized") &&
-        !normalizedMessage.includes("unavailable")
-      ) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes("unauthorized") && !msg.includes("unavailable")) {
         clearClientSession();
-
-        return;
       }
-
-      // Socket.IO's built-in reconnection engine handles retries.
     }
 
     function onOnlineUsers(users: string[]) {

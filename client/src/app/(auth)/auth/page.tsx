@@ -225,10 +225,6 @@ export default function AuthPage() {
 
               <div>
                 <h1 className="text-2xl font-bold tracking-tight">FlexChat</h1>
-
-                <p className="text-sm text-zinc-400">
-                  Premium Messaging Platform
-                </p>
               </div>
             </motion.div>
 
@@ -247,7 +243,7 @@ export default function AuthPage() {
                 }}
                 className="text-5xl font-bold leading-tight tracking-tight xl:text-6xl"
               >
-                Premium messaging,
+                Secure messaging,
                 <span className="block bg-gradient-to-r from-purple-300 via-fuchsia-200 to-cyan-200 bg-clip-text text-transparent">
                   realtime by design.
                 </span>
@@ -318,8 +314,6 @@ export default function AuthPage() {
 
               <div>
                 <h1 className="text-xl font-bold">FlexChat</h1>
-
-                <p className="text-xs text-zinc-400">Premium Messaging</p>
               </div>
             </div>
 

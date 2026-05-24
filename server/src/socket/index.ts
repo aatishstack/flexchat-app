@@ -104,16 +104,14 @@ export function setupSocket(server: HttpServer) {
 
   io.use(async (socket, next) => {
     try {
-      const authenticated = await authenticateSocket(socket);
-
-      if (!authenticated) {
+      const ok = await authenticateSocket(socket);
+      if (!ok) {
         next(new Error("Unauthorized"));
-
         return;
       }
-
       next();
-    } catch {
+    } catch (error) {
+      console.error("[FlexChat Socket] auth middleware threw", error);
       next(new Error("Service temporarily unavailable"));
     }
   });

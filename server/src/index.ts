@@ -154,16 +154,9 @@ serverApp.log.info(
   "FlexChat server starting"
 );
 
-const address = await serverApp.listen({
-  port: PORT,
-  host: HOST,
-});
+const address = await serverApp.listen({ port: PORT, host: HOST });
 
 serverApp.log.info(
-  {
-    address,
-    host: HOST,
-    port: PORT,
-  },
+  { address, host: HOST, port: PORT },
   `FlexChat server running on port ${PORT}`,
 );

@@ -1,50 +1,27 @@
-import { Socket } from "socket.io";
-
-import {
-  and,
-  eq,
-} from "drizzle-orm";
-
+import type { Socket } from "socket.io";
+import { and, eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { users } from "../db/schema/users.js";
 import { verifyToken } from "../lib/jwt.js";
 
-export async function authenticateSocket(
-  socket: Socket,
-): Promise<boolean> {
-  let token =
-    socket.handshake.auth?.token;
+export async function authenticateSocket(socket: Socket): Promise<boolean> {
+  let token: string | undefined =
+    typeof socket.handshake.auth?.token === "string"
+      ? socket.handshake.auth.token
+      : undefined;
 
-  if (
-    !token &&
-    typeof socket.handshake.headers.authorization ===
-      "string"
-  ) {
-    token =
-      socket.handshake.headers.authorization.replace(
-        "Bearer ",
-        "",
-      );
+  if (!token && typeof socket.handshake.headers.authorization === "string") {
+    token = socket.handshake.headers.authorization.replace(/^Bearer\s+/i, "");
   }
 
-  if (
-    !token &&
-    typeof socket.handshake.query.token ===
-      "string"
-  ) {
-    token =
-      socket.handshake.query.token;
+  if (!token && typeof socket.handshake.query.token === "string") {
+    token = socket.handshake.query.token;
   }
 
   if (!token) {
-    console.warn(
-      "Socket auth rejected: missing token",
-      {
-        socketId: socket.id,
-        transport: socket.conn.transport.name,
-      },
-    );
-
+    console.warn("[FlexChat Socket] auth rejected: missing token", {
+      socketId: socket.id,
+    });
     return false;
   }
 
@@ -53,71 +30,27 @@ export async function authenticateSocket(
   try {
     decoded = verifyToken(token);
   } catch (error) {
-    console.warn(
-      "Socket auth rejected: token verification failed",
-      {
-        socketId: socket.id,
-        transport: socket.conn.transport.name,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unknown verification error",
-      },
-    );
-
+    console.warn("[FlexChat Socket] auth rejected: bad token", {
+      socketId: socket.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return false;
   }
 
-  try {
-    const activeUsers =
-      await db
-        .select({
-          id: users.id,
-        })
-        .from(users)
-        .where(
-          and(
-            eq(users.id, decoded.id),
-            eq(
-              users.isDeleted,
-              false,
-            ),
-          ),
-        )
-        .limit(1);
+  const activeUsers = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.id, decoded.id), eq(users.isDeleted, false)))
+    .limit(1);
 
-    if (!activeUsers.length) {
-      console.warn(
-        "Socket auth rejected: token user is unavailable",
-        {
-          socketId: socket.id,
-          userId: decoded.id,
-          transport: socket.conn.transport.name,
-        },
-      );
-
-      return false;
-    }
-
-    socket.data.user = {
-      id: decoded.id,
-    };
-
-    return true;
-  } catch (error) {
-    console.error(
-      "Socket auth unavailable: user lookup failed",
-      {
-        socketId: socket.id,
-        userId: decoded.id,
-        transport: socket.conn.transport.name,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unknown database error",
-      },
-    );
-
-    throw new Error("Socket auth unavailable");
+  if (!activeUsers.length) {
+    console.warn("[FlexChat Socket] auth rejected: user not found", {
+      socketId: socket.id,
+      userId: decoded.id,
+    });
+    return false;
   }
+
+  socket.data.user = { id: decoded.id };
+  return true;
 }
