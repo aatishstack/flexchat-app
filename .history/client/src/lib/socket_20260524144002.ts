@@ -31,7 +31,11 @@ function getBackendUrl() {
 
   if (typeof window !== "undefined") {
     const { hostname } = window.location;
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
+
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1"
+    ) {
       return `http://${hostname}:5000`;
     }
   }
@@ -40,25 +44,42 @@ function getBackendUrl() {
 }
 
 function getNetworkInformation() {
-  if (typeof navigator === "undefined") return null;
+  if (typeof navigator === "undefined") {
+    return null;
+  }
+
   return (
-    (navigator as Navigator & { connection?: NetworkInformationLike })
-      .connection ??
-    (navigator as Navigator & { mozConnection?: NetworkInformationLike })
-      .mozConnection ??
-    (navigator as Navigator & { webkitConnection?: NetworkInformationLike })
-      .webkitConnection ??
+    (
+      navigator as Navigator & {
+        connection?: NetworkInformationLike;
+        mozConnection?: NetworkInformationLike;
+        webkitConnection?: NetworkInformationLike;
+      }
+    ).connection ??
+    (
+      navigator as Navigator & {
+        mozConnection?: NetworkInformationLike;
+      }
+    ).mozConnection ??
+    (
+      navigator as Navigator & {
+        webkitConnection?: NetworkInformationLike;
+      }
+    ).webkitConnection ??
     null
   );
 }
 
 export function getSocketNetworkDiagnostics() {
   const connection = getNetworkInformation();
+
   if (!connection) {
     return {
-      online: typeof navigator === "undefined" ? undefined : navigator.onLine,
+      online:
+        typeof navigator === "undefined" ? undefined : navigator.onLine,
     };
   }
+
   return {
     online: navigator.onLine,
     type: connection.type,
@@ -76,7 +97,8 @@ export function getSocketTransportDiagnostics(
     id: targetSocket?.id,
     connected: Boolean(targetSocket?.connected),
     active: Boolean(targetSocket?.active),
-    transport: targetSocket?.io.engine?.transport?.name ?? "none",
+    transport:
+      targetSocket?.io.engine?.transport?.name ?? "none",
     transports: ["websocket"],
     reconnection: false,
     withCredentials: true,
@@ -85,20 +107,21 @@ export function getSocketTransportDiagnostics(
 }
 
 function clearTimer() {
-  if (!reconnectTimer) return;
+  if (!reconnectTimer) {
+    return;
+  }
+
   clearTimeout(reconnectTimer);
   reconnectTimer = null;
 }
 
 function scheduleReconnect(token: string, delay: number) {
   clearTimer();
+
   reconnectTimer = setTimeout(() => {
     if (!socket?.connected && !isIntentionalDisconnect) {
-      // Only connect if Engine.IO is not already mid-handshake
-      if (!socket?.active) {
-        configureSocketAuth(socket, token);
-        socket?.connect();
-      }
+      configureSocketAuth(socket, token);
+      socket?.connect();
     }
   }, delay);
 }
@@ -120,8 +143,14 @@ export function configureSocketAuth(
   token: string | null,
 ) {
   const nextToken = token?.trim();
-  if (!targetSocket || !nextToken) return;
-  targetSocket.auth = { token: nextToken };
+
+  if (!targetSocket || !nextToken) {
+    return;
+  }
+
+  targetSocket.auth = {
+    token: nextToken,
+  };
 }
 
 export function getSocket(authToken: string): Socket {
@@ -131,22 +160,17 @@ export function getSocket(authToken: string): Socket {
     throw new Error("Socket auth token is required");
   }
 
-  // Already connected — just refresh auth and return
   if (socket?.connected) {
     configureSocketAuth(socket, token);
     return socket;
   }
 
-  // Exists but disconnected — reconnect only if Engine.IO is not already attempting
   if (socket && !socket.connected) {
     configureSocketAuth(socket, token);
-    if (!socket.active) {
-      socket.connect();
-    }
+    socket.connect();
     return socket;
   }
 
-  // No socket at all — create fresh manager + socket
   manager = new Manager(getBackendUrl(), {
     transports: ["websocket"],
     rememberUpgrade: false,
@@ -157,14 +181,13 @@ export function getSocket(authToken: string): Socket {
   });
 
   socket = manager.socket("/", {
-    auth: { token },
+    auth: {
+      token,
+    },
   });
 
   socket.on("connect", () => {
-    console.info(
-      "[Socket] connected, transport:",
-      socket?.io.engine.transport.name,
-    );
+    console.info("[Socket] connected, transport:", socket?.io.engine.transport.name);
     backoffMs = SOCKET_RECONNECT_INITIAL_DELAY_MS;
     clearTimer();
   });
@@ -174,7 +197,10 @@ export function getSocket(authToken: string): Socket {
       ...getSocketTransportDiagnostics(socket),
     });
     scheduleReconnect(token, backoffMs);
-    backoffMs = Math.min(backoffMs * 2, SOCKET_RECONNECT_MAX_DELAY_MS);
+    backoffMs = Math.min(
+      backoffMs * 2,
+      SOCKET_RECONNECT_MAX_DELAY_MS,
+    );
   });
 
   socket.on("disconnect", (reason) => {
@@ -182,7 +208,9 @@ export function getSocket(authToken: string): Socket {
       ...getSocketTransportDiagnostics(socket),
     });
 
-    if (isIntentionalDisconnect) return;
+    if (isIntentionalDisconnect) {
+      return;
+    }
 
     if (reason === "io server disconnect") {
       backoffMs = SOCKET_RECONNECT_INITIAL_DELAY_MS;
@@ -191,7 +219,10 @@ export function getSocket(authToken: string): Socket {
     }
 
     scheduleReconnect(token, backoffMs);
-    backoffMs = Math.min(backoffMs * 2, SOCKET_RECONNECT_MAX_DELAY_MS);
+    backoffMs = Math.min(
+      backoffMs * 2,
+      SOCKET_RECONNECT_MAX_DELAY_MS,
+    );
   });
 
   socket.connect();
@@ -208,7 +239,16 @@ export function disconnectSocket() {
 
 export { socket };
 
-// NOTE: No window online/offline listeners here.
-// socket-provider.tsx is the single place that handles network events.
-// Having listeners in both places causes double-connect which corrupts
-// Engine.IO's internal state machine and causes permanent "connecting" loop.
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => {
+    if (socket && !socket.connected) {
+      console.info("[Socket] network online - reconnecting in 500ms");
+      clearTimer();
+      setTimeout(() => socket?.connect(), 500);
+    }
+  });
+
+  window.addEventListener("offline", () => {
+    console.info("[Socket] network offline - socket idle, waiting for online event");
+  });
+}
