@@ -22,10 +22,7 @@ export function setupSocket(server: HttpServer) {
   const io = new Server(server, {
     path: "/socket.io/",
     cors: {
-      origin: [
-        "https://flexchat-app.vercel.app",
-        "https://www.flexchat-app.vercel.app",
-      ],
+      origin: ["https://flexchat-app.vercel.app","https://www.flexchat-app.vercel.app"],
       methods: ["GET", "POST"],
       credentials: true,
     },
