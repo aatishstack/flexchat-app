@@ -165,5 +165,5 @@ serverApp.log.info(
     host: HOST,
     port: PORT,
   },
-  `FlexChat server running on port ${PORT}`
+  `FlexChat server running on port ${PORT}`,
 );

@@ -21,7 +21,7 @@ export function useAppLifecycle() {
     function reconnectIfNeeded() {
       const token = tokenStorage.get();
 
-      if (token && !socket.connected) {
+      if (token && !socket.connected && !socket.active) {
         connectSocket(token);
       }
     }

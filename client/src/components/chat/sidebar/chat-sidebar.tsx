@@ -11,11 +11,10 @@ import {
 } from "react";
 
 import {
-  Archive,
   AlertTriangle,
+  Ban,
   BellOff,
   LogOut,
-  MailPlus,
   MessageCircle,
   Pin,
   Search,
@@ -43,11 +42,9 @@ import FlexAvatar from "@/components/chat/flex-avatar";
 import { clearClientSession } from "@/lib/session-cleanup";
 import {
   deleteConversation,
-  setConversationArchived,
 } from "@/services/conversation.service";
 import {
   removeConversationFromQueryCache,
-  updateConversationInQueryCache,
 } from "@/lib/conversation-query-cache";
 import type {
   ConversationQueryCache,
@@ -364,12 +361,8 @@ export default function ChatSidebar() {
     setActionConversation,
   ] = useState<Conversation | null>(null);
   const [
-    archivePendingConversationId,
-    setArchivePendingConversationId,
-  ] = useState<string | null>(null);
-  const [
-    deletePendingConversationId,
-    setDeletePendingConversationId,
+    clearPendingConversationId,
+    setClearPendingConversationId,
   ] = useState<string | null>(null);
   const [
     hiddenConversationIds,
@@ -380,6 +373,12 @@ export default function ChatSidebar() {
   const [
     mutedConversationIds,
     setMutedConversationIds,
+  ] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [
+    blockedConversationIds,
+    setBlockedConversationIds,
   ] = useState<Set<string>>(
     () => new Set()
   );
@@ -534,69 +533,7 @@ export default function ChatSidebar() {
       setActionConversation(null);
     }, []);
 
-  const handleArchiveConversation =
-    useCallback(async () => {
-      if (!actionConversation) {
-        return;
-      }
-
-      const nextArchived =
-        !actionConversation.archivedAt;
-
-      setArchivePendingConversationId(
-        actionConversation.id
-      );
-
-      try {
-        const conversation =
-          await setConversationArchived(
-            actionConversation.id,
-            nextArchived
-          );
-
-        queryClient.setQueryData<ConversationQueryCache>(
-          queryKeys.conversations.all,
-          (cache) =>
-            updateConversationInQueryCache(
-              cache,
-              conversation.id,
-              () => conversation
-            )
-        );
-
-        useConversationStore.setState(
-          (state) => ({
-            activeConversationId:
-              nextArchived &&
-              state.activeConversationId ===
-                actionConversation.id
-                ? null
-                : state.activeConversationId,
-            conversationPatches: {
-              ...state.conversationPatches,
-              [conversation.id]: {
-                ...state.conversationPatches[
-                  conversation.id
-                ],
-                archivedAt:
-                  conversation.archivedAt ??
-                  null,
-              },
-            },
-          })
-        );
-
-        closeConversationActions();
-      } finally {
-        setArchivePendingConversationId(null);
-      }
-    }, [
-      actionConversation,
-      closeConversationActions,
-      queryClient,
-    ]);
-
-  const handleDeleteConversation =
+  const handleClearConversation =
     useCallback(async () => {
       if (!actionConversation) {
         return;
@@ -605,7 +542,7 @@ export default function ChatSidebar() {
       const conversationId =
         actionConversation.id;
 
-      setDeletePendingConversationId(
+      setClearPendingConversationId(
         conversationId
       );
 
@@ -669,13 +606,13 @@ export default function ChatSidebar() {
           return next;
         });
         pushToast({
-          title: "Could not delete chat",
+          title: "Could not clear chat",
           message:
             "Please try again in a moment.",
           variant: "error",
         });
       } finally {
-        setDeletePendingConversationId(null);
+        setClearPendingConversationId(null);
       }
     }, [
       actionConversation,
@@ -683,6 +620,47 @@ export default function ChatSidebar() {
       closeConversationActions,
       pushToast,
       queryClient,
+    ]);
+
+  const handleToggleBlock =
+    useCallback(() => {
+      if (!actionConversation) {
+        return;
+      }
+
+      const wasBlocked =
+        blockedConversationIds.has(
+          actionConversation.id
+        );
+
+      setBlockedConversationIds((current) => {
+        const next = new Set(current);
+
+        if (wasBlocked) {
+          next.delete(actionConversation.id);
+        } else {
+          next.add(actionConversation.id);
+        }
+
+        return next;
+      });
+
+      pushToast({
+        title: wasBlocked
+          ? "Conversation unblocked"
+          : "Conversation blocked",
+        message: wasBlocked
+          ? "Messages from this chat are no longer locally blocked."
+          : "This chat is locally blocked on this device.",
+        variant: "info",
+      });
+
+      closeConversationActions();
+    }, [
+      actionConversation,
+      blockedConversationIds,
+      closeConversationActions,
+      pushToast,
     ]);
 
   const handleToggleMute =
@@ -708,29 +686,31 @@ export default function ChatSidebar() {
       closeConversationActions,
     ]);
 
-  const handleMarkUnread =
+  const handleSeeProfile =
     useCallback(() => {
       if (!actionConversation) {
         return;
       }
 
-      useConversationStore
-        .getState()
-        .updateConversationMessage(
-          actionConversation.id,
-          actionConversation.latestMessage ??
-            "Unread conversation",
-          {
-            unreadCount: Math.max(
-              1,
-              actionConversation.unreadCount ?? 0
-            ),
-          }
-        );
+      handleSelectConversation(
+        actionConversation
+      );
       closeConversationActions();
+      window.dispatchEvent(
+        new CustomEvent(
+          "flexchat:open-conversation-profile",
+          {
+            detail: {
+              conversationId:
+                actionConversation.id,
+            },
+          }
+        )
+      );
     }, [
       actionConversation,
       closeConversationActions,
+      handleSelectConversation,
     ]);
 
   const confirmLogout =
@@ -782,10 +762,6 @@ export default function ChatSidebar() {
                 <h1 className="text-xl font-bold text-white">
                   FlexChat
                 </h1>
-
-                <p className="text-sm text-zinc-400">
-                  Premium Messaging
-                </p>
               </div>
             </div>
 
@@ -1021,22 +997,33 @@ export default function ChatSidebar() {
               <div className="grid gap-2 p-3">
                 <button
                   type="button"
-                  onClick={
-                    handleArchiveConversation
-                  }
-                  disabled={
-                    archivePendingConversationId ===
-                    actionConversation.id
-                  }
+                  onClick={handleToggleBlock}
                   className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-zinc-100 transition hover:bg-white/[0.07]"
                 >
-                  <Archive
+                  <Ban
                     size={18}
                     className="text-purple-200"
                   />
-                  {actionConversation.archivedAt
-                    ? "Unarchive"
-                    : "Archive"}
+                  {blockedConversationIds.has(
+                    actionConversation.id
+                  )
+                    ? "Unblock"
+                    : "Block"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    handleClearConversation
+                  }
+                  disabled={
+                    clearPendingConversationId ===
+                    actionConversation.id
+                  }
+                  className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-red-100 transition hover:bg-red-500/15"
+                >
+                  <Trash2 size={18} />
+                  Clear Chat
                 </button>
 
                 <button
@@ -1057,29 +1044,14 @@ export default function ChatSidebar() {
 
                 <button
                   type="button"
-                  onClick={handleMarkUnread}
+                  onClick={handleSeeProfile}
                   className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-zinc-100 transition hover:bg-white/[0.07]"
                 >
-                  <MailPlus
+                  <UserRound
                     size={18}
                     className="text-purple-200"
                   />
-                  Mark unread
-                </button>
-
-                <button
-                  type="button"
-                  onClick={
-                    handleDeleteConversation
-                  }
-                  disabled={
-                    deletePendingConversationId ===
-                    actionConversation.id
-                  }
-                  className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-red-100 transition hover:bg-red-500/15"
-                >
-                  <Trash2 size={18} />
-                  Delete chat
+                  See Profile
                 </button>
               </div>
             </motion.div>

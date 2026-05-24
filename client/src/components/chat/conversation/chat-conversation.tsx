@@ -2051,6 +2051,42 @@ export default function ChatConversation({
       }),
     );
   }, [activeTheme.id]);
+
+  useEffect(() => {
+    function handleOpenConversationProfile(event: Event) {
+      const detail =
+        (event as CustomEvent<{
+          conversationId?: string;
+        }>).detail ?? {};
+      const currentConversationId =
+        useConversationStore.getState()
+          .activeConversationId;
+
+      if (
+        detail.conversationId &&
+        currentConversationId &&
+        detail.conversationId !==
+          currentConversationId
+      ) {
+        return;
+      }
+
+      setProfileOpen(true);
+    }
+
+    window.addEventListener(
+      "flexchat:open-conversation-profile",
+      handleOpenConversationProfile,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "flexchat:open-conversation-profile",
+        handleOpenConversationProfile,
+      );
+    };
+  }, []);
+
   const compactChat = !!discoverOpen && !!activeNowOpen;
   const headerActionClass = `flex shrink-0 items-center justify-center border border-white/10 bg-white/[0.04] text-zinc-200 transition hover:border-purple-400/30 hover:bg-purple-500/[0.15] disabled:cursor-not-allowed disabled:opacity-40 ${
     compactChat ? "h-9 w-9 rounded-xl" : "h-11 w-11 rounded-2xl"

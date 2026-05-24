@@ -116,9 +116,11 @@ export const SOCKET_EVENTS = {
   CALL_END:
     "call:end",
 
+  // FIX: was "call:end" (collision with CALL_END)
   CALL_ENDED:
-    "call:end",
+    "call:ended",
 
+  // FIX: was "call:answer" (wrong event string)
   CALL_OFFER:
     "call:offer",
 

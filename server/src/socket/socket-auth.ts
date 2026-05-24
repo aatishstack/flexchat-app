@@ -11,7 +11,7 @@ import { verifyToken } from "../lib/jwt.js";
 
 export async function authenticateSocket(
   socket: Socket,
-) {
+): Promise<boolean> {
   let token =
     socket.handshake.auth?.token;
 
@@ -45,7 +45,7 @@ export async function authenticateSocket(
       },
     );
 
-    return "unauthorized" as const;
+    return false;
   }
 
   let decoded: ReturnType<typeof verifyToken>;
@@ -65,7 +65,7 @@ export async function authenticateSocket(
       },
     );
 
-    return "unauthorized" as const;
+    return false;
   }
 
   try {
@@ -96,14 +96,14 @@ export async function authenticateSocket(
         },
       );
 
-      return "unauthorized" as const;
+      return false;
     }
 
     socket.data.user = {
       id: decoded.id,
     };
 
-    return "authorized" as const;
+    return true;
   } catch (error) {
     console.error(
       "Socket auth unavailable: user lookup failed",
@@ -118,6 +118,6 @@ export async function authenticateSocket(
       },
     );
 
-    return "unavailable" as const;
+    return false;
   }
 }

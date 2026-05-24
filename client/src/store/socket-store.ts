@@ -378,10 +378,13 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
     const currentToken = get().token;
 
-    if (socket.connected && currentToken === nextToken) {
+    if (
+      (socket.connected || socket.active) &&
+      currentToken === nextToken
+    ) {
       set({
-        isConnected: true,
-        isConnecting: false,
+        isConnected: socket.connected,
+        isConnecting: socket.active && !socket.connected,
         connectionError: null,
       });
 

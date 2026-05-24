@@ -83,10 +83,6 @@ export default function ChatShell({
             <h2 className="font-semibold">
               FlexChat
             </h2>
-
-            <p className="text-xs text-zinc-400">
-              Premium Messaging
-            </p>
           </div>
         </div>
 
