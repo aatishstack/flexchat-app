@@ -2,7 +2,7 @@ FROM node:22-alpine AS deps
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY server/package*.json ./
 
 RUN npm ci
 
@@ -10,7 +10,8 @@ FROM deps AS builder
 
 WORKDIR /app
 
-COPY . .
+COPY server/tsconfig.json ./tsconfig.json
+COPY server/src ./src
 
 RUN npm run build
 
@@ -21,7 +22,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
 
-COPY package*.json ./
+COPY server/package*.json ./
 
 RUN npm ci
 

@@ -79,7 +79,27 @@ export async function buildApp() {
   });
   const corsOrigin = buildCorsOrigin();
 
+  app.get(
+    "/health",
+    {
+      logLevel: "silent",
+      config: {
+        rateLimit: false,
+      },
+    },
+    async (_request, reply) => {
+      return reply
+        .code(200)
+        .type("text/plain")
+        .send("ok");
+    },
+  );
+
   app.addHook("onRequest", async (request) => {
+    if (request.url === "/health") {
+      return;
+    }
+
     const origin = request.headers.origin;
 
     request.log.info(
@@ -110,6 +130,10 @@ export async function buildApp() {
   });
 
   app.addHook("onResponse", async (request, reply) => {
+    if (request.url === "/health") {
+      return;
+    }
+
     if (reply.statusCode < 400) {
       return;
     }
@@ -128,6 +152,10 @@ export async function buildApp() {
   });
 
   app.addHook("onError", async (request, _reply, error) => {
+    if (request.url === "/health") {
+      return;
+    }
+
     request.log.error(
       {
         err: error,
@@ -176,23 +204,6 @@ export async function buildApp() {
       message: "FlexChat API running",
     };
   });
-
-  app.get(
-    "/health",
-    {
-      config: {
-        rateLimit: false,
-      },
-    },
-    async (_request, reply) => {
-      reply.header("cache-control", "no-store");
-
-      return {
-        status: "ok",
-        ts: Date.now(),
-      };
-    },
-  );
 
   app.get("/ready", async (request, reply) => {
     try {

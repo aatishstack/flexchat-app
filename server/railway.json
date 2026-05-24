@@ -4,8 +4,6 @@
     "builder": "DOCKERFILE",
     "dockerfilePath": "Dockerfile",
     "watchPatterns": [
-      "/Dockerfile",
-      "/railway.json",
       "/server/**"
     ]
   },

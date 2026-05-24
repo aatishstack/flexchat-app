@@ -1,0 +1,13 @@
+.git
+.codex-logs
+.history
+client
+node_modules
+public
+src
+server/.env
+server/dist
+server/node_modules
+server/npm-debug.log*
+server/uploads
+npm-debug.log*

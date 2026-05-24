@@ -18,7 +18,7 @@ const envSchema = z.object({
         "production",
       ])
       .default("development"),
-  PORT: z.coerce.number().default(5000),
+  PORT: z.coerce.number().default(8080),
   HOST:
     z.string().default("0.0.0.0"),
   CORS_ORIGIN:

@@ -1,68 +1,25 @@
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
 import { buildApp } from "./app.js";
 import { closeDb } from "./db/index.js";
 import { setupSocket } from "./socket/index.js";
 
-const app = await buildApp();
-
-const io = setupSocket(app.server);
-
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DEFAULT_PORT = 8080;
+const HOST = "0.0.0.0";
+let app: Awaited<ReturnType<typeof buildApp>> | undefined;
+let io: ReturnType<typeof setupSocket> | undefined;
 let shuttingDown = false;
-
-async function shutdown(signal: string) {
-  if (shuttingDown) {
-    return;
-  }
-
-  shuttingDown = true;
-
-  app.log.info(
-    {
-      signal,
-    },
-    "FlexChat shutdown started"
-  );
-
-  try {
-    await new Promise<void>((resolve) => {
-      io.close(() => resolve());
-    });
-
-    await app.close();
-    await closeDb();
-
-    app.log.info(
-      "FlexChat shutdown completed"
-    );
-
-    process.exit(0);
-  } catch (error) {
-    app.log.error(
-      {
-        err: error,
-      },
-      "FlexChat shutdown failed"
-    );
-
-    process.exit(1);
-  }
-}
-
-process.on("SIGTERM", () => {
-  void shutdown("SIGTERM");
-});
-
-process.on("SIGINT", () => {
-  void shutdown("SIGINT");
-});
 
 process.on(
   "unhandledRejection",
   (reason) => {
-    app.log.error(
-      {
-        err: reason,
-      },
-      "Unhandled promise rejection"
+    console.error(
+      "Unhandled promise rejection",
+      reason,
     );
   }
 );
@@ -70,19 +27,32 @@ process.on(
 process.on(
   "uncaughtException",
   (error) => {
-    app.log.error(
-      {
-        err: error,
-      },
-      "Uncaught exception"
+    console.error(
+      "Uncaught exception",
+      error,
     );
 
     void shutdown("uncaughtException");
   }
 );
 
-const DEFAULT_PORT = 5000;
-const HOST = "0.0.0.0";
+function logRuntimeDiagnostics() {
+  const diagnostics = {
+    cwd: process.cwd(),
+    dirname: __dirname,
+    filename: __filename,
+    nodeEnv: process.env.NODE_ENV,
+    portEnv: process.env.PORT,
+    distIndexExists: fs.existsSync("./dist/index.js"),
+    packageJsonExists: fs.existsSync("./package.json"),
+    nodeModulesExists: fs.existsSync("./node_modules"),
+  };
+
+  console.info(
+    "FlexChat runtime diagnostics",
+    diagnostics,
+  );
+}
 
 function getPort() {
   if (!process.env.PORT) {
@@ -104,9 +74,70 @@ function getPort() {
   return port;
 }
 
+logRuntimeDiagnostics();
+
+const serverApp = await buildApp();
+
+app = serverApp;
+io = setupSocket(serverApp.server);
+
+async function shutdown(signal: string) {
+  if (shuttingDown) {
+    return;
+  }
+
+  shuttingDown = true;
+
+  const logger = app?.log ?? console;
+
+  logger.info(
+    {
+      signal,
+    },
+    "FlexChat shutdown started"
+  );
+
+  try {
+    if (io) {
+      await new Promise<void>((resolve) => {
+        io?.close(() => resolve());
+      });
+    }
+
+    if (app) {
+      await app.close();
+    }
+
+    await closeDb();
+
+    logger.info(
+      "FlexChat shutdown completed"
+    );
+
+    process.exit(0);
+  } catch (error) {
+    logger.error(
+      {
+        err: error,
+      },
+      "FlexChat shutdown failed"
+    );
+
+    process.exit(1);
+  }
+}
+
+process.on("SIGTERM", () => {
+  void shutdown("SIGTERM");
+});
+
+process.on("SIGINT", () => {
+  void shutdown("SIGINT");
+});
+
 const PORT = getPort();
 
-app.log.info(
+serverApp.log.info(
   {
     host: HOST,
     port: PORT,
@@ -114,12 +145,12 @@ app.log.info(
   "FlexChat server starting"
 );
 
-const address = await app.listen({
+const address = await serverApp.listen({
   port: PORT,
   host: HOST,
 });
 
-app.log.info(
+serverApp.log.info(
   {
     address,
     host: HOST,
