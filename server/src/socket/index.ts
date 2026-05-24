@@ -3,6 +3,7 @@ import type { Server as HttpServer } from "http";
 import { Server } from "socket.io";
 import { sql } from "drizzle-orm";
 
+import { env } from "../config/env.js";
 import { db } from "../db/index.js";
 import { authenticateSocket } from "./socket-auth.js";
 import { SOCKET_EVENTS } from "./socket-events.js";
@@ -18,17 +19,28 @@ import { registerTypingHandlers } from "./handlers/typing.handler.js";
 import { registerCallHandlers } from "./handlers/call.handler.js";
 import { setSocketServer } from "./socket-hub.js";
 
+function buildAllowedOrigins() {
+  return Array.from(
+    new Set([
+      ...env.CORS_ORIGIN
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+      "http://localhost:3000",
+    ]),
+  );
+}
+
 export function setupSocket(server: HttpServer) {
   const io = new Server(server, {
     path: "/socket.io/",
     cors: {
-      origin: [
-        "https://flexchat-app.vercel.app",
-        "https://www.flexchat-app.vercel.app",
-      ],
+      origin: buildAllowedOrigins(),
       methods: ["GET", "POST"],
       credentials: true,
     },
+    pingInterval: env.SOCKET_PING_INTERVAL_MS,
+    pingTimeout: env.SOCKET_PING_TIMEOUT_MS,
     transports: ["polling", "websocket"],
     allowUpgrades: true,
     connectionStateRecovery: {

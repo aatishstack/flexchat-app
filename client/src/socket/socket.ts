@@ -2,10 +2,24 @@ import { io, type Socket } from "socket.io-client";
 
 import { tokenStorage } from "@/lib/token";
 
-const SOCKET_URL =
-  typeof window !== "undefined"
-    ? window.location.origin
-    : "https://flexchat-app-production.up.railway.app";
+function resolveSocketUrl() {
+  const configuredUrl =
+    process.env.NEXT_PUBLIC_SOCKET_URL?.trim();
+
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+
+  if (
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1")
+  ) {
+    return "http://localhost:5000";
+  }
+
+  return "https://flexchat-app-production.up.railway.app";
+}
 
 const globalSocket =
   globalThis as typeof globalThis & {
@@ -14,19 +28,19 @@ const globalSocket =
 
 export const socket =
   globalSocket.__flexchatSocket ??
-  io(SOCKET_URL, {
+  io(resolveSocketUrl(), {
     path: "/socket.io/",
-    autoConnect: true,
+    autoConnect: false,
     transports: [
-      "polling",
       "websocket",
+      "polling",
     ],
     upgrade: true,
     forceNew: false,
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
-    reconnectionDelayMax: 5000,
+    reconnectionDelayMax: 8000,
     timeout: 30000,
     withCredentials: false,
     auth: {

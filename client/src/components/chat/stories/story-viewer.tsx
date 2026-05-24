@@ -135,6 +135,10 @@ export default function StoryViewer({
     useState("");
   const [isSendingReply, setIsSendingReply] =
     useState(false);
+  const [
+    loadedMediaStoryId,
+    setLoadedMediaStoryId,
+  ] = useState<string | undefined>();
   const now = useServerNow();
   const [
     videoDuration,
@@ -152,6 +156,8 @@ export default function StoryViewer({
     useRef(0);
   const videoRef =
     useRef<HTMLVideoElement | null>(null);
+  const videoEndedRef =
+    useRef(false);
   const queryClient = useQueryClient();
   const pushToast =
     useToastStore(
@@ -176,6 +182,10 @@ export default function StoryViewer({
     currentStory?.id;
   const currentStoryMediaType =
     currentStory?.mediaType;
+  const mediaLoading =
+    (currentStoryMediaType === "image" ||
+      currentStoryMediaType === "video") &&
+    loadedMediaStoryId !== currentStoryId;
   const isOwnStory =
     currentStory?.userId === currentUserId;
   const timerPaused =
@@ -184,7 +194,8 @@ export default function StoryViewer({
     !!replyText.trim() ||
     isSendingReply ||
     deleteConfirmOpen ||
-    viewerListOpen;
+    viewerListOpen ||
+    mediaLoading;
   const duration =
     currentStory?.mediaType === "video"
       ? videoDuration.storyId ===
@@ -434,6 +445,7 @@ export default function StoryViewer({
     }
 
     progressRef.current = 0;
+    videoEndedRef.current = false;
 
     const frameId =
       requestAnimationFrame(() => {
@@ -444,7 +456,10 @@ export default function StoryViewer({
     return () => {
       cancelAnimationFrame(frameId);
     };
-  }, [currentStoryId]);
+  }, [
+    currentStoryId,
+    currentStoryMediaType,
+  ]);
 
   useEffect(() => {
     progressRef.current = progress;
@@ -475,7 +490,10 @@ export default function StoryViewer({
       setProgress(nextProgress);
 
       if (nextProgress >= 1) {
-        goNext();
+        if (!videoEndedRef.current) {
+          goNext();
+        }
+
         return;
       }
 
@@ -731,9 +749,14 @@ export default function StoryViewer({
                 key={currentStory.id}
                 src={currentStory.mediaUrl}
                 autoPlay
+                muted
                 playsInline
                 controls={false}
                 onLoadedMetadata={(event) => {
+                  setLoadedMediaStoryId(
+                    currentStory.id
+                  );
+
                   const durationSeconds =
                     event.currentTarget.duration;
 
@@ -757,7 +780,15 @@ export default function StoryViewer({
                     });
                   }
                 }}
-                onEnded={goNext}
+                onCanPlay={() =>
+                  setLoadedMediaStoryId(
+                    currentStory.id
+                  )
+                }
+                onEnded={() => {
+                  videoEndedRef.current = true;
+                  goNext();
+                }}
                 onError={goNext}
                 className="h-full w-full bg-black object-cover"
               />
@@ -767,9 +798,24 @@ export default function StoryViewer({
                 key={currentStory.id}
                 src={currentStory.mediaUrl}
                 alt=""
+                loading="eager"
+                onLoad={() =>
+                  setLoadedMediaStoryId(
+                    currentStory.id
+                  )
+                }
                 onError={goNext}
                 className="h-full w-full bg-black object-cover"
               />
+            )}
+
+            {mediaLoading && (
+              <div className="absolute inset-0 z-[15] flex items-center justify-center bg-black/60">
+                <Loader2
+                  size={32}
+                  className="text-white/70 motion-safe:animate-spin"
+                />
+              </div>
             )}
 
             {currentStory.caption && currentStory.mediaType !== "text" ? (

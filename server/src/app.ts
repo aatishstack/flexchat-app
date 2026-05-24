@@ -20,6 +20,25 @@ import { userRoutes } from "./routes/user.route.js";
 import { getSocketServer } from "./socket/socket-hub.js";
 import { SOCKET_EVENTS } from "./socket/socket-events.js";
 
+function buildCorsOrigin() {
+  if (env.NODE_ENV !== "production") {
+    return true;
+  }
+
+  if (!process.env.CORS_ORIGIN?.trim()) {
+    console.warn(
+      "CORS_ORIGIN is not set in production; allowing all origins.",
+    );
+
+    return true;
+  }
+
+  return env.CORS_ORIGIN
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
 export async function buildApp() {
   const uploadsDir = path.resolve(process.cwd(), "uploads");
 
@@ -34,10 +53,14 @@ export async function buildApp() {
             level: "info",
           }
         : true,
+    trustProxy:
+      env.NODE_ENV === "production"
+        ? 1
+        : false,
   });
 
   await app.register(cors, {
-    origin: true,
+    origin: buildCorsOrigin(),
     credentials: false,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -48,7 +71,11 @@ export async function buildApp() {
     timeWindow: env.RATE_LIMIT_WINDOW,
   });
 
-  await app.register(multipart);
+  await app.register(multipart, {
+    limits: {
+      fileSize: 50 * 1024 * 1024,
+    },
+  });
 
   await app.register(FastifyStatic, {
     root: uploadsDir,
@@ -69,10 +96,24 @@ export async function buildApp() {
     };
   });
 
-  app.get("/health", async () => {
-    return {
-      status: "ok",
-    };
+  app.get("/health", async (_, reply) => {
+    try {
+      await db.execute(sql`select 1`);
+
+      return {
+        status: "ok",
+        db: "ok",
+        ts: Date.now(),
+      };
+    } catch {
+      reply.status(503);
+
+      return {
+        status: "error",
+        db: "unreachable",
+        ts: Date.now(),
+      };
+    }
   });
 
   return app;
