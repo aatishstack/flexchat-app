@@ -38,12 +38,10 @@ function StreamVideo({
   stream,
   muted,
   className,
-  mirrored = false,
 }: {
   stream: MediaStream | null;
   muted?: boolean;
   className?: string;
-  mirrored?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -61,328 +59,9 @@ function StreamVideo({
       autoPlay
       playsInline
       muted={muted}
-      className={[className, mirrored ? "-scale-x-100" : ""]
-        .filter(Boolean)
-        .join(" ")}
+      className={className}
     />
   );
-}
-
-function StreamAudio({
-  stream,
-}: {
-  stream: MediaStream | null;
-}) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [playBlocked, setPlayBlocked] = useState(false);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-
-    if (!audio) {
-      return;
-    }
-
-    audio.srcObject = stream;
-    audio.volume = 1;
-    audio.muted = false;
-
-    if (!stream) {
-      return;
-    }
-
-    const playRemoteAudio = async () => {
-      try {
-        await audio.play();
-        setPlayBlocked(false);
-        console.info("[FlexChat Call] remote audio playback started", {
-          audioTracks: stream.getAudioTracks().map((track) => ({
-            id: track.id,
-            enabled: track.enabled,
-            muted: track.muted,
-            readyState: track.readyState,
-          })),
-        });
-      } catch (error) {
-        setPlayBlocked(true);
-        console.warn("[FlexChat Call] remote audio playback blocked", {
-          message:
-            error instanceof Error
-              ? error.message
-              : "Unknown autoplay failure",
-        });
-      }
-    };
-
-    void playRemoteAudio();
-
-    const handleCanPlay = () => {
-      void playRemoteAudio();
-    };
-
-    audio.addEventListener("canplay", handleCanPlay);
-
-    return () => {
-      audio.removeEventListener("canplay", handleCanPlay);
-    };
-  }, [stream]);
-
-  return (
-    <>
-      <audio
-        ref={audioRef}
-        autoPlay
-        className="hidden"
-      />
-      {playBlocked ? (
-        <button
-          type="button"
-          onClick={() => {
-            void audioRef.current?.play().then(() => {
-              setPlayBlocked(false);
-            });
-          }}
-          className="fixed bottom-28 left-1/2 z-40 -translate-x-1/2 rounded-full bg-cyan-500 px-5 py-3 text-sm font-semibold text-white shadow-2xl shadow-cyan-500/25"
-        >
-          Tap to enable call audio
-        </button>
-      ) : null}
-    </>
-  );
-}
-
-type WakeLockSentinelLike = EventTarget & {
-  released?: boolean;
-  release: () => Promise<void>;
-};
-
-type WakeLockNavigator = Navigator & {
-  wakeLock?: {
-    request: (type: "screen") => Promise<WakeLockSentinelLike>;
-  };
-};
-
-function useCallScreenWakeLock(shouldKeepAwake: boolean) {
-  const sentinelRef = useRef<WakeLockSentinelLike | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const releaseWakeLock = async (reason: string) => {
-      const sentinel = sentinelRef.current;
-
-      sentinelRef.current = null;
-
-      if (!sentinel || sentinel.released) {
-        return;
-      }
-
-      try {
-        await sentinel.release();
-        console.info("[FlexChat Call] screen wake lock released", {
-          reason,
-        });
-      } catch (error) {
-        console.warn("[FlexChat Call] screen wake lock release failed", {
-          reason,
-          message:
-            error instanceof Error
-              ? error.message
-              : "Unknown wake lock release failure",
-        });
-      }
-    };
-
-    const requestWakeLock = async () => {
-      if (
-        !shouldKeepAwake ||
-        document.visibilityState !== "visible" ||
-        sentinelRef.current
-      ) {
-        return;
-      }
-
-      const wakeLock = (navigator as WakeLockNavigator).wakeLock;
-
-      if (!wakeLock) {
-        console.info("[FlexChat Call] screen wake lock unavailable");
-        return;
-      }
-
-      try {
-        const sentinel = await wakeLock.request("screen");
-
-        if (cancelled || !shouldKeepAwake) {
-          await sentinel.release();
-          return;
-        }
-
-        sentinelRef.current = sentinel;
-
-        sentinel.addEventListener(
-          "release",
-          () => {
-            if (sentinelRef.current === sentinel) {
-              sentinelRef.current = null;
-            }
-
-            console.info("[FlexChat Call] screen wake lock released by browser");
-          },
-          {
-            once: true,
-          },
-        );
-
-        console.info("[FlexChat Call] screen wake lock acquired", {
-          mode: "video-call",
-        });
-      } catch (error) {
-        console.warn("[FlexChat Call] screen wake lock request failed", {
-          message:
-            error instanceof Error
-              ? error.message
-              : "Unknown wake lock request failure",
-        });
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible" && shouldKeepAwake) {
-        void requestWakeLock();
-        return;
-      }
-
-      void releaseWakeLock("visibility-hidden");
-    };
-
-    if (shouldKeepAwake) {
-      void requestWakeLock();
-    } else {
-      void releaseWakeLock("not-needed");
-    }
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      cancelled = true;
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      void releaseWakeLock("cleanup");
-    };
-  }, [shouldKeepAwake]);
-}
-
-type ProximitySensorLike = EventTarget & {
-  distance?: number | null;
-  near?: boolean;
-  start: () => void;
-  stop: () => void;
-};
-
-type ProximitySensorConstructor = new () => ProximitySensorLike;
-
-function useAudioCallProximityMode(active: boolean) {
-  const [isNearEar, setIsNearEar] = useState(false);
-
-  useEffect(() => {
-    if (!active) {
-      return;
-    }
-
-    let sensor: ProximitySensorLike | null = null;
-
-    const updateNearEar = (nextNearEar: boolean, source: string) => {
-      setIsNearEar(nextNearEar);
-      console.info("[FlexChat Call] proximity state", {
-        nearEar: nextNearEar,
-        source,
-      });
-    };
-
-    const handleUserProximity = (event: Event) => {
-      updateNearEar(
-        Boolean((event as Event & { near?: boolean }).near),
-        "userproximity",
-      );
-    };
-
-    const handleDeviceProximity = (event: Event) => {
-      const proximityEvent = event as Event & {
-        value?: number;
-        min?: number;
-        max?: number;
-      };
-      const value = proximityEvent.value;
-
-      if (typeof value !== "number") {
-        return;
-      }
-
-      const min =
-        typeof proximityEvent.min === "number" ? proximityEvent.min : 0;
-      const max =
-        typeof proximityEvent.max === "number" ? proximityEvent.max : 10;
-      const nearThreshold = Math.max(3, min + (max - min) * 0.2);
-
-      updateNearEar(value <= nearThreshold, "deviceproximity");
-    };
-
-    window.addEventListener("userproximity", handleUserProximity);
-    window.addEventListener("deviceproximity", handleDeviceProximity);
-
-    const SensorConstructor = (
-      window as typeof window & {
-        ProximitySensor?: ProximitySensorConstructor;
-      }
-    ).ProximitySensor;
-
-    if (SensorConstructor) {
-      try {
-        sensor = new SensorConstructor();
-
-        const handleReading = () => {
-          const near =
-            typeof sensor?.near === "boolean"
-              ? sensor.near
-              : typeof sensor?.distance === "number"
-                ? sensor.distance <= 5
-                : false;
-
-          updateNearEar(near, "ProximitySensor");
-        };
-
-        const handleSensorError = (event: Event) => {
-          console.warn("[FlexChat Call] proximity sensor error", {
-            message:
-              (event as Event & { error?: Error }).error?.message ??
-              "Unknown proximity sensor error",
-          });
-        };
-
-        sensor.addEventListener("reading", handleReading);
-        sensor.addEventListener("error", handleSensorError);
-        sensor.start();
-
-        console.info("[FlexChat Call] proximity sensor active");
-      } catch (error) {
-        console.warn("[FlexChat Call] proximity sensor unavailable", {
-          message:
-            error instanceof Error
-              ? error.message
-              : "Unknown proximity sensor failure",
-        });
-      }
-    } else {
-      console.info("[FlexChat Call] proximity sensor API unavailable");
-    }
-
-    return () => {
-      window.removeEventListener("userproximity", handleUserProximity);
-      window.removeEventListener("deviceproximity", handleDeviceProximity);
-      sensor?.stop();
-    };
-  }, [active]);
-
-  return active && isNearEar;
 }
 
 function CallErrorModal() {
@@ -582,7 +261,6 @@ function CallScreen({
     answerKind,
     isMuted,
     isVideoEnabled,
-    currentFacingMode,
     networkState,
     toggleMute,
     toggleVideo,
@@ -609,7 +287,6 @@ function CallScreen({
   const [, forceTrackUpdate] = useState(0);
   const isVideoCall = currentCall?.kind === "video" && answerKind !== "voice";
   const remoteVideoTrack = remoteStream?.getVideoTracks()[0] ?? null;
-  const remoteAudioTrack = remoteStream?.getAudioTracks()[0] ?? null;
   const hasRemoteVideo =
     isVideoCall &&
     !!remoteVideoTrack &&
@@ -617,12 +294,6 @@ function CallScreen({
     remoteVideoTrack.readyState === "live";
   const hasSelfVideo =
     isVideoCall && !!localStream?.getVideoTracks().length;
-  const mirrorLocalVideo = currentFacingMode === "user";
-  const isAudioNearEar = useAudioCallProximityMode(
-    !isVideoCall && phase !== "idle",
-  );
-
-  useCallScreenWakeLock(isVideoCall && phase !== "idle");
 
   useEffect(() => {
     if (!remoteVideoTrack) {
@@ -641,31 +312,6 @@ function CallScreen({
       remoteVideoTrack.removeEventListener("ended", update);
     };
   }, [remoteVideoTrack]);
-
-  useEffect(() => {
-    if (!remoteAudioTrack) {
-      return;
-    }
-
-    const update = () => forceTrackUpdate((count) => count + 1);
-
-    console.info("[FlexChat Call] remote audio track attached", {
-      id: remoteAudioTrack.id,
-      enabled: remoteAudioTrack.enabled,
-      muted: remoteAudioTrack.muted,
-      readyState: remoteAudioTrack.readyState,
-    });
-
-    remoteAudioTrack.addEventListener("mute", update);
-    remoteAudioTrack.addEventListener("unmute", update);
-    remoteAudioTrack.addEventListener("ended", update);
-
-    return () => {
-      remoteAudioTrack.removeEventListener("mute", update);
-      remoteAudioTrack.removeEventListener("unmute", update);
-      remoteAudioTrack.removeEventListener("ended", update);
-    };
-  }, [remoteAudioTrack]);
 
   function beginDrag(event: ReactPointerEvent<HTMLDivElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -715,15 +361,6 @@ function CallScreen({
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[9998] bg-[#1a1a1a] text-white"
     >
-      <StreamAudio stream={remoteStream} />
-
-      {isAudioNearEar ? (
-        <div
-          aria-hidden
-          className="fixed inset-0 z-50 bg-black"
-        />
-      ) : null}
-
       {hasRemoteVideo ? (
         <StreamVideo
           stream={remoteStream}
@@ -759,7 +396,6 @@ function CallScreen({
           <StreamVideo
             stream={localStream}
             muted
-            mirrored={mirrorLocalVideo}
             className="h-full w-full object-cover"
           />
         </div>

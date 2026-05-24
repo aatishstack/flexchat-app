@@ -6,12 +6,13 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { queryKeys } from "@/lib/query-keys";
 import { tokenStorage } from "@/lib/token";
+import { socket } from "@/socket/socket";
 import { useSocketStore } from "@/store/socket-store";
 
 export function useAppLifecycle() {
   const queryClient = useQueryClient();
-  const recoverSocketConnection = useSocketStore(
-    (state) => state.recoverSocketConnection,
+  const connectSocket = useSocketStore(
+    (state) => state.connectSocket,
   );
 
   useEffect(() => {
@@ -19,11 +20,9 @@ export function useAppLifecycle() {
 
     function reconnectIfNeeded() {
       const token = tokenStorage.get();
-      const socket =
-        useSocketStore.getState().socket;
 
-      if (token && !socket?.connected) {
-        recoverSocketConnection("app-lifecycle");
+      if (token && !socket.connected) {
+        connectSocket(token);
       }
     }
 
@@ -78,7 +77,7 @@ export function useAppLifecycle() {
       window.removeEventListener("focus", onFocus);
     };
   }, [
+    connectSocket,
     queryClient,
-    recoverSocketConnection,
   ]);
 }

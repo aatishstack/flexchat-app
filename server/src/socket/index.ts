@@ -19,50 +19,37 @@ import { registerTypingHandlers } from "./handlers/typing.handler.js";
 import { registerCallHandlers } from "./handlers/call.handler.js";
 import { setSocketServer } from "./socket-hub.js";
 
+function buildAllowedOrigins() {
+  return Array.from(
+    new Set([
+      ...env.CORS_ORIGIN
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+      "http://localhost:3000",
+    ]),
+  );
+}
+
 export function setupSocket(server: HttpServer) {
   const io = new Server(server, {
-    transports: ["websocket"],
-    pingInterval: 18_000,
-    pingTimeout: 8_000,
-    perMessageDeflate: false,
-    maxHttpBufferSize: 1e6,
-    connectTimeout: 10_000,
+    path: "/socket.io/",
     cors: {
-      origin: env.FRONTEND_URL,
+      origin: buildAllowedOrigins(),
       methods: ["GET", "POST"],
-      credentials: true,
-      allowedHeaders: ["Content-Type", "Authorization"],
+      credentials: false,
+    },
+    pingInterval: env.SOCKET_PING_INTERVAL_MS,
+    pingTimeout: env.SOCKET_PING_TIMEOUT_MS,
+    transports: ["websocket", "polling"],
+    allowUpgrades: true,
+    connectionStateRecovery: {
+      maxDisconnectionDuration: 2 * 60 * 1000,
+      skipMiddlewares: false,
     },
   });
 
   setSocketServer(io);
-
-  io.engine.on("connection", (rawSocket) => {
-    console.info("[FlexChat Socket] engine connection", {
-      sid: rawSocket.id,
-      transport: rawSocket.transport.name,
-      upgrades: rawSocket.upgrades,
-      remoteAddress: rawSocket.request.socket.remoteAddress,
-      pingInterval: 18_000,
-      pingTimeout: 8_000,
-      connectTimeout: 10_000,
-    });
-
-    rawSocket.on("upgrade", (transport) => {
-      console.info("[FlexChat Socket] engine transport upgraded", {
-        sid: rawSocket.id,
-        transport: transport.name,
-      });
-    });
-
-    rawSocket.on("close", (reason) => {
-      console.warn("[FlexChat Socket] engine closed", {
-        sid: rawSocket.id,
-        reason,
-        transport: rawSocket.transport.name,
-      });
-    });
-  });
 
   const presenceCleanupTimer = setInterval(() => {
     const previousOnlineUsers = getOnlineUserIds().join(",");
@@ -114,24 +101,10 @@ export function setupSocket(server: HttpServer) {
   presenceCleanupTimer.unref?.();
 
   io.use(async (socket, next) => {
-    console.info("[FlexChat Socket] authenticating socket", {
-      socketId: socket.id,
-      transport: socket.conn.transport.name,
-      hasAuthToken: Boolean(socket.handshake.auth?.token),
-      hasQueryToken: Boolean(socket.handshake.query.token),
-    });
+    const authenticated = await authenticateSocket(socket);
 
-    const authentication =
-      await authenticateSocket(socket);
-
-    if (authentication === "unauthorized") {
+    if (!authenticated) {
       next(new Error("Unauthorized"));
-
-      return;
-    }
-
-    if (authentication === "unavailable") {
-      next(new Error("Auth unavailable"));
 
       return;
     }
@@ -147,21 +120,6 @@ export function setupSocket(server: HttpServer) {
     addOnlineSocket(userId, socket.id);
 
     socket.join(`user:${userId}`);
-
-    console.info("[FlexChat Socket] connected", {
-      socketId: socket.id,
-      userId,
-      transport: socket.conn.transport.name,
-      recovered: socket.recovered,
-    });
-
-    socket.conn.on("upgrade", (transport) => {
-      console.info("[FlexChat Socket] socket transport upgraded", {
-        socketId: socket.id,
-        userId,
-        transport: transport.name,
-      });
-    });
 
     socket.onAny(() => {
       touchOnlineSocket(socket.id);
@@ -185,14 +143,7 @@ export function setupSocket(server: HttpServer) {
 
     registerCallHandlers(io, socket);
 
-    socket.on(SOCKET_EVENTS.DISCONNECT, (reason) => {
-      console.warn("[FlexChat Socket] disconnected", {
-        socketId: socket.id,
-        userId,
-        reason,
-        transport: socket.conn.transport.name,
-      });
-
+    socket.on(SOCKET_EVENTS.DISCONNECT, () => {
       const previousOnlineUsers = getOnlineUserIds().join(",");
 
       const removedUserId = removeOnlineSocket(socket.id);

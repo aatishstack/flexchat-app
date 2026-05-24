@@ -2,12 +2,8 @@
 
 import { create } from "zustand";
 
-import {
-  getActiveSocket,
-  getSocket,
-} from "@/socket/socket";
+import { socket } from "@/socket/socket";
 import { SOCKET_EVENTS } from "@/socket/socket-events";
-import { tokenStorage } from "@/lib/token";
 import { useToastStore } from "@/store/toast-store";
 import { useAuthStore } from "@/stores/auth.store";
 
@@ -61,7 +57,6 @@ interface CallState {
   answerKind: CallKind | null;
   isMuted: boolean;
   isVideoEnabled: boolean;
-  currentFacingMode: "user" | "environment";
   isMinimized: boolean;
   networkState: CallNetworkState;
   error: string | null;
@@ -103,7 +98,6 @@ let disconnectedIceRestartTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const CALL_CONNECT_TIMEOUT_MS = 30_000;
 const DISCONNECTED_ICE_RESTART_DELAY_MS = 5_000;
-const CALL_SIGNAL_ACK_TIMEOUT_MS = 25_000;
 
 function parseIceUrls(value?: string) {
   return (value ?? "")
@@ -142,31 +136,7 @@ function getIceServers(): RTCIceServer[] {
     });
   }
 
-  console.info("[FlexChat Call] ICE servers configured", {
-    stunCount: stunUrls.length || 2,
-    turnCount: turnUrls.length,
-    hasTurnCredentials: Boolean(
-      process.env.NEXT_PUBLIC_TURN_USERNAME &&
-        process.env.NEXT_PUBLIC_TURN_CREDENTIAL,
-    ),
-  });
-
   return iceServers;
-}
-
-function getIceTransportPolicy(): RTCIceTransportPolicy {
-  return process.env.NEXT_PUBLIC_ICE_TRANSPORT_POLICY === "relay"
-    ? "relay"
-    : "all";
-}
-
-function getCandidateType(
-  candidate?: RTCIceCandidateInit | null,
-) {
-  const candidateLine = candidate?.candidate ?? "";
-  const match = candidateLine.match(/\btyp\s+([a-z0-9]+)/i);
-
-  return match?.[1] ?? "unknown";
 }
 
 function clearConnectionTimers() {
@@ -222,10 +192,6 @@ async function flushPendingIceCandidates() {
   pendingIceCandidates = [];
 
   for (const candidate of candidates) {
-    console.info("[FlexChat Call] flushing queued ICE candidate", {
-      type: getCandidateType(candidate),
-    });
-
     await peerConnection.addIceCandidate(
       candidate
     );
@@ -237,18 +203,8 @@ function emitCallWithAck(
   payload: unknown
 ) {
   return new Promise<CallAck>((resolve) => {
-    const activeSocket = getCallSocket();
-
-    if (!activeSocket) {
-      resolve({
-        ok: false,
-        error: "Realtime connection is not ready",
-      });
-      return;
-    }
-
-    activeSocket
-      .timeout(CALL_SIGNAL_ACK_TIMEOUT_MS)
+    socket
+      .timeout(12000)
       .emit(
         event,
         payload,
@@ -276,39 +232,6 @@ function emitCallWithAck(
   });
 }
 
-function waitForSocketConnected() {
-  const activeSocket = getCallSocket();
-
-  if (activeSocket?.connected) {
-    return Promise.resolve(true);
-  }
-
-  if (!activeSocket) {
-    return Promise.resolve(false);
-  }
-
-  return new Promise<boolean>((resolve) => {
-    const cleanup = () => {
-      activeSocket?.off("connect", handleConnect);
-      activeSocket?.off("connect_error", handleConnectError);
-    };
-
-    const handleConnect = () => {
-      cleanup();
-      resolve(true);
-    };
-
-    const handleConnectError = () => {
-      cleanup();
-      resolve(false);
-    };
-
-    activeSocket.once("connect", handleConnect);
-    activeSocket.once("connect_error", handleConnectError);
-    activeSocket.connect();
-  });
-}
-
 function pushCallToast({
   title,
   message,
@@ -324,34 +247,6 @@ function pushCallToast({
     variant,
     durationMs: 3000,
   });
-}
-
-function getCallSocket() {
-  const activeSocket = getActiveSocket();
-
-  if (activeSocket) {
-    return activeSocket;
-  }
-
-  const token = tokenStorage.get();
-
-  return token ? getSocket(token) : null;
-}
-
-function emitCallEvent(event: string, payload: unknown) {
-  const activeSocket = getCallSocket();
-
-  if (!activeSocket) {
-    pushCallToast({
-      title: "Realtime unavailable",
-      message: "Please wait for FlexChat to reconnect.",
-      variant: "warning",
-    });
-    return false;
-  }
-
-  activeSocket.emit(event, payload);
-  return true;
 }
 
 function getMediaAccessFeedback(
@@ -446,21 +341,8 @@ function emitSignal(
   callId: string,
   signal: SignalPayload
 ) {
-  const activeSocket = getCallSocket();
-
-  console.info("[FlexChat Call] sending signal", {
-    callId,
-    type: signal.type,
-    candidateType:
-      signal.type === "candidate"
-        ? getCandidateType(signal.candidate)
-        : undefined,
-    socketConnected: activeSocket?.connected ?? false,
-    socketId: activeSocket?.id,
-  });
-
   if (signal.type === "offer") {
-    emitCallEvent(SOCKET_EVENTS.CALL_OFFER, {
+    socket.emit(SOCKET_EVENTS.CALL_OFFER, {
       callId,
       description: signal.description,
     });
@@ -468,14 +350,14 @@ function emitSignal(
   }
 
   if (signal.type === "answer") {
-    emitCallEvent(SOCKET_EVENTS.CALL_ANSWER, {
+    socket.emit(SOCKET_EVENTS.CALL_ANSWER, {
       callId,
       description: signal.description,
     });
     return;
   }
 
-  emitCallEvent(SOCKET_EVENTS.CALL_ICE_CANDIDATE, {
+  socket.emit(SOCKET_EVENTS.CALL_ICE_CANDIDATE, {
     callId,
     candidate: signal.candidate,
   });
@@ -539,43 +421,19 @@ async function makePeerConnection(
 
   const pc = new RTCPeerConnection({
     iceServers: getIceServers(),
-    iceTransportPolicy: getIceTransportPolicy(),
     iceCandidatePoolSize: 10,
     bundlePolicy: "max-bundle",
     rtcpMuxPolicy: "require",
   });
 
   localStream.getTracks().forEach((track) => {
-    console.info("[FlexChat Call] adding local track", {
-      callId: call.id,
-      kind: track.kind,
-      enabled: track.enabled,
-      muted: track.muted,
-      readyState: track.readyState,
-    });
-
     pc.addTrack(track, localStream);
   });
 
   pc.onicecandidate = (event) => {
     if (!event.candidate) {
-      console.info("[FlexChat Call] ICE gathering candidate complete", {
-        callId: call.id,
-      });
       return;
     }
-
-    console.info("[FlexChat Call] local ICE candidate", {
-      callId: call.id,
-      type: getCandidateType(event.candidate.toJSON()),
-      protocol: event.candidate.protocol,
-      address:
-        event.candidate.address ??
-        event.candidate.relatedAddress,
-      port:
-        event.candidate.port ??
-        event.candidate.relatedPort,
-    });
 
     emitSignal(call.id, {
       type: "candidate",
@@ -601,18 +459,6 @@ async function makePeerConnection(
 
     remoteMediaStream = remoteStream;
 
-    console.info("[FlexChat Call] remote track received", {
-      callId: call.id,
-      kind: event.track.kind,
-      enabled: event.track.enabled,
-      muted: event.track.muted,
-      readyState: event.track.readyState,
-      streamTrackCounts: {
-        audio: remoteStream.getAudioTracks().length,
-        video: remoteStream.getVideoTracks().length,
-      },
-    });
-
     set({
       remoteStream,
       phase: "active",
@@ -621,11 +467,6 @@ async function makePeerConnection(
   };
 
   pc.onconnectionstatechange = () => {
-    console.info("[FlexChat Call] peer connection state", {
-      callId: call.id,
-      state: pc.connectionState,
-    });
-
     if (
       pc.connectionState === "connected"
     ) {
@@ -658,11 +499,6 @@ async function makePeerConnection(
   };
 
   pc.oniceconnectionstatechange = () => {
-    console.info("[FlexChat Call] ICE connection state", {
-      callId: call.id,
-      state: pc.iceConnectionState,
-    });
-
     if (
       pc.iceConnectionState === "connected" ||
       pc.iceConnectionState === "completed"
@@ -717,20 +553,6 @@ async function makePeerConnection(
     }
   };
 
-  pc.onicegatheringstatechange = () => {
-    console.info("[FlexChat Call] ICE gathering state", {
-      callId: call.id,
-      state: pc.iceGatheringState,
-    });
-  };
-
-  pc.onsignalingstatechange = () => {
-    console.info("[FlexChat Call] signaling state", {
-      callId: call.id,
-      state: pc.signalingState,
-    });
-  };
-
   peerConnection = pc;
   callConnectTimeout = setTimeout(() => {
     if (
@@ -741,7 +563,7 @@ async function makePeerConnection(
       return;
     }
 
-    emitCallEvent(
+    socket.emit(
       SOCKET_EVENTS.CALL_END,
       {
         callId: call.id,
@@ -779,8 +601,6 @@ async function prepareLocalCallMedia(
       isMuted: false,
       isVideoEnabled:
         mediaKind === "video",
-      currentFacingMode:
-        mediaKind === "video" ? preferredFacingMode : "user",
       networkState: "connecting",
     });
   }
@@ -815,7 +635,6 @@ export const useCallStore =
     answerKind: null,
     isMuted: false,
     isVideoEnabled: true,
-    currentFacingMode: "user",
     isMinimized: false,
     networkState: "stable",
     error: null,
@@ -852,26 +671,8 @@ export const useCallStore =
           isMuted: false,
           isVideoEnabled:
             input.kind === "video",
-          currentFacingMode:
-            input.kind === "video" ? preferredFacingMode : "user",
           networkState: "connecting",
         });
-
-        const socketReady = await waitForSocketConnected();
-
-        if (!socketReady) {
-          stopStream(localStream);
-          set({
-            localStream: null,
-            phase: "idle",
-            networkState: "stable",
-            error: null,
-            answerKind: null,
-            modalError:
-              "Realtime connection is still recovering. Please try again in a moment.",
-          });
-          return;
-        }
 
         const ack =
           await emitCallWithAck(
@@ -941,24 +742,6 @@ export const useCallStore =
             set
           );
 
-        const socketReady = await waitForSocketConnected();
-
-        if (!socketReady) {
-          stopStream(localStream);
-          closePeerConnection();
-          set({
-            currentCall: call,
-            localStream: null,
-            remoteStream: null,
-            phase: "incoming",
-            networkState: "reconnecting",
-            error:
-              "Realtime connection is still recovering. Please try again in a moment.",
-            answerKind: null,
-          });
-          return;
-        }
-
         const ack =
           await emitCallWithAck(
             SOCKET_EVENTS.CALL_ACCEPT,
@@ -1013,7 +796,7 @@ export const useCallStore =
         return;
       }
 
-      emitCallEvent(
+      socket.emit(
         SOCKET_EVENTS.CALL_END,
         {
           callId: call.id,
@@ -1028,7 +811,7 @@ export const useCallStore =
       const call = get().currentCall;
 
       if (call) {
-        emitCallEvent(
+        socket.emit(
           SOCKET_EVENTS.CALL_END,
           {
             callId: call.id,
@@ -1044,7 +827,7 @@ export const useCallStore =
       const call = get().currentCall;
 
       if (call) {
-        emitCallEvent(
+        socket.emit(
           SOCKET_EVENTS.CALL_END,
           {
             callId: call.id,
@@ -1122,8 +905,6 @@ export const useCallStore =
 
         if (!nextVideoTrack) {
           stopStream(nextStream);
-          preferredFacingMode =
-            preferredFacingMode === "user" ? "environment" : "user";
           return;
         }
 
@@ -1142,7 +923,6 @@ export const useCallStore =
         set({
           localStream: new MediaStream(localStream.getTracks()),
           isVideoEnabled: true,
-          currentFacingMode: preferredFacingMode,
           error: null,
         });
       } catch (error) {
@@ -1171,7 +951,7 @@ export const useCallStore =
 
     handleIncomingCall: (call) => {
       if (get().currentCall) {
-        emitCallEvent(
+        socket.emit(
           SOCKET_EVENTS.CALL_END,
           {
             callId: call.id,
@@ -1332,19 +1112,6 @@ export const useCallStore =
       }
 
       void (async () => {
-        console.info("[FlexChat Call] received signal", {
-          callId: call.id,
-          type: signal.type,
-          candidateType:
-            signal.type === "candidate"
-              ? getCandidateType(signal.candidate)
-              : undefined,
-          signalingState:
-            peerConnection?.signalingState,
-          iceConnectionState:
-            peerConnection?.iceConnectionState,
-        });
-
         if (
           signal.type === "offer" &&
           signal.description
@@ -1395,20 +1162,11 @@ export const useCallStore =
           signal.candidate
         ) {
           if (!peerConnection?.remoteDescription) {
-            console.info("[FlexChat Call] queued remote ICE candidate", {
-              callId: call.id,
-              type: getCandidateType(signal.candidate),
-            });
             pendingIceCandidates.push(
               signal.candidate
             );
             return;
           }
-
-          console.info("[FlexChat Call] adding remote ICE candidate", {
-            callId: call.id,
-            type: getCandidateType(signal.candidate),
-          });
 
           await peerConnection.addIceCandidate(
             signal.candidate
@@ -1463,7 +1221,6 @@ export const useCallStore =
         answerKind: null,
         isMuted: false,
         isVideoEnabled: true,
-        currentFacingMode: "user",
         isMinimized: false,
         networkState: "stable",
         error: null,
