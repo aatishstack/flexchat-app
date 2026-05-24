@@ -7,6 +7,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { SOCKET_EVENTS } from "./socket-events";
 
 import {
+  getSocketNetworkDiagnostics,
+  getSocketTransportDiagnostics,
+} from "@/socket/socket";
+import {
   Message,
   useSocketStore,
 } from "@/store/socket-store";
@@ -136,6 +140,47 @@ const recentConversationUpdates = new Map<
   string,
   number
 >();
+
+type NetworkInformationLike = EventTarget & {
+  effectiveType?: string;
+  type?: string;
+  downlink?: number;
+  rtt?: number;
+  saveData?: boolean;
+};
+
+function getBrowserConnection() {
+  return (
+    (
+      navigator as Navigator & {
+        connection?: NetworkInformationLike;
+        mozConnection?: NetworkInformationLike;
+        webkitConnection?: NetworkInformationLike;
+      }
+    ).connection ??
+    (
+      navigator as Navigator & {
+        mozConnection?: NetworkInformationLike;
+      }
+    ).mozConnection ??
+    (
+      navigator as Navigator & {
+        webkitConnection?: NetworkInformationLike;
+      }
+    ).webkitConnection ??
+    null
+  );
+}
+
+function requiresCleanSocketRecovery(reason: string) {
+  return [
+    "io server disconnect",
+    "transport close",
+    "transport error",
+    "ping timeout",
+    "parse error",
+  ].includes(reason);
+}
 
 function getConversationNameFromCache(
   cache: ConversationQueryCache,
@@ -360,16 +405,23 @@ export default function SocketProvider({
   useEffect(() => {
     const socket = currentSocket;
 
+    function forceCleanRecovery(reason: string) {
+      resetPendingMessageFlights();
+      recoverSocketConnection(reason, {
+        force: true,
+      });
+    }
+
     function onConnect() {
       console.info("[FlexChat Socket] connected", {
-        id: socket.id,
-        transport: socket.io.engine?.transport.name,
+        ...getSocketTransportDiagnostics(socket),
       });
 
       socket.io.engine?.on("upgrade", (transport) => {
         console.info("[FlexChat Socket] active transport upgraded", {
           id: socket.id,
           transport: transport.name,
+          network: getSocketNetworkDiagnostics(),
         });
       });
 
@@ -412,8 +464,7 @@ export default function SocketProvider({
     function onDisconnect(reason: string) {
       console.warn("[FlexChat Socket] disconnected", {
         reason,
-        id: socket.id,
-        transport: socket.io.engine?.transport?.name,
+        ...getSocketTransportDiagnostics(socket),
       });
 
       resetPendingMessageFlights();
@@ -430,20 +481,15 @@ export default function SocketProvider({
         typingUsers: [],
       });
 
-      if (
-        reason === "io server disconnect" ||
-        reason === "transport close" ||
-        reason === "ping timeout"
-      ) {
-        recoverSocketConnection(`disconnect:${reason}`);
+      if (requiresCleanSocketRecovery(reason)) {
+        forceCleanRecovery(`disconnect:${reason}`);
       }
     }
 
     function onConnectError(error: Error) {
       console.error("[FlexChat Socket] connect_error", {
         message: error.message,
-        id: socket.id,
-        transport: socket.io.engine?.transport?.name,
+        ...getSocketTransportDiagnostics(socket),
       });
 
       if (
@@ -460,7 +506,24 @@ export default function SocketProvider({
 
       resetPendingMessageFlights();
       setConnectionError(error.message);
-      recoverSocketConnection(`connect_error:${error.message}`);
+      forceCleanRecovery(`connect_error:${error.message}`);
+    }
+
+    function onReconnectError(error: Error) {
+      console.warn("[FlexChat Socket] reconnect_error", {
+        message: error.message,
+        ...getSocketTransportDiagnostics(socket),
+      });
+
+      forceCleanRecovery(`reconnect_error:${error.message}`);
+    }
+
+    function onReconnectFailed() {
+      console.error("[FlexChat Socket] reconnect_failed", {
+        ...getSocketTransportDiagnostics(socket),
+      });
+
+      forceCleanRecovery("reconnect_failed");
     }
 
     function onOnlineUsers(users: string[]) {
@@ -1249,7 +1312,11 @@ export default function SocketProvider({
     }
 
     function handleOffline() {
-      console.warn("[FlexChat Socket] browser is offline");
+      console.warn("[FlexChat Socket] browser is offline", {
+        network: getSocketNetworkDiagnostics(),
+      });
+
+      resetPendingMessageFlights();
 
       useSocketStore.setState({
         isConnected: false,
@@ -1259,8 +1326,24 @@ export default function SocketProvider({
     }
 
     function handleOnline() {
-      console.info("[FlexChat Socket] browser is online; recovering socket");
-      recoverSocketConnection("browser-online");
+      console.info("[FlexChat Socket] browser is online; recovering socket", {
+        network: getSocketNetworkDiagnostics(),
+      });
+      forceCleanRecovery("browser-online");
+    }
+
+    function handleConnectionChange() {
+      console.info("[FlexChat Socket] network interface changed", {
+        ...getSocketTransportDiagnostics(socket),
+        network: getSocketNetworkDiagnostics(),
+      });
+
+      forceCleanRecovery("network-change");
+
+      void queryClient.invalidateQueries({
+        queryKey:
+          queryKeys.conversations.all,
+      });
     }
 
     const safeOnConnect = guardSocketHandler(
@@ -1274,6 +1357,14 @@ export default function SocketProvider({
     const safeOnConnectError = guardSocketHandler(
       SOCKET_EVENTS.CONNECT_ERROR,
       onConnectError,
+    );
+    const safeOnReconnectError = guardSocketHandler(
+      "reconnect_error",
+      onReconnectError,
+    );
+    const safeOnReconnectFailed = guardSocketHandler(
+      "reconnect_failed",
+      onReconnectFailed,
     );
     const safeOnOnlineUsers = guardSocketHandler(
       SOCKET_EVENTS.ONLINE_USERS,
@@ -1387,6 +1478,8 @@ export default function SocketProvider({
     socket.on(SOCKET_EVENTS.CONNECT, safeOnConnect);
     socket.on(SOCKET_EVENTS.DISCONNECT, safeOnDisconnect);
     socket.on(SOCKET_EVENTS.CONNECT_ERROR, safeOnConnectError);
+    socket.io.on("reconnect_error", safeOnReconnectError);
+    socket.io.on("reconnect_failed", safeOnReconnectFailed);
     socket.on(SOCKET_EVENTS.ONLINE_USERS, safeOnOnlineUsers);
     socket.on(SOCKET_EVENTS.PRESENCE_UPDATED, safeOnPresenceUpdated);
     socket.on(SOCKET_EVENTS.RECEIVE_MESSAGE, safeOnReceiveMessage);
@@ -1430,11 +1523,19 @@ export default function SocketProvider({
     socket.on(SOCKET_EVENTS.CALL_ERROR, safeOnCallError);
     window.addEventListener("offline", handleOffline);
     window.addEventListener("online", handleOnline);
+    const browserConnection = getBrowserConnection();
+
+    browserConnection?.addEventListener(
+      "change",
+      handleConnectionChange,
+    );
 
     return () => {
       socket.off(SOCKET_EVENTS.CONNECT, safeOnConnect);
       socket.off(SOCKET_EVENTS.DISCONNECT, safeOnDisconnect);
       socket.off(SOCKET_EVENTS.CONNECT_ERROR, safeOnConnectError);
+      socket.io.off("reconnect_error", safeOnReconnectError);
+      socket.io.off("reconnect_failed", safeOnReconnectFailed);
       socket.off(SOCKET_EVENTS.ONLINE_USERS, safeOnOnlineUsers);
       socket.off(SOCKET_EVENTS.PRESENCE_UPDATED, safeOnPresenceUpdated);
       socket.off(SOCKET_EVENTS.RECEIVE_MESSAGE, safeOnReceiveMessage);
@@ -1478,6 +1579,10 @@ export default function SocketProvider({
       socket.off(SOCKET_EVENTS.CALL_ERROR, safeOnCallError);
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("online", handleOnline);
+      browserConnection?.removeEventListener(
+        "change",
+        handleConnectionChange,
+      );
     };
   }, [
     addMessage,

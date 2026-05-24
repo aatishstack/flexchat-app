@@ -13,6 +13,7 @@ import type { MessageQueryCache } from "@/lib/message-query-cache";
 import {
   configureSocketAuth,
   destroySocket,
+  getSocketTransportDiagnostics,
   recreateSocket,
   socket as initialSocket,
 } from "@/socket/socket";
@@ -105,7 +106,12 @@ interface SocketState {
   messagesByConversation: Record<string, Message[]>;
   connectSocket: (token?: string | null) => void;
   disconnectSocket: () => void;
-  recoverSocketConnection: (reason?: string) => void;
+  recoverSocketConnection: (
+    reason?: string,
+    options?: {
+      force?: boolean;
+    },
+  ) => void;
   setOnlineUsers: (users: string[]) => void;
   setTypingUsers: (users: string[]) => void;
   setConnectionError: (message: string | null) => void;
@@ -126,8 +132,8 @@ interface SocketState {
   stopTyping: (conversationId: string) => void;
 }
 
-const ACK_TIMEOUT_MS = 25_000;
-const MAX_RETRY_ATTEMPTS = 8;
+const ACK_TIMEOUT_MS = 45_000;
+const MAX_RETRY_ATTEMPTS = 12;
 const MAX_EPHEMERAL_MESSAGES_PER_CONVERSATION = 160;
 const MAX_PENDING_MESSAGES = 80;
 const PENDING_MESSAGE_TTL_MS = 30 * 60 * 1000;
@@ -498,7 +504,10 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     });
   },
 
-  recoverSocketConnection: (reason = "recovery") => {
+  recoverSocketConnection: (
+    reason = "recovery",
+    options,
+  ) => {
     const token = get().token;
 
     if (!token) {
@@ -507,9 +516,20 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
     const now = Date.now();
 
-    if (now - lastSocketRecoveryAt < SOCKET_RECOVERY_COOLDOWN_MS) {
+    if (
+      !options?.force &&
+      now - lastSocketRecoveryAt < SOCKET_RECOVERY_COOLDOWN_MS
+    ) {
       return;
     }
+
+    const currentSocket = get().socket;
+
+    console.warn("[FlexChat Socket] forcing clean recovery", {
+      reason,
+      force: Boolean(options?.force),
+      ...getSocketTransportDiagnostics(currentSocket),
+    });
 
     lastSocketRecoveryAt = now;
     get().resetPendingMessageFlights();
@@ -638,11 +658,22 @@ export const useSocketStore = create<SocketState>((set, get) => ({
               tempId: pending.tempId,
               attempts: pending.attempts,
               connected: get().socket.connected,
+              transport:
+                get().socket.io.engine?.transport?.name,
               error:
                 ack?.error ??
                 error?.message ??
                 "Message was not acknowledged",
             });
+
+            if (error && activeSocket === get().socket) {
+              get().recoverSocketConnection(
+                `message_ack:${error.message}`,
+                {
+                  force: true,
+                },
+              );
+            }
 
             if (
               pending.attempts < MAX_RETRY_ATTEMPTS ||

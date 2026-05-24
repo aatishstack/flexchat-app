@@ -147,6 +147,240 @@ function StreamAudio({
   );
 }
 
+type WakeLockSentinelLike = EventTarget & {
+  released?: boolean;
+  release: () => Promise<void>;
+};
+
+type WakeLockNavigator = Navigator & {
+  wakeLock?: {
+    request: (type: "screen") => Promise<WakeLockSentinelLike>;
+  };
+};
+
+function useCallScreenWakeLock(shouldKeepAwake: boolean) {
+  const sentinelRef = useRef<WakeLockSentinelLike | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const releaseWakeLock = async (reason: string) => {
+      const sentinel = sentinelRef.current;
+
+      sentinelRef.current = null;
+
+      if (!sentinel || sentinel.released) {
+        return;
+      }
+
+      try {
+        await sentinel.release();
+        console.info("[FlexChat Call] screen wake lock released", {
+          reason,
+        });
+      } catch (error) {
+        console.warn("[FlexChat Call] screen wake lock release failed", {
+          reason,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Unknown wake lock release failure",
+        });
+      }
+    };
+
+    const requestWakeLock = async () => {
+      if (
+        !shouldKeepAwake ||
+        document.visibilityState !== "visible" ||
+        sentinelRef.current
+      ) {
+        return;
+      }
+
+      const wakeLock = (navigator as WakeLockNavigator).wakeLock;
+
+      if (!wakeLock) {
+        console.info("[FlexChat Call] screen wake lock unavailable");
+        return;
+      }
+
+      try {
+        const sentinel = await wakeLock.request("screen");
+
+        if (cancelled || !shouldKeepAwake) {
+          await sentinel.release();
+          return;
+        }
+
+        sentinelRef.current = sentinel;
+
+        sentinel.addEventListener(
+          "release",
+          () => {
+            if (sentinelRef.current === sentinel) {
+              sentinelRef.current = null;
+            }
+
+            console.info("[FlexChat Call] screen wake lock released by browser");
+          },
+          {
+            once: true,
+          },
+        );
+
+        console.info("[FlexChat Call] screen wake lock acquired", {
+          mode: "video-call",
+        });
+      } catch (error) {
+        console.warn("[FlexChat Call] screen wake lock request failed", {
+          message:
+            error instanceof Error
+              ? error.message
+              : "Unknown wake lock request failure",
+        });
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && shouldKeepAwake) {
+        void requestWakeLock();
+        return;
+      }
+
+      void releaseWakeLock("visibility-hidden");
+    };
+
+    if (shouldKeepAwake) {
+      void requestWakeLock();
+    } else {
+      void releaseWakeLock("not-needed");
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      void releaseWakeLock("cleanup");
+    };
+  }, [shouldKeepAwake]);
+}
+
+type ProximitySensorLike = EventTarget & {
+  distance?: number | null;
+  near?: boolean;
+  start: () => void;
+  stop: () => void;
+};
+
+type ProximitySensorConstructor = new () => ProximitySensorLike;
+
+function useAudioCallProximityMode(active: boolean) {
+  const [isNearEar, setIsNearEar] = useState(false);
+
+  useEffect(() => {
+    if (!active) {
+      return;
+    }
+
+    let sensor: ProximitySensorLike | null = null;
+
+    const updateNearEar = (nextNearEar: boolean, source: string) => {
+      setIsNearEar(nextNearEar);
+      console.info("[FlexChat Call] proximity state", {
+        nearEar: nextNearEar,
+        source,
+      });
+    };
+
+    const handleUserProximity = (event: Event) => {
+      updateNearEar(
+        Boolean((event as Event & { near?: boolean }).near),
+        "userproximity",
+      );
+    };
+
+    const handleDeviceProximity = (event: Event) => {
+      const proximityEvent = event as Event & {
+        value?: number;
+        min?: number;
+        max?: number;
+      };
+      const value = proximityEvent.value;
+
+      if (typeof value !== "number") {
+        return;
+      }
+
+      const min =
+        typeof proximityEvent.min === "number" ? proximityEvent.min : 0;
+      const max =
+        typeof proximityEvent.max === "number" ? proximityEvent.max : 10;
+      const nearThreshold = Math.max(3, min + (max - min) * 0.2);
+
+      updateNearEar(value <= nearThreshold, "deviceproximity");
+    };
+
+    window.addEventListener("userproximity", handleUserProximity);
+    window.addEventListener("deviceproximity", handleDeviceProximity);
+
+    const SensorConstructor = (
+      window as typeof window & {
+        ProximitySensor?: ProximitySensorConstructor;
+      }
+    ).ProximitySensor;
+
+    if (SensorConstructor) {
+      try {
+        sensor = new SensorConstructor();
+
+        const handleReading = () => {
+          const near =
+            typeof sensor?.near === "boolean"
+              ? sensor.near
+              : typeof sensor?.distance === "number"
+                ? sensor.distance <= 5
+                : false;
+
+          updateNearEar(near, "ProximitySensor");
+        };
+
+        const handleSensorError = (event: Event) => {
+          console.warn("[FlexChat Call] proximity sensor error", {
+            message:
+              (event as Event & { error?: Error }).error?.message ??
+              "Unknown proximity sensor error",
+          });
+        };
+
+        sensor.addEventListener("reading", handleReading);
+        sensor.addEventListener("error", handleSensorError);
+        sensor.start();
+
+        console.info("[FlexChat Call] proximity sensor active");
+      } catch (error) {
+        console.warn("[FlexChat Call] proximity sensor unavailable", {
+          message:
+            error instanceof Error
+              ? error.message
+              : "Unknown proximity sensor failure",
+        });
+      }
+    } else {
+      console.info("[FlexChat Call] proximity sensor API unavailable");
+    }
+
+    return () => {
+      window.removeEventListener("userproximity", handleUserProximity);
+      window.removeEventListener("deviceproximity", handleDeviceProximity);
+      sensor?.stop();
+    };
+  }, [active]);
+
+  return active && isNearEar;
+}
+
 function CallErrorModal() {
   const modalError = useCallStore((state) => state.modalError);
   const dismissCallModal = useCallStore((state) => state.dismissCallModal);
@@ -378,6 +612,11 @@ function CallScreen({
     remoteVideoTrack.readyState === "live";
   const hasSelfVideo =
     isVideoCall && !!localStream?.getVideoTracks().length;
+  const isAudioNearEar = useAudioCallProximityMode(
+    !isVideoCall && phase !== "idle",
+  );
+
+  useCallScreenWakeLock(isVideoCall && phase !== "idle");
 
   useEffect(() => {
     if (!remoteVideoTrack) {
@@ -471,6 +710,13 @@ function CallScreen({
       className="fixed inset-0 z-[9998] bg-[#1a1a1a] text-white"
     >
       <StreamAudio stream={remoteStream} />
+
+      {isAudioNearEar ? (
+        <div
+          aria-hidden
+          className="fixed inset-0 z-50 bg-black"
+        />
+      ) : null}
 
       {hasRemoteVideo ? (
         <StreamVideo

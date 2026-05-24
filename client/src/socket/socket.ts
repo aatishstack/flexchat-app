@@ -8,18 +8,97 @@ import {
 import { tokenStorage } from "@/lib/token";
 
 const SOCKET_TRANSPORTS = [
-  "websocket",
   "polling",
+  "websocket",
 ] as const;
 
-const SOCKET_CONNECT_TIMEOUT_MS = 30_000;
+const SOCKET_CONNECT_TIMEOUT_MS = 60_000;
 const SOCKET_RECONNECTION_DELAY_MS = 1_000;
-const SOCKET_RECONNECTION_DELAY_MAX_MS = 15_000;
+const SOCKET_RECONNECTION_DELAY_MAX_MS = 45_000;
+const SOCKET_ALLOW_WEBSOCKET_UPGRADE =
+  process.env.NEXT_PUBLIC_SOCKET_ALLOW_WEBSOCKET_UPGRADE === "true";
 
 type FlexSocketOptions =
   Partial<ManagerOptions & SocketOptions> & {
     tryAllTransports?: boolean;
   };
+
+type NetworkInformationLike = EventTarget & {
+  effectiveType?: string;
+  type?: string;
+  downlink?: number;
+  rtt?: number;
+  saveData?: boolean;
+};
+
+function getNetworkInformation() {
+  if (typeof navigator === "undefined") {
+    return null;
+  }
+
+  return (
+    (
+      navigator as Navigator & {
+        connection?: NetworkInformationLike;
+        mozConnection?: NetworkInformationLike;
+        webkitConnection?: NetworkInformationLike;
+      }
+    ).connection ??
+    (
+      navigator as Navigator & {
+        mozConnection?: NetworkInformationLike;
+      }
+    ).mozConnection ??
+    (
+      navigator as Navigator & {
+        webkitConnection?: NetworkInformationLike;
+      }
+    ).webkitConnection ??
+    null
+  );
+}
+
+export function getSocketNetworkDiagnostics() {
+  const connection = getNetworkInformation();
+
+  if (!connection) {
+    return {
+      online:
+        typeof navigator === "undefined" ? undefined : navigator.onLine,
+    };
+  }
+
+  return {
+    online: navigator.onLine,
+    type: connection.type,
+    effectiveType: connection.effectiveType,
+    downlink: connection.downlink,
+    rtt: connection.rtt,
+    saveData: connection.saveData,
+  };
+}
+
+export function getSocketTransportDiagnostics(
+  targetSocket: Socket,
+) {
+  const engine = targetSocket.io.engine as
+    | (NonNullable<typeof targetSocket.io.engine> & {
+        upgrades?: string[];
+      })
+    | undefined;
+
+  return {
+    id: targetSocket.id,
+    connected: targetSocket.connected,
+    active: targetSocket.active,
+    transport:
+      engine?.transport?.name ?? "none",
+    transports: [...SOCKET_TRANSPORTS],
+    upgradeEnabled: SOCKET_ALLOW_WEBSOCKET_UPGRADE,
+    possibleUpgrades: engine?.upgrades ?? [],
+    network: getSocketNetworkDiagnostics(),
+  };
+}
 
 function resolveSocketUrl(): string {
   const configuredUrl =
@@ -69,6 +148,12 @@ export function configureSocketAuth(
   targetSocket.io.opts.transports = [
     ...SOCKET_TRANSPORTS,
   ];
+  targetSocket.io.opts.upgrade = SOCKET_ALLOW_WEBSOCKET_UPGRADE;
+  targetSocket.io.opts.rememberUpgrade = false;
+  targetSocket.io.opts.tryAllTransports = true;
+  targetSocket.io.opts.timeout = SOCKET_CONNECT_TIMEOUT_MS;
+  targetSocket.io.opts.reconnectionDelayMax =
+    SOCKET_RECONNECTION_DELAY_MAX_MS;
   targetSocket.io.opts.withCredentials = false;
 }
 
@@ -83,7 +168,7 @@ function buildSocketOptions(
     transports: [
       ...SOCKET_TRANSPORTS,
     ],
-    upgrade: true,
+    upgrade: SOCKET_ALLOW_WEBSOCKET_UPGRADE,
     tryAllTransports: true,
     rememberUpgrade: false,
     forceNew: true,
@@ -116,6 +201,13 @@ export function createSocket(
 
   attachSocketDiagnostics(createdSocket);
 
+  if (typeof window !== "undefined") {
+    console.info("[FlexChat Socket] created", {
+      ...getSocketTransportDiagnostics(createdSocket),
+      hasToken: Boolean(token),
+    });
+  }
+
   return createdSocket;
 }
 
@@ -142,24 +234,28 @@ function attachEngineDiagnostics(
   ).__flexchatDiagnosticsAttached = true;
 
   console.info("[FlexChat Socket] engine ready", {
-    id: targetSocket.id,
-    transport: engine.transport?.name,
+    ...getSocketTransportDiagnostics(targetSocket),
+    pollingActive: engine.transport?.name === "polling",
   });
 
   engine.on("upgrade", (transport) => {
     console.info("[FlexChat Socket] transport upgraded", {
       id: targetSocket.id,
+      from: engine.transport?.name,
       transport: transport.name,
+      network: getSocketNetworkDiagnostics(),
     });
   });
 
   engine.on("upgradeError", (error) => {
     console.warn("[FlexChat Socket] transport upgrade failed", {
       id: targetSocket.id,
+      transport: engine.transport?.name,
       message:
         error instanceof Error
           ? error.message
           : "Unknown upgrade failure",
+      network: getSocketNetworkDiagnostics(),
     });
   });
 
@@ -168,6 +264,19 @@ function attachEngineDiagnostics(
       id: targetSocket.id,
       reason,
       transport: engine.transport?.name,
+      network: getSocketNetworkDiagnostics(),
+    });
+  });
+
+  engine.on("error", (error) => {
+    console.warn("[FlexChat Socket] engine error", {
+      id: targetSocket.id,
+      transport: engine.transport?.name,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unknown engine error",
+      network: getSocketNetworkDiagnostics(),
     });
   });
 }
@@ -198,8 +307,7 @@ function attachSocketDiagnostics(
       console.info("[FlexChat Socket] reconnect attempt", {
         attempt,
         hasToken: Boolean(token),
-        transport:
-          targetSocket.io.engine?.transport?.name,
+        ...getSocketTransportDiagnostics(targetSocket),
       });
 
       configureSocketAuth(targetSocket, token);
@@ -209,22 +317,21 @@ function attachSocketDiagnostics(
   targetSocket.io.on("reconnect", (attempt) => {
     console.info("[FlexChat Socket] reconnected", {
       attempt,
-      id: targetSocket.id,
-      transport:
-        targetSocket.io.engine?.transport?.name,
+      ...getSocketTransportDiagnostics(targetSocket),
     });
   });
 
   targetSocket.io.on("reconnect_error", (error) => {
     console.warn("[FlexChat Socket] reconnect error", {
       message: error.message,
-      transport:
-        targetSocket.io.engine?.transport?.name,
+      ...getSocketTransportDiagnostics(targetSocket),
     });
   });
 
   targetSocket.io.on("reconnect_failed", () => {
-    console.error("[FlexChat Socket] reconnect failed");
+    console.error("[FlexChat Socket] reconnect failed", {
+      ...getSocketTransportDiagnostics(targetSocket),
+    });
   });
 }
 

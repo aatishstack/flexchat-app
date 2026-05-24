@@ -37,7 +37,11 @@ const envSchema = z.object({
   SOCKET_PING_INTERVAL_MS:
     z.coerce.number().default(25_000),
   SOCKET_PING_TIMEOUT_MS:
-    z.coerce.number().default(45_000),
+    z.coerce.number().default(75_000),
+  SOCKET_CONNECT_TIMEOUT_MS:
+    z.coerce.number().default(60_000),
+  SOCKET_UPGRADE_TIMEOUT_MS:
+    z.coerce.number().default(20_000),
   UPLOAD_RETENTION_HOURS:
     z.coerce.number().min(1).default(168),
   UPLOAD_CLEANUP_INTERVAL_MINUTES:

@@ -32,6 +32,19 @@ function buildAllowedOrigins() {
 }
 
 export function setupSocket(server: HttpServer) {
+  const pingTimeoutMs = Math.max(
+    env.SOCKET_PING_TIMEOUT_MS,
+    75_000,
+  );
+  const connectTimeoutMs = Math.max(
+    env.SOCKET_CONNECT_TIMEOUT_MS,
+    60_000,
+  );
+  const upgradeTimeoutMs = Math.max(
+    env.SOCKET_UPGRADE_TIMEOUT_MS,
+    20_000,
+  );
+
   const io = new Server(server, {
     path: "/socket.io/",
     cors: {
@@ -40,10 +53,11 @@ export function setupSocket(server: HttpServer) {
       credentials: false,
     },
     pingInterval: env.SOCKET_PING_INTERVAL_MS,
-    pingTimeout: env.SOCKET_PING_TIMEOUT_MS,
-    connectTimeout: 30_000,
-    transports: ["websocket", "polling"],
+    pingTimeout: pingTimeoutMs,
+    connectTimeout: connectTimeoutMs,
+    transports: ["polling", "websocket"],
     allowUpgrades: true,
+    upgradeTimeout: upgradeTimeoutMs,
     connectionStateRecovery: {
       maxDisconnectionDuration: 5 * 60 * 1000,
       skipMiddlewares: false,
@@ -54,18 +68,26 @@ export function setupSocket(server: HttpServer) {
 
   io.engine.on("connection", (rawSocket) => {
     console.info("[FlexChat Socket] engine connection", {
+      sid: rawSocket.id,
       transport: rawSocket.transport.name,
+      upgrades: rawSocket.upgrades,
       remoteAddress: rawSocket.request.socket.remoteAddress,
+      pingInterval: env.SOCKET_PING_INTERVAL_MS,
+      pingTimeout: pingTimeoutMs,
+      connectTimeout: connectTimeoutMs,
+      upgradeTimeout: upgradeTimeoutMs,
     });
 
     rawSocket.on("upgrade", (transport) => {
       console.info("[FlexChat Socket] engine transport upgraded", {
+        sid: rawSocket.id,
         transport: transport.name,
       });
     });
 
     rawSocket.on("close", (reason) => {
       console.warn("[FlexChat Socket] engine closed", {
+        sid: rawSocket.id,
         reason,
         transport: rawSocket.transport.name,
       });
