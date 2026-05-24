@@ -407,13 +407,36 @@ export default function SocketProvider({
     }
 
     function onConnectError(error: Error) {
+      console.error("[FlexChat Socket] connect_error", {
+        message: error.message,
+        transport:
+          socket.io.engine?.transport?.name ??
+          "none",
+        url:
+          (socket.io as unknown as {
+            uri?: string;
+          }).uri ?? "unknown",
+        online: navigator.onLine,
+      });
+
+      useSocketStore.setState({
+        isConnecting: false,
+        connectionError: error.message,
+      });
+
+      const normalizedMessage =
+        error.message.toLowerCase();
+
       if (
-        error.message
-          .toLowerCase()
-          .includes("unauthorized")
+        normalizedMessage.includes("unauthorized") &&
+        !normalizedMessage.includes("unavailable")
       ) {
         clearClientSession();
+
+        return;
       }
+
+      // Socket.IO's built-in reconnection engine handles retries.
     }
 
     function onOnlineUsers(users: string[]) {

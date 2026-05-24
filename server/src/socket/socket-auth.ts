@@ -118,6 +118,6 @@ export async function authenticateSocket(
       },
     );
 
-    return false;
+    throw new Error("Socket auth unavailable");
   }
 }

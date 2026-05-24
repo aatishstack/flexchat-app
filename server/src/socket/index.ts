@@ -41,10 +41,12 @@ export function setupSocket(server: HttpServer) {
     },
     pingInterval: env.SOCKET_PING_INTERVAL_MS,
     pingTimeout: env.SOCKET_PING_TIMEOUT_MS,
+    connectTimeout: env.SOCKET_CONNECT_TIMEOUT_MS,
     transports: ["websocket", "polling"],
     allowUpgrades: true,
+    allowEIO3: true,
     connectionStateRecovery: {
-      maxDisconnectionDuration: 2 * 60 * 1000,
+      maxDisconnectionDuration: 3 * 60 * 1000,
       skipMiddlewares: false,
     },
   });
@@ -101,15 +103,19 @@ export function setupSocket(server: HttpServer) {
   presenceCleanupTimer.unref?.();
 
   io.use(async (socket, next) => {
-    const authenticated = await authenticateSocket(socket);
+    try {
+      const authenticated = await authenticateSocket(socket);
 
-    if (!authenticated) {
-      next(new Error("Unauthorized"));
+      if (!authenticated) {
+        next(new Error("Unauthorized"));
 
-      return;
+        return;
+      }
+
+      next();
+    } catch {
+      next(new Error("Service temporarily unavailable"));
     }
-
-    next();
   });
 
   io.on(SOCKET_EVENTS.CONNECTION, (socket) => {
