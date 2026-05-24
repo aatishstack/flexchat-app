@@ -93,13 +93,62 @@ let pendingIceCandidates: RTCIceCandidateInit[] = [];
 let remoteMediaStream: MediaStream | null = null;
 let isMakingOffer = false;
 let preferredFacingMode: "user" | "environment" = "user";
+let callConnectTimeout: ReturnType<typeof setTimeout> | null = null;
+let disconnectedIceRestartTimeout: ReturnType<typeof setTimeout> | null = null;
+
+const CALL_CONNECT_TIMEOUT_MS = 30_000;
+const DISCONNECTED_ICE_RESTART_DELAY_MS = 5_000;
+
+function parseIceUrls(value?: string) {
+  return (value ?? "")
+    .split(",")
+    .map((url) => url.trim())
+    .filter(Boolean);
+}
 
 function getIceServers(): RTCIceServer[] {
-  return [
+  const stunUrls =
+    parseIceUrls(process.env.NEXT_PUBLIC_STUN_URLS);
+  const turnUrls =
+    parseIceUrls(
+      process.env.NEXT_PUBLIC_TURN_URLS?.trim() ||
+        process.env.NEXT_PUBLIC_TURN_URL,
+    );
+  const iceServers: RTCIceServer[] = [
     {
-      urls: "stun:stun.l.google.com:19302",
+      urls:
+        stunUrls.length
+          ? stunUrls
+          : [
+              "stun:stun.l.google.com:19302",
+              "stun:stun1.l.google.com:19302",
+            ],
     },
   ];
+
+  if (turnUrls.length) {
+    iceServers.push({
+      urls: turnUrls,
+      username:
+        process.env.NEXT_PUBLIC_TURN_USERNAME ?? "",
+      credential:
+        process.env.NEXT_PUBLIC_TURN_CREDENTIAL ?? "",
+    });
+  }
+
+  return iceServers;
+}
+
+function clearConnectionTimers() {
+  if (callConnectTimeout) {
+    clearTimeout(callConnectTimeout);
+    callConnectTimeout = null;
+  }
+
+  if (disconnectedIceRestartTimeout) {
+    clearTimeout(disconnectedIceRestartTimeout);
+    disconnectedIceRestartTimeout = null;
+  }
 }
 
 function stopStream(stream: MediaStream | null) {
@@ -116,6 +165,8 @@ function streamHasLiveTracks(stream: MediaStream | null) {
 }
 
 function closePeerConnection() {
+  clearConnectionTimers();
+
   if (peerConnection) {
     peerConnection.onicecandidate = null;
     peerConnection.ontrack = null;
@@ -200,7 +251,6 @@ function pushCallToast({
 
 function getMediaAccessFeedback(
   error: unknown,
-  kind: CallKind
 ) {
   const errorName =
     error instanceof Error
@@ -337,9 +387,30 @@ async function createAndSendOffer(
   }
 }
 
+function restartCallIce(
+  call: CallSession,
+  pc: RTCPeerConnection,
+) {
+  if (pc.connectionState === "closed") {
+    return;
+  }
+
+  pc.restartIce();
+
+  if (
+    call.callerId ===
+    useAuthStore.getState().user?.id
+  ) {
+    void createAndSendOffer(call, pc, {
+      iceRestart: true,
+    }).catch(() => undefined);
+  }
+}
+
 async function makePeerConnection(
   call: CallSession,
   localStream: MediaStream,
+  get: () => CallState,
   set: (
     partial:
       | Partial<CallState>
@@ -350,7 +421,9 @@ async function makePeerConnection(
 
   const pc = new RTCPeerConnection({
     iceServers: getIceServers(),
-    bundlePolicy: "balanced",
+    iceCandidatePoolSize: 10,
+    bundlePolicy: "max-bundle",
+    rtcpMuxPolicy: "require",
   });
 
   localStream.getTracks().forEach((track) => {
@@ -397,6 +470,7 @@ async function makePeerConnection(
     if (
       pc.connectionState === "connected"
     ) {
+      clearConnectionTimers();
       set({
         phase: "active",
         networkState: "stable",
@@ -421,18 +495,6 @@ async function makePeerConnection(
       set({
         networkState: "reconnecting",
       });
-
-      if (pc.connectionState === "failed") {
-        pc.restartIce();
-        if (
-          call.callerId ===
-          useAuthStore.getState().user?.id
-        ) {
-          void createAndSendOffer(call, pc, {
-            iceRestart: true,
-          }).catch(() => undefined);
-        }
-      }
     }
   };
 
@@ -441,6 +503,7 @@ async function makePeerConnection(
       pc.iceConnectionState === "connected" ||
       pc.iceConnectionState === "completed"
     ) {
+      clearConnectionTimers();
       set({
         networkState: "stable",
         error: null,
@@ -457,29 +520,63 @@ async function makePeerConnection(
       return;
     }
 
-    if (
-      pc.iceConnectionState === "disconnected" ||
-      pc.iceConnectionState === "failed"
-    ) {
+    if (pc.iceConnectionState === "disconnected") {
       set({
         networkState: "reconnecting",
       });
 
-      if (pc.iceConnectionState === "failed") {
-        pc.restartIce();
-        if (
-          call.callerId ===
-          useAuthStore.getState().user?.id
-        ) {
-          void createAndSendOffer(call, pc, {
-            iceRestart: true,
-          }).catch(() => undefined);
-        }
+      if (!disconnectedIceRestartTimeout) {
+        disconnectedIceRestartTimeout = setTimeout(() => {
+          disconnectedIceRestartTimeout = null;
+
+          if (
+            pc.iceConnectionState === "disconnected"
+          ) {
+            restartCallIce(call, pc);
+          }
+        }, DISCONNECTED_ICE_RESTART_DELAY_MS);
       }
+
+      return;
+    }
+
+    if (pc.iceConnectionState === "failed") {
+      if (disconnectedIceRestartTimeout) {
+        clearTimeout(disconnectedIceRestartTimeout);
+        disconnectedIceRestartTimeout = null;
+      }
+
+      set({
+        networkState: "reconnecting",
+      });
+      restartCallIce(call, pc);
     }
   };
 
   peerConnection = pc;
+  callConnectTimeout = setTimeout(() => {
+    if (
+      peerConnection !== pc ||
+      pc.iceConnectionState === "connected" ||
+      pc.iceConnectionState === "completed"
+    ) {
+      return;
+    }
+
+    socket.emit(
+      SOCKET_EVENTS.CALL_END,
+      {
+        callId: call.id,
+        reason: "timeout",
+      },
+    );
+    pushCallToast({
+      title: "Call timed out",
+      message: "The call could not connect. Please try again.",
+      variant: "info",
+    });
+    get().resetCall();
+  }, CALL_CONNECT_TIMEOUT_MS);
 
   return pc;
 }
@@ -518,6 +615,7 @@ async function prepareLocalCallMedia(
     pc = await makePeerConnection(
       call,
       localStream,
+      get,
       set
     );
   }
@@ -607,8 +705,7 @@ export const useCallStore =
       } catch (error) {
         const feedback =
           getMediaAccessFeedback(
-            error,
-            input.kind
+            error
           );
 
         set({
@@ -674,8 +771,7 @@ export const useCallStore =
       } catch (error) {
         const feedback =
           getMediaAccessFeedback(
-            error,
-            answerKind ?? call.kind
+            error
           );
 
         closePeerConnection();

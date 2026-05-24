@@ -37,11 +37,11 @@ export function setupSocket(server: HttpServer) {
     cors: {
       origin: buildAllowedOrigins(),
       methods: ["GET", "POST"],
-      credentials: true,
+      credentials: false,
     },
     pingInterval: env.SOCKET_PING_INTERVAL_MS,
     pingTimeout: env.SOCKET_PING_TIMEOUT_MS,
-    transports: ["polling", "websocket"],
+    transports: ["websocket", "polling"],
     allowUpgrades: true,
     connectionStateRecovery: {
       maxDisconnectionDuration: 2 * 60 * 1000,

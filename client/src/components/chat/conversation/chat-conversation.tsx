@@ -50,6 +50,7 @@ import EmojiPicker, {
   Theme,
   type EmojiClickData,
 } from "emoji-picker-react";
+import { useShallow } from "zustand/react/shallow";
 
 import MessageStatus from "@/components/chat/MessageStatus";
 import FlexAvatar from "@/components/chat/flex-avatar";
@@ -1092,7 +1093,6 @@ const ChatMessageRow = memo(function ChatMessageRow({
     !!message.text;
   const canDelete = mine && isSettled && !isDeleted;
   const canReply = isSettled && !isDeleted;
-  const canForward = isSettled && !isDeleted;
   const media = getMediaFromMessage(message);
   const showLegacyInlineReactionPicker = false;
   const actionsVisible = actionsOpen || !!reactionAnchorRect;
@@ -1781,8 +1781,12 @@ export default function ChatConversation({
   );
   const socket = useSocketStore((state) => state.socket);
   const isConnected = useSocketStore((state) => state.isConnected);
-  const typingUsers = useSocketStore((state) => state.typingUsers);
-  const onlineUsers = useSocketStore((state) => state.onlineUsers);
+  const typingUsers = useSocketStore(
+    useShallow((state) => state.typingUsers),
+  );
+  const onlineUsers = useSocketStore(
+    useShallow((state) => state.onlineUsers),
+  );
   const onlineUserIds = useMemo(() => new Set(onlineUsers), [onlineUsers]);
   const joinConversation = useSocketStore((state) => state.joinConversation);
   const leaveConversation = useSocketStore((state) => state.leaveConversation);

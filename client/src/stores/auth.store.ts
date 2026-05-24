@@ -23,7 +23,13 @@ interface AuthState {
 
   isHydrated: boolean;
 
+  isSessionRecovering: boolean;
+
   setHydrated: (
+    value: boolean
+  ) => void;
+
+  setSessionRecovering: (
     value: boolean
   ) => void;
 
@@ -54,12 +60,24 @@ export const useAuthStore =
 
       isHydrated: false,
 
+      isSessionRecovering:
+        false,
+
       setHydrated:
         (
           value
         ) =>
           set({
             isHydrated:
+              value,
+          }),
+
+      setSessionRecovering:
+        (
+          value
+        ) =>
+          set({
+            isSessionRecovering:
               value,
           }),
 
@@ -77,6 +95,9 @@ export const useAuthStore =
 
           isHydrated:
           true,
+
+          isSessionRecovering:
+            false,
         }),
 
       updateUser: (
@@ -107,6 +128,9 @@ export const useAuthStore =
 
           isHydrated:
             true,
+
+          isSessionRecovering:
+            false,
         }),
     })
   );

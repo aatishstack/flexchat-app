@@ -9,7 +9,6 @@ import {
   AlignRight,
   AlertCircle,
   Loader2,
-  Palette,
   Plus,
   RefreshCw,
   Type,
@@ -19,7 +18,6 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useStoriesQuery } from "@/hooks/queries/use-stories-query";
-import { useServerNow } from "@/hooks/use-server-now";
 import FlexAvatar from "@/components/chat/flex-avatar";
 import { queryKeys } from "@/lib/query-keys";
 import { formatDisplayName } from "@/lib/user-display";
@@ -364,6 +362,8 @@ export default function StoryTray() {
   const [mutedStoryUserIds, setMutedStoryUserIds] = useState<Set<string>>(
     readMutedStoryUserIds,
   );
+  const [expiryCheckAt, setExpiryCheckAt] =
+    useState(0);
   const reducedMotion = useReducedMotion();
   const queryClient = useQueryClient();
   const storyErrorShownRef = useRef(false);
@@ -371,18 +371,50 @@ export default function StoryTray() {
   const storyDraftRef = useRef<StoryDraft | null>(null);
   const currentUser = useAuthStore((state) => state.user);
   const currentUserId = currentUser?.id;
-  const now = useServerNow();
   const pushToast = useToastStore((state) => state.pushToast);
   const storiesQuery = useStoriesQuery();
 
   const storyGroups = useMemo(
     () =>
-      groupStories(storiesQuery.data ?? [], currentUserId, now).filter(
+      groupStories(
+        storiesQuery.data ?? [],
+        currentUserId,
+        Math.max(expiryCheckAt, getServerNow()),
+      ).filter(
         (group) =>
           group.userId === currentUserId || !mutedStoryUserIds.has(group.userId),
       ),
-    [currentUserId, mutedStoryUserIds, now, storiesQuery.data],
+    [currentUserId, expiryCheckAt, mutedStoryUserIds, storiesQuery.data],
   );
+
+  useEffect(() => {
+    const now = getServerNow();
+    const nextExpiry = (storiesQuery.data ?? [])
+      .map((story) =>
+        new Date(story.expiresAt).getTime()
+      )
+      .filter((expiresAt) => expiresAt > now)
+      .sort((left, right) => left - right)[0];
+
+    if (!nextExpiry) {
+      return;
+    }
+
+    const timer = window.setTimeout(
+      () => setExpiryCheckAt(getServerNow()),
+      Math.min(
+        nextExpiry - now + 50,
+        2_147_483_647,
+      ),
+    );
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    expiryCheckAt,
+    storiesQuery.data,
+  ]);
 
   const createStoryMutation = useMutation({
     mutationFn: async ({ file, mediaType, caption }: StoryUploadInput) => {

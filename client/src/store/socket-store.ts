@@ -370,7 +370,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       token: null,
       isConnected: false,
       isConnecting: false,
-      connectionError: "Missing socket auth token",
+      connectionError: "Missing auth token",
     });
 
     return;
@@ -388,7 +388,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     return;
   }
 
-  if ((socket.connected || socket.active) && currentToken !== nextToken) {
+  if (socket.connected || socket.active) {
     socket.disconnect();
   }
 
@@ -397,6 +397,9 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   };
 
   socket.io.opts.transports = ["websocket", "polling"];
+  socket.io.opts.query = {
+    token: nextToken,
+  };
   socket.io.opts.withCredentials = false;
 
   set({

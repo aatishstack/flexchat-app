@@ -28,6 +28,7 @@ import { useToastStore } from "@/store/toast-store";
 import { useAuthStore } from "@/stores/auth.store";
 import { useConversationStore } from "@/stores/conversation.store";
 import type { Conversation } from "@/types/conversation";
+import { useShallow } from "zustand/react/shallow";
 
 type ActiveNowPanelProps = {
   variant?: "rail" | "sheet";
@@ -52,8 +53,8 @@ export default function ActiveNowPanel({
     );
   const onlineUsers =
     useSocketStore(
-      (state) =>
-        state.onlineUsers
+      useShallow((state) =>
+        state.onlineUsers)
     );
   const onlinePeerIds =
     useMemo(

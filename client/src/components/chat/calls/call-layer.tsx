@@ -271,7 +271,14 @@ function CallScreen({
   const [selfPosition, setSelfPosition] = useState<{
     x: number;
     y: number;
-  } | null>(null);
+  } | null>(() =>
+    typeof window === "undefined"
+      ? null
+      : {
+          x: Math.max(16, window.innerWidth - 140),
+          y: Math.max(16, window.innerHeight - 220),
+        },
+  );
   const dragRef = useRef<{
     pointerId: number;
     offsetX: number;
@@ -287,17 +294,6 @@ function CallScreen({
     remoteVideoTrack.readyState === "live";
   const hasSelfVideo =
     isVideoCall && !!localStream?.getVideoTracks().length;
-
-  useEffect(() => {
-    if (selfPosition || typeof window === "undefined") {
-      return;
-    }
-
-    setSelfPosition({
-      x: Math.max(16, window.innerWidth - 140),
-      y: Math.max(16, window.innerHeight - 220),
-    });
-  }, [selfPosition]);
 
   useEffect(() => {
     if (!remoteVideoTrack) {
@@ -476,13 +472,18 @@ function CallScreen({
 }
 
 export default function CallLayer() {
-  const [activeStartedAt, setActiveStartedAt] = useState<number | null>(null);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const activeStartedAtRef = useRef<{
+    callId: string;
+    startedAt: number;
+  } | null>(null);
+  const [elapsed, setElapsed] = useState<{
+    callId: string;
+    seconds: number;
+  } | null>(null);
   const currentUserId = useAuthStore((state) => state.user?.id);
   const {
     currentCall,
     phase,
-    answerKind,
     acceptIncomingCall,
     rejectIncomingCall,
   } = useCallStore();
@@ -501,33 +502,58 @@ export default function CallLayer() {
   const usersQuery = useUsersByIdsQuery(remoteUserId ? [remoteUserId] : []);
   const remoteUser = usersQuery.data?.[0];
   const remoteName = remoteUser?.username ?? "FlexChat call";
-  const isVideoCall = currentCall?.kind === "video" && answerKind !== "voice";
+  const elapsedSeconds =
+    elapsed &&
+    elapsed.callId === currentCall?.id
+      ? elapsed.seconds
+      : 0;
 
   useEffect(() => {
-    if (!callActive) {
-      setActiveStartedAt(null);
-      setElapsedSeconds(0);
+    if (
+      !callActive ||
+      phase !== "active" ||
+      !currentCall
+    ) {
+      activeStartedAtRef.current = null;
       return;
     }
 
-    if (phase === "active" && !activeStartedAt) {
-      setActiveStartedAt(Date.now());
+    if (
+      activeStartedAtRef.current?.callId !==
+      currentCall.id
+    ) {
+      activeStartedAtRef.current = {
+        callId: currentCall.id,
+        startedAt: Date.now(),
+      };
     }
-  }, [activeStartedAt, callActive, phase]);
 
-  useEffect(() => {
-    if (!activeStartedAt) {
-      return;
-    }
+    const callId = currentCall.id;
 
     const timer = window.setInterval(() => {
-      setElapsedSeconds(
-        Math.max(0, Math.floor((Date.now() - activeStartedAt) / 1000)),
-      );
+      const startedAt =
+        activeStartedAtRef.current;
+
+      if (startedAt?.callId === callId) {
+        setElapsed({
+          callId,
+          seconds: Math.max(
+            0,
+            Math.floor(
+              (Date.now() - startedAt.startedAt) /
+                1000,
+            ),
+          ),
+        });
+      }
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [activeStartedAt]);
+  }, [
+    callActive,
+    currentCall,
+    phase,
+  ]);
 
   return (
     <>

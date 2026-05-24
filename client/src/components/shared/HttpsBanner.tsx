@@ -10,13 +10,19 @@ export default function HttpsBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const shouldShow =
-      window.location.protocol !== "https:" &&
-      !window.location.hostname.includes("localhost");
-    const dismissed =
-      window.localStorage.getItem(STORAGE_KEY) === "1";
+    const frameId = window.requestAnimationFrame(() => {
+      const shouldShow =
+        window.location.protocol !== "https:" &&
+        !window.location.hostname.includes("localhost");
+      const dismissed =
+        window.localStorage.getItem(STORAGE_KEY) === "1";
 
-    setVisible(shouldShow && !dismissed);
+      setVisible(shouldShow && !dismissed);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
   }, []);
 
   if (!visible) {
@@ -26,8 +32,8 @@ export default function HttpsBanner() {
   return (
     <div className="fixed inset-x-0 top-0 z-[10000] flex items-center justify-between gap-3 bg-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-black/25">
       <span>
-        ⚠️ Calls require HTTPS or localhost. Open via localhost:3000 for full
-        features.
+        Warning: Calls require HTTPS or localhost. Open via localhost:3000 for
+        full features.
       </span>
       <button
         type="button"

@@ -534,6 +534,25 @@ export default function StoryViewer({
     timerPaused,
   ]);
 
+  useEffect(() => {
+    const nextStory =
+      group?.stories[storyIndex + 1];
+
+    if (
+      !nextStory ||
+      nextStory.mediaType !== "image"
+    ) {
+      return;
+    }
+
+    const image = new Image();
+
+    image.src = nextStory.mediaUrl;
+  }, [
+    group?.stories,
+    storyIndex,
+  ]);
+
   const progressBars = useMemo(() => {
     if (!group) {
       return null;
@@ -544,7 +563,7 @@ export default function StoryViewer({
         key={story.id}
         className="h-1 flex-1 overflow-hidden rounded-full bg-white/20"
       >
-        <motion.div
+        <div
           style={{
             width:
               index < storyIndex
@@ -753,10 +772,6 @@ export default function StoryViewer({
                 playsInline
                 controls={false}
                 onLoadedMetadata={(event) => {
-                  setLoadedMediaStoryId(
-                    currentStory.id
-                  );
-
                   const durationSeconds =
                     event.currentTarget.duration;
 
@@ -780,6 +795,11 @@ export default function StoryViewer({
                     });
                   }
                 }}
+                onLoadedData={() =>
+                  setLoadedMediaStoryId(
+                    currentStory.id
+                  )
+                }
                 onCanPlay={() =>
                   setLoadedMediaStoryId(
                     currentStory.id

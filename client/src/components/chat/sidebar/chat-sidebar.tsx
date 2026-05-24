@@ -34,6 +34,7 @@ import type {
 } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useShallow } from "zustand/react/shallow";
 
 import { useConversationsQuery } from "@/hooks/queries/use-conversations-query";
 import { useServerNow } from "@/hooks/use-server-now";
@@ -406,7 +407,7 @@ export default function ChatSidebar() {
     (state) => state.setActiveConversation
   );
   const onlineUsers = useSocketStore(
-    (state) => state.onlineUsers
+    useShallow((state) => state.onlineUsers)
   );
   const onlineUserIds = useMemo(
     () => new Set(onlineUsers),

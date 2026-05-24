@@ -77,6 +77,16 @@ function RouteGateLoader() {
   );
 }
 
+function SessionReconnectBanner() {
+  return (
+    <div className="fixed inset-x-0 top-0 z-[10010] flex justify-center px-4 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+      <p className="rounded-full border border-amber-300/25 bg-[#111827]/95 px-4 py-2 text-xs font-medium text-amber-100 shadow-xl shadow-black/30 backdrop-blur-xl">
+        Reconnecting...
+      </p>
+    </div>
+  );
+}
+
 export default function AuthRouteGate({
   children,
 }: {
@@ -87,6 +97,7 @@ export default function AuthRouteGate({
   const {
     isAuthenticated,
     isHydrated,
+    isSessionRecovering,
   } = useAuth();
   const [hasStoredToken, setHasStoredToken] =
     useState(() => tokenStorage.exists());
@@ -176,6 +187,19 @@ export default function AuthRouteGate({
   }
 
   if (!isHydrated || (!isAuthenticated && hasStoredToken)) {
+    if (
+      isHydrated &&
+      isSessionRecovering &&
+      hasStoredToken
+    ) {
+      return (
+        <>
+          <SessionReconnectBanner />
+          {children}
+        </>
+      );
+    }
+
     return <RouteGateLoader />;
   }
 

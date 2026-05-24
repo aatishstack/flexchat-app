@@ -2,7 +2,7 @@ import { io, type Socket } from "socket.io-client";
 
 import { tokenStorage } from "@/lib/token";
 
-function resolveSocketUrl() {
+function resolveSocketUrl(): string {
   const configuredUrl =
     process.env.NEXT_PUBLIC_SOCKET_URL?.trim();
 
@@ -10,12 +10,15 @@ function resolveSocketUrl() {
     return configuredUrl;
   }
 
-  if (
-    typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1")
-  ) {
-    return "http://localhost:5000";
+  if (typeof window !== "undefined") {
+    const { hostname } = window.location;
+
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1"
+    ) {
+      return `http://${hostname}:5000`;
+    }
   }
 
   return "https://flexchat-app-production.up.railway.app";
@@ -26,9 +29,10 @@ const globalSocket =
     __flexchatSocket?: Socket;
   };
 
-export const socket =
-  globalSocket.__flexchatSocket ??
-  io(resolveSocketUrl(), {
+function createSocket(): Socket {
+  const token = tokenStorage.get();
+
+  return io(resolveSocketUrl(), {
     path: "/socket.io/",
     autoConnect: false,
     transports: [
@@ -41,60 +45,49 @@ export const socket =
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 8000,
-    timeout: 30000,
+    randomizationFactor: 0.4,
+    timeout: 15000,
     withCredentials: false,
-    auth: {
-      token:
-        tokenStorage.get(),
-    },
-    query: {
-      token:
-        tokenStorage.get(),
-    },
+    auth: token
+      ? {
+          token,
+        }
+      : {},
+    query: token
+      ? {
+          token,
+        }
+      : {},
   });
+}
 
-socket.on("connect", () => {
-  console.log(
-    "Socket connected:",
-    socket.id,
-  );
-});
+export const socket: Socket =
+  globalSocket.__flexchatSocket ??
+  (() => {
+    const createdSocket = createSocket();
 
-socket.on(
-  "connect_error",
-  (error) => {
-    console.log(
-      "Socket error:",
-      error.message,
+    globalSocket.__flexchatSocket =
+      createdSocket;
+
+    createdSocket.io.on(
+      "reconnect_attempt",
+      () => {
+        const token =
+          tokenStorage.get();
+
+        createdSocket.auth = token
+          ? {
+              token,
+            }
+          : {};
+
+        createdSocket.io.opts.query = token
+          ? {
+              token,
+            }
+          : {};
+      },
     );
-  },
-);
 
-socket.on(
-  "disconnect",
-  (reason) => {
-    console.log(
-      "Socket disconnected:",
-      reason,
-    );
-  },
-);
-
-socket.on(
-  "reconnect_attempt",
-  () => {
-    const token =
-      tokenStorage.get();
-
-    socket.auth = {
-      token,
-    };
-
-    socket.io.opts.query = {
-      token,
-    };
-  },
-);
-
-globalSocket.__flexchatSocket =
-  socket;
+    return createdSocket;
+  })();

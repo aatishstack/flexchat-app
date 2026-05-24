@@ -308,6 +308,22 @@ function addCallNotification(input: {
   });
 }
 
+function guardSocketHandler<Arguments extends unknown[]>(
+  eventName: string,
+  handler: (...args: Arguments) => void,
+) {
+  return (...args: Arguments) => {
+    try {
+      handler(...args);
+    } catch (error) {
+      console.error(
+        `Socket handler failed for ${eventName}`,
+        error,
+      );
+    }
+  };
+}
+
 export default function SocketProvider({
   children,
 }: {
@@ -1185,96 +1201,227 @@ export default function SocketProvider({
         .handleCallError(payload);
     }
 
-    socket.on(SOCKET_EVENTS.CONNECT, onConnect);
-    socket.on(SOCKET_EVENTS.DISCONNECT, onDisconnect);
-    socket.on(SOCKET_EVENTS.CONNECT_ERROR, onConnectError);
-    socket.on(SOCKET_EVENTS.ONLINE_USERS, onOnlineUsers);
-    socket.on(SOCKET_EVENTS.PRESENCE_UPDATED, onPresenceUpdated);
-    socket.on(SOCKET_EVENTS.RECEIVE_MESSAGE, onReceiveMessage);
-    socket.on(SOCKET_EVENTS.MESSAGE_UPDATED, mergeRealtimeMessage);
-    socket.on(SOCKET_EVENTS.MESSAGE_DELETED, mergeRealtimeMessage);
-    socket.on(SOCKET_EVENTS.MESSAGE_REACTION_UPDATED, mergeRealtimeMessage);
-    socket.on(SOCKET_EVENTS.CONVERSATION_UPDATED, onConversationUpdated);
-    socket.on(SOCKET_EVENTS.TYPING_USERS, onTypingUsers);
-    socket.on(SOCKET_EVENTS.MESSAGE_DELIVERED, onMessageDelivered);
-    socket.on(SOCKET_EVENTS.MESSAGE_SEEN, onMessageSeen);
-    socket.on(SOCKET_EVENTS.CONVERSATION_ERROR, onConversationError);
+    function handleOffline() {
+      useSocketStore.setState({
+        isConnected: false,
+        isConnecting: false,
+        typingUsers: [],
+      });
+    }
+
+    const safeOnConnect = guardSocketHandler(
+      SOCKET_EVENTS.CONNECT,
+      onConnect,
+    );
+    const safeOnDisconnect = guardSocketHandler(
+      SOCKET_EVENTS.DISCONNECT,
+      onDisconnect,
+    );
+    const safeOnConnectError = guardSocketHandler(
+      SOCKET_EVENTS.CONNECT_ERROR,
+      onConnectError,
+    );
+    const safeOnOnlineUsers = guardSocketHandler(
+      SOCKET_EVENTS.ONLINE_USERS,
+      onOnlineUsers,
+    );
+    const safeOnPresenceUpdated = guardSocketHandler(
+      SOCKET_EVENTS.PRESENCE_UPDATED,
+      onPresenceUpdated,
+    );
+    const safeOnReceiveMessage = guardSocketHandler(
+      SOCKET_EVENTS.RECEIVE_MESSAGE,
+      onReceiveMessage,
+    );
+    const safeMergeRealtimeMessage = guardSocketHandler(
+      "message mutation",
+      mergeRealtimeMessage,
+    );
+    const safeOnConversationUpdated = guardSocketHandler(
+      SOCKET_EVENTS.CONVERSATION_UPDATED,
+      onConversationUpdated,
+    );
+    const safeOnTypingUsers = guardSocketHandler(
+      SOCKET_EVENTS.TYPING_USERS,
+      onTypingUsers,
+    );
+    const safeOnMessageDelivered = guardSocketHandler(
+      SOCKET_EVENTS.MESSAGE_DELIVERED,
+      onMessageDelivered,
+    );
+    const safeOnMessageSeen = guardSocketHandler(
+      SOCKET_EVENTS.MESSAGE_SEEN,
+      onMessageSeen,
+    );
+    const safeOnConversationError = guardSocketHandler(
+      SOCKET_EVENTS.CONVERSATION_ERROR,
+      onConversationError,
+    );
+    const safeOnConversationArchiveUpdated = guardSocketHandler(
+      SOCKET_EVENTS.CONVERSATION_ARCHIVE_UPDATED,
+      onConversationArchiveUpdated,
+    );
+    const safeOnConversationDeleted = guardSocketHandler(
+      SOCKET_EVENTS.CONVERSATION_DELETED,
+      onConversationDeleted,
+    );
+    const safeOnConversationThemeUpdated = guardSocketHandler(
+      SOCKET_EVENTS.CONVERSATION_THEME_UPDATED,
+      onConversationThemeUpdated,
+    );
+    const safeOnStoryCreated = guardSocketHandler(
+      SOCKET_EVENTS.STORY_CREATED,
+      onStoryCreated,
+    );
+    const safeOnStoryViewed = guardSocketHandler(
+      SOCKET_EVENTS.STORY_VIEWED,
+      onStoryViewed,
+    );
+    const safeOnStoryDeleted = guardSocketHandler(
+      SOCKET_EVENTS.STORY_DELETED,
+      onStoryDeleted,
+    );
+    const safeOnAccountDeleted = guardSocketHandler(
+      SOCKET_EVENTS.ACCOUNT_DELETED,
+      onAccountDeleted,
+    );
+    const safeOnUserUpdated = guardSocketHandler(
+      SOCKET_EVENTS.USER_UPDATED,
+      onUserUpdated,
+    );
+    const safeOnDiscoverUserDismissed = guardSocketHandler(
+      SOCKET_EVENTS.DISCOVER_USER_DISMISSED,
+      onDiscoverUserDismissed,
+    );
+    const safeOnCallIncoming = guardSocketHandler(
+      SOCKET_EVENTS.CALL_INCOMING,
+      onCallIncoming,
+    );
+    const safeOnCallAccepted = guardSocketHandler(
+      SOCKET_EVENTS.CALL_ACCEPTED,
+      onCallAccepted,
+    );
+    const safeOnCallRejected = guardSocketHandler(
+      SOCKET_EVENTS.CALL_REJECTED,
+      onCallRejected,
+    );
+    const safeOnCallCanceled = guardSocketHandler(
+      SOCKET_EVENTS.CALL_CANCELED,
+      onCallCanceled,
+    );
+    const safeOnCallEnded = guardSocketHandler(
+      SOCKET_EVENTS.CALL_ENDED,
+      onCallEnded,
+    );
+    const safeOnCallOffer = guardSocketHandler(
+      SOCKET_EVENTS.CALL_OFFER,
+      onCallOffer,
+    );
+    const safeOnCallAnswer = guardSocketHandler(
+      SOCKET_EVENTS.CALL_ANSWER,
+      onCallAnswer,
+    );
+    const safeOnCallIceCandidate = guardSocketHandler(
+      SOCKET_EVENTS.CALL_ICE_CANDIDATE,
+      onCallIceCandidate,
+    );
+    const safeOnCallError = guardSocketHandler(
+      SOCKET_EVENTS.CALL_ERROR,
+      onCallError,
+    );
+
+    socket.on(SOCKET_EVENTS.CONNECT, safeOnConnect);
+    socket.on(SOCKET_EVENTS.DISCONNECT, safeOnDisconnect);
+    socket.on(SOCKET_EVENTS.CONNECT_ERROR, safeOnConnectError);
+    socket.on(SOCKET_EVENTS.ONLINE_USERS, safeOnOnlineUsers);
+    socket.on(SOCKET_EVENTS.PRESENCE_UPDATED, safeOnPresenceUpdated);
+    socket.on(SOCKET_EVENTS.RECEIVE_MESSAGE, safeOnReceiveMessage);
+    socket.on(SOCKET_EVENTS.MESSAGE_UPDATED, safeMergeRealtimeMessage);
+    socket.on(SOCKET_EVENTS.MESSAGE_DELETED, safeMergeRealtimeMessage);
+    socket.on(SOCKET_EVENTS.MESSAGE_REACTION_UPDATED, safeMergeRealtimeMessage);
+    socket.on(SOCKET_EVENTS.CONVERSATION_UPDATED, safeOnConversationUpdated);
+    socket.on(SOCKET_EVENTS.TYPING_USERS, safeOnTypingUsers);
+    socket.on(SOCKET_EVENTS.MESSAGE_DELIVERED, safeOnMessageDelivered);
+    socket.on(SOCKET_EVENTS.MESSAGE_SEEN, safeOnMessageSeen);
+    socket.on(SOCKET_EVENTS.CONVERSATION_ERROR, safeOnConversationError);
     socket.on(
       SOCKET_EVENTS.CONVERSATION_ARCHIVE_UPDATED,
-      onConversationArchiveUpdated
+      safeOnConversationArchiveUpdated
     );
     socket.on(
       SOCKET_EVENTS.CONVERSATION_DELETED,
-      onConversationDeleted
+      safeOnConversationDeleted
     );
     socket.on(
       SOCKET_EVENTS.CONVERSATION_THEME_UPDATED,
-      onConversationThemeUpdated
+      safeOnConversationThemeUpdated
     );
-    socket.on(SOCKET_EVENTS.STORY_CREATED, onStoryCreated);
-    socket.on(SOCKET_EVENTS.STORY_VIEWED, onStoryViewed);
-    socket.on(SOCKET_EVENTS.STORY_DELETED, onStoryDeleted);
-    socket.on(SOCKET_EVENTS.ACCOUNT_DELETED, onAccountDeleted);
-    socket.on(SOCKET_EVENTS.USER_UPDATED, onUserUpdated);
+    socket.on(SOCKET_EVENTS.STORY_CREATED, safeOnStoryCreated);
+    socket.on(SOCKET_EVENTS.STORY_VIEWED, safeOnStoryViewed);
+    socket.on(SOCKET_EVENTS.STORY_DELETED, safeOnStoryDeleted);
+    socket.on(SOCKET_EVENTS.ACCOUNT_DELETED, safeOnAccountDeleted);
+    socket.on(SOCKET_EVENTS.USER_UPDATED, safeOnUserUpdated);
     socket.on(
       SOCKET_EVENTS.DISCOVER_USER_DISMISSED,
-      onDiscoverUserDismissed
+      safeOnDiscoverUserDismissed
     );
-    socket.on(SOCKET_EVENTS.CALL_INCOMING, onCallIncoming);
-    socket.on(SOCKET_EVENTS.CALL_ACCEPTED, onCallAccepted);
-    socket.on(SOCKET_EVENTS.CALL_REJECTED, onCallRejected);
-    socket.on(SOCKET_EVENTS.CALL_CANCELED, onCallCanceled);
-    socket.on(SOCKET_EVENTS.CALL_ENDED, onCallEnded);
-    socket.on(SOCKET_EVENTS.CALL_OFFER, onCallOffer);
-    socket.on(SOCKET_EVENTS.CALL_ANSWER, onCallAnswer);
-    socket.on(SOCKET_EVENTS.CALL_ICE_CANDIDATE, onCallIceCandidate);
-    socket.on(SOCKET_EVENTS.CALL_ERROR, onCallError);
+    socket.on(SOCKET_EVENTS.CALL_INCOMING, safeOnCallIncoming);
+    socket.on(SOCKET_EVENTS.CALL_ACCEPTED, safeOnCallAccepted);
+    socket.on(SOCKET_EVENTS.CALL_REJECTED, safeOnCallRejected);
+    socket.on(SOCKET_EVENTS.CALL_CANCELED, safeOnCallCanceled);
+    socket.on(SOCKET_EVENTS.CALL_ENDED, safeOnCallEnded);
+    socket.on(SOCKET_EVENTS.CALL_OFFER, safeOnCallOffer);
+    socket.on(SOCKET_EVENTS.CALL_ANSWER, safeOnCallAnswer);
+    socket.on(SOCKET_EVENTS.CALL_ICE_CANDIDATE, safeOnCallIceCandidate);
+    socket.on(SOCKET_EVENTS.CALL_ERROR, safeOnCallError);
+    window.addEventListener("offline", handleOffline);
 
     return () => {
-      socket.off(SOCKET_EVENTS.CONNECT, onConnect);
-      socket.off(SOCKET_EVENTS.DISCONNECT, onDisconnect);
-      socket.off(SOCKET_EVENTS.CONNECT_ERROR, onConnectError);
-      socket.off(SOCKET_EVENTS.ONLINE_USERS, onOnlineUsers);
-      socket.off(SOCKET_EVENTS.PRESENCE_UPDATED, onPresenceUpdated);
-      socket.off(SOCKET_EVENTS.RECEIVE_MESSAGE, onReceiveMessage);
-      socket.off(SOCKET_EVENTS.MESSAGE_UPDATED, mergeRealtimeMessage);
-      socket.off(SOCKET_EVENTS.MESSAGE_DELETED, mergeRealtimeMessage);
-      socket.off(SOCKET_EVENTS.MESSAGE_REACTION_UPDATED, mergeRealtimeMessage);
-      socket.off(SOCKET_EVENTS.CONVERSATION_UPDATED, onConversationUpdated);
-      socket.off(SOCKET_EVENTS.TYPING_USERS, onTypingUsers);
-      socket.off(SOCKET_EVENTS.MESSAGE_DELIVERED, onMessageDelivered);
-      socket.off(SOCKET_EVENTS.MESSAGE_SEEN, onMessageSeen);
-      socket.off(SOCKET_EVENTS.CONVERSATION_ERROR, onConversationError);
+      socket.off(SOCKET_EVENTS.CONNECT, safeOnConnect);
+      socket.off(SOCKET_EVENTS.DISCONNECT, safeOnDisconnect);
+      socket.off(SOCKET_EVENTS.CONNECT_ERROR, safeOnConnectError);
+      socket.off(SOCKET_EVENTS.ONLINE_USERS, safeOnOnlineUsers);
+      socket.off(SOCKET_EVENTS.PRESENCE_UPDATED, safeOnPresenceUpdated);
+      socket.off(SOCKET_EVENTS.RECEIVE_MESSAGE, safeOnReceiveMessage);
+      socket.off(SOCKET_EVENTS.MESSAGE_UPDATED, safeMergeRealtimeMessage);
+      socket.off(SOCKET_EVENTS.MESSAGE_DELETED, safeMergeRealtimeMessage);
+      socket.off(SOCKET_EVENTS.MESSAGE_REACTION_UPDATED, safeMergeRealtimeMessage);
+      socket.off(SOCKET_EVENTS.CONVERSATION_UPDATED, safeOnConversationUpdated);
+      socket.off(SOCKET_EVENTS.TYPING_USERS, safeOnTypingUsers);
+      socket.off(SOCKET_EVENTS.MESSAGE_DELIVERED, safeOnMessageDelivered);
+      socket.off(SOCKET_EVENTS.MESSAGE_SEEN, safeOnMessageSeen);
+      socket.off(SOCKET_EVENTS.CONVERSATION_ERROR, safeOnConversationError);
       socket.off(
         SOCKET_EVENTS.CONVERSATION_ARCHIVE_UPDATED,
-        onConversationArchiveUpdated
+        safeOnConversationArchiveUpdated
       );
       socket.off(
         SOCKET_EVENTS.CONVERSATION_DELETED,
-        onConversationDeleted
+        safeOnConversationDeleted
       );
       socket.off(
         SOCKET_EVENTS.CONVERSATION_THEME_UPDATED,
-        onConversationThemeUpdated
+        safeOnConversationThemeUpdated
       );
-      socket.off(SOCKET_EVENTS.STORY_CREATED, onStoryCreated);
-      socket.off(SOCKET_EVENTS.STORY_VIEWED, onStoryViewed);
-      socket.off(SOCKET_EVENTS.STORY_DELETED, onStoryDeleted);
-      socket.off(SOCKET_EVENTS.ACCOUNT_DELETED, onAccountDeleted);
-      socket.off(SOCKET_EVENTS.USER_UPDATED, onUserUpdated);
+      socket.off(SOCKET_EVENTS.STORY_CREATED, safeOnStoryCreated);
+      socket.off(SOCKET_EVENTS.STORY_VIEWED, safeOnStoryViewed);
+      socket.off(SOCKET_EVENTS.STORY_DELETED, safeOnStoryDeleted);
+      socket.off(SOCKET_EVENTS.ACCOUNT_DELETED, safeOnAccountDeleted);
+      socket.off(SOCKET_EVENTS.USER_UPDATED, safeOnUserUpdated);
       socket.off(
         SOCKET_EVENTS.DISCOVER_USER_DISMISSED,
-        onDiscoverUserDismissed
+        safeOnDiscoverUserDismissed
       );
-      socket.off(SOCKET_EVENTS.CALL_INCOMING, onCallIncoming);
-      socket.off(SOCKET_EVENTS.CALL_ACCEPTED, onCallAccepted);
-      socket.off(SOCKET_EVENTS.CALL_REJECTED, onCallRejected);
-      socket.off(SOCKET_EVENTS.CALL_CANCELED, onCallCanceled);
-      socket.off(SOCKET_EVENTS.CALL_ENDED, onCallEnded);
-      socket.off(SOCKET_EVENTS.CALL_OFFER, onCallOffer);
-      socket.off(SOCKET_EVENTS.CALL_ANSWER, onCallAnswer);
-      socket.off(SOCKET_EVENTS.CALL_ICE_CANDIDATE, onCallIceCandidate);
-      socket.off(SOCKET_EVENTS.CALL_ERROR, onCallError);
+      socket.off(SOCKET_EVENTS.CALL_INCOMING, safeOnCallIncoming);
+      socket.off(SOCKET_EVENTS.CALL_ACCEPTED, safeOnCallAccepted);
+      socket.off(SOCKET_EVENTS.CALL_REJECTED, safeOnCallRejected);
+      socket.off(SOCKET_EVENTS.CALL_CANCELED, safeOnCallCanceled);
+      socket.off(SOCKET_EVENTS.CALL_ENDED, safeOnCallEnded);
+      socket.off(SOCKET_EVENTS.CALL_OFFER, safeOnCallOffer);
+      socket.off(SOCKET_EVENTS.CALL_ANSWER, safeOnCallAnswer);
+      socket.off(SOCKET_EVENTS.CALL_ICE_CANDIDATE, safeOnCallIceCandidate);
+      socket.off(SOCKET_EVENTS.CALL_ERROR, safeOnCallError);
+      window.removeEventListener("offline", handleOffline);
     };
   }, [
     addMessage,
