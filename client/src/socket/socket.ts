@@ -1,6 +1,25 @@
-import { io, type Socket } from "socket.io-client";
+import {
+  io,
+  type ManagerOptions,
+  type Socket,
+  type SocketOptions,
+} from "socket.io-client";
 
 import { tokenStorage } from "@/lib/token";
+
+const SOCKET_TRANSPORTS = [
+  "websocket",
+  "polling",
+] as const;
+
+const SOCKET_CONNECT_TIMEOUT_MS = 30_000;
+const SOCKET_RECONNECTION_DELAY_MS = 1_000;
+const SOCKET_RECONNECTION_DELAY_MAX_MS = 15_000;
+
+type FlexSocketOptions =
+  Partial<ManagerOptions & SocketOptions> & {
+    tryAllTransports?: boolean;
+  };
 
 function resolveSocketUrl(): string {
   const configuredUrl =
@@ -29,70 +48,223 @@ const globalSocket =
     __flexchatSocket?: Socket;
   };
 
-function createSocket(): Socket {
-  const token = tokenStorage.get();
+export function configureSocketAuth(
+  targetSocket: Socket,
+  token: string | null,
+) {
+  const nextToken = token?.trim();
 
-  return io(resolveSocketUrl(), {
+  targetSocket.auth = nextToken
+    ? {
+        token: nextToken,
+      }
+    : {};
+
+  targetSocket.io.opts.query = nextToken
+    ? {
+        token: nextToken,
+      }
+    : {};
+
+  targetSocket.io.opts.transports = [
+    ...SOCKET_TRANSPORTS,
+  ];
+  targetSocket.io.opts.withCredentials = false;
+}
+
+function buildSocketOptions(
+  token: string | null,
+): FlexSocketOptions {
+  const nextToken = token?.trim();
+
+  return {
     path: "/socket.io/",
     autoConnect: false,
     transports: [
-      "websocket",
-      "polling",
+      ...SOCKET_TRANSPORTS,
     ],
     upgrade: true,
-    forceNew: false,
+    tryAllTransports: true,
+    rememberUpgrade: false,
+    forceNew: true,
+    multiplex: false,
     reconnection: true,
     reconnectionAttempts: Infinity,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 8000,
+    reconnectionDelay: SOCKET_RECONNECTION_DELAY_MS,
+    reconnectionDelayMax: SOCKET_RECONNECTION_DELAY_MAX_MS,
     randomizationFactor: 0.4,
-    timeout: 15000,
+    timeout: SOCKET_CONNECT_TIMEOUT_MS,
     withCredentials: false,
-    auth: token
+    auth: nextToken
       ? {
-          token,
+          token: nextToken,
         }
       : {},
-    query: token
+    query: nextToken
       ? {
-          token,
+          token: nextToken,
         }
       : {},
+  };
+}
+
+export function createSocket(
+  token = tokenStorage.get(),
+): Socket {
+  const createdSocket =
+    io(resolveSocketUrl(), buildSocketOptions(token));
+
+  attachSocketDiagnostics(createdSocket);
+
+  return createdSocket;
+}
+
+function attachEngineDiagnostics(
+  targetSocket: Socket,
+) {
+  const engine = targetSocket.io.engine;
+
+  if (
+    !engine ||
+    (
+      engine as typeof engine & {
+        __flexchatDiagnosticsAttached?: boolean;
+      }
+    ).__flexchatDiagnosticsAttached
+  ) {
+    return;
+  }
+
+  (
+    engine as typeof engine & {
+      __flexchatDiagnosticsAttached?: boolean;
+    }
+  ).__flexchatDiagnosticsAttached = true;
+
+  console.info("[FlexChat Socket] engine ready", {
+    id: targetSocket.id,
+    transport: engine.transport?.name,
+  });
+
+  engine.on("upgrade", (transport) => {
+    console.info("[FlexChat Socket] transport upgraded", {
+      id: targetSocket.id,
+      transport: transport.name,
+    });
+  });
+
+  engine.on("upgradeError", (error) => {
+    console.warn("[FlexChat Socket] transport upgrade failed", {
+      id: targetSocket.id,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unknown upgrade failure",
+    });
+  });
+
+  engine.on("close", (reason) => {
+    console.warn("[FlexChat Socket] engine closed", {
+      id: targetSocket.id,
+      reason,
+      transport: engine.transport?.name,
+    });
   });
 }
 
-export const socket: Socket =
+function attachSocketDiagnostics(
+  targetSocket: Socket,
+) {
+  const diagnosticSocket =
+    targetSocket as Socket & {
+      __flexchatDiagnosticsAttached?: boolean;
+    };
+
+  if (diagnosticSocket.__flexchatDiagnosticsAttached) {
+    return;
+  }
+
+  diagnosticSocket.__flexchatDiagnosticsAttached = true;
+
+  targetSocket.on("connect", () => {
+    attachEngineDiagnostics(targetSocket);
+  });
+
+  targetSocket.io.on(
+    "reconnect_attempt",
+    (attempt) => {
+      const token = tokenStorage.get();
+
+      console.info("[FlexChat Socket] reconnect attempt", {
+        attempt,
+        hasToken: Boolean(token),
+        transport:
+          targetSocket.io.engine?.transport?.name,
+      });
+
+      configureSocketAuth(targetSocket, token);
+    },
+  );
+
+  targetSocket.io.on("reconnect", (attempt) => {
+    console.info("[FlexChat Socket] reconnected", {
+      attempt,
+      id: targetSocket.id,
+      transport:
+        targetSocket.io.engine?.transport?.name,
+    });
+  });
+
+  targetSocket.io.on("reconnect_error", (error) => {
+    console.warn("[FlexChat Socket] reconnect error", {
+      message: error.message,
+      transport:
+        targetSocket.io.engine?.transport?.name,
+    });
+  });
+
+  targetSocket.io.on("reconnect_failed", () => {
+    console.error("[FlexChat Socket] reconnect failed");
+  });
+}
+
+export function destroySocket(
+  targetSocket: Socket,
+) {
+  try {
+    targetSocket.removeAllListeners();
+    targetSocket.io.removeAllListeners();
+    targetSocket.disconnect();
+    targetSocket.io.engine?.close();
+  } catch (error) {
+    console.warn("[FlexChat Socket] destroy failed", {
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unknown socket destroy failure",
+    });
+  }
+}
+
+export let socket: Socket =
   globalSocket.__flexchatSocket ??
-  (() => {
-    const createdSocket = createSocket();
+  createSocket();
 
-    globalSocket.__flexchatSocket =
-      createdSocket;
+globalSocket.__flexchatSocket = socket;
 
-    createdSocket.io.on(
-      "reconnect_attempt",
-      (attempt) => {
-        const token =
-          tokenStorage.get();
+export function recreateSocket(
+  token = tokenStorage.get(),
+  reason = "manual",
+) {
+  console.info("[FlexChat Socket] recreating socket", {
+    reason,
+    hasToken: Boolean(token),
+  });
 
-        console.info("[FlexChat Socket] reconnect attempt", {
-          attempt,
-          hasToken: Boolean(token),
-        });
+  destroySocket(socket);
 
-        createdSocket.auth = token
-          ? {
-              token,
-            }
-          : {};
+  socket = createSocket(token);
+  globalSocket.__flexchatSocket = socket;
 
-        createdSocket.io.opts.query = token
-          ? {
-              token,
-            }
-          : {};
-      },
-    );
-
-    return createdSocket;
-  })();
+  return socket;
+}

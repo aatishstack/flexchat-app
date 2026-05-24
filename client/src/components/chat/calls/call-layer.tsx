@@ -64,6 +64,89 @@ function StreamVideo({
   );
 }
 
+function StreamAudio({
+  stream,
+}: {
+  stream: MediaStream | null;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playBlocked, setPlayBlocked] = useState(false);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+
+    if (!audio) {
+      return;
+    }
+
+    audio.srcObject = stream;
+    audio.volume = 1;
+    audio.muted = false;
+
+    if (!stream) {
+      return;
+    }
+
+    const playRemoteAudio = async () => {
+      try {
+        await audio.play();
+        setPlayBlocked(false);
+        console.info("[FlexChat Call] remote audio playback started", {
+          audioTracks: stream.getAudioTracks().map((track) => ({
+            id: track.id,
+            enabled: track.enabled,
+            muted: track.muted,
+            readyState: track.readyState,
+          })),
+        });
+      } catch (error) {
+        setPlayBlocked(true);
+        console.warn("[FlexChat Call] remote audio playback blocked", {
+          message:
+            error instanceof Error
+              ? error.message
+              : "Unknown autoplay failure",
+        });
+      }
+    };
+
+    void playRemoteAudio();
+
+    const handleCanPlay = () => {
+      void playRemoteAudio();
+    };
+
+    audio.addEventListener("canplay", handleCanPlay);
+
+    return () => {
+      audio.removeEventListener("canplay", handleCanPlay);
+    };
+  }, [stream]);
+
+  return (
+    <>
+      <audio
+        ref={audioRef}
+        autoPlay
+        className="hidden"
+      />
+      {playBlocked ? (
+        <button
+          type="button"
+          onClick={() => {
+            void audioRef.current?.play().then(() => {
+              setPlayBlocked(false);
+            });
+          }}
+          className="fixed bottom-28 left-1/2 z-40 -translate-x-1/2 rounded-full bg-cyan-500 px-5 py-3 text-sm font-semibold text-white shadow-2xl shadow-cyan-500/25"
+        >
+          Tap to enable call audio
+        </button>
+      ) : null}
+    </>
+  );
+}
+
 function CallErrorModal() {
   const modalError = useCallStore((state) => state.modalError);
   const dismissCallModal = useCallStore((state) => state.dismissCallModal);
@@ -287,6 +370,7 @@ function CallScreen({
   const [, forceTrackUpdate] = useState(0);
   const isVideoCall = currentCall?.kind === "video" && answerKind !== "voice";
   const remoteVideoTrack = remoteStream?.getVideoTracks()[0] ?? null;
+  const remoteAudioTrack = remoteStream?.getAudioTracks()[0] ?? null;
   const hasRemoteVideo =
     isVideoCall &&
     !!remoteVideoTrack &&
@@ -312,6 +396,31 @@ function CallScreen({
       remoteVideoTrack.removeEventListener("ended", update);
     };
   }, [remoteVideoTrack]);
+
+  useEffect(() => {
+    if (!remoteAudioTrack) {
+      return;
+    }
+
+    const update = () => forceTrackUpdate((count) => count + 1);
+
+    console.info("[FlexChat Call] remote audio track attached", {
+      id: remoteAudioTrack.id,
+      enabled: remoteAudioTrack.enabled,
+      muted: remoteAudioTrack.muted,
+      readyState: remoteAudioTrack.readyState,
+    });
+
+    remoteAudioTrack.addEventListener("mute", update);
+    remoteAudioTrack.addEventListener("unmute", update);
+    remoteAudioTrack.addEventListener("ended", update);
+
+    return () => {
+      remoteAudioTrack.removeEventListener("mute", update);
+      remoteAudioTrack.removeEventListener("unmute", update);
+      remoteAudioTrack.removeEventListener("ended", update);
+    };
+  }, [remoteAudioTrack]);
 
   function beginDrag(event: ReactPointerEvent<HTMLDivElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -361,6 +470,8 @@ function CallScreen({
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[9998] bg-[#1a1a1a] text-white"
     >
+      <StreamAudio stream={remoteStream} />
+
       {hasRemoteVideo ? (
         <StreamVideo
           stream={remoteStream}

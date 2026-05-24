@@ -534,6 +534,11 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
       const parsedData = sendMessagePayloadSchema.safeParse(data);
 
       if (!parsedData.success) {
+        console.warn("[FlexChat Message] invalid send payload", {
+          socketId: socket.id,
+          userId,
+          transport: socket.conn.transport.name,
+        });
         acknowledge({
           ok: false,
           error: "Invalid message payload",
@@ -543,6 +548,14 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
       }
 
       const messageData = parsedData.data;
+
+      console.info("[FlexChat Message] send received", {
+        socketId: socket.id,
+        userId,
+        conversationId: messageData.conversationId,
+        tempId: messageData.tempId,
+        transport: socket.conn.transport.name,
+      });
 
       const allowed = await canAccessConversation(
         socket,
@@ -578,6 +591,14 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
       const duplicateMessage = getRecentClientMessage(dedupeKey);
 
       if (duplicateMessage) {
+        console.info("[FlexChat Message] duplicate tempId acknowledged", {
+          socketId: socket.id,
+          userId,
+          conversationId: messageData.conversationId,
+          tempId: messageData.tempId,
+          messageId: duplicateMessage.id,
+        });
+
         acknowledgeSentMessage(
           socket,
           ack,
@@ -604,7 +625,13 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
       try {
         socketMessage = await messagePromise;
       } catch (error) {
-        console.error(error);
+        console.error("[FlexChat Message] persistence failed", {
+          socketId: socket.id,
+          userId,
+          conversationId: messageData.conversationId,
+          tempId: messageData.tempId,
+          error,
+        });
 
         acknowledge({
           ok: false,
@@ -638,6 +665,14 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
       }
 
       acknowledgeSentMessage(socket, ack, socketMessage, messageData.tempId);
+
+      console.info("[FlexChat Message] send acknowledged", {
+        socketId: socket.id,
+        userId,
+        conversationId: messageData.conversationId,
+        tempId: messageData.tempId,
+        messageId: socketMessage.id,
+      });
 
       if (ownsPersistence) {
         void emitConversationUpdated(io, socketMessage).catch((error) => {

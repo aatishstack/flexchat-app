@@ -98,6 +98,7 @@ let disconnectedIceRestartTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const CALL_CONNECT_TIMEOUT_MS = 30_000;
 const DISCONNECTED_ICE_RESTART_DELAY_MS = 5_000;
+const CALL_SIGNAL_ACK_TIMEOUT_MS = 25_000;
 
 function parseIceUrls(value?: string) {
   return (value ?? "")
@@ -136,7 +137,31 @@ function getIceServers(): RTCIceServer[] {
     });
   }
 
+  console.info("[FlexChat Call] ICE servers configured", {
+    stunCount: stunUrls.length || 2,
+    turnCount: turnUrls.length,
+    hasTurnCredentials: Boolean(
+      process.env.NEXT_PUBLIC_TURN_USERNAME &&
+        process.env.NEXT_PUBLIC_TURN_CREDENTIAL,
+    ),
+  });
+
   return iceServers;
+}
+
+function getIceTransportPolicy(): RTCIceTransportPolicy {
+  return process.env.NEXT_PUBLIC_ICE_TRANSPORT_POLICY === "relay"
+    ? "relay"
+    : "all";
+}
+
+function getCandidateType(
+  candidate?: RTCIceCandidateInit | null,
+) {
+  const candidateLine = candidate?.candidate ?? "";
+  const match = candidateLine.match(/\btyp\s+([a-z0-9]+)/i);
+
+  return match?.[1] ?? "unknown";
 }
 
 function clearConnectionTimers() {
@@ -192,6 +217,10 @@ async function flushPendingIceCandidates() {
   pendingIceCandidates = [];
 
   for (const candidate of candidates) {
+    console.info("[FlexChat Call] flushing queued ICE candidate", {
+      type: getCandidateType(candidate),
+    });
+
     await peerConnection.addIceCandidate(
       candidate
     );
@@ -204,7 +233,7 @@ function emitCallWithAck(
 ) {
   return new Promise<CallAck>((resolve) => {
     socket
-      .timeout(12000)
+      .timeout(CALL_SIGNAL_ACK_TIMEOUT_MS)
       .emit(
         event,
         payload,
@@ -229,6 +258,41 @@ function emitCallWithAck(
           );
         }
       );
+  });
+}
+
+function waitForSocketConnected(
+  timeoutMs = CALL_SIGNAL_ACK_TIMEOUT_MS,
+) {
+  if (socket.connected) {
+    return Promise.resolve(true);
+  }
+
+  return new Promise<boolean>((resolve) => {
+    const timer = window.setTimeout(() => {
+      cleanup();
+      resolve(false);
+    }, timeoutMs);
+
+    const cleanup = () => {
+      window.clearTimeout(timer);
+      socket.off("connect", handleConnect);
+      socket.off("connect_error", handleConnectError);
+    };
+
+    const handleConnect = () => {
+      cleanup();
+      resolve(true);
+    };
+
+    const handleConnectError = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    socket.once("connect", handleConnect);
+    socket.once("connect_error", handleConnectError);
+    socket.connect();
   });
 }
 
@@ -341,6 +405,17 @@ function emitSignal(
   callId: string,
   signal: SignalPayload
 ) {
+  console.info("[FlexChat Call] sending signal", {
+    callId,
+    type: signal.type,
+    candidateType:
+      signal.type === "candidate"
+        ? getCandidateType(signal.candidate)
+        : undefined,
+    socketConnected: socket.connected,
+    socketId: socket.id,
+  });
+
   if (signal.type === "offer") {
     socket.emit(SOCKET_EVENTS.CALL_OFFER, {
       callId,
@@ -421,19 +496,43 @@ async function makePeerConnection(
 
   const pc = new RTCPeerConnection({
     iceServers: getIceServers(),
+    iceTransportPolicy: getIceTransportPolicy(),
     iceCandidatePoolSize: 10,
     bundlePolicy: "max-bundle",
     rtcpMuxPolicy: "require",
   });
 
   localStream.getTracks().forEach((track) => {
+    console.info("[FlexChat Call] adding local track", {
+      callId: call.id,
+      kind: track.kind,
+      enabled: track.enabled,
+      muted: track.muted,
+      readyState: track.readyState,
+    });
+
     pc.addTrack(track, localStream);
   });
 
   pc.onicecandidate = (event) => {
     if (!event.candidate) {
+      console.info("[FlexChat Call] ICE gathering candidate complete", {
+        callId: call.id,
+      });
       return;
     }
+
+    console.info("[FlexChat Call] local ICE candidate", {
+      callId: call.id,
+      type: getCandidateType(event.candidate.toJSON()),
+      protocol: event.candidate.protocol,
+      address:
+        event.candidate.address ??
+        event.candidate.relatedAddress,
+      port:
+        event.candidate.port ??
+        event.candidate.relatedPort,
+    });
 
     emitSignal(call.id, {
       type: "candidate",
@@ -459,6 +558,18 @@ async function makePeerConnection(
 
     remoteMediaStream = remoteStream;
 
+    console.info("[FlexChat Call] remote track received", {
+      callId: call.id,
+      kind: event.track.kind,
+      enabled: event.track.enabled,
+      muted: event.track.muted,
+      readyState: event.track.readyState,
+      streamTrackCounts: {
+        audio: remoteStream.getAudioTracks().length,
+        video: remoteStream.getVideoTracks().length,
+      },
+    });
+
     set({
       remoteStream,
       phase: "active",
@@ -467,6 +578,11 @@ async function makePeerConnection(
   };
 
   pc.onconnectionstatechange = () => {
+    console.info("[FlexChat Call] peer connection state", {
+      callId: call.id,
+      state: pc.connectionState,
+    });
+
     if (
       pc.connectionState === "connected"
     ) {
@@ -499,6 +615,11 @@ async function makePeerConnection(
   };
 
   pc.oniceconnectionstatechange = () => {
+    console.info("[FlexChat Call] ICE connection state", {
+      callId: call.id,
+      state: pc.iceConnectionState,
+    });
+
     if (
       pc.iceConnectionState === "connected" ||
       pc.iceConnectionState === "completed"
@@ -551,6 +672,20 @@ async function makePeerConnection(
       });
       restartCallIce(call, pc);
     }
+  };
+
+  pc.onicegatheringstatechange = () => {
+    console.info("[FlexChat Call] ICE gathering state", {
+      callId: call.id,
+      state: pc.iceGatheringState,
+    });
+  };
+
+  pc.onsignalingstatechange = () => {
+    console.info("[FlexChat Call] signaling state", {
+      callId: call.id,
+      state: pc.signalingState,
+    });
   };
 
   peerConnection = pc;
@@ -674,6 +809,22 @@ export const useCallStore =
           networkState: "connecting",
         });
 
+        const socketReady = await waitForSocketConnected();
+
+        if (!socketReady) {
+          stopStream(localStream);
+          set({
+            localStream: null,
+            phase: "idle",
+            networkState: "stable",
+            error: null,
+            answerKind: null,
+            modalError:
+              "Realtime connection is still recovering. Please try again in a moment.",
+          });
+          return;
+        }
+
         const ack =
           await emitCallWithAck(
             SOCKET_EVENTS.CALL_INVITE,
@@ -741,6 +892,24 @@ export const useCallStore =
             get,
             set
           );
+
+        const socketReady = await waitForSocketConnected();
+
+        if (!socketReady) {
+          stopStream(localStream);
+          closePeerConnection();
+          set({
+            currentCall: call,
+            localStream: null,
+            remoteStream: null,
+            phase: "incoming",
+            networkState: "reconnecting",
+            error:
+              "Realtime connection is still recovering. Please try again in a moment.",
+            answerKind: null,
+          });
+          return;
+        }
 
         const ack =
           await emitCallWithAck(
@@ -1112,6 +1281,19 @@ export const useCallStore =
       }
 
       void (async () => {
+        console.info("[FlexChat Call] received signal", {
+          callId: call.id,
+          type: signal.type,
+          candidateType:
+            signal.type === "candidate"
+              ? getCandidateType(signal.candidate)
+              : undefined,
+          signalingState:
+            peerConnection?.signalingState,
+          iceConnectionState:
+            peerConnection?.iceConnectionState,
+        });
+
         if (
           signal.type === "offer" &&
           signal.description
@@ -1162,11 +1344,20 @@ export const useCallStore =
           signal.candidate
         ) {
           if (!peerConnection?.remoteDescription) {
+            console.info("[FlexChat Call] queued remote ICE candidate", {
+              callId: call.id,
+              type: getCandidateType(signal.candidate),
+            });
             pendingIceCandidates.push(
               signal.candidate
             );
             return;
           }
+
+          console.info("[FlexChat Call] adding remote ICE candidate", {
+            callId: call.id,
+            type: getCandidateType(signal.candidate),
+          });
 
           await peerConnection.addIceCandidate(
             signal.candidate

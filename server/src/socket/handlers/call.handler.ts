@@ -59,7 +59,7 @@ const activeCallByUser = new Map<string, string>();
 const disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const callExpiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-const CALL_RECONNECT_GRACE_MS = 15_000;
+const CALL_RECONNECT_GRACE_MS = 60_000;
 const CALL_RING_TIMEOUT_MS = 45_000;
 
 function acknowledge(
@@ -137,10 +137,35 @@ function closeCall(io: Server, callId: string, reason: string) {
 }
 
 function emitCallError(socket: Socket, message: string, callId?: string) {
+  console.warn("[FlexChat Call] signaling error", {
+    socketId: socket.id,
+    userId: socket.data.user.id,
+    callId,
+    message,
+  });
+
   socket.emit(SOCKET_EVENTS.CALL_ERROR, {
     callId,
     message,
   });
+}
+
+function getCandidateType(candidate: unknown) {
+  if (
+    !candidate ||
+    typeof candidate !== "object" ||
+    !("candidate" in candidate)
+  ) {
+    return "unknown";
+  }
+
+  const candidateLine =
+    typeof candidate.candidate === "string"
+      ? candidate.candidate
+      : "";
+  const match = candidateLine.match(/\btyp\s+([a-z0-9]+)/i);
+
+  return match?.[1] ?? "unknown";
 }
 
 function relayCallPayload(
@@ -159,6 +184,18 @@ function relayCallPayload(
     emitCallError(socket, "Call unavailable", callId);
     return;
   }
+
+  console.info("[FlexChat Call] relaying signal", {
+    callId,
+    fromUserId: socket.data.user.id,
+    targetUserId,
+    event,
+    candidateType:
+      event === SOCKET_EVENTS.CALL_ICE_CANDIDATE
+        ? getCandidateType(payload.candidate)
+        : undefined,
+    transport: socket.conn.transport.name,
+  });
 
   socket.to(`user:${targetUserId}`).emit(event, {
     callId: call.id,
@@ -230,6 +267,15 @@ export function registerCallHandlers(io: Server, socket: Socket) {
 
       const { conversationId, targetUserId, kind } = parsed.data;
 
+      console.info("[FlexChat Call] invite received", {
+        socketId: socket.id,
+        callerId: userId,
+        targetUserId,
+        conversationId,
+        kind,
+        transport: socket.conn.transport.name,
+      });
+
       const allowed = await canCallTarget(userId, conversationId, targetUserId);
 
       if (!allowed) {
@@ -264,6 +310,13 @@ export function registerCallHandlers(io: Server, socket: Socket) {
       activeCallByUser.set(targetUserId, call.id);
 
       socket.join(`call:${call.id}`);
+
+      console.info("[FlexChat Call] invite created", {
+        callId: call.id,
+        callerId: userId,
+        targetUserId,
+        targetOnline,
+      });
 
       if (targetOnline) {
         io.to(`user:${targetUserId}`).emit(SOCKET_EVENTS.CALL_INCOMING, call);
@@ -312,6 +365,12 @@ export function registerCallHandlers(io: Server, socket: Socket) {
 
     call.status = "active";
     socket.join(`call:${call.id}`);
+
+    console.info("[FlexChat Call] accepted", {
+      callId: call.id,
+      calleeId: userId,
+      transport: socket.conn.transport.name,
+    });
 
     const expiryTimer = callExpiryTimers.get(call.id);
 
@@ -397,6 +456,12 @@ export function registerCallHandlers(io: Server, socket: Socket) {
       return;
     }
 
+    console.info("[FlexChat Call] offer received", {
+      callId: parsed.data.callId,
+      fromUserId: userId,
+      transport: socket.conn.transport.name,
+    });
+
     relayCallPayload(socket, parsed.data.callId, SOCKET_EVENTS.CALL_OFFER, {
       description: parsed.data.description,
     });
@@ -409,6 +474,12 @@ export function registerCallHandlers(io: Server, socket: Socket) {
       emitCallError(socket, "Invalid call answer");
       return;
     }
+
+    console.info("[FlexChat Call] answer received", {
+      callId: parsed.data.callId,
+      fromUserId: userId,
+      transport: socket.conn.transport.name,
+    });
 
     const call = calls.get(parsed.data.callId);
 
@@ -428,6 +499,13 @@ export function registerCallHandlers(io: Server, socket: Socket) {
       emitCallError(socket, "Invalid ICE candidate");
       return;
     }
+
+    console.info("[FlexChat Call] ICE candidate received", {
+      callId: parsed.data.callId,
+      fromUserId: userId,
+      candidateType: getCandidateType(parsed.data.candidate),
+      transport: socket.conn.transport.name,
+    });
 
     relayCallPayload(
       socket,
@@ -453,6 +531,11 @@ export function registerCallHandlers(io: Server, socket: Socket) {
     }
 
     const timer = setTimeout(() => {
+      console.warn("[FlexChat Call] participant reconnect grace expired", {
+        callId,
+        userId,
+      });
+
       closeCall(io, callId, "participant_disconnected");
     }, CALL_RECONNECT_GRACE_MS);
 

@@ -10,8 +10,14 @@ import {
   updateMessageStatusInQueryCache,
 } from "@/lib/message-query-cache";
 import type { MessageQueryCache } from "@/lib/message-query-cache";
-import { socket } from "@/socket/socket";
+import {
+  configureSocketAuth,
+  destroySocket,
+  recreateSocket,
+  socket as initialSocket,
+} from "@/socket/socket";
 import { SOCKET_EVENTS } from "@/socket/socket-events";
+import type { Socket } from "socket.io-client";
 
 export type MessageStatus =
   | "sending"
@@ -86,7 +92,7 @@ type ServerMessageAck = {
 };
 
 interface SocketState {
-  socket: typeof socket;
+  socket: Socket;
   token: string | null;
   activeConversationId: string | null;
   isConnected: boolean;
@@ -99,6 +105,7 @@ interface SocketState {
   messagesByConversation: Record<string, Message[]>;
   connectSocket: (token?: string | null) => void;
   disconnectSocket: () => void;
+  recoverSocketConnection: (reason?: string) => void;
   setOnlineUsers: (users: string[]) => void;
   setTypingUsers: (users: string[]) => void;
   setConnectionError: (message: string | null) => void;
@@ -119,15 +126,19 @@ interface SocketState {
   stopTyping: (conversationId: string) => void;
 }
 
-const ACK_TIMEOUT_MS = 9000;
-const MAX_RETRY_ATTEMPTS = 3;
+const ACK_TIMEOUT_MS = 25_000;
+const MAX_RETRY_ATTEMPTS = 8;
 const MAX_EPHEMERAL_MESSAGES_PER_CONVERSATION = 160;
 const MAX_PENDING_MESSAGES = 80;
-const PENDING_MESSAGE_TTL_MS = 5 * 60 * 1000;
+const PENDING_MESSAGE_TTL_MS = 30 * 60 * 1000;
+const SOCKET_RECREATE_CONNECT_DELAY_MS = 120;
+const SOCKET_RECOVERY_COOLDOWN_MS = 1_500;
 
 const pendingMessages = new Map<string, PendingMessage>();
 
 const retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+let socketConnectSequence = 0;
+let lastSocketRecoveryAt = 0;
 
 function clearRetryTimer(tempId: string) {
   const timer = retryTimers.get(tempId);
@@ -136,6 +147,50 @@ function clearRetryTimer(tempId: string) {
     clearTimeout(timer);
     retryTimers.delete(tempId);
   }
+}
+
+function schedulePendingRetry(
+  tempId: string,
+  attempts: number,
+  flushPendingMessages: () => void,
+) {
+  clearRetryTimer(tempId);
+
+  const delayMs = Math.min(
+    30_000,
+    1_500 * Math.max(1, attempts),
+  );
+
+  const timer = setTimeout(() => {
+    flushPendingMessages();
+  }, delayMs);
+
+  retryTimers.set(tempId, timer);
+}
+
+function scheduleSocketConnect(
+  targetSocket: Socket,
+  sequence: number,
+) {
+  if (typeof window === "undefined") {
+    targetSocket.connect();
+    return;
+  }
+
+  window.setTimeout(() => {
+    const state = useSocketStore.getState();
+
+    if (
+      state.socket !== targetSocket ||
+      socketConnectSequence !== sequence ||
+      !state.token
+    ) {
+      return;
+    }
+
+    configureSocketAuth(targetSocket, state.token);
+    targetSocket.connect();
+  }, SOCKET_RECREATE_CONNECT_DELAY_MS);
 }
 
 function failPendingMessage(
@@ -347,7 +402,7 @@ function setCachedMessageStatus(
 }
 
 export const useSocketStore = create<SocketState>((set, get) => ({
-  socket,
+  socket: initialSocket,
   token: null,
   activeConversationId: null,
   isConnected: false,
@@ -359,66 +414,78 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   messages: [],
   messagesByConversation: {},
 
- connectSocket: (token) => {
-  const nextToken = token?.trim();
+  connectSocket: (token) => {
+    const nextToken = token?.trim();
 
-  if (!nextToken) {
-    socket.disconnect();
-    socket.auth = {};
+    if (!nextToken) {
+      const currentSocket = get().socket;
+
+      socketConnectSequence += 1;
+      destroySocket(currentSocket);
+
+      set({
+        socket: recreateSocket(null, "missing-token"),
+        token: null,
+        isConnected: false,
+        isConnecting: false,
+        connectionError: "Missing auth token",
+      });
+
+      return;
+    }
+
+    const currentToken = get().token;
+    const currentSocket = get().socket;
+
+    if (
+      currentSocket.connected &&
+      currentToken === nextToken
+    ) {
+      configureSocketAuth(currentSocket, nextToken);
+
+      set({
+        isConnected: true,
+        isConnecting: false,
+        connectionError: null,
+      });
+
+      return;
+    }
+
+    const nextSocket =
+      currentToken === nextToken &&
+      !currentSocket.connected &&
+      !currentSocket.active
+        ? currentSocket
+        : recreateSocket(nextToken, "connect");
+
+    configureSocketAuth(nextSocket, nextToken);
+
+    socketConnectSequence += 1;
+    const sequence = socketConnectSequence;
 
     set({
-      token: null,
+      socket: nextSocket,
+      token: nextToken,
       isConnected: false,
-      isConnecting: false,
-      connectionError: "Missing auth token",
-    });
-
-    return;
-  }
-
-  const currentToken = get().token;
-
-  if (socket.connected && currentToken === nextToken) {
-    set({
-      isConnected: true,
-      isConnecting: false,
+      isConnecting: true,
       connectionError: null,
     });
 
-    return;
-  }
-
-  if (socket.connected || socket.active) {
-    socket.disconnect();
-  }
-
-  socket.auth = {
-    token: nextToken,
-  };
-
-  socket.io.opts.transports = ["websocket", "polling"];
-  socket.io.opts.query = {
-    token: nextToken,
-  };
-  socket.io.opts.withCredentials = false;
-
-  set({
-    token: nextToken,
-    isConnecting: true,
-    connectionError: null,
-  });
-
-  socket.connect();
-},
+    scheduleSocketConnect(nextSocket, sequence);
+  },
 
   disconnectSocket: () => {
-    socket.disconnect();
-    socket.auth = {};
+    const currentSocket = get().socket;
+
+    socketConnectSequence += 1;
+    destroySocket(currentSocket);
     pendingMessages.clear();
     retryTimers.forEach((timer) => clearTimeout(timer));
     retryTimers.clear();
 
     set({
+      socket: recreateSocket(null, "disconnect"),
       token: null,
       activeConversationId: null,
       isConnected: false,
@@ -429,6 +496,40 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       messages: [],
       messagesByConversation: {},
     });
+  },
+
+  recoverSocketConnection: (reason = "recovery") => {
+    const token = get().token;
+
+    if (!token) {
+      return;
+    }
+
+    const now = Date.now();
+
+    if (now - lastSocketRecoveryAt < SOCKET_RECOVERY_COOLDOWN_MS) {
+      return;
+    }
+
+    lastSocketRecoveryAt = now;
+    get().resetPendingMessageFlights();
+
+    const nextSocket = recreateSocket(token, reason);
+
+    configureSocketAuth(nextSocket, token);
+
+    socketConnectSequence += 1;
+    const sequence = socketConnectSequence;
+
+    set({
+      socket: nextSocket,
+      isConnected: false,
+      isConnecting: true,
+      connectionError: null,
+      typingUsers: [],
+    });
+
+    scheduleSocketConnect(nextSocket, sequence);
   },
 
   resetPendingMessageFlights: () => {
@@ -498,7 +599,9 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   flushPendingMessages: () => {
     prunePendingMessages(get().updateMessageStatus);
 
-    if (!socket.connected) {
+    const activeSocket = get().socket;
+
+    if (!activeSocket.connected) {
       return;
     }
 
@@ -512,7 +615,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
       clearRetryTimer(pending.tempId);
 
-      socket.timeout(ACK_TIMEOUT_MS).emit(
+      activeSocket.timeout(ACK_TIMEOUT_MS).emit(
         SOCKET_EVENTS.SEND_MESSAGE,
         {
           conversationId: pending.conversationId,
@@ -531,12 +634,25 @@ export const useSocketStore = create<SocketState>((set, get) => ({
           pending.inFlight = false;
 
           if (error || !ack || !ack.ok) {
-            if (pending.attempts < MAX_RETRY_ATTEMPTS) {
-              const timer = setTimeout(() => {
-                get().flushPendingMessages();
-              }, 900 * pending.attempts);
+            console.warn("[FlexChat Socket] message ACK failed", {
+              tempId: pending.tempId,
+              attempts: pending.attempts,
+              connected: get().socket.connected,
+              error:
+                ack?.error ??
+                error?.message ??
+                "Message was not acknowledged",
+            });
 
-              retryTimers.set(pending.tempId, timer);
+            if (
+              pending.attempts < MAX_RETRY_ATTEMPTS ||
+              !get().socket.connected
+            ) {
+              schedulePendingRetry(
+                pending.tempId,
+                pending.attempts,
+                get().flushPendingMessages,
+              );
 
               return;
             }
@@ -554,6 +670,9 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
           pendingMessages.delete(pending.tempId);
           clearRetryTimer(pending.tempId);
+          set({
+            connectionError: null,
+          });
 
           if (ack.message) {
             setCachedConversationMessage(pending.conversationId, {
@@ -617,17 +736,18 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
   joinConversation: (conversationId) => {
     const previousConversationId = get().activeConversationId;
+    const activeSocket = get().socket;
 
     if (
       previousConversationId &&
       previousConversationId !== conversationId &&
-      socket.connected
+      activeSocket.connected
     ) {
-      socket.emit(SOCKET_EVENTS.STOP_TYPING, {
+      activeSocket.emit(SOCKET_EVENTS.STOP_TYPING, {
         conversationId: previousConversationId,
       });
 
-      socket.emit(SOCKET_EVENTS.LEAVE_CONVERSATION, {
+      activeSocket.emit(SOCKET_EVENTS.LEAVE_CONVERSATION, {
         conversationId: previousConversationId,
       });
     }
@@ -638,16 +758,18 @@ export const useSocketStore = create<SocketState>((set, get) => ({
         previousConversationId === conversationId ? get().typingUsers : [],
     });
 
-    if (!socket.connected) {
+    if (!activeSocket.connected) {
       return;
     }
 
-    socket.emit(SOCKET_EVENTS.JOIN_CONVERSATION, {
+    activeSocket.emit(SOCKET_EVENTS.JOIN_CONVERSATION, {
       conversationId,
     });
   },
 
   leaveConversation: (conversationId) => {
+    const activeSocket = get().socket;
+
     if (get().activeConversationId === conversationId) {
       set({
         activeConversationId: null,
@@ -655,27 +777,28 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       });
     }
 
-    if (!socket.connected) {
+    if (!activeSocket.connected) {
       return;
     }
 
-    socket.emit(SOCKET_EVENTS.STOP_TYPING, {
+    activeSocket.emit(SOCKET_EVENTS.STOP_TYPING, {
       conversationId,
     });
 
-    socket.emit(SOCKET_EVENTS.LEAVE_CONVERSATION, {
+    activeSocket.emit(SOCKET_EVENTS.LEAVE_CONVERSATION, {
       conversationId,
     });
   },
 
   rejoinActiveConversation: () => {
     const conversationId = get().activeConversationId;
+    const activeSocket = get().socket;
 
-    if (!conversationId || !socket.connected) {
+    if (!conversationId || !activeSocket.connected) {
       return;
     }
 
-    socket.emit(SOCKET_EVENTS.JOIN_CONVERSATION, {
+    activeSocket.emit(SOCKET_EVENTS.JOIN_CONVERSATION, {
       conversationId,
     });
   },
@@ -736,21 +859,25 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   },
 
   startTyping: (conversationId) => {
-    if (!socket.connected) {
+    const activeSocket = get().socket;
+
+    if (!activeSocket.connected) {
       return;
     }
 
-    socket.emit(SOCKET_EVENTS.START_TYPING, {
+    activeSocket.emit(SOCKET_EVENTS.START_TYPING, {
       conversationId,
     });
   },
 
   stopTyping: (conversationId) => {
-    if (!socket.connected) {
+    const activeSocket = get().socket;
+
+    if (!activeSocket.connected) {
       return;
     }
 
-    socket.emit(SOCKET_EVENTS.STOP_TYPING, {
+    activeSocket.emit(SOCKET_EVENTS.STOP_TYPING, {
       conversationId,
     });
   },

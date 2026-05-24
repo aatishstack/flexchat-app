@@ -41,15 +41,36 @@ export function setupSocket(server: HttpServer) {
     },
     pingInterval: env.SOCKET_PING_INTERVAL_MS,
     pingTimeout: env.SOCKET_PING_TIMEOUT_MS,
+    connectTimeout: 30_000,
     transports: ["websocket", "polling"],
     allowUpgrades: true,
     connectionStateRecovery: {
-      maxDisconnectionDuration: 2 * 60 * 1000,
+      maxDisconnectionDuration: 5 * 60 * 1000,
       skipMiddlewares: false,
     },
   });
 
   setSocketServer(io);
+
+  io.engine.on("connection", (rawSocket) => {
+    console.info("[FlexChat Socket] engine connection", {
+      transport: rawSocket.transport.name,
+      remoteAddress: rawSocket.request.socket.remoteAddress,
+    });
+
+    rawSocket.on("upgrade", (transport) => {
+      console.info("[FlexChat Socket] engine transport upgraded", {
+        transport: transport.name,
+      });
+    });
+
+    rawSocket.on("close", (reason) => {
+      console.warn("[FlexChat Socket] engine closed", {
+        reason,
+        transport: rawSocket.transport.name,
+      });
+    });
+  });
 
   const presenceCleanupTimer = setInterval(() => {
     const previousOnlineUsers = getOnlineUserIds().join(",");
@@ -101,6 +122,13 @@ export function setupSocket(server: HttpServer) {
   presenceCleanupTimer.unref?.();
 
   io.use(async (socket, next) => {
+    console.info("[FlexChat Socket] authenticating socket", {
+      socketId: socket.id,
+      transport: socket.conn.transport.name,
+      hasAuthToken: Boolean(socket.handshake.auth?.token),
+      hasQueryToken: Boolean(socket.handshake.query.token),
+    });
+
     const authentication =
       await authenticateSocket(socket);
 
@@ -128,6 +156,21 @@ export function setupSocket(server: HttpServer) {
 
     socket.join(`user:${userId}`);
 
+    console.info("[FlexChat Socket] connected", {
+      socketId: socket.id,
+      userId,
+      transport: socket.conn.transport.name,
+      recovered: socket.recovered,
+    });
+
+    socket.conn.on("upgrade", (transport) => {
+      console.info("[FlexChat Socket] socket transport upgraded", {
+        socketId: socket.id,
+        userId,
+        transport: transport.name,
+      });
+    });
+
     socket.onAny(() => {
       touchOnlineSocket(socket.id);
     });
@@ -150,7 +193,14 @@ export function setupSocket(server: HttpServer) {
 
     registerCallHandlers(io, socket);
 
-    socket.on(SOCKET_EVENTS.DISCONNECT, () => {
+    socket.on(SOCKET_EVENTS.DISCONNECT, (reason) => {
+      console.warn("[FlexChat Socket] disconnected", {
+        socketId: socket.id,
+        userId,
+        reason,
+        transport: socket.conn.transport.name,
+      });
+
       const previousOnlineUsers = getOnlineUserIds().join(",");
 
       const removedUserId = removeOnlineSocket(socket.id);
