@@ -19,48 +19,19 @@ import { registerTypingHandlers } from "./handlers/typing.handler.js";
 import { registerCallHandlers } from "./handlers/call.handler.js";
 import { setSocketServer } from "./socket-hub.js";
 
-function buildAllowedOrigins() {
-  return Array.from(
-    new Set([
-      ...env.CORS_ORIGIN
-        .split(",")
-        .map((origin) => origin.trim())
-        .filter(Boolean),
-      "http://localhost:3000",
-    ]),
-  );
-}
-
 export function setupSocket(server: HttpServer) {
-  const pingTimeoutMs = Math.max(
-    env.SOCKET_PING_TIMEOUT_MS,
-    75_000,
-  );
-  const connectTimeoutMs = Math.max(
-    env.SOCKET_CONNECT_TIMEOUT_MS,
-    60_000,
-  );
-  const upgradeTimeoutMs = Math.max(
-    env.SOCKET_UPGRADE_TIMEOUT_MS,
-    20_000,
-  );
-
   const io = new Server(server, {
-    path: "/socket.io/",
+    transports: ["websocket"],
+    pingInterval: 18_000,
+    pingTimeout: 8_000,
+    perMessageDeflate: false,
+    maxHttpBufferSize: 1e6,
+    connectTimeout: 10_000,
     cors: {
-      origin: buildAllowedOrigins(),
+      origin: env.FRONTEND_URL,
       methods: ["GET", "POST"],
-      credentials: false,
-    },
-    pingInterval: env.SOCKET_PING_INTERVAL_MS,
-    pingTimeout: pingTimeoutMs,
-    connectTimeout: connectTimeoutMs,
-    transports: ["polling", "websocket"],
-    allowUpgrades: true,
-    upgradeTimeout: upgradeTimeoutMs,
-    connectionStateRecovery: {
-      maxDisconnectionDuration: 5 * 60 * 1000,
-      skipMiddlewares: false,
+      credentials: true,
+      allowedHeaders: ["Content-Type", "Authorization"],
     },
   });
 
@@ -72,10 +43,9 @@ export function setupSocket(server: HttpServer) {
       transport: rawSocket.transport.name,
       upgrades: rawSocket.upgrades,
       remoteAddress: rawSocket.request.socket.remoteAddress,
-      pingInterval: env.SOCKET_PING_INTERVAL_MS,
-      pingTimeout: pingTimeoutMs,
-      connectTimeout: connectTimeoutMs,
-      upgradeTimeout: upgradeTimeoutMs,
+      pingInterval: 18_000,
+      pingTimeout: 8_000,
+      connectTimeout: 10_000,
     });
 
     rawSocket.on("upgrade", (transport) => {

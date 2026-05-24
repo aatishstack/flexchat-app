@@ -79,6 +79,15 @@ logRuntimeDiagnostics();
 const serverApp = await buildApp();
 
 app = serverApp;
+
+serverApp.server.on("connection", (socket) => {
+  socket.setKeepAlive(true, 15_000);
+  socket.setTimeout(0);
+});
+serverApp.server.setTimeout(0);
+serverApp.server.keepAliveTimeout = 120_000;
+serverApp.server.headersTimeout = 125_000;
+
 io = setupSocket(serverApp.server);
 
 async function shutdown(signal: string) {

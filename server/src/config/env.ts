@@ -25,6 +25,11 @@ const envSchema = z.object({
     z
       .string()
       .default("http://localhost:3000"),
+  FRONTEND_URL:
+    z
+      .string()
+      .url()
+      .default("http://localhost:3000"),
   PUBLIC_API_URL:
     z
       .string()
@@ -35,11 +40,11 @@ const envSchema = z.object({
   RATE_LIMIT_WINDOW:
     z.string().default("1 minute"),
   SOCKET_PING_INTERVAL_MS:
-    z.coerce.number().default(25_000),
+    z.coerce.number().default(18_000),
   SOCKET_PING_TIMEOUT_MS:
-    z.coerce.number().default(75_000),
+    z.coerce.number().default(8_000),
   SOCKET_CONNECT_TIMEOUT_MS:
-    z.coerce.number().default(60_000),
+    z.coerce.number().default(10_000),
   SOCKET_UPGRADE_TIMEOUT_MS:
     z.coerce.number().default(20_000),
   UPLOAD_RETENTION_HOURS:
@@ -66,6 +71,15 @@ const envSchema = z.object({
       path: ["JWT_SECRET"],
       message:
         "JWT_SECRET must be at least 32 characters in production",
+    });
+  }
+
+  if (env.FRONTEND_URL.endsWith("/")) {
+    context.addIssue({
+      code: "custom",
+      path: ["FRONTEND_URL"],
+      message:
+        "FRONTEND_URL must be the exact origin without a trailing slash",
     });
   }
 });

@@ -172,16 +172,6 @@ function getBrowserConnection() {
   );
 }
 
-function requiresCleanSocketRecovery(reason: string) {
-  return [
-    "io server disconnect",
-    "transport close",
-    "transport error",
-    "ping timeout",
-    "parse error",
-  ].includes(reason);
-}
-
 function getConversationNameFromCache(
   cache: ConversationQueryCache,
   conversationId: string
@@ -403,14 +393,11 @@ export default function SocketProvider({
   );
 
   useEffect(() => {
-    const socket = currentSocket;
-
-    function forceCleanRecovery(reason: string) {
-      resetPendingMessageFlights();
-      recoverSocketConnection(reason, {
-        force: true,
-      });
+    if (!currentSocket) {
+      return;
     }
+
+    const socket = currentSocket;
 
     function onConnect() {
       console.info("[FlexChat Socket] connected", {
@@ -481,9 +468,6 @@ export default function SocketProvider({
         typingUsers: [],
       });
 
-      if (requiresCleanSocketRecovery(reason)) {
-        forceCleanRecovery(`disconnect:${reason}`);
-      }
     }
 
     function onConnectError(error: Error) {
@@ -506,24 +490,6 @@ export default function SocketProvider({
 
       resetPendingMessageFlights();
       setConnectionError(error.message);
-      forceCleanRecovery(`connect_error:${error.message}`);
-    }
-
-    function onReconnectError(error: Error) {
-      console.warn("[FlexChat Socket] reconnect_error", {
-        message: error.message,
-        ...getSocketTransportDiagnostics(socket),
-      });
-
-      forceCleanRecovery(`reconnect_error:${error.message}`);
-    }
-
-    function onReconnectFailed() {
-      console.error("[FlexChat Socket] reconnect_failed", {
-        ...getSocketTransportDiagnostics(socket),
-      });
-
-      forceCleanRecovery("reconnect_failed");
     }
 
     function onOnlineUsers(users: string[]) {
@@ -1329,7 +1295,7 @@ export default function SocketProvider({
       console.info("[FlexChat Socket] browser is online; recovering socket", {
         network: getSocketNetworkDiagnostics(),
       });
-      forceCleanRecovery("browser-online");
+      recoverSocketConnection("browser-online");
     }
 
     function handleConnectionChange() {
@@ -1338,7 +1304,7 @@ export default function SocketProvider({
         network: getSocketNetworkDiagnostics(),
       });
 
-      forceCleanRecovery("network-change");
+      recoverSocketConnection("network-change");
 
       void queryClient.invalidateQueries({
         queryKey:
@@ -1357,14 +1323,6 @@ export default function SocketProvider({
     const safeOnConnectError = guardSocketHandler(
       SOCKET_EVENTS.CONNECT_ERROR,
       onConnectError,
-    );
-    const safeOnReconnectError = guardSocketHandler(
-      "reconnect_error",
-      onReconnectError,
-    );
-    const safeOnReconnectFailed = guardSocketHandler(
-      "reconnect_failed",
-      onReconnectFailed,
     );
     const safeOnOnlineUsers = guardSocketHandler(
       SOCKET_EVENTS.ONLINE_USERS,
@@ -1478,8 +1436,6 @@ export default function SocketProvider({
     socket.on(SOCKET_EVENTS.CONNECT, safeOnConnect);
     socket.on(SOCKET_EVENTS.DISCONNECT, safeOnDisconnect);
     socket.on(SOCKET_EVENTS.CONNECT_ERROR, safeOnConnectError);
-    socket.io.on("reconnect_error", safeOnReconnectError);
-    socket.io.on("reconnect_failed", safeOnReconnectFailed);
     socket.on(SOCKET_EVENTS.ONLINE_USERS, safeOnOnlineUsers);
     socket.on(SOCKET_EVENTS.PRESENCE_UPDATED, safeOnPresenceUpdated);
     socket.on(SOCKET_EVENTS.RECEIVE_MESSAGE, safeOnReceiveMessage);
@@ -1521,6 +1477,11 @@ export default function SocketProvider({
     socket.on(SOCKET_EVENTS.CALL_ANSWER, safeOnCallAnswer);
     socket.on(SOCKET_EVENTS.CALL_ICE_CANDIDATE, safeOnCallIceCandidate);
     socket.on(SOCKET_EVENTS.CALL_ERROR, safeOnCallError);
+
+    if (socket.connected) {
+      safeOnConnect();
+    }
+
     window.addEventListener("offline", handleOffline);
     window.addEventListener("online", handleOnline);
     const browserConnection = getBrowserConnection();
@@ -1534,8 +1495,6 @@ export default function SocketProvider({
       socket.off(SOCKET_EVENTS.CONNECT, safeOnConnect);
       socket.off(SOCKET_EVENTS.DISCONNECT, safeOnDisconnect);
       socket.off(SOCKET_EVENTS.CONNECT_ERROR, safeOnConnectError);
-      socket.io.off("reconnect_error", safeOnReconnectError);
-      socket.io.off("reconnect_failed", safeOnReconnectFailed);
       socket.off(SOCKET_EVENTS.ONLINE_USERS, safeOnOnlineUsers);
       socket.off(SOCKET_EVENTS.PRESENCE_UPDATED, safeOnPresenceUpdated);
       socket.off(SOCKET_EVENTS.RECEIVE_MESSAGE, safeOnReceiveMessage);

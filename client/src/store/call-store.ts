@@ -2,8 +2,12 @@
 
 import { create } from "zustand";
 
-import { socket } from "@/socket/socket";
+import {
+  getActiveSocket,
+  getSocket,
+} from "@/socket/socket";
 import { SOCKET_EVENTS } from "@/socket/socket-events";
+import { tokenStorage } from "@/lib/token";
 import { useToastStore } from "@/store/toast-store";
 import { useAuthStore } from "@/stores/auth.store";
 
@@ -57,6 +61,7 @@ interface CallState {
   answerKind: CallKind | null;
   isMuted: boolean;
   isVideoEnabled: boolean;
+  currentFacingMode: "user" | "environment";
   isMinimized: boolean;
   networkState: CallNetworkState;
   error: string | null;
@@ -232,7 +237,17 @@ function emitCallWithAck(
   payload: unknown
 ) {
   return new Promise<CallAck>((resolve) => {
-    socket
+    const activeSocket = getCallSocket();
+
+    if (!activeSocket) {
+      resolve({
+        ok: false,
+        error: "Realtime connection is not ready",
+      });
+      return;
+    }
+
+    activeSocket
       .timeout(CALL_SIGNAL_ACK_TIMEOUT_MS)
       .emit(
         event,
@@ -261,23 +276,21 @@ function emitCallWithAck(
   });
 }
 
-function waitForSocketConnected(
-  timeoutMs = CALL_SIGNAL_ACK_TIMEOUT_MS,
-) {
-  if (socket.connected) {
+function waitForSocketConnected() {
+  const activeSocket = getCallSocket();
+
+  if (activeSocket?.connected) {
     return Promise.resolve(true);
   }
 
-  return new Promise<boolean>((resolve) => {
-    const timer = window.setTimeout(() => {
-      cleanup();
-      resolve(false);
-    }, timeoutMs);
+  if (!activeSocket) {
+    return Promise.resolve(false);
+  }
 
+  return new Promise<boolean>((resolve) => {
     const cleanup = () => {
-      window.clearTimeout(timer);
-      socket.off("connect", handleConnect);
-      socket.off("connect_error", handleConnectError);
+      activeSocket?.off("connect", handleConnect);
+      activeSocket?.off("connect_error", handleConnectError);
     };
 
     const handleConnect = () => {
@@ -290,9 +303,9 @@ function waitForSocketConnected(
       resolve(false);
     };
 
-    socket.once("connect", handleConnect);
-    socket.once("connect_error", handleConnectError);
-    socket.connect();
+    activeSocket.once("connect", handleConnect);
+    activeSocket.once("connect_error", handleConnectError);
+    activeSocket.connect();
   });
 }
 
@@ -311,6 +324,34 @@ function pushCallToast({
     variant,
     durationMs: 3000,
   });
+}
+
+function getCallSocket() {
+  const activeSocket = getActiveSocket();
+
+  if (activeSocket) {
+    return activeSocket;
+  }
+
+  const token = tokenStorage.get();
+
+  return token ? getSocket(token) : null;
+}
+
+function emitCallEvent(event: string, payload: unknown) {
+  const activeSocket = getCallSocket();
+
+  if (!activeSocket) {
+    pushCallToast({
+      title: "Realtime unavailable",
+      message: "Please wait for FlexChat to reconnect.",
+      variant: "warning",
+    });
+    return false;
+  }
+
+  activeSocket.emit(event, payload);
+  return true;
 }
 
 function getMediaAccessFeedback(
@@ -405,6 +446,8 @@ function emitSignal(
   callId: string,
   signal: SignalPayload
 ) {
+  const activeSocket = getCallSocket();
+
   console.info("[FlexChat Call] sending signal", {
     callId,
     type: signal.type,
@@ -412,12 +455,12 @@ function emitSignal(
       signal.type === "candidate"
         ? getCandidateType(signal.candidate)
         : undefined,
-    socketConnected: socket.connected,
-    socketId: socket.id,
+    socketConnected: activeSocket?.connected ?? false,
+    socketId: activeSocket?.id,
   });
 
   if (signal.type === "offer") {
-    socket.emit(SOCKET_EVENTS.CALL_OFFER, {
+    emitCallEvent(SOCKET_EVENTS.CALL_OFFER, {
       callId,
       description: signal.description,
     });
@@ -425,14 +468,14 @@ function emitSignal(
   }
 
   if (signal.type === "answer") {
-    socket.emit(SOCKET_EVENTS.CALL_ANSWER, {
+    emitCallEvent(SOCKET_EVENTS.CALL_ANSWER, {
       callId,
       description: signal.description,
     });
     return;
   }
 
-  socket.emit(SOCKET_EVENTS.CALL_ICE_CANDIDATE, {
+  emitCallEvent(SOCKET_EVENTS.CALL_ICE_CANDIDATE, {
     callId,
     candidate: signal.candidate,
   });
@@ -698,7 +741,7 @@ async function makePeerConnection(
       return;
     }
 
-    socket.emit(
+    emitCallEvent(
       SOCKET_EVENTS.CALL_END,
       {
         callId: call.id,
@@ -736,6 +779,8 @@ async function prepareLocalCallMedia(
       isMuted: false,
       isVideoEnabled:
         mediaKind === "video",
+      currentFacingMode:
+        mediaKind === "video" ? preferredFacingMode : "user",
       networkState: "connecting",
     });
   }
@@ -770,6 +815,7 @@ export const useCallStore =
     answerKind: null,
     isMuted: false,
     isVideoEnabled: true,
+    currentFacingMode: "user",
     isMinimized: false,
     networkState: "stable",
     error: null,
@@ -806,6 +852,8 @@ export const useCallStore =
           isMuted: false,
           isVideoEnabled:
             input.kind === "video",
+          currentFacingMode:
+            input.kind === "video" ? preferredFacingMode : "user",
           networkState: "connecting",
         });
 
@@ -965,7 +1013,7 @@ export const useCallStore =
         return;
       }
 
-      socket.emit(
+      emitCallEvent(
         SOCKET_EVENTS.CALL_END,
         {
           callId: call.id,
@@ -980,7 +1028,7 @@ export const useCallStore =
       const call = get().currentCall;
 
       if (call) {
-        socket.emit(
+        emitCallEvent(
           SOCKET_EVENTS.CALL_END,
           {
             callId: call.id,
@@ -996,7 +1044,7 @@ export const useCallStore =
       const call = get().currentCall;
 
       if (call) {
-        socket.emit(
+        emitCallEvent(
           SOCKET_EVENTS.CALL_END,
           {
             callId: call.id,
@@ -1074,6 +1122,8 @@ export const useCallStore =
 
         if (!nextVideoTrack) {
           stopStream(nextStream);
+          preferredFacingMode =
+            preferredFacingMode === "user" ? "environment" : "user";
           return;
         }
 
@@ -1092,6 +1142,7 @@ export const useCallStore =
         set({
           localStream: new MediaStream(localStream.getTracks()),
           isVideoEnabled: true,
+          currentFacingMode: preferredFacingMode,
           error: null,
         });
       } catch (error) {
@@ -1120,7 +1171,7 @@ export const useCallStore =
 
     handleIncomingCall: (call) => {
       if (get().currentCall) {
-        socket.emit(
+        emitCallEvent(
           SOCKET_EVENTS.CALL_END,
           {
             callId: call.id,
@@ -1412,6 +1463,7 @@ export const useCallStore =
         answerKind: null,
         isMuted: false,
         isVideoEnabled: true,
+        currentFacingMode: "user",
         isMinimized: false,
         networkState: "stable",
         error: null,

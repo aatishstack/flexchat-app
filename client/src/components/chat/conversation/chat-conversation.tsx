@@ -2208,7 +2208,7 @@ export default function ChatConversation({
   }, [resizeComposer, text]);
 
   useEffect(() => {
-    if (!conversationId || !user?.id || !isConnected) {
+    if (!conversationId || !user?.id || !isConnected || !socket) {
       return;
     }
 

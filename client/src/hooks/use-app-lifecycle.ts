@@ -22,7 +22,7 @@ export function useAppLifecycle() {
       const socket =
         useSocketStore.getState().socket;
 
-      if (token && !socket.connected) {
+      if (token && !socket?.connected) {
         recoverSocketConnection("app-lifecycle");
       }
     }

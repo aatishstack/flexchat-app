@@ -6,6 +6,7 @@ import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
 import Fastify from "fastify";
 import FastifyStatic from "@fastify/static";
+import websocket from "@fastify/websocket";
 import { sql } from "drizzle-orm";
 
 import { env } from "./config/env.js";
@@ -25,18 +26,15 @@ function buildCorsOrigin() {
     return true;
   }
 
-  if (!process.env.CORS_ORIGIN?.trim()) {
-    console.warn(
-      "CORS_ORIGIN is not set in production; allowing all origins.",
-    );
-
-    return true;
-  }
-
-  return env.CORS_ORIGIN
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+  return Array.from(
+    new Set([
+      env.FRONTEND_URL,
+      ...(process.env.CORS_ORIGIN ?? "")
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter((origin) => origin && origin !== "*"),
+    ]),
+  );
 }
 
 async function checkDatabaseReady() {
@@ -173,6 +171,26 @@ export async function buildApp() {
     credentials: false,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+  });
+
+  await app.register(websocket);
+
+  app.get("/ws-probe", { websocket: true }, (socket) => {
+    socket.send(
+      JSON.stringify({
+        type: "probe",
+        ts: Date.now(),
+      }),
+    );
+
+    socket.on("message", () => {
+      socket.send(
+        JSON.stringify({
+          type: "pong",
+          ts: Date.now(),
+        }),
+      );
+    });
   });
 
   await app.register(rateLimit, {

@@ -38,10 +38,12 @@ function StreamVideo({
   stream,
   muted,
   className,
+  mirrored = false,
 }: {
   stream: MediaStream | null;
   muted?: boolean;
   className?: string;
+  mirrored?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -59,7 +61,9 @@ function StreamVideo({
       autoPlay
       playsInline
       muted={muted}
-      className={className}
+      className={[className, mirrored ? "-scale-x-100" : ""]
+        .filter(Boolean)
+        .join(" ")}
     />
   );
 }
@@ -578,6 +582,7 @@ function CallScreen({
     answerKind,
     isMuted,
     isVideoEnabled,
+    currentFacingMode,
     networkState,
     toggleMute,
     toggleVideo,
@@ -612,6 +617,7 @@ function CallScreen({
     remoteVideoTrack.readyState === "live";
   const hasSelfVideo =
     isVideoCall && !!localStream?.getVideoTracks().length;
+  const mirrorLocalVideo = currentFacingMode === "user";
   const isAudioNearEar = useAudioCallProximityMode(
     !isVideoCall && phase !== "idle",
   );
@@ -753,6 +759,7 @@ function CallScreen({
           <StreamVideo
             stream={localStream}
             muted
+            mirrored={mirrorLocalVideo}
             className="h-full w-full object-cover"
           />
         </div>
