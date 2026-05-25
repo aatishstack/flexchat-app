@@ -56,6 +56,23 @@ type StoryViewerRow = {
   viewedAt: Date | string;
 };
 
+function serializeTimestamp(value: Date | string) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  const normalizedValue = value.includes("T")
+    ? value
+    : `${value.replace(" ", "T")}Z`;
+  const timestamp = new Date(normalizedValue);
+
+  if (Number.isNaN(timestamp.getTime())) {
+    return value;
+  }
+
+  return timestamp.toISOString();
+}
+
 function serializeStory(story: StoryRow) {
   return {
     id: story.id,
@@ -63,14 +80,8 @@ function serializeStory(story: StoryRow) {
     mediaUrl: story.mediaUrl,
     mediaType: story.mediaType,
     caption: story.caption ?? "",
-    createdAt:
-      story.createdAt instanceof Date
-        ? story.createdAt.toISOString()
-        : story.createdAt,
-    expiresAt:
-      story.expiresAt instanceof Date
-        ? story.expiresAt.toISOString()
-        : story.expiresAt,
+    createdAt: serializeTimestamp(story.createdAt),
+    expiresAt: serializeTimestamp(story.expiresAt),
     viewed: Boolean(story.viewed),
     viewCount: Number(story.viewCount ?? 0),
     user: story.user,
@@ -82,10 +93,7 @@ function serializeStoryViewer(viewer: StoryViewerRow) {
     id: viewer.id,
     username: viewer.username,
     avatar: viewer.avatar,
-    viewedAt:
-      viewer.viewedAt instanceof Date
-        ? viewer.viewedAt.toISOString()
-        : viewer.viewedAt,
+    viewedAt: serializeTimestamp(viewer.viewedAt),
   };
 }
 

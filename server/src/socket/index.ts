@@ -19,6 +19,9 @@ import { registerTypingHandlers } from "./handlers/typing.handler.js";
 import { registerCallHandlers } from "./handlers/call.handler.js";
 import { setSocketServer } from "./socket-hub.js";
 
+type ServerListenerName = "request" | "upgrade";
+type ServerListener = ReturnType<HttpServer["listeners"]>[number];
+
 function buildAllowedOrigins() {
   return Array.from(
     new Set([
@@ -31,9 +34,28 @@ function buildAllowedOrigins() {
   );
 }
 
+function prioritizeNewListeners(
+  server: HttpServer,
+  eventName: ServerListenerName,
+  previousListeners: ServerListener[],
+) {
+  const newListeners = server
+    .listeners(eventName)
+    .filter((listener) => !previousListeners.includes(listener));
+
+  newListeners.reverse().forEach((listener) => {
+    server.off(eventName, listener);
+    server.prependListener(eventName, listener);
+  });
+}
+
 export function setupSocket(server: HttpServer) {
+  const previousRequestListeners = server.listeners("request");
+  const previousUpgradeListeners = server.listeners("upgrade");
+
   const io = new Server(server, {
     path: "/socket.io/",
+    perMessageDeflate: false,
     cors: {
       origin: buildAllowedOrigins(),
       methods: ["GET", "POST"],
@@ -50,6 +72,9 @@ export function setupSocket(server: HttpServer) {
       skipMiddlewares: false,
     },
   });
+
+  prioritizeNewListeners(server, "request", previousRequestListeners);
+  prioritizeNewListeners(server, "upgrade", previousUpgradeListeners);
 
   setSocketServer(io);
 

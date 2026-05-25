@@ -6,7 +6,6 @@ import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
 import Fastify from "fastify";
 import FastifyStatic from "@fastify/static";
-import websocket from "@fastify/websocket";
 import { sql } from "drizzle-orm";
 
 import { env } from "./config/env.js";
@@ -171,26 +170,6 @@ export async function buildApp() {
     credentials: false,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  });
-
-  await app.register(websocket);
-
-  app.get("/ws-probe", { websocket: true }, (socket) => {
-    socket.send(
-      JSON.stringify({
-        type: "probe",
-        ts: Date.now(),
-      }),
-    );
-
-    socket.on("message", () => {
-      socket.send(
-        JSON.stringify({
-          type: "pong",
-          ts: Date.now(),
-        }),
-      );
-    });
   });
 
   await app.register(rateLimit, {
