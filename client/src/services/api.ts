@@ -9,7 +9,7 @@ import { tokenStorage } from "@/lib/token";
 
 const API_REQUEST_TIMEOUT_MS = 15_000;
 
-function getApiBaseUrl() {
+export function getApiBaseUrl() {
   if (
     typeof window !== "undefined" &&
     window.location.protocol === "https:" &&
@@ -22,6 +22,18 @@ function getApiBaseUrl() {
     process.env.NEXT_PUBLIC_API_URL,
     "http://localhost:5000",
   );
+}
+
+export function getOAuthApiBaseUrl() {
+  const configuredUrl =
+    process.env.NEXT_PUBLIC_API_URL?.trim() ||
+    process.env.NEXT_PUBLIC_BACKEND_URL?.trim();
+
+  if (configuredUrl) {
+    return resolveLocalRuntimeUrl(configuredUrl, configuredUrl);
+  }
+
+  return getApiBaseUrl();
 }
 
 export const api = axios.create({

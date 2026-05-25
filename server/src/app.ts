@@ -28,11 +28,12 @@ function buildCorsOrigin() {
   return Array.from(
     new Set([
       env.FRONTEND_URL,
+      env.CLIENT_URL,
       ...(process.env.CORS_ORIGIN ?? "")
         .split(",")
         .map((origin) => origin.trim())
         .filter((origin) => origin && origin !== "*"),
-    ]),
+    ].filter(Boolean)),
   );
 }
 

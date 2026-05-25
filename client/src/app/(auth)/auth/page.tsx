@@ -18,8 +18,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import axios from "axios";
-import { FirebaseError } from "firebase/app";
-import { signInWithPopup } from "firebase/auth";
+import { z } from "zod";
 
 import { useSocketStore } from "@/store/socket-store";
 import { useToastStore } from "@/store/toast-store";
@@ -28,13 +27,13 @@ import { useAuth } from "@/hooks/useAuth";
 
 import { useAuthStore } from "@/stores/auth.store";
 
-import { getFirebaseAuth, getGoogleProvider } from "@/lib/firebase";
 import { tokenStorage } from "@/lib/token";
 
 import {
+  getGoogleOAuthStartUrl,
   login,
-  loginWithFirebaseIdToken,
   register,
+  type AuthResponse,
 } from "@/services/auth.service";
 
 import AuthBackground from "@/components/auth/auth-background";
@@ -60,6 +59,88 @@ function getAuthenticationErrorMessage(error: unknown) {
   }
 
   return "Authentication failed";
+}
+
+const googleOAuthUserSchema = z.object({
+  id: z.string(),
+  username: z.string(),
+  email: z.string(),
+  avatar: z.string().nullable().optional(),
+  createdAt: z.string().nullable().optional(),
+}) satisfies z.ZodType<AuthResponse["user"]>;
+
+const googleOAuthMessageSchema = z.discriminatedUnion("type", [
+  z.object({
+    source: z.literal("flexchat-google-oauth"),
+    type: z.literal("flexchat:google-auth:success"),
+    token: z.string().min(1),
+    user: googleOAuthUserSchema,
+  }),
+  z.object({
+    source: z.literal("flexchat-google-oauth"),
+    type: z.literal("flexchat:google-auth:error"),
+    message: z.string().optional(),
+  }),
+]);
+
+type GoogleOAuthMessage = z.infer<typeof googleOAuthMessageSchema>;
+
+function parseGoogleOAuthMessage(value: unknown): GoogleOAuthMessage | null {
+  const parsedMessage = googleOAuthMessageSchema.safeParse(value);
+
+  return parsedMessage.success ? parsedMessage.data : null;
+}
+
+function getAllowedGoogleOAuthOrigins() {
+  const origins = new Set<string>([window.location.origin]);
+  const apiOrigins = [
+    process.env.NEXT_PUBLIC_API_URL,
+    process.env.NEXT_PUBLIC_BACKEND_URL,
+  ];
+
+  apiOrigins.forEach((apiOrigin) => {
+    if (!apiOrigin) {
+      return;
+    }
+
+    try {
+      origins.add(new URL(apiOrigin).origin);
+    } catch {
+      return;
+    }
+  });
+
+  return origins;
+}
+
+function openGoogleOAuthPopup() {
+  const popupWidth = 500;
+  const popupHeight = 640;
+  const left =
+    window.screenX + Math.max(0, (window.outerWidth - popupWidth) / 2);
+  const top =
+    window.screenY + Math.max(0, (window.outerHeight - popupHeight) / 2);
+  const popup = window.open(
+    getGoogleOAuthStartUrl(),
+    "flexchat-google-oauth",
+    [
+      "popup=yes",
+      `width=${popupWidth}`,
+      `height=${popupHeight}`,
+      `left=${Math.round(left)}`,
+      `top=${Math.round(top)}`,
+      "resizable=yes",
+      "scrollbars=yes",
+    ].join(","),
+  );
+
+  if (!popup) {
+    throw new Error("Allow popups to continue with Google.");
+  }
+
+  popup.focus();
+
+  return popup;
 }
 
 export default function AuthPage() {
@@ -154,6 +235,147 @@ export default function AuthPage() {
       setError(getAuthenticationErrorMessage(error));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    if (loading || googleLoading) {
+      return;
+    }
+
+    try {
+      setGoogleLoading(true);
+      setError("");
+      console.info("[FlexChat Auth] opening Google OAuth popup", {
+        startUrl: getGoogleOAuthStartUrl(),
+      });
+
+      const response = await new Promise<AuthResponse>((resolve, reject) => {
+        const allowedOrigins = getAllowedGoogleOAuthOrigins();
+        let settled = false;
+        let timeoutTimer: number | undefined;
+        let closeCheckTimer: number | undefined;
+        const popup = openGoogleOAuthPopup();
+
+        function cleanup() {
+          if (timeoutTimer) {
+            window.clearTimeout(timeoutTimer);
+          }
+
+          if (closeCheckTimer) {
+            window.clearInterval(closeCheckTimer);
+          }
+
+          window.removeEventListener("message", handleMessage);
+        }
+
+        function settleWithSuccess(authResponse: AuthResponse) {
+          if (settled) {
+            return;
+          }
+
+          settled = true;
+          cleanup();
+          resolve(authResponse);
+        }
+
+        function settleWithError(error: Error) {
+          if (settled) {
+            return;
+          }
+
+          settled = true;
+          cleanup();
+          reject(error);
+        }
+
+        function handleMessage(event: MessageEvent<unknown>) {
+          if (!allowedOrigins.has(event.origin)) {
+            console.warn(
+              "[FlexChat Auth] ignored Google OAuth message from unknown origin",
+              {
+                origin: event.origin,
+                allowedOrigins: Array.from(allowedOrigins),
+              },
+            );
+            return;
+          }
+
+          const message = parseGoogleOAuthMessage(event.data);
+
+          if (!message) {
+            return;
+          }
+
+          if (message.type === "flexchat:google-auth:error") {
+            settleWithError(
+              new Error(message.message ?? "Google sign-in failed."),
+            );
+            return;
+          }
+
+          settleWithSuccess({
+            token: message.token,
+            user: message.user,
+          });
+        }
+
+        window.addEventListener("message", handleMessage);
+
+        timeoutTimer = window.setTimeout(() => {
+          settleWithError(new Error("Google sign-in timed out."));
+          popup?.close();
+        }, 90_000);
+
+        closeCheckTimer = window.setInterval(() => {
+          if (popup?.closed) {
+            settleWithError(new Error("Google sign-in was canceled."));
+          }
+        }, 700);
+      });
+
+      tokenStorage.set(response.token);
+
+      setAuth({
+        user: response.user,
+        token: response.token,
+      });
+
+      connectSocket(response.token);
+
+      console.info("[FlexChat Auth] Google OAuth sign-in succeeded", {
+        userId: response.user.id,
+      });
+      pushToast({
+        title: "Welcome to FlexChat",
+        message: "Google sign-in connected securely.",
+        variant: "success",
+      });
+
+      router.replace("/chat");
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Please try again in a moment.";
+
+      console.error("[FlexChat Auth] Google OAuth sign-in failed", {
+        message,
+      });
+
+      pushToast({
+        title:
+          message === "Google sign-in was canceled."
+            ? "Google sign-in canceled"
+            : "Google sign-in failed",
+        message,
+        variant:
+          message === "Google sign-in was canceled."
+            ? "info"
+            : "error",
+      });
+    } finally {
+      setGoogleLoading(false);
     }
   }
 
@@ -471,100 +693,6 @@ export default function AuthPage() {
                   }}
                   onClick={() => {
                     void handleGoogleSignIn();
-                    async function handleGoogleSignIn() {
-                      if (loading || googleLoading) {
-                        return;
-                      }
-
-                      try {
-                        setGoogleLoading(true);
-
-                        setError("");
-                        console.info(
-                          "[FlexChat Auth] opening Google sign-in popup",
-                        );
-
-                        const firebaseResult = await signInWithPopup(
-                          getFirebaseAuth(),
-                          getGoogleProvider(),
-                        );
-
-                        const idToken = await firebaseResult.user.getIdToken();
-
-                        console.info(
-                          "[FlexChat Auth] exchanging Google identity token with API",
-                        );
-                        const response =
-                          await loginWithFirebaseIdToken(idToken);
-
-                        tokenStorage.set(response.token);
-
-                        setAuth({
-                          user: response.user,
-                          token: response.token,
-                        });
-
-                        connectSocket(response.token);
-
-                        console.info(
-                          "[FlexChat Auth] Google sign-in succeeded",
-                          {
-                            userId: response.user.id,
-                          },
-                        );
-                        pushToast({
-                          title: "Welcome to FlexChat",
-                          message: "Google sign-in connected securely.",
-                          variant: "success",
-                        });
-
-                        router.replace("/chat");
-                      } catch (error: unknown) {
-                        if (
-                          error instanceof FirebaseError &&
-                          (error.code === "auth/popup-closed-by-user" ||
-                            error.code === "auth/cancelled-popup-request")
-                        ) {
-                          pushToast({
-                            title: "Google sign-in canceled",
-                            message: "You can continue whenever you're ready.",
-                            variant: "info",
-                          });
-
-                          return;
-                        }
-
-                        console.error(
-                          "[FlexChat Auth] Google sign-in failed",
-                          {
-                            source: axios.isAxiosError(error)
-                              ? "api_exchange"
-                              : "firebase_popup",
-                            status: axios.isAxiosError(error)
-                              ? error.response?.status ?? "network_error"
-                              : undefined,
-                            code:
-                              error instanceof FirebaseError
-                                ? error.code
-                                : undefined,
-                          },
-                        );
-
-                        const message = axios.isAxiosError(error)
-                          ? getAuthenticationErrorMessage(error)
-                          : error instanceof FirebaseError
-                            ? error.message
-                            : "Please try again in a moment.";
-
-                        pushToast({
-                          title: "Google sign-in failed",
-                          message,
-                          variant: "error",
-                        });
-                      } finally {
-                        setGoogleLoading(false);
-                      }
-                    }
                   }}
                   disabled={loading || googleLoading}
                   className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.055] text-sm font-semibold text-white shadow-[0_16px_50px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:border-purple-300/30 hover:bg-purple-500/[0.10] disabled:cursor-wait disabled:opacity-70"

@@ -30,11 +30,25 @@ const envSchema = z.object({
       .string()
       .url()
       .default("http://localhost:3000"),
+  CLIENT_URL:
+    z
+      .string()
+      .url()
+      .optional(),
   PUBLIC_API_URL:
     z
       .string()
       .url()
       .default("http://localhost:5000"),
+  GOOGLE_CLIENT_ID:
+    z.string().optional(),
+  GOOGLE_CLIENT_SECRET:
+    z.string().optional(),
+  GOOGLE_CALLBACK_URL:
+    z
+      .string()
+      .url()
+      .optional(),
   RATE_LIMIT_MAX:
     z.coerce.number().default(120),
   RATE_LIMIT_WINDOW:
@@ -51,16 +65,6 @@ const envSchema = z.object({
     z.coerce.number().min(1).default(168),
   UPLOAD_CLEANUP_INTERVAL_MINUTES:
     z.coerce.number().min(5).default(60),
-  FIREBASE_SERVICE_ACCOUNT_JSON:
-    z.string().optional(),
-  FIREBASE_SERVICE_ACCOUNT_BASE64:
-    z.string().optional(),
-  FIREBASE_PROJECT_ID:
-    z.string().optional(),
-  FIREBASE_CLIENT_EMAIL:
-    z.string().optional(),
-  FIREBASE_PRIVATE_KEY:
-    z.string().optional(),
 }).superRefine((env, context) => {
   if (
     env.NODE_ENV === "production" &&
@@ -80,6 +84,47 @@ const envSchema = z.object({
       path: ["FRONTEND_URL"],
       message:
         "FRONTEND_URL must be the exact origin without a trailing slash",
+    });
+  }
+
+  if (env.CLIENT_URL?.endsWith("/")) {
+    context.addIssue({
+      code: "custom",
+      path: ["CLIENT_URL"],
+      message:
+        "CLIENT_URL must be the exact origin without a trailing slash",
+    });
+  }
+
+  if (env.PUBLIC_API_URL.endsWith("/")) {
+    context.addIssue({
+      code: "custom",
+      path: ["PUBLIC_API_URL"],
+      message:
+        "PUBLIC_API_URL must be the exact API origin without a trailing slash",
+    });
+  }
+
+  if (env.GOOGLE_CALLBACK_URL?.endsWith("/")) {
+    context.addIssue({
+      code: "custom",
+      path: ["GOOGLE_CALLBACK_URL"],
+      message:
+        "GOOGLE_CALLBACK_URL must be the exact callback URL without a trailing slash",
+    });
+  }
+
+  if (
+    env.NODE_ENV === "production" &&
+    (env.PUBLIC_API_URL.startsWith("http://") ||
+      env.FRONTEND_URL.startsWith("http://") ||
+      env.CLIENT_URL?.startsWith("http://") ||
+      env.GOOGLE_CALLBACK_URL?.startsWith("http://"))
+  ) {
+    context.addIssue({
+      code: "custom",
+      message:
+        "Production OAuth/API/client URLs must use HTTPS",
     });
   }
 });

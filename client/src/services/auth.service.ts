@@ -1,4 +1,7 @@
-import { api } from "./api";
+import {
+  api,
+  getOAuthApiBaseUrl,
+} from "./api";
 
 export interface AuthResponse {
   token: string;
@@ -50,18 +53,23 @@ export async function register(
   return response.data;
 }
 
-export async function loginWithFirebaseIdToken(
-  idToken: string
-) {
-  const response =
-    await api.post<AuthResponse>(
-      "/auth/firebase/google",
-      {
-        idToken,
-      }
-    );
+export function getGoogleOAuthStartUrl() {
+  if (typeof window === "undefined") {
+    return "/auth/google/start";
+  }
 
-  return response.data;
+  const apiBaseUrl = getOAuthApiBaseUrl();
+  const absoluteApiBaseUrl = apiBaseUrl.startsWith("/")
+    ? `${window.location.origin}${apiBaseUrl}`
+    : apiBaseUrl;
+  const url = new URL(
+    `${absoluteApiBaseUrl.replace(/\/$/, "")}/auth/google/start`,
+  );
+
+  url.searchParams.set("frontendOrigin", window.location.origin);
+  url.searchParams.set("popup", "true");
+
+  return url.toString();
 }
 
 export async function getCurrentUser(
