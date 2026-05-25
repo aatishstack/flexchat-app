@@ -176,8 +176,14 @@ export default function StoryViewer({
       (state) => state.user?.id
     );
 
+  const effectiveStoryIndex = group
+    ? Math.min(
+        storyIndex,
+        Math.max(group.stories.length - 1, 0),
+      )
+    : 0;
   const currentStory =
-    group?.stories[storyIndex] ?? null;
+    group?.stories[effectiveStoryIndex] ?? null;
   const currentStoryId =
     currentStory?.id;
   const currentStoryMediaType =
@@ -566,9 +572,9 @@ export default function StoryViewer({
         <div
           style={{
             width:
-              index < storyIndex
+              index < effectiveStoryIndex
                 ? "100%"
-                : index === storyIndex
+                : index === effectiveStoryIndex
                   ? `${Math.round(progress * 100)}%`
                   : "0%",
           }}
@@ -578,8 +584,8 @@ export default function StoryViewer({
     ));
   }, [
     group,
+    effectiveStoryIndex,
     progress,
-    storyIndex,
   ]);
 
   return (

@@ -15,7 +15,10 @@ import {
 
 import { useEffect, useState } from "react";
 
-import { useRouter } from "next/navigation";
+import {
+  usePathname,
+  useRouter,
+} from "next/navigation";
 
 import axios from "axios";
 import { z } from "zod";
@@ -30,6 +33,7 @@ import { useAuthStore } from "@/stores/auth.store";
 import { tokenStorage } from "@/lib/token";
 
 import {
+  getOAuthApiBaseUrl,
   getGoogleOAuthStartUrl,
   login,
   register,
@@ -94,8 +98,10 @@ function parseGoogleOAuthMessage(value: unknown): GoogleOAuthMessage | null {
 function getAllowedGoogleOAuthOrigins() {
   const origins = new Set<string>([window.location.origin]);
   const apiOrigins = [
+    getOAuthApiBaseUrl(),
     process.env.NEXT_PUBLIC_API_URL,
     process.env.NEXT_PUBLIC_BACKEND_URL,
+    process.env.NEXT_PUBLIC_SOCKET_URL,
   ];
 
   apiOrigins.forEach((apiOrigin) => {
@@ -145,6 +151,7 @@ function openGoogleOAuthPopup() {
 
 export default function AuthPage() {
   const router = useRouter();
+  const pathname = usePathname();
 
   const { connectSocket } = useSocketStore();
 
@@ -175,9 +182,58 @@ export default function AuthPage() {
     if (!isHydrated) return;
 
     if (isAuthenticated) {
+      console.info("[ROUTER] redirect executing", {
+        from: pathname,
+        to: "/chat",
+        reason: "auth_page_already_authenticated",
+      });
       router.replace("/chat");
     }
-  }, [isAuthenticated, isHydrated, router]);
+  }, [isAuthenticated, isHydrated, pathname, router]);
+
+  function completeAuthSession(response: AuthResponse, source: string) {
+    console.info("[AUTH] token extracted", {
+      source,
+      hasToken: Boolean(response.token),
+      userId: response.user.id,
+    });
+
+    tokenStorage.set(response.token);
+    console.info("[AUTH] token stored", {
+      source,
+      storage: "localStorage",
+      currentPathname:
+        typeof window !== "undefined"
+          ? window.location.pathname
+          : pathname,
+    });
+
+    setAuth({
+      user: response.user,
+      token: response.token,
+    });
+    console.info("[AUTH] auth store updated", {
+      source,
+      userId: response.user.id,
+      hydrated: true,
+    });
+
+    connectSocket(response.token);
+    console.info("[SOCKET] socket auth token attached", {
+      source,
+      hasToken: Boolean(response.token),
+    });
+
+    console.info("[ROUTER] redirect executing", {
+      from:
+        typeof window !== "undefined"
+          ? window.location.pathname
+          : pathname,
+      to: "/chat",
+      source,
+    });
+    router.replace("/chat");
+  }
 
   async function handleAuthSuccess() {
     if (loading || googleLoading) {
@@ -193,7 +249,7 @@ export default function AuthPage() {
       setLoading(true);
 
       setError("");
-      console.info("[FlexChat Auth] credential sign-in started", {
+      console.info("[AUTH] credential sign-in started", {
         mode: isLogin ? "login" : "register",
       });
 
@@ -208,22 +264,13 @@ export default function AuthPage() {
             password,
           });
 
-      tokenStorage.set(response.token);
+      completeAuthSession(response, isLogin ? "login" : "register");
 
-      setAuth({
-        user: response.user,
-
-        token: response.token,
-      });
-
-      connectSocket(response.token);
-
-      console.info("[FlexChat Auth] credential sign-in succeeded", {
+      console.info("[AUTH] credential sign-in succeeded", {
         userId: response.user.id,
       });
-      router.replace("/chat");
     } catch (error: unknown) {
-      console.error("[FlexChat Auth] credential sign-in failed", {
+      console.error("[AUTH] credential sign-in failed", {
         status: axios.isAxiosError(error)
           ? error.response?.status ?? "network_error"
           : "client_error",
@@ -246,26 +293,21 @@ export default function AuthPage() {
     try {
       setGoogleLoading(true);
       setError("");
-      console.info("[FlexChat Auth] opening Google OAuth popup", {
-        startUrl: getGoogleOAuthStartUrl(),
+      const startUrl = getGoogleOAuthStartUrl();
+
+      console.info("[OAUTH] popup opened", {
+        startUrl,
+        currentPathname: pathname,
       });
 
       const response = await new Promise<AuthResponse>((resolve, reject) => {
         const allowedOrigins = getAllowedGoogleOAuthOrigins();
         let settled = false;
-        let timeoutTimer: number | undefined;
-        let closeCheckTimer: number | undefined;
         const popup = openGoogleOAuthPopup();
 
         function cleanup() {
-          if (timeoutTimer) {
-            window.clearTimeout(timeoutTimer);
-          }
-
-          if (closeCheckTimer) {
-            window.clearInterval(closeCheckTimer);
-          }
-
+          window.clearTimeout(timeoutTimer);
+          window.clearInterval(closeCheckTimer);
           window.removeEventListener("message", handleMessage);
         }
 
@@ -290,9 +332,18 @@ export default function AuthPage() {
         }
 
         function handleMessage(event: MessageEvent<unknown>) {
+          console.info("[OAUTH] popup message received", {
+            origin: event.origin,
+            allowed: allowedOrigins.has(event.origin),
+            currentPathname:
+              typeof window !== "undefined"
+                ? window.location.pathname
+                : pathname,
+          });
+
           if (!allowedOrigins.has(event.origin)) {
             console.warn(
-              "[FlexChat Auth] ignored Google OAuth message from unknown origin",
+              "[OAUTH] ignored Google OAuth message from unknown origin",
               {
                 origin: event.origin,
                 allowedOrigins: Array.from(allowedOrigins),
@@ -304,16 +355,26 @@ export default function AuthPage() {
           const message = parseGoogleOAuthMessage(event.data);
 
           if (!message) {
+            console.warn("[OAUTH] ignored malformed Google OAuth message", {
+              origin: event.origin,
+            });
             return;
           }
 
           if (message.type === "flexchat:google-auth:error") {
+            console.warn("[OAUTH] popup callback error", {
+              message: message.message,
+            });
             settleWithError(
               new Error(message.message ?? "Google sign-in failed."),
             );
             return;
           }
 
+          console.info("[OAUTH] popup callback success", {
+            userId: message.user.id,
+            hasToken: Boolean(message.token),
+          });
           settleWithSuccess({
             token: message.token,
             user: message.user,
@@ -322,28 +383,21 @@ export default function AuthPage() {
 
         window.addEventListener("message", handleMessage);
 
-        timeoutTimer = window.setTimeout(() => {
+        const timeoutTimer = window.setTimeout(() => {
           settleWithError(new Error("Google sign-in timed out."));
           popup?.close();
         }, 90_000);
 
-        closeCheckTimer = window.setInterval(() => {
+        const closeCheckTimer = window.setInterval(() => {
           if (popup?.closed) {
             settleWithError(new Error("Google sign-in was canceled."));
           }
         }, 700);
       });
 
-      tokenStorage.set(response.token);
+      completeAuthSession(response, "google");
 
-      setAuth({
-        user: response.user,
-        token: response.token,
-      });
-
-      connectSocket(response.token);
-
-      console.info("[FlexChat Auth] Google OAuth sign-in succeeded", {
+      console.info("[OAUTH] Google OAuth sign-in succeeded", {
         userId: response.user.id,
       });
       pushToast({
@@ -351,15 +405,13 @@ export default function AuthPage() {
         message: "Google sign-in connected securely.",
         variant: "success",
       });
-
-      router.replace("/chat");
     } catch (error: unknown) {
       const message =
         error instanceof Error
           ? error.message
           : "Please try again in a moment.";
 
-      console.error("[FlexChat Auth] Google OAuth sign-in failed", {
+      console.error("[OAUTH] Google OAuth sign-in failed", {
         message,
       });
 

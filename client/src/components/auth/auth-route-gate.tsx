@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { motion } from "framer-motion";
 import { usePathname, useRouter } from "next/navigation";
@@ -132,6 +136,7 @@ export default function AuthRouteGate({
   } = useAuth();
   const [hasStoredToken, setHasStoredToken] =
     useState(() => tokenStorage.exists());
+  const lastGuardLogRef = useRef("");
 
   const protectedPath =
     isProtectedPath(pathname);
@@ -143,6 +148,9 @@ export default function AuthRouteGate({
       setHasStoredToken(
         tokenStorage.exists()
       );
+      console.info("[AUTH] token storage observed by route guard", {
+        hasStoredToken: tokenStorage.exists(),
+      });
     }
 
     function handleStorage(
@@ -177,11 +185,72 @@ export default function AuthRouteGate({
   }, []);
 
   useEffect(() => {
+    const status = !isHydrated
+      ? "loading"
+      : isAuthenticated
+        ? "authenticated"
+        : "unauthenticated";
+    const rejectedReason =
+      protectedPath &&
+      isHydrated &&
+      !isAuthenticated &&
+      !hasStoredToken
+        ? "missing_token"
+        : protectedPath &&
+            isHydrated &&
+            !isAuthenticated &&
+            hasStoredToken
+          ? "validating_stored_token"
+          : authPath &&
+              hasStoredToken &&
+              !isAuthenticated
+            ? "validating_stored_token"
+            : null;
+    const signature = JSON.stringify({
+      pathname,
+      status,
+      protectedPath,
+      authPath,
+      hasStoredToken,
+      isSessionRecovering,
+      rejectedReason,
+    });
+
+    if (lastGuardLogRef.current === signature) {
+      return;
+    }
+
+    lastGuardLogRef.current = signature;
+    console.info("[AUTH] guard state", {
+      pathname,
+      status,
+      protectedPath,
+      authPath,
+      hasStoredToken,
+      isSessionRecovering,
+      rejectedReason,
+    });
+  }, [
+    authPath,
+    hasStoredToken,
+    isAuthenticated,
+    isHydrated,
+    isSessionRecovering,
+    pathname,
+    protectedPath,
+  ]);
+
+  useEffect(() => {
     if (
       authPath &&
       isHydrated &&
       isAuthenticated
     ) {
+      console.info("[ROUTER] redirect executing", {
+        from: pathname,
+        to: "/chat",
+        reason: "authenticated_on_auth_route",
+      });
       router.replace("/chat");
       return;
     }
@@ -195,6 +264,15 @@ export default function AuthRouteGate({
       return;
     }
 
+    console.warn("[AUTH] auth rejected reason", {
+      pathname,
+      reason: "missing_token",
+    });
+    console.info("[ROUTER] redirect executing", {
+      from: pathname,
+      to: "/auth",
+      reason: "protected_route_missing_auth",
+    });
     router.replace("/auth");
   }, [
     isAuthenticated,
@@ -202,6 +280,7 @@ export default function AuthRouteGate({
     protectedPath,
     authPath,
     hasStoredToken,
+    pathname,
     router,
   ]);
 
@@ -215,8 +294,12 @@ export default function AuthRouteGate({
     return <SessionRecoveryScreen />;
   }
 
-  if (authPath && (isAuthenticated || hasStoredToken)) {
+  if (authPath && isAuthenticated) {
     return null;
+  }
+
+  if (authPath && hasStoredToken) {
+    return <RouteGateLoader />;
   }
 
   if (!protectedPath) {

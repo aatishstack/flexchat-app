@@ -8,26 +8,54 @@ import {
 import { tokenStorage } from "@/lib/token";
 
 const API_REQUEST_TIMEOUT_MS = 15_000;
+const DEFAULT_API_BASE_URL = "http://localhost:5000";
+
+function getConfiguredApiUrl() {
+  return (
+    process.env.NEXT_PUBLIC_API_URL?.trim() ||
+    process.env.NEXT_PUBLIC_BACKEND_URL?.trim() ||
+    undefined
+  );
+}
+
+function isLocalApiUrl(value: string | undefined) {
+  if (!value) {
+    return true;
+  }
+
+  try {
+    const url = new URL(value);
+
+    return (
+      url.hostname === "localhost" ||
+      url.hostname === "127.0.0.1" ||
+      url.hostname === "::1"
+    );
+  } catch {
+    return false;
+  }
+}
 
 export function getApiBaseUrl() {
+  const configuredUrl = getConfiguredApiUrl();
+
   if (
     typeof window !== "undefined" &&
     window.location.protocol === "https:" &&
-    !window.location.hostname.includes("localhost")
+    !window.location.hostname.includes("localhost") &&
+    isLocalApiUrl(configuredUrl)
   ) {
     return "/api/backend";
   }
 
   return resolveLocalRuntimeUrl(
-    process.env.NEXT_PUBLIC_API_URL,
-    "http://localhost:5000",
+    configuredUrl,
+    DEFAULT_API_BASE_URL,
   );
 }
 
 export function getOAuthApiBaseUrl() {
-  const configuredUrl =
-    process.env.NEXT_PUBLIC_API_URL?.trim() ||
-    process.env.NEXT_PUBLIC_BACKEND_URL?.trim();
+  const configuredUrl = getConfiguredApiUrl();
 
   if (configuredUrl) {
     return resolveLocalRuntimeUrl(configuredUrl, configuredUrl);
@@ -153,7 +181,7 @@ api.interceptors.response.use(
       return api(originalRequest);
     } catch (refreshError) {
       console.warn(
-        "[FlexChat Auth] refresh rejected; clearing invalid session",
+        "[AUTH] refresh rejected; clearing invalid session",
       );
       emitSessionEvent(API_AUTH_INVALID_EVENT, {
         reason: "refresh_failed",

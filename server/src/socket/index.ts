@@ -25,12 +25,14 @@ type ServerListener = ReturnType<HttpServer["listeners"]>[number];
 function buildAllowedOrigins() {
   return Array.from(
     new Set([
+      env.FRONTEND_URL,
+      env.CLIENT_URL,
       ...env.CORS_ORIGIN
         .split(",")
         .map((origin) => origin.trim())
         .filter(Boolean),
       "http://localhost:3000",
-    ]),
+    ].filter((origin): origin is string => Boolean(origin))),
   );
 }
 
@@ -136,13 +138,20 @@ export function setupSocket(server: HttpServer) {
       }
       next();
     } catch (error) {
-      console.error("[FlexChat Socket] auth middleware threw", error);
+      console.error("[SOCKET] auth middleware threw", error);
       next(new Error("Service temporarily unavailable"));
     }
   });
 
   io.on(SOCKET_EVENTS.CONNECTION, (socket) => {
     const userId = socket.data.user.id as string;
+
+    console.info("[SOCKET] connected", {
+      socketId: socket.id,
+      userId,
+      recovered: socket.recovered,
+      transport: socket.conn.transport.name,
+    });
 
     const previousOnlineUsers = getOnlineUserIds().join(",");
 
@@ -172,7 +181,12 @@ export function setupSocket(server: HttpServer) {
 
     registerCallHandlers(io, socket);
 
-    socket.on(SOCKET_EVENTS.DISCONNECT, () => {
+    socket.on(SOCKET_EVENTS.DISCONNECT, (reason) => {
+      console.warn("[SOCKET] disconnected", {
+        socketId: socket.id,
+        userId,
+        reason,
+      });
       const previousOnlineUsers = getOnlineUserIds().join(",");
 
       const removedUserId = removeOnlineSocket(socket.id);

@@ -6,7 +6,10 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { queryKeys } from "@/lib/query-keys";
 import { tokenStorage } from "@/lib/token";
-import { socket } from "@/socket/socket";
+import {
+  refreshSocketAuth,
+  socket,
+} from "@/socket/socket";
 import { useSocketStore } from "@/store/socket-store";
 
 export function useAppLifecycle() {
@@ -18,11 +21,26 @@ export function useAppLifecycle() {
   useEffect(() => {
     let hiddenAt: number | null = null;
 
-    function reconnectIfNeeded() {
+    function reconnectIfNeeded(reason: string) {
       const token = tokenStorage.get();
 
-      if (token && !socket.connected && !socket.active) {
+      if (!token) {
+        return;
+      }
+
+      refreshSocketAuth(reason);
+
+      if (!socket.connected && !socket.active) {
+        console.info("[SOCKET] lifecycle reconnect requested", {
+          reason,
+          hasToken: true,
+        });
         connectSocket(token);
+        return;
+      }
+
+      if (socket.connected) {
+        useSocketStore.getState().rejoinActiveConversation();
       }
     }
 
@@ -38,7 +56,7 @@ export function useAppLifecycle() {
           : Date.now() - hiddenAt;
 
       hiddenAt = null;
-      reconnectIfNeeded();
+      reconnectIfNeeded("visibility");
 
       if (wasHiddenMs > 30_000) {
         void queryClient.invalidateQueries({
@@ -47,18 +65,30 @@ export function useAppLifecycle() {
         void queryClient.invalidateQueries({
           queryKey: queryKeys.stories.all,
         });
+        const activeConversationId =
+          useSocketStore.getState().activeConversationId;
+
+        if (activeConversationId) {
+          void queryClient.invalidateQueries({
+            queryKey:
+              queryKeys.messages.list(activeConversationId),
+          });
+        }
       }
     }
 
     function onOnline() {
-      reconnectIfNeeded();
+      reconnectIfNeeded("online");
       void queryClient.invalidateQueries({
         queryKey: queryKeys.conversations.all,
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.stories.all,
       });
     }
 
     function onFocus() {
-      reconnectIfNeeded();
+      reconnectIfNeeded("focus");
     }
 
     document.addEventListener(

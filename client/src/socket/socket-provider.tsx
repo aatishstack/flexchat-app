@@ -4,7 +4,10 @@ import { useEffect } from "react";
 
 import { useQueryClient } from "@tanstack/react-query";
 
-import { socket } from "./socket";
+import {
+  refreshSocketAuth,
+  socket,
+} from "./socket";
 import { SOCKET_EVENTS } from "./socket-events";
 
 import {
@@ -27,6 +30,7 @@ import { useConversationStore } from "@/stores/conversation.store";
 import { queryKeys } from "@/lib/query-keys";
 import { clearClientSession } from "@/lib/session-cleanup";
 import { getServerNow } from "@/lib/server-time";
+import { tokenStorage } from "@/lib/token";
 import { useNotificationStore } from "@/store/notification-store";
 import {
   useCallStore,
@@ -354,7 +358,17 @@ export default function SocketProvider({
 
   useEffect(() => {
     function onConnect() {
+      const latestToken = refreshSocketAuth("connect");
+
+      console.info("[SOCKET] connected", {
+        socketId: socket.id,
+        hasToken: Boolean(latestToken),
+        recovered: socket.recovered,
+        transport: socket.io.engine?.transport?.name ?? "unknown",
+      });
+
       useSocketStore.setState((state) => ({
+        token: latestToken ?? state.token,
         isConnected: true,
         isConnecting: false,
         connectionVersion:
@@ -379,6 +393,10 @@ export default function SocketProvider({
         queryKey:
           queryKeys.conversations.all,
       });
+      void queryClient.refetchQueries({
+        queryKey:
+          queryKeys.stories.all,
+      });
 
       if (socketState.activeConversationId) {
         void queryClient.refetchQueries({
@@ -390,7 +408,11 @@ export default function SocketProvider({
       }
     }
 
-    function onDisconnect() {
+    function onDisconnect(reason?: string) {
+      console.warn("[SOCKET] disconnected", {
+        reason: reason ?? "unknown",
+        hasToken: tokenStorage.exists(),
+      });
       resetPendingMessageFlights();
 
       if (useCallStore.getState().currentCall) {
@@ -404,14 +426,33 @@ export default function SocketProvider({
         isConnecting: false,
         typingUsers: [],
       });
+
+      if (
+        reason === "io server disconnect" &&
+        tokenStorage.exists()
+      ) {
+        window.setTimeout(() => {
+          const token = tokenStorage.get();
+
+          if (!token || socket.connected || socket.active) {
+            return;
+          }
+
+          console.info("[SOCKET] reconnecting after server disconnect", {
+            hasToken: true,
+          });
+          useSocketStore.getState().connectSocket(token);
+        }, 750);
+      }
     }
 
     function onConnectError(error: Error) {
-      console.error("[FlexChat Socket] connect_error", {
+      console.error("[SOCKET] connection rejected reason", {
         message: error.message,
         transport: socket.io.engine?.transport?.name ?? "none",
         url: (socket.io as unknown as { uri?: string }).uri,
         online: typeof navigator !== "undefined" ? navigator.onLine : true,
+        hasToken: tokenStorage.exists(),
       });
 
       useSocketStore.setState({
@@ -870,14 +911,29 @@ export default function SocketProvider({
         return;
       }
 
+      const currentUserId =
+        useAuthStore.getState().user?.id;
+
       queryClient.setQueryData<Story[]>(
         queryKeys.stories.all,
-        (stories) => [
-          story,
-          ...(stories ?? []).filter(
-            (item) => item.id !== story.id
-          ),
-        ]
+        (stories) => {
+          const filteredStories =
+            (stories ?? []).filter((item) => {
+              if (item.id === story.id) {
+                return false;
+              }
+
+              return !(
+                story.userId === currentUserId &&
+                item.id.startsWith("optimistic-story-")
+              );
+            });
+
+          return [
+            story,
+            ...filteredStories,
+          ];
+        }
       );
     }
 
@@ -1211,6 +1267,11 @@ export default function SocketProvider({
     }
 
     function handleOffline() {
+      console.warn("[SOCKET] browser went offline", {
+        connected: socket.connected,
+        active: socket.active,
+      });
+      resetPendingMessageFlights();
       useSocketStore.setState({
         isConnected: false,
         isConnecting: false,

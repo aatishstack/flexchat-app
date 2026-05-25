@@ -87,7 +87,7 @@ export default function AuthProvider({
     function scheduleRetry() {
       clearRetry();
       console.info(
-        "[FlexChat Auth] scheduling session hydration retry",
+        "[AUTH] scheduling session hydration retry",
         {
           delayMs: AUTH_RETRY_DELAY_MS,
         },
@@ -117,7 +117,7 @@ export default function AuthProvider({
           : tokenOverride;
 
       console.info(
-        "[FlexChat Auth] hydrating session",
+        "[AUTH] hydrating session",
         {
           hasToken: Boolean(token),
           version: hydrateVersion,
@@ -130,9 +130,9 @@ export default function AuthProvider({
         }
 
         clearRetry();
-        console.info(
-          "[FlexChat Auth] no stored token; using signed-out state",
-        );
+        console.info("[AUTH] auth rejected reason", {
+          reason: "missing_token",
+        });
         setSessionRecovering(false);
         resetClientSessionState();
         return;
@@ -164,7 +164,7 @@ export default function AuthProvider({
 
         clearRetry();
         console.info(
-          "[FlexChat Auth] session restored",
+          "[AUTH] user hydrated",
           {
             userId: user.id,
           },
@@ -175,6 +175,11 @@ export default function AuthProvider({
         });
         setHydrated(true);
         connectSocket(activeToken);
+        console.info("[SOCKET] socket auth token attached", {
+          source: "auth_hydration",
+          hasToken: Boolean(activeToken),
+          userId: user.id,
+        });
       } catch (error) {
         if (!isCurrentHydration()) {
           return;
@@ -190,7 +195,7 @@ export default function AuthProvider({
 
         if (tokenIsInvalid) {
           console.warn(
-            "[FlexChat Auth] stored token was rejected; resetting session",
+          "[AUTH] stored token was rejected; resetting session",
             {
               status,
             },
@@ -203,7 +208,7 @@ export default function AuthProvider({
         }
 
         console.warn(
-          "[FlexChat Auth] session endpoint unavailable; entering recovery",
+          "[AUTH] session endpoint unavailable; entering recovery",
           {
             status: status ?? "network_or_timeout",
             reason:
@@ -243,6 +248,9 @@ export default function AuthProvider({
           token: string | null;
         }>).detail?.token ?? null;
 
+      console.info("[AUTH] token change observed", {
+        hasToken: Boolean(token),
+      });
       clearRetry();
       void hydrate(token);
     }
@@ -253,7 +261,7 @@ export default function AuthProvider({
       }
 
       console.warn(
-        "[FlexChat Auth] authenticated API became unavailable; suspending live session",
+        "[AUTH] authenticated API became unavailable; suspending live session",
         (event as CustomEvent).detail,
       );
       clearRetry();
@@ -265,7 +273,7 @@ export default function AuthProvider({
 
     function handleInvalidApiSession(event: Event) {
       console.warn(
-        "[FlexChat Auth] API invalidated the session",
+        "[AUTH] API invalidated the session",
         (event as CustomEvent).detail,
       );
       clearRetry();
@@ -275,7 +283,7 @@ export default function AuthProvider({
 
     function handleSessionRetry() {
       console.info(
-        "[FlexChat Auth] user requested session retry",
+        "[AUTH] user requested session retry",
       );
       clearRetry();
       void hydrate();

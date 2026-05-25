@@ -83,7 +83,12 @@ export const useAuthStore =
 
       setAuth: (
         data
-      ) =>
+      ) => {
+        console.info("[AUTH] auth store updated", {
+          userId: data.user.id,
+          hasToken: Boolean(data.token),
+        });
+
         set({
           user: data.user,
 
@@ -98,7 +103,8 @@ export const useAuthStore =
 
           isSessionRecovering:
             false,
-        }),
+        });
+      },
 
       updateUser: (
         user
@@ -117,7 +123,9 @@ export const useAuthStore =
           })
         ),
 
-      logout: () =>
+      logout: () => {
+        console.info("[AUTH] auth store cleared");
+
         set({
           user: null,
 
@@ -131,6 +139,7 @@ export const useAuthStore =
 
           isSessionRecovering:
             false,
-        }),
+        });
+      },
     })
   );

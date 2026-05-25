@@ -10,7 +10,11 @@ import {
   updateMessageStatusInQueryCache,
 } from "@/lib/message-query-cache";
 import type { MessageQueryCache } from "@/lib/message-query-cache";
-import { socket } from "@/socket/socket";
+import { tokenStorage } from "@/lib/token";
+import {
+  refreshSocketAuth,
+  socket,
+} from "@/socket/socket";
 import { SOCKET_EVENTS } from "@/socket/socket-events";
 
 export type MessageStatus =
@@ -360,11 +364,12 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   messagesByConversation: {},
 
   connectSocket: (token) => {
-    const nextToken = token?.trim();
+    const nextToken = token?.trim() || tokenStorage.get()?.trim();
 
     if (!nextToken) {
       socket.disconnect();
       socket.auth = {};
+      socket.io.opts.query = {};
 
       set({
         token: null,
@@ -382,6 +387,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       (socket.connected || socket.active) &&
       currentToken === nextToken
     ) {
+      refreshSocketAuth("connect_reuse");
       set({
         isConnected: socket.connected,
         isConnecting: socket.active && !socket.connected,
@@ -405,6 +411,12 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     };
     socket.io.opts.withCredentials = false;
 
+    console.info("[SOCKET] connecting", {
+      hasToken: true,
+      alreadyConnected: socket.connected,
+      active: socket.active,
+    });
+
     set({
       token: nextToken,
       isConnecting: true,
@@ -415,8 +427,13 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   },
 
   disconnectSocket: () => {
+    console.info("[SOCKET] disconnect requested", {
+      connected: socket.connected,
+      active: socket.active,
+    });
     socket.disconnect();
     socket.auth = {};
+    socket.io.opts.query = {};
     pendingMessages.clear();
     retryTimers.forEach((timer) => clearTimeout(timer));
     retryTimers.clear();
@@ -678,6 +695,9 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       return;
     }
 
+    console.info("[SOCKET] rejoining active conversation", {
+      conversationId,
+    });
     socket.emit(SOCKET_EVENTS.JOIN_CONVERSATION, {
       conversationId,
     });

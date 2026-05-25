@@ -19,8 +19,9 @@ export async function authenticateSocket(socket: Socket): Promise<boolean> {
   }
 
   if (!token) {
-    console.warn("[FlexChat Socket] auth rejected: missing token", {
+    console.warn("[SOCKET] connection rejected reason", {
       socketId: socket.id,
+      reason: "missing_token",
     });
     return false;
   }
@@ -30,8 +31,9 @@ export async function authenticateSocket(socket: Socket): Promise<boolean> {
   try {
     decoded = verifyToken(token);
   } catch (error) {
-    console.warn("[FlexChat Socket] auth rejected: bad token", {
+    console.warn("[SOCKET] connection rejected reason", {
       socketId: socket.id,
+      reason: "bad_token",
       error: error instanceof Error ? error.message : String(error),
     });
     return false;
@@ -44,9 +46,10 @@ export async function authenticateSocket(socket: Socket): Promise<boolean> {
     .limit(1);
 
   if (!activeUsers.length) {
-    console.warn("[FlexChat Socket] auth rejected: user not found", {
+    console.warn("[SOCKET] connection rejected reason", {
       socketId: socket.id,
       userId: decoded.id,
+      reason: "user_not_found",
     });
     return false;
   }

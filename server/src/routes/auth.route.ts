@@ -248,13 +248,28 @@ function sendGooglePopupResponse(
       (() => {
         const payload = ${payloadJson};
         const targetOrigin = ${frontendOriginJson};
+        const payloadType = payload && payload.type;
 
         if (window.opener && !window.opener.closed) {
+          console.info("[OAUTH] popup callback response", {
+            type: payloadType,
+            hasToken: Boolean(payload && payload.token),
+            hasUser: Boolean(payload && payload.user),
+            targetOrigin,
+          });
           window.opener.postMessage(payload, targetOrigin);
-          window.close();
+          console.info("[OAUTH] postMessage sent", {
+            type: payloadType,
+            targetOrigin,
+          });
+          window.setTimeout(() => window.close(), 0);
           return;
         }
 
+        console.warn("[OAUTH] popup opener unavailable", {
+          type: payloadType,
+          targetOrigin,
+        });
         window.location.replace(targetOrigin + "/auth");
       })();
     </script>

@@ -15,8 +15,23 @@ function resolveSocketUrl(): string {
   return "https://flexchat-app-production.up.railway.app";
 }
 
+function attachSocketAuth(instance: Socket, reason: string) {
+  const latestToken = tokenStorage.get();
+
+  instance.auth = latestToken ? { token: latestToken } : {};
+  instance.io.opts.query = latestToken ? { token: latestToken } : {};
+
+  console.info("[SOCKET] socket auth token attached", {
+    reason,
+    hasToken: Boolean(latestToken),
+    connected: instance.connected,
+    active: instance.active,
+  });
+
+  return latestToken;
+}
+
 declare global {
-  // eslint-disable-next-line no-var
   var __flexchatSocket: Socket | undefined;
 }
 
@@ -39,10 +54,28 @@ function buildSocket(): Socket {
     query: token ? { token } : {},
   });
 
-  instance.io.on("reconnect_attempt", () => {
-    const latestToken = tokenStorage.get();
-    instance.auth = latestToken ? { token: latestToken } : {};
-    instance.io.opts.query = latestToken ? { token: latestToken } : {};
+  instance.io.on("reconnect_attempt", (attempt) => {
+    const latestToken = attachSocketAuth(instance, "reconnect_attempt");
+
+    console.info("[SOCKET] reconnect auth state", {
+      attempt,
+      hasToken: Boolean(latestToken),
+      online: typeof navigator !== "undefined" ? navigator.onLine : true,
+    });
+  });
+
+  instance.io.on("reconnect", (attempt) => {
+    console.info("[SOCKET] reconnect succeeded", {
+      attempt,
+      transport: instance.io.engine?.transport?.name ?? "unknown",
+    });
+  });
+
+  instance.io.on("reconnect_error", (error) => {
+    console.warn("[SOCKET] reconnect failed", {
+      message: error.message,
+      online: typeof navigator !== "undefined" ? navigator.onLine : true,
+    });
   });
 
   return instance;
@@ -55,3 +88,7 @@ export const socket: Socket =
     globalThis.__flexchatSocket = s;
     return s;
   })();
+
+export function refreshSocketAuth(reason = "manual") {
+  return attachSocketAuth(socket, reason);
+}

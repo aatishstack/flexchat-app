@@ -12,9 +12,11 @@ import { authMiddleware } from "../middleware/auth.middleware.js";
 import { SOCKET_EVENTS } from "../socket/socket-events.js";
 import { getSocketServer } from "../socket/socket-hub.js";
 
+const TEXT_STORY_MEDIA_URL = "flexchat://story/text";
+
 const storyBodySchema = z
   .object({
-    mediaUrl: z.string().url().max(2048),
+    mediaUrl: z.string().trim().max(2048),
     mediaType: z.enum(["image", "video", "text"]),
     caption: z.string().trim().max(220).optional(),
   })
@@ -24,6 +26,36 @@ const storyBodySchema = z
         code: z.ZodIssueCode.custom,
         path: ["caption"],
         message: "Text stories need story text",
+      });
+    }
+
+    if (value.mediaType === "text") {
+      if (value.mediaUrl !== TEXT_STORY_MEDIA_URL) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["mediaUrl"],
+          message: "Invalid text story media URL",
+        });
+      }
+
+      return;
+    }
+
+    try {
+      const mediaUrl = new URL(value.mediaUrl);
+
+      if (!["http:", "https:"].includes(mediaUrl.protocol)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["mediaUrl"],
+          message: "Story media URL must use HTTP or HTTPS",
+        });
+      }
+    } catch {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["mediaUrl"],
+        message: "Invalid story media URL",
       });
     }
   });
@@ -165,7 +197,7 @@ async function getStoryById(storyId: string, viewerId: string) {
       s.caption,
       s.created_at as "createdAt",
       s.expires_at as "expiresAt",
-      (sv.id is not null) as viewed,
+      (s.user_id = ${viewerId} or sv.id is not null) as viewed,
       (
         select count(*)::int
         from story_views viewer_count
@@ -230,7 +262,7 @@ export async function storyRoutes(app: FastifyInstance) {
             s.caption,
             s.created_at as "createdAt",
             s.expires_at as "expiresAt",
-            (sv.id is not null) as viewed,
+            (s.user_id = ${userId} or sv.id is not null) as viewed,
             (
               select count(*)::int
               from story_views viewer_count
@@ -267,7 +299,9 @@ export async function storyRoutes(app: FastifyInstance) {
           "Stories temporarily unavailable",
         );
         reply.header("x-flexchat-stories-error", "unavailable");
-        return [];
+        return reply.status(503).send({
+          message: "Stories temporarily unavailable",
+        });
       }
     },
   );

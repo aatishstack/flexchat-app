@@ -1,7 +1,13 @@
 "use client";
 import { generateId } from "@/lib/uuid";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   AlignCenter,
@@ -78,6 +84,8 @@ type StoryDraft = {
 const TEXT_STORY_MEDIA_URL = "flexchat://story/text";
 const MUTED_STORY_USERS_KEY = "flexchat:muted-story-users";
 const STORY_TEXT_COLORS = ["#ffffff", "#fbbf24", "#60a5fa", "#fb7185", "#34d399"];
+const STORY_IMAGE_EXTENSIONS = ["avif", "gif", "heic", "heif", "jpg", "jpeg", "png", "webp"];
+const STORY_VIDEO_EXTENSIONS = ["mov", "mp4", "m4v", "3gp", "3gpp", "3g2", "3gpp2", "webm"];
 
 const DEFAULT_STORY_TEXT_OVERLAY: StoryTextOverlay = {
   text: "Tap to edit",
@@ -183,19 +191,36 @@ function getVideoDurationSeconds(file: File) {
   });
 }
 
-function getStoryMediaType(file: File): "image" | "video" {
+function getStoryFileKind(file: File): "image" | "video" | null {
   const extension = file.name.split(".").pop()?.toLowerCase();
 
   if (
     file.type.startsWith("video/") ||
-    ["mov", "mp4", "m4v", "3gp", "3gpp", "3g2", "3gpp2", "webm"].includes(
-      extension ?? "",
-    )
+    STORY_VIDEO_EXTENSIONS.includes(extension ?? "")
   ) {
     return "video";
   }
 
-  return "image";
+  if (
+    file.type.startsWith("image/") ||
+    STORY_IMAGE_EXTENSIONS.includes(extension ?? "")
+  ) {
+    return "image";
+  }
+
+  return null;
+}
+
+function getStoryMediaType(file: File): "image" | "video" {
+  return getStoryFileKind(file) ?? "image";
+}
+
+function getStoryValidationError(file: File) {
+  if (!getStoryFileKind(file)) {
+    return "Choose a supported story photo or video.";
+  }
+
+  return getUploadValidationError(file);
 }
 
 function loadImageFile(file: File) {
@@ -442,7 +467,7 @@ export default function StoryTray() {
         throw new Error("Choose a story photo or video first.");
       }
 
-      const validationError = getUploadValidationError(file);
+      const validationError = getStoryValidationError(file);
 
       if (validationError) {
         throw new Error(validationError);
@@ -607,7 +632,7 @@ export default function StoryTray() {
       return;
     }
 
-    const validationError = getUploadValidationError(file);
+    const validationError = getStoryValidationError(file);
 
     if (validationError) {
       pushToast({
@@ -715,7 +740,7 @@ export default function StoryTray() {
     }));
   }
 
-  function publishStory(draft: StoryDraft) {
+  const publishStory = useCallback((draft: StoryDraft) => {
     createStoryMutation.mutate({
       file: draft.file,
       optimisticId: `optimistic-story-${generateId()}`,
@@ -723,7 +748,7 @@ export default function StoryTray() {
       mediaType: draft.mediaType,
       caption: draft.caption,
     });
-  }
+  }, [createStoryMutation]);
 
   async function confirmStoryDraftUpload() {
     if (!storyDraft || createStoryMutation.isPending) {
@@ -808,6 +833,7 @@ export default function StoryTray() {
     }
 
     setFailedStoryUpload(null);
+    failedStoryUploadRef.current = null;
     publishStory({
       file: failed.file,
       previewUrl: failed.previewUrl,
@@ -815,6 +841,34 @@ export default function StoryTray() {
       caption: failed.caption,
     });
   }
+
+  useEffect(() => {
+    function retryAfterReconnect() {
+      const failed = failedStoryUploadRef.current;
+
+      if (!failed || createStoryMutation.isPending) {
+        return;
+      }
+
+      console.info("[SOCKET] retrying failed story upload after reconnect", {
+        mediaType: failed.mediaType,
+      });
+      failedStoryUploadRef.current = null;
+      setFailedStoryUpload(null);
+      publishStory({
+        file: failed.file,
+        previewUrl: failed.previewUrl,
+        mediaType: failed.mediaType,
+        caption: failed.caption,
+      });
+    }
+
+    window.addEventListener("online", retryAfterReconnect);
+
+    return () => {
+      window.removeEventListener("online", retryAfterReconnect);
+    };
+  }, [createStoryMutation.isPending, publishStory]);
 
   function muteStoryUser(userId: string) {
     setMutedStoryUserIds((current) => {

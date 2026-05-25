@@ -3,6 +3,8 @@ import {
   getOAuthApiBaseUrl,
 } from "./api";
 
+export { getOAuthApiBaseUrl };
+
 export interface AuthResponse {
   token: string;
 
