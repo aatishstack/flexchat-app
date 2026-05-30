@@ -14,18 +14,28 @@ import {
   AlignLeft,
   AlignRight,
   AlertCircle,
+  Check,
+  Image as ImageIcon,
   Loader2,
+  Palette,
+  PenLine,
   Plus,
   RefreshCw,
+  Smile,
+  Trash2,
   Type,
   X,
 } from "lucide-react";
-import { motion, useReducedMotion } from "framer-motion";
+import type {
+  PointerEvent as ReactPointerEvent,
+} from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useStoriesQuery } from "@/hooks/queries/use-stories-query";
 import FlexAvatar from "@/components/chat/flex-avatar";
 import { queryKeys } from "@/lib/query-keys";
+import { cn } from "@/lib/utils";
 import { formatDisplayName } from "@/lib/user-display";
 import { createStory } from "@/services/story.service";
 import {
@@ -73,19 +83,44 @@ type StoryTextOverlay = {
   fontFamily: "Inter" | "Georgia" | "Impact";
 };
 
+type StorySticker = {
+  label: string;
+  x: number;
+  y: number;
+  size: number;
+};
+
+type StoryDrawPoint = {
+  x: number;
+  y: number;
+};
+
+type StoryDrawStroke = {
+  color: string;
+  points: StoryDrawPoint[];
+};
+
 type StoryDraft = {
   file?: File;
   previewUrl?: string;
   mediaType: "image" | "video" | "text";
   caption: string;
   textOverlay?: StoryTextOverlay;
+  backgroundColor?: string;
+  sticker?: StorySticker;
+  drawStrokes?: StoryDrawStroke[];
+  drawingMode?: boolean;
 };
 
 const TEXT_STORY_MEDIA_URL = "flexchat://story/text";
 const MUTED_STORY_USERS_KEY = "flexchat:muted-story-users";
 const STORY_TEXT_COLORS = ["#ffffff", "#fbbf24", "#60a5fa", "#fb7185", "#34d399"];
+const STORY_BACKGROUND_COLORS = ["#17212B", "#0F766E", "#1D4ED8", "#7F1D1D", "#111827"];
+const STORY_STICKERS = ["WOW", "YES", "LIVE", "MOOD", "FLEX"];
 const STORY_IMAGE_EXTENSIONS = ["avif", "gif", "heic", "heif", "jpg", "jpeg", "png", "webp"];
 const STORY_VIDEO_EXTENSIONS = ["mov", "mp4", "m4v", "3gp", "3gpp", "3g2", "3gpp2", "webm"];
+const STORY_TOOL_BUTTON_CLASS =
+  "flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/25 text-white backdrop-blur-xl transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-45";
 
 const DEFAULT_STORY_TEXT_OVERLAY: StoryTextOverlay = {
   text: "Tap to edit",
@@ -275,10 +310,167 @@ function wrapCanvasText(
   return lines.slice(0, 8);
 }
 
-async function bakeStoryTextOverlay(file: File, overlay: StoryTextOverlay) {
-  const text = overlay.text.trim();
+function drawStoryText(
+  context: CanvasRenderingContext2D,
+  overlay: StoryTextOverlay | undefined,
+  width: number,
+  height: number,
+) {
+  const text = overlay?.text.trim();
 
-  if (!text) {
+  if (!overlay || !text) {
+    return;
+  }
+
+  const fontSize = Math.round(
+    Math.max(22, Math.min(112, overlay.fontSize * (width / 390))),
+  );
+  const lineHeight = fontSize * 1.22;
+  const maxTextWidth = width * 0.78;
+  const x = (overlay.x / 100) * width;
+  const y = (overlay.y / 100) * height;
+
+  context.save();
+  context.font = `700 ${fontSize}px ${overlay.fontFamily}, Arial, sans-serif`;
+  context.textAlign = overlay.align;
+  context.textBaseline = "alphabetic";
+
+  const lines = wrapCanvasText(context, text, maxTextWidth);
+  const blockWidth = Math.min(
+    maxTextWidth,
+    Math.max(...lines.map((line) => context.measureText(line).width), fontSize),
+  );
+  const blockHeight = lines.length * lineHeight;
+  const blockX =
+    overlay.align === "left"
+      ? x
+      : overlay.align === "right"
+        ? x - blockWidth
+        : x - blockWidth / 2;
+  const blockY = y - blockHeight / 2;
+
+  if (overlay.highlight) {
+    const paddingX = fontSize * 0.42;
+    const paddingY = fontSize * 0.28;
+
+    context.fillStyle = "rgba(0, 0, 0, 0.46)";
+    context.beginPath();
+    context.roundRect(
+      blockX - paddingX,
+      blockY - paddingY,
+      blockWidth + paddingX * 2,
+      blockHeight + paddingY * 2,
+      fontSize * 0.38,
+    );
+    context.fill();
+  }
+
+  context.fillStyle = overlay.color;
+  context.shadowColor = "rgba(0,0,0,0.45)";
+  context.shadowBlur = 8;
+  context.shadowOffsetY = 2;
+
+  lines.forEach((line, index) => {
+    context.fillText(line, x, blockY + fontSize + index * lineHeight, maxTextWidth);
+  });
+  context.restore();
+}
+
+function drawStorySticker(
+  context: CanvasRenderingContext2D,
+  sticker: StorySticker | undefined,
+  width: number,
+  height: number,
+) {
+  if (!sticker) {
+    return;
+  }
+
+  const fontSize = Math.round(sticker.size * (width / 390));
+  const x = (sticker.x / 100) * width;
+  const y = (sticker.y / 100) * height;
+
+  context.save();
+  context.font = `800 ${fontSize}px Inter, Arial, sans-serif`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.shadowColor = "rgba(0,0,0,0.38)";
+  context.shadowBlur = 14;
+  context.fillStyle = "rgba(255,255,255,0.92)";
+  context.strokeStyle = "rgba(0,0,0,0.18)";
+  context.lineWidth = Math.max(3, fontSize * 0.08);
+  context.strokeText(sticker.label, x, y);
+  context.fillText(sticker.label, x, y);
+  context.restore();
+}
+
+function drawStoryStrokes(
+  context: CanvasRenderingContext2D,
+  strokes: StoryDrawStroke[] | undefined,
+  width: number,
+  height: number,
+) {
+  if (!strokes?.length) {
+    return;
+  }
+
+  context.save();
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.lineWidth = Math.max(7, width * 0.012);
+
+  strokes.forEach((stroke) => {
+    if (stroke.points.length < 2) {
+      return;
+    }
+
+    context.beginPath();
+    context.strokeStyle = stroke.color;
+    stroke.points.forEach((point, index) => {
+      const x = (point.x / 100) * width;
+      const y = (point.y / 100) * height;
+
+      if (index === 0) {
+        context.moveTo(x, y);
+        return;
+      }
+
+      context.lineTo(x, y);
+    });
+    context.stroke();
+  });
+  context.restore();
+}
+
+async function canvasToStoryFile(canvas: HTMLCanvasElement, filename: string) {
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (result) => {
+        if (result) {
+          resolve(result);
+          return;
+        }
+
+        reject(new Error("Story image export failed."));
+      },
+      "image/png",
+      0.96,
+    );
+  });
+
+  return new File([blob], filename, {
+    type: "image/png",
+    lastModified: getServerNow(),
+  });
+}
+
+async function bakeStoryTextOverlay(
+  file: File,
+  overlay?: StoryTextOverlay,
+  sticker?: StorySticker,
+  drawStrokes?: StoryDrawStroke[],
+) {
+  if (!overlay?.text.trim() && !sticker && !drawStrokes?.length) {
     return file;
   }
 
@@ -297,93 +489,61 @@ async function bakeStoryTextOverlay(file: File, overlay: StoryTextOverlay) {
     canvas.width = width;
     canvas.height = height;
     context.drawImage(image, 0, 0, width, height);
+    drawStoryStrokes(context, drawStrokes, width, height);
+    drawStorySticker(context, sticker, width, height);
+    drawStoryText(context, overlay, width, height);
 
-    const fontSize = Math.round(
-      Math.max(22, Math.min(96, overlay.fontSize * (width / 390))),
+    return canvasToStoryFile(
+      canvas,
+      `${file.name.replace(/\.[^.]+$/, "") || "story"}.png`,
     );
-    const lineHeight = fontSize * 1.22;
-    const maxTextWidth = width * 0.78;
-    const x = (overlay.x / 100) * width;
-    const y = (overlay.y / 100) * height;
-
-    context.font = `700 ${fontSize}px ${overlay.fontFamily}, Arial, sans-serif`;
-    context.textAlign = overlay.align;
-    context.textBaseline = "alphabetic";
-
-    const lines = wrapCanvasText(context, text, maxTextWidth);
-    const blockWidth = Math.min(
-      maxTextWidth,
-      Math.max(...lines.map((line) => context.measureText(line).width), fontSize),
-    );
-    const blockHeight = lines.length * lineHeight;
-    const blockX =
-      overlay.align === "left"
-        ? x
-        : overlay.align === "right"
-          ? x - blockWidth
-          : x - blockWidth / 2;
-    const blockY = y - blockHeight / 2;
-
-    if (overlay.highlight) {
-      const paddingX = fontSize * 0.42;
-      const paddingY = fontSize * 0.28;
-
-      context.fillStyle = "rgba(0, 0, 0, 0.46)";
-      context.beginPath();
-      context.roundRect(
-        blockX - paddingX,
-        blockY - paddingY,
-        blockWidth + paddingX * 2,
-        blockHeight + paddingY * 2,
-        fontSize * 0.38,
-      );
-      context.fill();
-    }
-
-    context.fillStyle = overlay.color;
-    context.shadowColor = "rgba(0,0,0,0.45)";
-    context.shadowBlur = 8;
-    context.shadowOffsetY = 2;
-
-    lines.forEach((line, index) => {
-      context.fillText(line, x, blockY + fontSize + index * lineHeight, maxTextWidth);
-    });
-
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (result) => {
-          if (result) {
-            resolve(result);
-            return;
-          }
-
-          reject(new Error("Story image export failed."));
-        },
-        "image/png",
-        0.96,
-      );
-    });
-
-    return new File([blob], `${file.name.replace(/\.[^.]+$/, "") || "story"}.png`, {
-      type: "image/png",
-      lastModified: getServerNow(),
-    });
   } finally {
     URL.revokeObjectURL(url);
   }
 }
 
+async function renderTextStoryFile(draft: StoryDraft) {
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("Text story could not be prepared.");
+  }
+
+  const width = 1080;
+  const height = 1920;
+  canvas.width = width;
+  canvas.height = height;
+
+  const gradient = context.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, draft.backgroundColor ?? STORY_BACKGROUND_COLORS[0]);
+  gradient.addColorStop(1, "#020617");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, width, height);
+
+  drawStoryStrokes(context, draft.drawStrokes, width, height);
+  drawStorySticker(context, draft.sticker, width, height);
+  drawStoryText(context, draft.textOverlay, width, height);
+
+  return canvasToStoryFile(canvas, `text-story-${generateId()}.png`);
+}
+
 export default function StoryTray() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const storyCanvasRef = useRef<HTMLDivElement | null>(null);
+  const drawingPointerIdRef = useRef<number | null>(null);
   const [viewerGroupIndex, setViewerGroupIndex] = useState<number | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [failedStoryUpload, setFailedStoryUpload] =
     useState<FailedStoryUpload | null>(null);
+  const [storyComposerOpen, setStoryComposerOpen] = useState(false);
   const [storyDraft, setStoryDraft] =
     useState<StoryDraft | null>(null);
   const [textOverlayEditorOpen, setTextOverlayEditorOpen] = useState(false);
   const [overlayDragging, setOverlayDragging] = useState(false);
+  const [stickerDragging, setStickerDragging] = useState(false);
+  const [selectedDraftElement, setSelectedDraftElement] =
+    useState<"text" | "sticker" | "draw" | null>(null);
   const [mutedStoryUserIds, setMutedStoryUserIds] = useState<Set<string>>(
     readMutedStoryUserIds,
   );
@@ -410,6 +570,20 @@ export default function StoryTray() {
           group.userId === currentUserId || !mutedStoryUserIds.has(group.userId),
       ),
     [currentUserId, expiryCheckAt, mutedStoryUserIds, storiesQuery.data],
+  );
+
+  const currentUserStoryGroupIndex = useMemo(
+    () =>
+      storyGroups.findIndex((group) => group.userId === currentUserId),
+    [currentUserId, storyGroups],
+  );
+  const currentUserStoryGroup =
+    currentUserStoryGroupIndex >= 0
+      ? storyGroups[currentUserStoryGroupIndex]
+      : null;
+  const visibleStoryGroups = useMemo(
+    () => storyGroups.filter((group) => group.userId !== currentUserId),
+    [currentUserId, storyGroups],
   );
 
   useEffect(() => {
@@ -652,6 +826,8 @@ export default function StoryTray() {
 
     setTextOverlayEditorOpen(false);
     setOverlayDragging(false);
+    setStickerDragging(false);
+    setSelectedDraftElement(null);
 
     if (failedStoryUpload?.previewUrl) {
       URL.revokeObjectURL(failedStoryUpload.previewUrl);
@@ -672,6 +848,15 @@ export default function StoryTray() {
     });
   }
 
+  function openStoryComposer() {
+    setStoryComposerOpen(true);
+  }
+
+  function chooseMediaStory() {
+    setStoryComposerOpen(false);
+    fileInputRef.current?.click();
+  }
+
   function openTextStoryDraft() {
     if (!currentUser) {
       pushToast({
@@ -689,6 +874,9 @@ export default function StoryTray() {
 
     setTextOverlayEditorOpen(true);
     setOverlayDragging(false);
+    setStickerDragging(false);
+    setSelectedDraftElement("text");
+    setStoryComposerOpen(false);
 
     setStoryDraft((currentDraft) => {
       if (currentDraft?.previewUrl) {
@@ -698,7 +886,13 @@ export default function StoryTray() {
       return {
         mediaType: "text",
         caption: "",
-        textOverlay: DEFAULT_STORY_TEXT_OVERLAY,
+        backgroundColor: STORY_BACKGROUND_COLORS[0],
+        textOverlay: {
+          ...DEFAULT_STORY_TEXT_OVERLAY,
+          text: "",
+          highlight: false,
+          fontSize: 38,
+        },
       };
     });
   }
@@ -740,6 +934,203 @@ export default function StoryTray() {
     }));
   }
 
+  function updateStorySticker(
+    updater: (sticker: StorySticker | undefined) => StorySticker | undefined,
+  ) {
+    setStoryDraft((draft) => {
+      if (!draft) {
+        return draft;
+      }
+
+      return {
+        ...draft,
+        sticker: updater(draft.sticker),
+      };
+    });
+  }
+
+  function moveStorySticker(clientX: number, clientY: number) {
+    const bounds = storyCanvasRef.current?.getBoundingClientRect();
+
+    if (!bounds) {
+      return;
+    }
+
+    const x = Math.min(88, Math.max(12, ((clientX - bounds.left) / bounds.width) * 100));
+    const y = Math.min(88, Math.max(12, ((clientY - bounds.top) / bounds.height) * 100));
+
+    updateStorySticker((sticker) =>
+      sticker
+        ? {
+            ...sticker,
+            x,
+            y,
+          }
+        : sticker,
+    );
+  }
+
+  function addOrCycleSticker() {
+    setStoryDraft((draft) => {
+      if (!draft || draft.mediaType === "video") {
+        return draft;
+      }
+
+      const currentIndex = draft.sticker
+        ? STORY_STICKERS.indexOf(draft.sticker.label)
+        : -1;
+      const label =
+        STORY_STICKERS[(currentIndex + 1) % STORY_STICKERS.length] ??
+        STORY_STICKERS[0];
+
+      return {
+        ...draft,
+        sticker: {
+          label,
+          x: draft.sticker?.x ?? 50,
+          y: draft.sticker?.y ?? 62,
+          size: draft.sticker?.size ?? 34,
+        },
+      };
+    });
+    setSelectedDraftElement("sticker");
+  }
+
+  function toggleDrawingMode() {
+    setStoryDraft((draft) => {
+      if (!draft || draft.mediaType === "video") {
+        return draft;
+      }
+
+      return {
+        ...draft,
+        drawingMode: !draft.drawingMode,
+      };
+    });
+    setSelectedDraftElement("draw");
+    setTextOverlayEditorOpen(false);
+  }
+
+  function getStoryCanvasPoint(clientX: number, clientY: number) {
+    const bounds = storyCanvasRef.current?.getBoundingClientRect();
+
+    if (!bounds) {
+      return null;
+    }
+
+    return {
+      x: Math.min(100, Math.max(0, ((clientX - bounds.left) / bounds.width) * 100)),
+      y: Math.min(100, Math.max(0, ((clientY - bounds.top) / bounds.height) * 100)),
+    };
+  }
+
+  function startStoryDrawing(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!storyDraft?.drawingMode) {
+      return;
+    }
+
+    const point = getStoryCanvasPoint(event.clientX, event.clientY);
+
+    if (!point) {
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drawingPointerIdRef.current = event.pointerId;
+    setSelectedDraftElement("draw");
+    setStoryDraft((draft) =>
+      draft
+        ? {
+            ...draft,
+            drawStrokes: [
+              ...(draft.drawStrokes ?? []),
+              {
+                color: draft.textOverlay?.color ?? "#ffffff",
+                points: [point],
+              },
+            ],
+          }
+        : draft,
+    );
+  }
+
+  function continueStoryDrawing(event: ReactPointerEvent<HTMLDivElement>) {
+    if (
+      !storyDraft?.drawingMode ||
+      drawingPointerIdRef.current !== event.pointerId
+    ) {
+      return;
+    }
+
+    const point = getStoryCanvasPoint(event.clientX, event.clientY);
+
+    if (!point) {
+      return;
+    }
+
+    setStoryDraft((draft) => {
+      if (!draft?.drawStrokes?.length) {
+        return draft;
+      }
+
+      const drawStrokes = [...draft.drawStrokes];
+      const lastStroke = drawStrokes[drawStrokes.length - 1];
+
+      drawStrokes[drawStrokes.length - 1] = {
+        ...lastStroke,
+        points: [...lastStroke.points, point],
+      };
+
+      return {
+        ...draft,
+        drawStrokes,
+      };
+    });
+  }
+
+  function endStoryDrawing(event: ReactPointerEvent<HTMLDivElement>) {
+    if (drawingPointerIdRef.current !== event.pointerId) {
+      return;
+    }
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    drawingPointerIdRef.current = null;
+  }
+
+  function deleteSelectedDraftElement() {
+    setStoryDraft((draft) => {
+      if (!draft) {
+        return draft;
+      }
+
+      if (selectedDraftElement === "sticker") {
+        return {
+          ...draft,
+          sticker: undefined,
+        };
+      }
+
+      if (selectedDraftElement === "draw") {
+        return {
+          ...draft,
+          drawStrokes: draft.drawStrokes?.slice(0, -1),
+          drawingMode: false,
+        };
+      }
+
+      return {
+        ...draft,
+        textOverlay: undefined,
+      };
+    });
+    setTextOverlayEditorOpen(false);
+    setSelectedDraftElement(null);
+  }
+
   const publishStory = useCallback((draft: StoryDraft) => {
     createStoryMutation.mutate({
       file: draft.file,
@@ -759,12 +1150,61 @@ export default function StoryTray() {
     let uploadDraft = draft;
 
     if (
+      draft.mediaType === "text"
+    ) {
+      const text = draft.textOverlay?.text.trim();
+
+      if (!text) {
+        pushToast({
+          title: "Add story text",
+          message: "Write something before sharing your story.",
+          variant: "warning",
+        });
+        return;
+      }
+
+      try {
+        const textStoryFile = await renderTextStoryFile(draft);
+        const textStoryPreviewUrl = URL.createObjectURL(textStoryFile);
+
+        uploadDraft = {
+          ...draft,
+          file: textStoryFile,
+          previewUrl: textStoryPreviewUrl,
+          mediaType: "image",
+          caption: "",
+          textOverlay: undefined,
+          sticker: undefined,
+          drawStrokes: undefined,
+          drawingMode: false,
+        };
+      } catch (error) {
+        pushToast({
+          title: "Text story could not be prepared",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Please try again in a moment.",
+          variant: "error",
+        });
+        return;
+      }
+    }
+
+    if (
       draft.mediaType === "image" &&
       draft.file &&
-      draft.textOverlay?.text.trim()
+      (draft.textOverlay?.text.trim() ||
+        draft.sticker ||
+        draft.drawStrokes?.length)
     ) {
       try {
-        const bakedFile = await bakeStoryTextOverlay(draft.file, draft.textOverlay);
+        const bakedFile = await bakeStoryTextOverlay(
+          draft.file,
+          draft.textOverlay,
+          draft.sticker,
+          draft.drawStrokes,
+        );
         const bakedPreviewUrl = URL.createObjectURL(bakedFile);
 
         if (draft.previewUrl) {
@@ -776,6 +1216,9 @@ export default function StoryTray() {
           file: bakedFile,
           previewUrl: bakedPreviewUrl,
           textOverlay: undefined,
+          sticker: undefined,
+          drawStrokes: undefined,
+          drawingMode: false,
         };
       } catch (error) {
         pushToast({
@@ -790,16 +1233,11 @@ export default function StoryTray() {
       }
     }
 
-    if (draft.mediaType === "text" && draft.textOverlay?.text.trim()) {
-      uploadDraft = {
-        ...uploadDraft,
-        caption: draft.textOverlay.text.trim().slice(0, 220),
-      };
-    }
-
     setStoryDraft(null);
     setTextOverlayEditorOpen(false);
     setOverlayDragging(false);
+    setStickerDragging(false);
+    setSelectedDraftElement(null);
     publishStory(uploadDraft);
   }
 
@@ -811,6 +1249,8 @@ export default function StoryTray() {
     setStoryDraft(null);
     setTextOverlayEditorOpen(false);
     setOverlayDragging(false);
+    setStickerDragging(false);
+    setSelectedDraftElement(null);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -917,16 +1357,18 @@ export default function StoryTray() {
 
   const viewerGroup =
     viewerGroupIndex === null ? null : (storyGroups[viewerGroupIndex] ?? null);
+  const myStoryLoading =
+    storiesQuery.isLoading && !storiesQuery.data;
 
   return (
-    <section className="mt-5">
-      <div className="mb-3 flex items-center justify-between">
+    <section className="mt-4">
+      <div className="mb-2 flex items-center justify-between px-1">
         <h2 className="text-sm font-semibold text-white">Stories</h2>
 
         {storiesQuery.isFetching ? (
           <Loader2
             size={14}
-            className="text-purple-300 motion-safe:animate-spin"
+            className="text-[#4BA3E3] motion-safe:animate-spin"
           />
         ) : null}
       </div>
@@ -946,45 +1388,74 @@ export default function StoryTray() {
       />
 
       <div className="flex gap-3 overflow-x-auto pb-2">
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={createStoryMutation.isPending}
-          className="flex w-[64px] shrink-0 flex-col items-center gap-2 text-center text-[11px] text-zinc-400 disabled:cursor-wait disabled:opacity-70"
-        >
-          <span className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-dashed border-purple-400/40 bg-purple-500/10 text-purple-100 shadow-lg shadow-purple-950/20">
-            {createStoryMutation.isPending ? (
-              <>
-                <Loader2 size={18} className="motion-safe:animate-spin" />
-                <span className="absolute inset-x-2 bottom-2 h-1 overflow-hidden rounded-full bg-white/15">
-                  <span
-                    className="block h-full rounded-full bg-purple-200 transition-[width]"
-                    style={{
-                      width: `${uploadProgress}%`,
-                    }}
-                  />
-                </span>
-              </>
-            ) : (
-              <Plus size={18} />
-            )}
-          </span>
-          <span className="truncate">Media</span>
-        </button>
+        <div className="relative flex w-[66px] shrink-0 flex-col items-center gap-2 text-center text-[11px] text-zinc-400">
+          <button
+            type="button"
+            onClick={() => {
+              if (myStoryLoading) {
+                return;
+              }
 
-        <button
-          type="button"
-          onClick={openTextStoryDraft}
-          disabled={createStoryMutation.isPending}
-          className="flex w-[64px] shrink-0 flex-col items-center gap-2 text-center text-[11px] text-zinc-400 disabled:cursor-wait disabled:opacity-70"
-        >
-          <span className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-purple-300/25 bg-white/[0.06] text-purple-100 shadow-lg shadow-black/15">
-            <Type size={18} />
-          </span>
-          <span className="truncate">Text</span>
-        </button>
+              if (currentUserStoryGroupIndex >= 0) {
+                setViewerGroupIndex(currentUserStoryGroupIndex);
+                return;
+              }
 
-        {storyGroups.map((group, index) => (
+              openStoryComposer();
+            }}
+            disabled={createStoryMutation.isPending || myStoryLoading}
+            className="relative flex h-[60px] w-[60px] items-center justify-center rounded-full p-[2px] disabled:cursor-wait disabled:opacity-70"
+            aria-label="Open my story"
+          >
+            <span
+              className={`absolute inset-0 rounded-full ${
+                currentUserStoryGroup
+                  ? "bg-gradient-to-tr from-[#2481CC] via-[#E1306C] to-[#FCAF45]"
+                  : "bg-white/10"
+              }`}
+            />
+            <FlexAvatar
+              src={currentUser?.avatar}
+              name={currentUser?.username}
+              className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0B1520] text-base font-bold text-white ring-2 ring-[#07111B]"
+            />
+            {createStoryMutation.isPending || myStoryLoading ? (
+              <span className="absolute inset-2 flex items-center justify-center rounded-full bg-black/45">
+                <Loader2 size={17} className="motion-safe:animate-spin" />
+              </span>
+            ) : null}
+          </button>
+
+          <button
+            type="button"
+            onClick={openStoryComposer}
+            disabled={createStoryMutation.isPending}
+            className="absolute right-1 top-10 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#07111B] bg-[#2481CC] text-white shadow-md disabled:cursor-wait disabled:opacity-70"
+            aria-label="Create story"
+          >
+            <Plus size={14} />
+          </button>
+
+          {createStoryMutation.isPending ? (
+            <span className="absolute left-2 right-2 top-[52px] h-1 overflow-hidden rounded-full bg-white/15">
+              <span
+                className="block h-full rounded-full bg-[#4BA3E3] transition-[width]"
+                style={{
+                  width: `${uploadProgress}%`,
+                }}
+              />
+            </span>
+          ) : null}
+
+          <span className="w-full truncate">My Story</span>
+        </div>
+
+        {visibleStoryGroups.map((group) => {
+          const originalIndex = storyGroups.findIndex(
+            (storyGroup) => storyGroup.userId === group.userId,
+          );
+
+          return (
           <motion.button
             key={group.userId}
             type="button"
@@ -1007,30 +1478,119 @@ export default function StoryTray() {
                     scale: 0.96,
                   }
             }
-            onClick={() => setViewerGroupIndex(index)}
-            className="flex w-[64px] shrink-0 flex-col items-center gap-2 text-center text-[11px] text-zinc-400"
+            onClick={() => setViewerGroupIndex(originalIndex)}
+            className="flex w-[66px] shrink-0 flex-col items-center gap-2 text-center text-[11px] text-zinc-400"
           >
             <span
-              className={`relative flex h-14 w-14 items-center justify-center rounded-2xl p-[2px] ${
+              className={`relative flex h-[60px] w-[60px] items-center justify-center rounded-full p-[2px] ${
                 group.hasUnseen
-                  ? "bg-gradient-to-tr from-purple-500 via-fuchsia-500 to-cyan-300 shadow-lg shadow-purple-500/20"
+                  ? "bg-gradient-to-tr from-[#2481CC] via-[#E1306C] to-[#FCAF45]"
                   : "bg-white/10"
               }`}
             >
               <FlexAvatar
                 src={group.user.avatar}
                 name={group.user.username}
-                className="flex h-full w-full items-center justify-center overflow-hidden rounded-[14px] bg-[#0B111C] text-base font-bold text-white"
+                className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0B1520] text-base font-bold text-white ring-2 ring-[#07111B]"
               />
             </span>
             <span className="w-full truncate">
-              {group.userId === currentUserId
-                ? "My Story"
-                : formatDisplayName(group.user.username)}
+              {formatDisplayName(group.user.username)}
             </span>
           </motion.button>
-        ))}
+          );
+        })}
       </div>
+
+      <AnimatePresence>
+        {storyComposerOpen ? (
+          <motion.div
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+            }}
+            className="fixed inset-0 z-[250] flex items-end bg-black/60 p-3 backdrop-blur-md sm:items-center sm:justify-center"
+            onClick={() => setStoryComposerOpen(false)}
+          >
+            <motion.div
+              initial={{
+                y: 24,
+                opacity: 0,
+              }}
+              animate={{
+                y: 0,
+                opacity: 1,
+              }}
+              exit={{
+                y: 24,
+                opacity: 0,
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 30,
+              }}
+              className="w-full overflow-hidden rounded-2xl border border-white/10 bg-[#07111B]/95 p-3 text-white shadow-lg shadow-black/25 sm:max-w-sm"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-2 py-2">
+                <h3 className="text-sm font-semibold">Create story</h3>
+                <button
+                  type="button"
+                  onClick={() => setStoryComposerOpen(false)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/[0.07] hover:text-white"
+                  aria-label="Close story creator"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="grid gap-2 p-1">
+                <button
+                  type="button"
+                  onClick={chooseMediaStory}
+                  className="flex items-center gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-white/[0.07]"
+                >
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2481CC]/15 text-[#7CC5FF]">
+                    <ImageIcon size={19} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium text-white">
+                      Photo or video
+                    </span>
+                    <span className="block truncate text-xs text-zinc-500">
+                      Share media with lightweight editing
+                    </span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={openTextStoryDraft}
+                  className="flex items-center gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-white/[0.07]"
+                >
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#E1306C]/15 text-[#FF8FB5]">
+                    <Type size={19} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium text-white">
+                      Text story
+                    </span>
+                    <span className="block truncate text-xs text-zinc-500">
+                      Pick a background and centered type
+                    </span>
+                  </span>
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       {failedStoryUpload ? (
         <div className="mt-3 flex items-center gap-3 rounded-2xl border border-red-400/20 bg-red-500/[0.08] p-3 text-sm text-red-100">
@@ -1077,14 +1637,26 @@ export default function StoryTray() {
       ) : null}
 
       {storyDraft ? (
-        <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 255 }}>
-          <div ref={storyCanvasRef} style={{ position: "absolute", inset: 0 }}>
+        <div className="fixed inset-0 z-[255] flex items-center justify-center bg-black text-white">
+          <div
+            ref={storyCanvasRef}
+            className="relative overflow-hidden bg-black"
+            style={{
+              aspectRatio: "9 / 16",
+              width: "min(100vw, calc(100dvh * 9 / 16))",
+              height: "min(100dvh, calc(100vw * 16 / 9))",
+            }}
+            onPointerDown={startStoryDrawing}
+            onPointerMove={continueStoryDrawing}
+            onPointerUp={endStoryDrawing}
+            onPointerCancel={endStoryDrawing}
+          >
             {storyDraft.mediaType === "image" ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={storyDraft.previewUrl}
                 alt=""
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                className="h-full w-full object-cover"
               />
             ) : storyDraft.mediaType === "video" ? (
               <video
@@ -1093,17 +1665,73 @@ export default function StoryTray() {
                 muted
                 loop
                 playsInline
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                className="h-full w-full object-cover"
               />
             ) : (
               <div
+                className="h-full w-full"
                 style={{
-                  background: "linear-gradient(135deg,#04363d,#0f172a 48%,#111827)",
-                  width: "100%",
-                  height: "100%",
+                  background: `linear-gradient(135deg, ${storyDraft.backgroundColor ?? STORY_BACKGROUND_COLORS[0]}, #020617)`,
                 }}
               />
             )}
+
+            {storyDraft.drawStrokes?.length ? (
+              <svg
+                className="pointer-events-none absolute inset-0 z-20 h-full w-full"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+              >
+                {storyDraft.drawStrokes.map((stroke, index) => (
+                  <polyline
+                    key={`${index}-${stroke.points.length}`}
+                    fill="none"
+                    points={stroke.points.map((point) => `${point.x},${point.y}`).join(" ")}
+                    stroke={stroke.color}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="1.2"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ))}
+              </svg>
+            ) : null}
+
+            {storyDraft.sticker ? (
+              <div
+                role="button"
+                tabIndex={0}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  setStickerDragging(true);
+                  setSelectedDraftElement("sticker");
+                  moveStorySticker(event.clientX, event.clientY);
+                }}
+                onPointerMove={(event) => {
+                  if (stickerDragging) {
+                    moveStorySticker(event.clientX, event.clientY);
+                  }
+                }}
+                onPointerUp={(event) => {
+                  if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                    event.currentTarget.releasePointerCapture(event.pointerId);
+                  }
+
+                  setStickerDragging(false);
+                }}
+                onPointerCancel={() => setStickerDragging(false)}
+                className="absolute z-30 -translate-x-1/2 -translate-y-1/2 touch-none select-none rounded-2xl px-3 py-1 font-black tracking-wide text-white drop-shadow-[0_8px_20px_rgba(0,0,0,0.45)]"
+                style={{
+                  left: `${storyDraft.sticker.x}%`,
+                  top: `${storyDraft.sticker.y}%`,
+                  fontSize: `${storyDraft.sticker.size}px`,
+                }}
+              >
+                {storyDraft.sticker.label}
+              </div>
+            ) : null}
 
             {storyDraft.textOverlay && !textOverlayEditorOpen ? (
               <div
@@ -1111,8 +1739,10 @@ export default function StoryTray() {
                 tabIndex={0}
                 onPointerDown={(event) => {
                   event.preventDefault();
+                  event.stopPropagation();
                   event.currentTarget.setPointerCapture(event.pointerId);
                   setOverlayDragging(true);
+                  setSelectedDraftElement("text");
                   moveStoryTextOverlay(event.clientX, event.clientY);
                 }}
                 onPointerMove={(event) => {
@@ -1159,28 +1789,27 @@ export default function StoryTray() {
             ) : null}
           </div>
 
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              padding: "48px 16px 16px",
-              background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)",
-              display: "flex",
-              gap: 20,
-              alignItems: "center",
-              color: "#fff",
-              zIndex: 35,
-              transition: "opacity 180ms ease",
-            }}
-          >
-            <button type="button" onClick={cancelStoryDraft} aria-label="Close">
+          <div className="absolute inset-x-0 top-0 z-[35] flex items-center justify-between gap-2 bg-gradient-to-b from-black/65 to-transparent px-4 pb-12 pt-[calc(0.75rem+env(safe-area-inset-top))] text-white">
+            <button
+              type="button"
+              onClick={cancelStoryDraft}
+              className={STORY_TOOL_BUTTON_CLASS}
+              aria-label="Close"
+            >
               <X size={22} />
             </button>
-            <button type="button" onClick={openImageTextTool} aria-label="Text">
-              Aa
-            </button>
+            <div className="flex min-w-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={openImageTextTool}
+                className={cn(
+                  STORY_TOOL_BUTTON_CLASS,
+                  storyDraft.textOverlay && "bg-white/[0.18]",
+                )}
+                aria-label="Text"
+              >
+                <Type size={21} />
+              </button>
             <button
               type="button"
               onClick={() =>
@@ -1194,72 +1823,55 @@ export default function StoryTray() {
                 }))
               }
               aria-label="Color"
+              className={STORY_TOOL_BUTTON_CLASS}
             >
-              🎨
+              <Palette size={21} />
             </button>
             <button
               type="button"
-              onClick={() =>
-                pushToast({
-                  title: "Sticker picker",
-                  message: "Sticker tools are ready for this draft.",
-                  variant: "info",
-                })
-              }
+              onClick={addOrCycleSticker}
+              disabled={storyDraft.mediaType === "video"}
+              className={cn(
+                STORY_TOOL_BUTTON_CLASS,
+                storyDraft.sticker && "bg-white/[0.18]",
+              )}
+              aria-label="Add sticker"
             >
-              Sticker
+              <Smile size={21} />
             </button>
             <button
               type="button"
-              onClick={() =>
-                pushToast({
-                  title: "Timer picker",
-                  message: "Stories expire after 24 hours.",
-                  variant: "info",
-                })
-              }
-              aria-label="Timer"
+              onClick={toggleDrawingMode}
+              disabled={storyDraft.mediaType === "video"}
+              aria-label="Draw"
+              className={cn(
+                STORY_TOOL_BUTTON_CLASS,
+                storyDraft.drawingMode && "bg-[#2481CC]",
+              )}
             >
-              ⏱
+              <PenLine size={21} />
             </button>
+            <button
+              type="button"
+              onClick={deleteSelectedDraftElement}
+              disabled={
+                !selectedDraftElement &&
+                !storyDraft.textOverlay &&
+                !storyDraft.sticker &&
+                !storyDraft.drawStrokes?.length
+              }
+              className={STORY_TOOL_BUTTON_CLASS}
+              aria-label="Delete selected story element"
+            >
+              <Trash2 size={21} />
+            </button>
+            </div>
           </div>
 
-          <div
-            style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              padding: "16px 16px 32px",
-              background: "linear-gradient(to top, rgba(0,0,0,0.7), transparent)",
-              zIndex: 35,
-            }}
-          >
-            <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-              <button
-                type="button"
-                style={{
-                  borderRadius: 24,
-                  padding: "10px 14px",
-                  background: "rgba(255,255,255,0.14)",
-                  color: "#fff",
-                  fontWeight: 700,
-                }}
-              >
-                👤 Your Story
-              </button>
-              <button
-                type="button"
-                style={{
-                  borderRadius: 24,
-                  padding: "10px 14px",
-                  background: "rgba(255,255,255,0.14)",
-                  color: "#fff",
-                  fontWeight: 700,
-                }}
-              >
-                ⭐ Close Friends
-              </button>
+          <div className="absolute inset-x-0 bottom-0 z-[35] bg-gradient-to-t from-black/75 to-transparent px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-16">
+            <div className="mb-3 flex items-center justify-between rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white backdrop-blur-xl">
+              <span className="font-semibold">Your Story</span>
+              <span className="text-xs text-white/55">24h</span>
             </div>
             <button
               type="button"
@@ -1270,31 +1882,14 @@ export default function StoryTray() {
                   !storyDraft.caption.trim() &&
                   !storyDraft.textOverlay?.text.trim())
               }
-              style={{
-                width: "100%",
-                padding: 14,
-                borderRadius: 28,
-                background: "#00BCD4",
-                color: "#fff",
-                fontWeight: 700,
-                fontSize: 16,
-                opacity: createStoryMutation.isPending ? 0.7 : 1,
-              }}
+              className="flex h-[52px] w-full items-center justify-center rounded-2xl bg-[#2481CC] px-5 text-base font-semibold text-white transition hover:bg-[#2F8ED8] disabled:cursor-wait disabled:opacity-70"
             >
               {createStoryMutation.isPending ? "Sharing..." : "Share to Story"}
             </button>
           </div>
 
           {textOverlayEditorOpen && storyDraft.textOverlay ? (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "rgba(0,0,0,0.5)",
-                zIndex: 45,
-                transition: "opacity 180ms ease",
-              }}
-            >
+            <div className="absolute inset-0 z-[45] bg-black/60 text-white backdrop-blur-sm">
               <textarea
                 autoFocus
                 value={storyDraft.textOverlay.text}
@@ -1304,32 +1899,48 @@ export default function StoryTray() {
                     text: event.target.value.slice(0, 120),
                   }))
                 }
+                className="absolute left-1/2 top-1/2 min-h-28 w-[82%] -translate-x-1/2 -translate-y-1/2 resize-none border-0 bg-transparent text-center font-bold leading-tight text-white outline-none placeholder:text-white/45"
                 style={{
-                  position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%,-50%)",
-                  background: "transparent",
-                  color: "#fff",
+                  color: storyDraft.textOverlay.color,
+                  fontFamily: `${storyDraft.textOverlay.fontFamily}, Arial, sans-serif`,
                   fontSize: storyDraft.textOverlay.fontSize,
                   textAlign: storyDraft.textOverlay.align,
-                  border: "none",
-                  outline: "none",
-                  width: "80%",
-                  resize: "none",
-                  fontWeight: 700,
                 }}
               />
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: 80,
-                  left: 0,
-                  right: 0,
-                  padding: "0 16px",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "center", gap: 10 }}>
+              <div className="absolute inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] px-4">
+                {storyDraft.mediaType === "text" ? (
+                  <div className="mb-3 flex justify-center gap-2.5">
+                    {STORY_BACKGROUND_COLORS.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() =>
+                          setStoryDraft((draft) =>
+                            draft
+                              ? {
+                                  ...draft,
+                                  backgroundColor: color,
+                                }
+                              : draft,
+                          )
+                        }
+                        style={{
+                          width: 34,
+                          height: 34,
+                          borderRadius: "50%",
+                          background: color,
+                          border:
+                            storyDraft.backgroundColor === color
+                              ? "2px solid #fff"
+                              : "1px solid rgba(255,255,255,0.32)",
+                        }}
+                        aria-label={`Use background ${color}`}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="flex justify-center gap-2.5">
                   {(["Inter", "Georgia", "Impact"] as const).map((font) => (
                     <button
                       key={font}
@@ -1341,11 +1952,11 @@ export default function StoryTray() {
                         }))
                       }
                       style={{
-                        borderRadius: 18,
+                        borderRadius: 16,
                         padding: "8px 12px",
                         background:
                           storyDraft.textOverlay?.fontFamily === font
-                            ? "#00BCD4"
+                            ? "#2481CC"
                             : "rgba(255,255,255,0.16)",
                         color: "#fff",
                       }}
@@ -1355,7 +1966,7 @@ export default function StoryTray() {
                   ))}
                 </div>
 
-                <div style={{ marginTop: 14, display: "flex", justifyContent: "center", gap: 10 }}>
+                <div className="mt-3 flex justify-center gap-2.5">
                   {STORY_TEXT_COLORS.map((color) => (
                     <button
                       key={color}
@@ -1403,7 +2014,7 @@ export default function StoryTray() {
                           borderRadius: 10,
                           background:
                             storyDraft.textOverlay?.align === align
-                              ? "#00BCD4"
+                              ? "#2481CC"
                               : "rgba(255,255,255,0.16)",
                           color: "#fff",
                         }}
@@ -1426,15 +2037,17 @@ export default function StoryTray() {
                       fontSize: Number(event.target.value),
                     }))
                   }
-                  style={{ marginTop: 18, width: "100%", accentColor: "#00BCD4" }}
+                  className="mt-4 w-full"
+                  style={{ accentColor: "#2481CC" }}
                   aria-label="Font size"
                 />
               </div>
               <button
                 type="button"
                 onClick={() => setTextOverlayEditorOpen(false)}
-                style={{ position: "absolute", top: 50, right: 20, color: "#fff" }}
+                className="absolute right-4 top-[calc(0.75rem+env(safe-area-inset-top))] flex h-10 items-center gap-2 rounded-full border border-white/10 bg-black/25 px-4 text-sm font-semibold text-white backdrop-blur-xl transition hover:bg-white/15"
               >
+                <Check size={18} />
                 Done
               </button>
             </div>

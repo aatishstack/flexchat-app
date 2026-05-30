@@ -136,11 +136,13 @@ export default function ChatPage() {
           "--chat-right-rail-width": "20rem",
           "--chat-notification-panel-width": "21.25rem",
           "--chat-panel-gap": "1rem",
+          "--fc-mobile-nav-height":
+            "calc(4.75rem + env(safe-area-inset-bottom))",
           "--chat-floating-safe-bottom":
             "calc(5.75rem + env(safe-area-inset-bottom))",
         } as CSSProperties
       }
-      className="relative h-dvh min-h-svh overflow-hidden bg-[var(--fc-app-bg)] text-[var(--fc-theme-text)]"
+      className="relative h-[calc(100dvh-var(--fc-mobile-nav-height))] min-h-[calc(100svh-var(--fc-mobile-nav-height))] overflow-hidden bg-[var(--fc-app-bg)] text-[var(--fc-theme-text)] lg:h-dvh lg:min-h-svh"
     >
       {/* SEARCH */}
       <GlobalSearch />

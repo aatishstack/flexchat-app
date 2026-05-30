@@ -1,17 +1,60 @@
 import { io, type Socket } from "socket.io-client";
 import { tokenStorage } from "@/lib/token";
+import { resolveLocalRuntimeUrl } from "@/lib/runtime-url";
+
+function isLocalHost(hostname: string) {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1"
+  );
+}
+
+function isLocalUrl(value: string | undefined) {
+  if (!value) {
+    return false;
+  }
+
+  try {
+    return isLocalHost(new URL(value).hostname);
+  } catch {
+    return false;
+  }
+}
 
 function resolveSocketUrl(): string {
-  const configured =
-    process.env.NEXT_PUBLIC_SOCKET_URL?.trim() ||
-    process.env.NEXT_PUBLIC_BACKEND_URL?.trim();
-  if (configured) return configured;
+  const configuredSocketUrl =
+    process.env.NEXT_PUBLIC_SOCKET_URL?.trim();
+  const configuredBackendUrl =
+    process.env.NEXT_PUBLIC_BACKEND_URL?.trim() ||
+    process.env.NEXT_PUBLIC_API_URL?.trim();
+
   if (typeof window !== "undefined") {
     const { hostname } = window.location;
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
-      return `http://${hostname}:5000`;
+    const localFallback = `http://${hostname}:5000`;
+
+    if (isLocalHost(hostname)) {
+      if (isLocalUrl(configuredBackendUrl)) {
+        return resolveLocalRuntimeUrl(
+          configuredBackendUrl,
+          localFallback,
+        );
+      }
+
+      if (configuredSocketUrl) {
+        return resolveLocalRuntimeUrl(
+          configuredSocketUrl,
+          localFallback,
+        );
+      }
+
+      return localFallback;
     }
   }
+
+  if (configuredSocketUrl) return configuredSocketUrl;
+  if (configuredBackendUrl) return configuredBackendUrl;
+
   return "https://flexchat-app-production.up.railway.app";
 }
 

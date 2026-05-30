@@ -49,16 +49,12 @@ export default function ChatShell({
   return (
     <main className="flex h-full min-h-0 w-full overflow-hidden bg-transparent text-white">
       <div
-        className={`h-full w-full lg:hidden ${
+        className={`h-full w-full shrink-0 lg:flex lg:w-auto ${
           activeConversationId
             ? "hidden"
             : "flex"
         }`}
       >
-        {sidebar}
-      </div>
-
-      <div className="hidden lg:flex">
         {sidebar}
       </div>
 

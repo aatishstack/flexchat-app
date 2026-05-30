@@ -363,7 +363,7 @@ export default function ProfilePage() {
   if (!user || !profile) {
     return (
       <main className="flex min-h-dvh items-center justify-center bg-[#070B14] px-6 text-white">
-        <div className="h-12 w-12 animate-spin rounded-2xl border border-purple-400/25 border-t-purple-300" />
+        <div className="h-12 w-12 animate-spin rounded-2xl border border-[#2481CC]/25 border-t-[#7CC5FF]" />
       </main>
     );
   }
@@ -414,17 +414,15 @@ export default function ProfilePage() {
             stiffness: 260,
             damping: 28,
           }}
-          className="relative overflow-hidden rounded-[32px] border border-white/10 bg-[#0B111C]/[0.88] shadow-[0_30px_100px_rgba(0,0,0,0.52),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-3xl"
+          className="relative overflow-hidden rounded-2xl border border-[var(--fc-app-border)] bg-[#0B1520]/90"
         >
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-purple-200/50 to-transparent" />
-
-          <div className="bg-gradient-to-br from-purple-600 via-fuchsia-600 to-cyan-500 px-6 pb-9 pt-10 text-center">
+          <div className="px-6 pb-8 pt-9 text-center">
             <button
               type="button"
               onClick={() =>
                 setPhotoPreviewOpen(true)
               }
-              className="relative mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-[36px] border border-white/25 bg-white/[0.15] text-4xl font-bold shadow-2xl shadow-black/25"
+              className="relative mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-[#17212B] text-4xl font-bold text-white"
               aria-label="View profile photo"
             >
               {avatar ? (
@@ -442,7 +440,7 @@ export default function ProfilePage() {
               <span className="absolute bottom-2 right-2 h-4 w-4 rounded-full border-2 border-white bg-green-400 shadow-lg shadow-green-500/40" />
             </button>
 
-            <h1 className="mt-5 text-3xl font-bold">
+            <h1 className="mt-5 text-2xl font-semibold">
               {formatDisplayName(
                 profile.displayName
               )}
@@ -451,7 +449,7 @@ export default function ProfilePage() {
               {formatHandle(user.username)}
             </p>
 
-            <div className="mx-auto mt-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/[0.18] px-3 py-1.5 text-xs text-white/90 backdrop-blur-xl">
+            <div className="mx-auto mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs text-zinc-300">
               <span
                 className={`h-2 w-2 rounded-full ${
                   isConnected
@@ -467,14 +465,14 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={openEditModal}
-              className="mx-auto mt-5 flex h-11 items-center justify-center gap-2 rounded-2xl bg-white px-5 text-sm font-semibold text-[#381052] shadow-xl shadow-black/20 transition hover:scale-[1.02]"
+              className="mx-auto mt-5 flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#2481CC] px-5 text-sm font-semibold text-white transition hover:bg-[#2F8ED8]"
             >
               <PenLine size={17} />
               Edit profile
             </button>
           </div>
 
-          <div className="grid gap-3 p-5 sm:p-6">
+          <div className="border-t border-white/10 px-5 py-2 sm:px-6">
             {[
               {
                 icon: Mail,
@@ -518,9 +516,9 @@ export default function ProfilePage() {
               return (
                 <div
                   key={item.label}
-                  className="flex items-center gap-4 rounded-[24px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_14px_45px_rgba(0,0,0,0.18)] transition hover:border-purple-300/20 hover:bg-white/[0.06]"
+                  className="flex items-center gap-4 border-b border-white/10 py-4 last:border-b-0"
                 >
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-purple-300/[0.15] bg-purple-500/[0.12] text-purple-100">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2481CC]/12 text-[#7CC5FF]">
                     <Icon size={19} />
                   </div>
 
@@ -577,7 +575,7 @@ export default function ProfilePage() {
               exit={{
                 scale: 0.92,
               }}
-              className="flex aspect-square w-full max-w-[min(82vw,420px)] items-center justify-center overflow-hidden rounded-[42px] bg-gradient-to-br from-purple-600 to-fuchsia-600 text-6xl font-bold text-white shadow-[0_32px_100px_rgba(0,0,0,0.7)]"
+              className="flex aspect-square w-full max-w-[min(82vw,420px)] items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-6xl font-bold text-white shadow-lg shadow-black/40"
               onClick={(event) =>
                 event.stopPropagation()
               }
@@ -632,7 +630,7 @@ export default function ProfilePage() {
                 stiffness: 260,
                 damping: 28,
               }}
-              className="w-full max-w-md overflow-hidden rounded-[30px] border border-white/10 bg-[#0B111C]/[0.96] text-white shadow-[0_28px_90px_rgba(0,0,0,0.62)] backdrop-blur-3xl"
+              className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#0B111C]/[0.96] text-white shadow-lg shadow-black/30 backdrop-blur-3xl"
             >
               <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
                 <div>
@@ -658,7 +656,7 @@ export default function ProfilePage() {
 
               <div className="modal-safe-scroll max-h-[min(68dvh,620px)] space-y-4 p-5">
                 <label className="mx-auto flex w-fit cursor-pointer flex-col items-center gap-3">
-                  <span className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-[30px] border border-white/[0.15] bg-gradient-to-br from-purple-600 to-fuchsia-600 text-3xl font-bold shadow-2xl shadow-purple-600/25">
+                  <span className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-white/[0.15] bg-[#17212B] text-3xl font-bold">
                     {draft.avatar ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -729,7 +727,7 @@ export default function ProfilePage() {
                           event.target.value,
                       })
                     }
-                    className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none transition focus:border-purple-400/45 focus:bg-white/[0.07]"
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none transition focus:border-[#2481CC]/55 focus:bg-white/[0.07]"
                   />
                 </div>
 
@@ -754,7 +752,7 @@ export default function ProfilePage() {
                           ),
                       })
                     }
-                    className="w-full resize-none rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition focus:border-purple-400/45 focus:bg-white/[0.07]"
+                    className="w-full resize-none rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition focus:border-[#2481CC]/55 focus:bg-white/[0.07]"
                   />
                 </div>
 
@@ -778,7 +776,7 @@ export default function ProfilePage() {
                           ),
                       })
                     }
-                    className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none transition focus:border-purple-400/45 focus:bg-white/[0.07]"
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none transition focus:border-[#2481CC]/55 focus:bg-white/[0.07]"
                     placeholder="+1 555 0100"
                   />
                 </div>
@@ -802,7 +800,7 @@ export default function ProfilePage() {
                     void saveProfile();
                   }}
                   disabled={savingProfile}
-                  className="flex h-12 items-center justify-center rounded-2xl bg-gradient-to-r from-purple-600 to-fuchsia-600 text-sm font-semibold text-white shadow-xl shadow-purple-600/25 transition hover:scale-[1.01] disabled:cursor-wait disabled:opacity-70"
+                  className="flex h-12 items-center justify-center rounded-2xl bg-[#2481CC] text-sm font-semibold text-white transition hover:bg-[#2F8ED8] disabled:cursor-wait disabled:opacity-70"
                 >
                   {savingProfile ? (
                     <Loader2

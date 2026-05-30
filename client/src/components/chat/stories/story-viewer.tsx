@@ -601,7 +601,7 @@ export default function StoryViewer({
           exit={{
             opacity: 0,
           }}
-          className="fixed inset-0 z-[260] flex items-center justify-center bg-black/[0.86] p-3 text-white backdrop-blur-xl sm:p-6"
+          className="fixed inset-0 z-[260] flex items-center justify-center bg-black text-white"
         >
           <motion.div
             initial={
@@ -655,7 +655,12 @@ export default function StoryViewer({
             onPointerUp={() => setIsPaused(false)}
             onPointerCancel={() => setIsPaused(false)}
             onPointerLeave={() => setIsPaused(false)}
-            className="relative h-[min(760px,92dvh)] w-full max-w-[430px] overflow-hidden rounded-[32px] border border-white/10 bg-[#080B14] shadow-[0_28px_90px_rgba(0,0,0,0.6)]"
+            style={{
+              aspectRatio: "9 / 16",
+              width: "min(100vw, calc(100dvh * 9 / 16))",
+              height: "min(100dvh, calc(100vw * 16 / 9))",
+            }}
+            className="relative overflow-hidden bg-[#07111B]"
           >
             <div className="absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/70 via-black/20 to-transparent px-4 pb-8 pt-[calc(1rem+env(safe-area-inset-top))]">
               <div className="flex gap-1.5">
@@ -667,7 +672,7 @@ export default function StoryViewer({
                   <FlexAvatar
                     src={group.user.avatar}
                     name={group.user.username}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-500 text-sm font-bold"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-sm font-bold"
                   />
 
                   <div className="min-w-0">
@@ -763,7 +768,7 @@ export default function StoryViewer({
             />
 
             {currentStory.mediaType === "text" ? (
-              <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_30%_20%,rgba(168,85,247,0.34),transparent_42%),linear-gradient(135deg,#12081f,#07111d)] p-7">
+              <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#17212B,#07111B)] p-7">
                 <p className="whitespace-pre-wrap break-words text-center text-2xl font-semibold leading-snug text-white sm:text-3xl">
                   {currentStory.caption}
                 </p>
@@ -881,13 +886,13 @@ export default function StoryViewer({
                   onBlur={() => setReplyFocused(false)}
                   rows={1}
                   placeholder="Reply..."
-                  className="max-h-24 min-h-11 flex-1 resize-none rounded-2xl border border-white/10 bg-white/[0.10] px-4 py-3 text-sm leading-5 text-white outline-none backdrop-blur-xl placeholder:text-white/45 focus:border-purple-300/45"
+                  className="max-h-24 min-h-11 flex-1 resize-none rounded-2xl border border-white/10 bg-white/[0.10] px-4 py-3 text-sm leading-5 text-white outline-none backdrop-blur-xl placeholder:text-white/45 focus:border-[#2481CC]/55"
                 />
 
                 <button
                   type="submit"
                   disabled={!replyText.trim() || isSendingReply}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-purple-500 text-white shadow-xl shadow-purple-500/25 transition hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#2481CC] text-white transition hover:bg-[#2F8ED8] disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label="Send story reply"
                 >
                   {isSendingReply ? (
@@ -942,7 +947,7 @@ export default function StoryViewer({
                       stiffness: 280,
                       damping: 30,
                     }}
-                    className="max-h-[60%] w-full overflow-hidden rounded-t-[28px] border border-white/10 bg-[#0B111C]/95 shadow-[0_-24px_80px_rgba(0,0,0,0.55)]"
+                    className="max-h-[60%] w-full overflow-hidden rounded-t-2xl border border-white/10 bg-[#0B111C]/95 shadow-lg shadow-black/30"
                     onClick={(event) =>
                       event.stopPropagation()
                     }
@@ -971,7 +976,7 @@ export default function StoryViewer({
 
                     <div className="chat-safe-scroll max-h-[calc(60dvh-5rem)] overflow-y-auto p-4">
                       {storyViewersQuery.isLoading ? (
-                        <div className="flex h-24 items-center justify-center text-purple-200">
+                        <div className="flex h-24 items-center justify-center text-[#7CC5FF]">
                           <Loader2
                             size={18}
                             className="motion-safe:animate-spin"
@@ -995,7 +1000,7 @@ export default function StoryViewer({
                             <FlexAvatar
                               src={viewer.avatar}
                               name={viewer.username}
-                              className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-purple-500 to-fuchsia-500 text-sm font-bold"
+                              className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-sm font-bold"
                             />
 
                             <div className="min-w-0 flex-1">
@@ -1045,7 +1050,7 @@ export default function StoryViewer({
                       y: 16,
                       scale: 0.96,
                     }}
-                    className="w-full max-w-sm rounded-[28px] border border-white/10 bg-[#0B111C]/95 p-5 shadow-[0_28px_90px_rgba(0,0,0,0.62)]"
+                    className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0B111C]/95 p-5 shadow-lg shadow-black/30"
                   >
                     <div className="flex items-start gap-4">
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/15 text-red-100">
@@ -1086,7 +1091,7 @@ export default function StoryViewer({
                         disabled={
                           deleteStoryMutation.isPending
                         }
-                        className="flex h-12 items-center justify-center rounded-2xl bg-red-500 text-sm font-semibold text-white shadow-xl shadow-red-500/25 transition hover:bg-red-400 disabled:cursor-wait disabled:opacity-70"
+                        className="flex h-12 items-center justify-center rounded-2xl bg-red-500 text-sm font-semibold text-white transition hover:bg-red-400 disabled:cursor-wait disabled:opacity-70"
                       >
                         {deleteStoryMutation.isPending ? (
                           <Loader2

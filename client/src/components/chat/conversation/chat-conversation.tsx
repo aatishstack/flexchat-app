@@ -1348,7 +1348,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
       >
         {canReply ? (
           <div
-            className={`pointer-events-none absolute top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-purple-300/20 bg-purple-500/15 text-purple-100 transition-opacity ${
+            className={`pointer-events-none absolute top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#2481CC]/25 bg-[#2481CC]/15 text-[#9BD0FF] transition-opacity ${
               mine ? "right-[calc(100%-2.25rem)]" : "left-0"
             } ${swipeX >= 40 ? "opacity-100" : "opacity-0"}`}
           >
@@ -1367,10 +1367,10 @@ const ChatMessageRow = memo(function ChatMessageRow({
                 }
               : undefined
           }
-          className={`relative max-w-[86%] rounded-3xl px-4 py-3 text-sm text-white shadow-[0_14px_45px_rgba(0,0,0,0.22)] sm:max-w-[70%] sm:px-5 sm:py-4 ${
+          className={`relative max-w-[86%] rounded-[20px] px-4 py-2.5 text-sm text-white sm:max-w-[68%] sm:px-4 sm:py-3 ${
             mine
-              ? "rounded-br-md shadow-purple-950/30"
-              : "rounded-bl-md border border-white/10 backdrop-blur-2xl"
+              ? "rounded-br-md"
+              : "rounded-bl-md border border-white/10"
           } ${message.status === "failed" ? "ring-1 ring-red-400/35" : ""} ${
             isDeleted
               ? "border border-white/10 bg-white/[0.035] text-white/60"
@@ -1464,7 +1464,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
                     void submitEdit();
                   }}
                   disabled={isMutating || !draftText.trim()}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-purple-700 transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#155C94] transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
                   aria-label="Save edit"
                 >
                   <Check size={15} />
@@ -1526,7 +1526,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
                     onClick={toggleReactionPicker}
                     disabled={isMutating || !isSettled}
                     className={`flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 active:scale-95 disabled:cursor-wait disabled:opacity-60 ${
-                      reactionAnchorRect ? "bg-white/10 text-purple-100" : ""
+                    reactionAnchorRect ? "bg-white/10 text-[#9BD0FF]" : ""
                     }`}
                     aria-expanded={!!reactionAnchorRect}
                     aria-label="Add reaction"
@@ -2088,7 +2088,7 @@ export default function ChatConversation({
   }, []);
 
   const compactChat = !!discoverOpen && !!activeNowOpen;
-  const headerActionClass = `flex shrink-0 items-center justify-center border border-white/10 bg-white/[0.04] text-zinc-200 transition hover:border-purple-400/30 hover:bg-purple-500/[0.15] disabled:cursor-not-allowed disabled:opacity-40 ${
+  const headerActionClass = `flex shrink-0 items-center justify-center border border-white/10 bg-white/[0.04] text-zinc-200 transition hover:border-[#2481CC]/35 hover:bg-[#2481CC]/15 disabled:cursor-not-allowed disabled:opacity-40 ${
     compactChat ? "h-9 w-9 rounded-xl" : "h-11 w-11 rounded-2xl"
   }`;
   const headerIconSize = compactChat ? 16 : 18;
@@ -2939,7 +2939,7 @@ export default function ChatConversation({
   if (!activeConversation) {
     return (
       <section className="flex h-full flex-col items-center justify-center bg-transparent px-6 text-center">
-        <div className="max-w-sm rounded-[32px] border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-purple-950/20 backdrop-blur-2xl">
+        <div className="max-w-sm rounded-2xl border border-white/10 bg-white/[0.04] p-8 shadow-lg shadow-black/20 backdrop-blur-xl">
           <h2 className="text-xl font-semibold text-white">
             Select a conversation
           </h2>
@@ -2956,10 +2956,8 @@ export default function ChatConversation({
       style={activeThemeStyle}
       className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[var(--fc-chat-bg)] text-[var(--fc-theme-text)]"
     >
-      <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.7)_1px,transparent_0)] [background-size:24px_24px]" />
-
       <div
-        className={`relative z-10 flex shrink-0 items-center justify-between border-b border-white/10 bg-[var(--fc-chat-header)] shadow-lg shadow-black/10 backdrop-blur-2xl ${
+        className={`relative z-10 flex shrink-0 items-center justify-between border-b border-white/10 bg-[var(--fc-chat-header)] ${
           compactChat
             ? "gap-2 px-3 py-3 sm:px-4 sm:py-3"
             : "gap-3 px-4 py-4 sm:px-6 sm:py-5"
@@ -2973,13 +2971,13 @@ export default function ChatConversation({
           <button
             type="button"
             onClick={() => setProfileOpen(true)}
-            className="shrink-0 rounded-2xl outline-none transition active:scale-95 focus-visible:ring-2 focus-visible:ring-purple-300/70"
+            className="shrink-0 rounded-2xl outline-none transition active:scale-95 focus-visible:ring-2 focus-visible:ring-[#7CC5FF]/70"
             aria-label="Open profile"
           >
             <FlexAvatar
               src={activeConversationAvatar}
               name={activeConversation.name}
-              className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-sm font-bold text-white shadow-lg shadow-purple-950/30 sm:h-12 sm:w-12 sm:text-base"
+              className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-sm font-bold text-white sm:h-12 sm:w-12 sm:text-base"
             />
           </button>
 
@@ -3041,7 +3039,7 @@ export default function ChatConversation({
           >
             <MoreVertical size={headerIconSize} />
             {unreadNotificationCount ? (
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white shadow-lg shadow-red-500/50">
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#2481CC] px-1 text-[10px] font-bold leading-none text-white">
                 {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
               </span>
             ) : null}
@@ -3076,7 +3074,7 @@ export default function ChatConversation({
                   type="button"
                   onClick={handleLoadOlderMessages}
                   disabled={isFetchingNextPage}
-                  className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-medium text-zinc-300 backdrop-blur-xl transition hover:border-purple-400/30 hover:bg-purple-500/10 hover:text-white disabled:cursor-wait disabled:opacity-60"
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-medium text-zinc-300 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-wait disabled:opacity-60"
                 >
                   {isFetchingNextPage ? "Loading..." : "Load earlier"}
                 </button>
@@ -3085,11 +3083,11 @@ export default function ChatConversation({
 
             {activeConversation.unreadCount ? (
               <div className="mb-5 flex items-center gap-3">
-                <div className="h-px flex-1 bg-purple-500/30" />
-                <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-xs text-purple-200">
+                <div className="h-px flex-1 bg-[#2481CC]/30" />
+                <span className="rounded-full border border-[#2481CC]/30 bg-[#2481CC]/10 px-3 py-1 text-xs text-[#9BD0FF]">
                   Unread messages
                 </span>
-                <div className="h-px flex-1 bg-purple-500/30" />
+                <div className="h-px flex-1 bg-[#2481CC]/30" />
               </div>
             ) : null}
 
@@ -3134,7 +3132,7 @@ export default function ChatConversation({
 
             {remoteTypingUsers.length ? (
               <div className="mt-4 flex justify-start">
-                <div className="rounded-3xl rounded-bl-md border border-white/10 bg-white/[0.05] px-5 py-4 backdrop-blur-xl">
+                <div className="rounded-[20px] rounded-bl-md border border-white/10 bg-[#17212B] px-4 py-3">
                   <div className="flex items-center gap-1">
                     {[0, 1, 2].map((dot) => (
                       <motion.div
@@ -3152,7 +3150,7 @@ export default function ChatConversation({
                           repeat: Infinity,
                           delay: dot * 0.15,
                         }}
-                        className="h-2 w-2 rounded-full bg-cyan-300"
+                        className="h-2 w-2 rounded-full bg-[#7CC5FF]"
                       />
                     ))}
                   </div>
@@ -3166,20 +3164,20 @@ export default function ChatConversation({
       </div>
 
       <div
-        className={`relative z-10 shrink-0 border-t border-white/10 bg-[var(--fc-chat-header)] shadow-[0_-18px_60px_rgba(0,0,0,0.24)] backdrop-blur-2xl ${
+        className={`relative z-10 shrink-0 border-t border-white/10 bg-[var(--fc-chat-header)] ${
           compactChat
             ? "p-2.5 pb-[calc(0.65rem+env(safe-area-inset-bottom))] sm:p-3 sm:pb-[calc(0.8rem+env(safe-area-inset-bottom))]"
             : "p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-5 sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
         }`}
       >
         {replyingTo ? (
-          <div className="mb-2 flex items-center gap-3 rounded-2xl border border-purple-300/20 bg-purple-500/[0.10] p-3 text-sm text-purple-50">
+          <div className="mb-2 flex items-center gap-3 rounded-2xl border border-[#2481CC]/25 bg-[#2481CC]/10 p-3 text-sm text-[#D7EDFF]">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/20">
               <Reply size={16} />
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold uppercase text-purple-200">
+              <p className="text-xs font-semibold uppercase text-[#9BD0FF]">
                 Replying
               </p>
               <p className="truncate text-xs text-white/75">
@@ -3253,7 +3251,7 @@ export default function ChatConversation({
             }}
           />
 
-          <div className="relative min-w-0 flex-1 rounded-[24px] border-0 bg-white/[0.08] px-4 py-2.5 shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-colors duration-200 focus-within:bg-white/[0.10]">
+          <div className="relative min-w-0 flex-1 rounded-[24px] border border-white/10 bg-[#17212B] px-4 py-2.5 transition-colors duration-200 focus-within:border-[#2481CC]/45 focus-within:bg-[#1B2A38]">
             <AnimatePresence>
               {emojiOpen ? (
                 <motion.div
@@ -3275,7 +3273,7 @@ export default function ChatConversation({
                   transition={{
                     duration: 0.16,
                   }}
-                  className="absolute bottom-[calc(100%+0.75rem)] left-0 z-40 w-[min(350px,calc(100vw-2rem))] overflow-hidden rounded-[24px] border border-white/10 bg-[#0B111C] shadow-[0_26px_90px_rgba(0,0,0,0.62)]"
+                  className="absolute bottom-[calc(100%+0.75rem)] left-0 z-40 w-[min(350px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-white/10 bg-[#0B111C] shadow-lg shadow-black/30"
                 >
                   <EmojiPicker
                     theme={Theme.DARK}
@@ -3297,7 +3295,7 @@ export default function ChatConversation({
               <button
                 type="button"
                 onClick={() => setEmojiOpen((open) => !open)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/[0.07] hover:text-purple-100 active:scale-95"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/[0.07] hover:text-white active:scale-95"
                 aria-label="Open emoji picker"
                 aria-expanded={emojiOpen}
               >
@@ -3340,12 +3338,12 @@ export default function ChatConversation({
                             repeat: Infinity,
                             delay: index * 0.035,
                           }}
-                          className="w-1 rounded-full bg-purple-200"
+                          className="w-1 rounded-full bg-[#9BD0FF]"
                         />
                       ))}
                     </div>
 
-                    <span className="shrink-0 text-xs font-medium text-purple-100">
+                    <span className="shrink-0 text-xs font-medium text-[#9BD0FF]">
                       {formatDuration(recordingSeconds)}
                     </span>
                   </div>
@@ -3377,21 +3375,21 @@ export default function ChatConversation({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploadingAttachment}
-                className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-zinc-400 transition hover:bg-white/[0.07] hover:text-purple-100 active:scale-95 disabled:cursor-wait disabled:opacity-70"
+                className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-zinc-400 transition hover:bg-white/[0.07] hover:text-white active:scale-95 disabled:cursor-wait disabled:opacity-70"
                 aria-label="Upload attachment"
               >
                 <Paperclip
                   size={20}
                   className={
                     isUploadingAttachment
-                      ? "animate-pulse text-purple-300"
+                      ? "animate-pulse text-[#9BD0FF]"
                       : undefined
                   }
                 />
                 {isUploadingAttachment ? (
                   <span className="absolute inset-x-2 bottom-1.5 h-1 overflow-hidden rounded-full bg-white/15">
                     <span
-                      className="block h-full rounded-full bg-purple-200 transition-[width]"
+                      className="block h-full rounded-full bg-[#9BD0FF] transition-[width]"
                       style={{
                         width: `${attachmentUploadProgress}%`,
                       }}
@@ -3470,12 +3468,12 @@ export default function ChatConversation({
                   isUploadingAttachment ||
                   (!!text.trim() && isRecordingVoice)
                 }
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white shadow-xl transition-all hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 ${
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition-all hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 ${
                   text.trim()
-                    ? "bg-cyan-500 shadow-cyan-500/25 hover:bg-cyan-400"
-                    : isRecordingVoice
-                      ? "bg-red-500 shadow-red-500/30"
-                      : "bg-white/[0.11] shadow-black/20 hover:bg-white/[0.16]"
+                    ? "bg-[#2481CC] hover:bg-[#2F8ED8]"
+                  : isRecordingVoice
+                      ? "bg-red-500"
+                      : "bg-white/[0.11] hover:bg-white/[0.16]"
                 }`}
                 aria-label={
                   text.trim() ? "Send message" : "Hold to record voice note"
@@ -3844,10 +3842,10 @@ export default function ChatConversation({
                 stiffness: 300,
                 damping: 30,
               }}
-              className="w-full max-w-md overflow-hidden rounded-[32px] border border-white/10 bg-[#0B111C]/[0.97] text-white shadow-[0_28px_90px_rgba(0,0,0,0.62)]"
+              className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#0B111C]/[0.97] text-white shadow-lg shadow-black/30"
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="relative bg-gradient-to-br from-purple-600 via-fuchsia-600 to-cyan-500 px-6 pb-8 pt-8 text-center">
+              <div className="relative border-b border-white/10 bg-[#0F1A25] px-6 pb-8 pt-8 text-center">
                 <button
                   type="button"
                   onClick={() => setProfileOpen(false)}
@@ -3860,13 +3858,13 @@ export default function ChatConversation({
                 <button
                   type="button"
                   onClick={() => setProfilePictureOpen(true)}
-                  className="mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-[36px] border border-white/25 bg-white/[0.15] text-4xl font-bold shadow-2xl shadow-black/25"
+                  className="mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-[#17212B] text-4xl font-bold"
                   aria-label="View profile picture"
                 >
                   <FlexAvatar
                     src={activeConversationAvatar}
                     name={activeConversationDisplayName}
-                    className="flex h-full w-full items-center justify-center overflow-hidden rounded-[36px] bg-gradient-to-br from-purple-600 to-fuchsia-600 text-4xl font-bold"
+                    className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-4xl font-bold"
                   />
                 </button>
 
@@ -3880,7 +3878,7 @@ export default function ChatConversation({
 
               <div className="space-y-3 p-5">
                 <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-purple-300/20 bg-purple-500/15 text-purple-100">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#2481CC]/20 bg-[#2481CC]/15 text-[#9BD0FF]">
                     <UserRound size={19} />
                   </div>
 
@@ -3910,7 +3908,7 @@ export default function ChatConversation({
                           <FlexAvatar
                             src={member.avatar}
                             name={member.username}
-                            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-xs font-bold"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-xs font-bold"
                           />
                           <p className="truncate text-sm text-zinc-100">
                             {formatDisplayName(member.username)}
@@ -3960,13 +3958,13 @@ export default function ChatConversation({
               exit={{
                 scale: 0.92,
               }}
-              className="flex aspect-square w-full max-w-[min(82vw,420px)] items-center justify-center overflow-hidden rounded-[42px] bg-gradient-to-br from-purple-600 to-fuchsia-600 text-6xl font-bold text-white shadow-[0_32px_100px_rgba(0,0,0,0.7)]"
+              className="flex aspect-square w-full max-w-[min(82vw,420px)] items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-6xl font-bold text-white shadow-lg shadow-black/40"
               onClick={(event) => event.stopPropagation()}
             >
               <FlexAvatar
                 src={activeConversationAvatar}
                 name={activeConversationDisplayName}
-                className="flex h-full w-full items-center justify-center overflow-hidden rounded-[42px] bg-gradient-to-br from-purple-600 to-fuchsia-600 text-6xl font-bold"
+                className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-6xl font-bold"
               />
             </motion.div>
           </motion.div>

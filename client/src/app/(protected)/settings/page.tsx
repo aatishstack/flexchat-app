@@ -20,7 +20,9 @@ import {
   LockKeyhole,
   LogOut,
   MessageCircle,
+  Palette,
   ShieldCheck,
+  Smartphone,
   Trash2,
   UserRound,
   Video,
@@ -53,7 +55,13 @@ type SettingKey =
   | "hdCalls"
   | "cameraPreview"
   | "mediaAutoDownload"
-  | "storageSaver";
+  | "storageSaver"
+  | "loginAlerts"
+  | "appLock"
+  | "compactLists"
+  | "reducedMotion"
+  | "deviceSync"
+  | "releaseNotes";
 
 type SettingsState = Record<SettingKey, boolean>;
 
@@ -70,6 +78,12 @@ const defaultSettings: SettingsState = {
   cameraPreview: true,
   mediaAutoDownload: false,
   storageSaver: true,
+  loginAlerts: true,
+  appLock: false,
+  compactLists: false,
+  reducedMotion: false,
+  deviceSync: true,
+  releaseNotes: true,
 };
 
 function readStoredSettings() {
@@ -110,9 +124,9 @@ function ToggleSwitch({
       aria-checked={checked}
       aria-label={label}
       onClick={onChange}
-      className={`relative h-8 w-14 shrink-0 rounded-full border p-1 transition-all duration-300 ${
+      className={`relative h-8 w-14 shrink-0 rounded-full border p-1 transition-all duration-200 ${
         checked
-          ? "border-purple-300/30 bg-gradient-to-r from-purple-600 to-fuchsia-600 shadow-lg shadow-purple-600/25"
+          ? "border-[#2481CC]/40 bg-[#2481CC]"
           : "border-white/10 bg-white/[0.06]"
       }`}
     >
@@ -151,8 +165,8 @@ function SettingRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="flex items-center gap-4 rounded-[24px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_14px_45px_rgba(0,0,0,0.18)] backdrop-blur-2xl transition hover:border-purple-300/20 hover:bg-white/[0.06]">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-purple-300/[0.15] bg-purple-500/[0.12] text-purple-100">
+    <div className="flex items-center gap-4 border-b border-white/10 px-4 py-4 last:border-b-0">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2481CC]/12 text-[#7CC5FF]">
         <Icon size={19} />
       </div>
 
@@ -183,10 +197,10 @@ function Section({
 }) {
   return (
     <section>
-      <h2 className="mb-3 px-1 text-xs font-semibold uppercase tracking-[0.22em] text-purple-200/70">
+      <h2 className="mb-2 px-1 text-xs font-semibold uppercase text-zinc-500">
         {title}
       </h2>
-      <div className="grid gap-3">
+      <div className="overflow-hidden rounded-2xl border border-[var(--fc-app-border)] bg-[#0B1520]/90">
         {children}
       </div>
     </section>
@@ -289,8 +303,53 @@ export default function SettingsPage() {
         ],
       },
       {
-        title: "Calls",
+        title: "Security",
         rows: [
+          {
+            key: "loginAlerts" as const,
+            icon: ShieldCheck,
+            title: "Login alerts",
+            detail:
+              "Notify this device when a new session signs in.",
+          },
+          {
+            key: "appLock" as const,
+            icon: LockKeyhole,
+            title: "App lock",
+            detail:
+              "Require device authentication before opening FlexChat.",
+          },
+        ],
+      },
+      {
+        title: "Appearance",
+        rows: [
+          {
+            key: "compactLists" as const,
+            icon: Palette,
+            title: "Compact lists",
+            detail:
+              "Use denser rows for conversation and contact lists.",
+          },
+          {
+            key: "reducedMotion" as const,
+            icon: Palette,
+            title: "Reduced motion",
+            detail:
+              "Prefer simpler transitions across the interface.",
+          },
+        ],
+      },
+      {
+        title: "Devices",
+        rows: [
+          {
+            key: "deviceSync" as const,
+            icon: Smartphone,
+            title: "Sync active devices",
+            detail:
+              "Keep sessions, presence, and unread state aligned.",
+          },
           {
             key: "hdCalls" as const,
             icon: Video,
@@ -298,17 +357,10 @@ export default function SettingsPage() {
             detail:
               "Prefer higher quality camera streams when available.",
           },
-          {
-            key: "cameraPreview" as const,
-            icon: LockKeyhole,
-            title: "Camera preview",
-            detail:
-              "Show your local preview during video calls.",
-          },
         ],
       },
       {
-        title: "Data",
+        title: "About",
         rows: [
           {
             key: "mediaAutoDownload" as const,
@@ -318,11 +370,11 @@ export default function SettingsPage() {
               "Download shared media automatically on trusted networks.",
           },
           {
-            key: "storageSaver" as const,
+            key: "releaseNotes" as const,
             icon: Database,
-            title: "Storage saver",
+            title: "Release notes",
             detail:
-              "Prefer lighter cached media during long sessions.",
+              "Show product updates and production readiness notes.",
           },
         ],
       },
@@ -379,7 +431,7 @@ export default function SettingsPage() {
   if (!user) {
     return (
       <main className="flex min-h-dvh items-center justify-center bg-[#070B14] px-6 text-white">
-        <div className="h-12 w-12 animate-spin rounded-2xl border border-purple-400/25 border-t-purple-300" />
+        <div className="h-12 w-12 animate-spin rounded-2xl border border-[#2481CC]/25 border-t-[#7CC5FF]" />
       </main>
     );
   }
@@ -416,15 +468,13 @@ export default function SettingsPage() {
             stiffness: 260,
             damping: 28,
           }}
-          className="relative overflow-hidden rounded-[32px] border border-white/10 bg-[#0B111C]/[0.88] shadow-[0_30px_100px_rgba(0,0,0,0.52),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-3xl"
+          className="relative overflow-hidden rounded-2xl border border-[var(--fc-app-border)] bg-transparent"
         >
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-purple-200/50 to-transparent" />
-
-          <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[0.88fr_1.12fr]">
+          <div className="grid gap-5 sm:p-1 lg:grid-cols-[0.82fr_1.18fr]">
             <div className="flex flex-col gap-4">
-              <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
+              <div className="rounded-2xl border border-[var(--fc-app-border)] bg-[#0B1520]/90 p-5">
                 <div className="flex items-center gap-4">
-                  <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[24px] bg-gradient-to-br from-purple-500 via-fuchsia-600 to-violet-700 text-2xl font-bold shadow-[0_20px_60px_rgba(147,51,234,0.34)]">
+                  <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-2xl font-bold">
                     {user.avatar ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -452,11 +502,11 @@ export default function SettingsPage() {
                 <div className="mt-5 grid gap-2">
                   <Link
                     href="/profile"
-                    className="group flex items-center gap-3 rounded-2xl border border-white/10 bg-black/[0.15] px-4 py-3 transition hover:border-purple-300/25 hover:bg-purple-500/[0.12]"
+                    className="group flex items-center gap-3 rounded-2xl bg-white/[0.04] px-4 py-3 transition hover:bg-white/[0.08]"
                   >
                     <UserRound
                       size={18}
-                      className="text-purple-200"
+                      className="text-[#9BD0FF]"
                     />
                     <span className="min-w-0 flex-1 text-sm font-medium">
                       View profile
@@ -467,7 +517,7 @@ export default function SettingsPage() {
                     />
                   </Link>
 
-                  <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/[0.15] px-4 py-3">
+                  <div className="flex items-center gap-3 rounded-2xl bg-white/[0.04] px-4 py-3">
                     <span
                       className={`h-2.5 w-2.5 rounded-full ${
                         isConnected
@@ -489,7 +539,7 @@ export default function SettingsPage() {
                 onClick={() =>
                   setLogoutConfirmOpen(true)
                 }
-                className="flex h-14 items-center justify-center gap-2 rounded-[24px] border border-red-300/20 bg-red-500/[0.12] px-5 py-4 text-sm font-semibold text-red-100 shadow-[0_18px_55px_rgba(239,68,68,0.14)] transition hover:bg-red-500/20"
+                className="flex h-14 items-center justify-center gap-2 rounded-2xl border border-red-300/20 bg-red-500/[0.10] px-5 py-4 text-sm font-semibold text-red-100 transition hover:bg-red-500/15"
               >
                 <LogOut size={18} />
                 Log out
@@ -501,7 +551,7 @@ export default function SettingsPage() {
                   setDeleteConfirmation("");
                   setDeleteConfirmOpen(true);
                 }}
-                className="flex h-14 items-center justify-center gap-2 rounded-[24px] border border-red-300/20 bg-black/[0.18] px-5 py-4 text-sm font-semibold text-red-100 shadow-[0_18px_55px_rgba(0,0,0,0.16)] transition hover:bg-red-500/[0.12]"
+                className="flex h-14 items-center justify-center gap-2 rounded-2xl border border-red-300/20 bg-[#0B1520]/90 px-5 py-4 text-sm font-semibold text-red-100 transition hover:bg-red-500/[0.12]"
               >
                 <Trash2 size={18} />
                 Delete account
@@ -568,7 +618,7 @@ export default function SettingsPage() {
                 stiffness: 260,
                 damping: 28,
               }}
-              className="w-full max-w-sm rounded-[30px] border border-white/10 bg-[#0B111C]/[0.96] p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.6)] backdrop-blur-3xl"
+              className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0B111C]/[0.96] p-5 text-white shadow-lg shadow-black/30 backdrop-blur-3xl"
             >
               <div className="flex items-start gap-4">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/[0.15] text-red-100">
@@ -599,7 +649,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={confirmLogout}
-                  className="h-12 rounded-2xl bg-red-500 text-sm font-semibold text-white shadow-xl shadow-red-500/25 transition hover:bg-red-400"
+                  className="h-12 rounded-2xl bg-red-500 text-sm font-semibold text-white transition hover:bg-red-400"
                 >
                   Log out
                 </button>
@@ -644,7 +694,7 @@ export default function SettingsPage() {
                 stiffness: 260,
                 damping: 28,
               }}
-              className="w-full max-w-md rounded-[30px] border border-red-300/15 bg-[#0B111C]/[0.97] p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.65)] backdrop-blur-3xl"
+              className="w-full max-w-md rounded-2xl border border-red-300/15 bg-[#0B111C]/[0.97] p-5 text-white shadow-lg shadow-black/30 backdrop-blur-3xl"
             >
               <div className="flex items-start gap-4">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-400/25 bg-red-500/[0.16] text-red-100">
@@ -702,7 +752,7 @@ export default function SettingsPage() {
                     deletingAccount ||
                     deleteConfirmation !== "DELETE"
                   }
-                  className="flex h-12 items-center justify-center rounded-2xl bg-red-500 text-sm font-semibold text-white shadow-xl shadow-red-500/25 transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-12 items-center justify-center rounded-2xl bg-red-500 text-sm font-semibold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {deletingAccount ? (
                     <Loader2

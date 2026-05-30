@@ -16,6 +16,7 @@ import { TOKEN_CHANGE_EVENT, TOKEN_KEY, tokenStorage } from "@/lib/token";
 
 const protectedPrefixes = [
   "/chat",
+  "/contacts",
   "/profile",
   "/settings",
 ];

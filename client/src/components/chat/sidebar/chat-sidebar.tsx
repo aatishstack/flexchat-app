@@ -16,6 +16,7 @@ import {
   BellOff,
   LogOut,
   MessageCircle,
+  MoreVertical,
   Pin,
   Search,
   Settings,
@@ -271,27 +272,26 @@ const ConversationListButton = memo(
           onContextOpen(conversation);
         }}
         whileHover={{
-          y: -1,
-          scale: 1.01,
+          x: 2,
         }}
         whileTap={{
           scale: 0.985,
         }}
-        className={`group flex w-full items-center gap-4 rounded-3xl border p-4 text-left transition-all ${
+        className={`group flex min-h-[76px] w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition-all ${
           active
-            ? "border-purple-400/35 bg-purple-500/[0.12] shadow-[0_18px_55px_rgba(147,51,234,0.16)]"
-            : "border-transparent bg-white/[0.035] hover:border-white/10 hover:bg-white/[0.055] hover:shadow-[0_16px_45px_rgba(0,0,0,0.18)]"
+            ? "border-[#2481CC]/30 bg-[#2481CC]/[0.12]"
+            : "border-transparent hover:bg-white/[0.045]"
         }`}
       >
         <div className="relative">
           <FlexAvatar
             src={avatar}
             name={conversation.name}
-            className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-500 text-lg font-bold text-white"
+            className="flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full bg-[#1F2D3A] text-lg font-bold text-white"
           />
 
           {isOnline ? (
-            <div className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[#0B111C] bg-green-500" />
+            <div className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[#07111B] bg-green-500" />
           ) : null}
         </div>
 
@@ -308,7 +308,7 @@ const ConversationListButton = memo(
               {conversation.pinned ? (
                 <Pin
                   size={13}
-                  className="shrink-0 text-purple-300"
+                  className="shrink-0 text-[#4BA3E3]"
                 />
               ) : null}
 
@@ -320,7 +320,7 @@ const ConversationListButton = memo(
               ) : null}
             </div>
 
-            <span className="text-xs text-zinc-500">
+            <span className="shrink-0 text-[11px] text-zinc-500">
               {formatConversationTime(
                 conversation.lastActivityAt ??
                   conversation.createdAt,
@@ -336,7 +336,7 @@ const ConversationListButton = memo(
             </p>
 
             {conversation.unreadCount ? (
-              <div className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-purple-600 px-1 text-[10px] font-bold text-white">
+              <div className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#2481CC] px-1.5 text-[10px] font-bold text-white">
                 {conversation.unreadCount}
               </div>
             ) : null}
@@ -350,6 +350,10 @@ const ConversationListButton = memo(
 export default function ChatSidebar() {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] =
+    useState(true);
+  const [sideMenuOpen, setSideMenuOpen] =
+    useState(false);
   const [activeFolder, setActiveFolder] =
     useState("all");
   const [
@@ -744,76 +748,151 @@ export default function ChatSidebar() {
   ]);
 
   return (
-    <aside className="flex h-full w-full border-r border-[var(--fc-app-border)] bg-[var(--fc-app-panel)] shadow-[18px_0_80px_rgba(0,0,0,0.34)] backdrop-blur-3xl lg:w-[360px]">
+    <aside className="flex h-full w-full border-r border-[var(--fc-app-border)] bg-[#07111B]/95 backdrop-blur-xl lg:w-[360px]">
       <div className="flex w-full flex-col">
-        <div className="relative overflow-hidden border-b border-white/10 bg-white/[0.025] p-5">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-purple-300/45 to-transparent" />
-
-          <div className="flex items-center justify-between">
+        <div className="relative border-b border-white/10 bg-[#07111B] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+          <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 via-fuchsia-600 to-violet-700 shadow-[0_16px_45px_rgba(147,51,234,0.34)]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#2481CC] text-white">
                 <MessageCircle
-                  size={24}
-                  className="text-white"
+                  size={20}
                 />
               </div>
 
               <div>
-                <h1 className="text-xl font-bold text-white">
+                <h1 className="text-lg font-semibold text-white">
                   FlexChat
                 </h1>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Link
-                href="/profile"
-                replace
-                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-300 transition-all hover:border-purple-300/30 hover:bg-purple-500/[0.12] hover:text-white"
-                aria-label="Open profile"
+            <div className="relative flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() =>
+                  setSearchOpen((open) => !open)
+                }
+                className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-300 transition hover:bg-white/[0.07] hover:text-white"
+                aria-label="Search conversations"
               >
-                <UserRound size={18} />
-              </Link>
-
-              <Link
-                href="/settings"
-                replace
-                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-300 transition-all hover:border-purple-300/30 hover:bg-purple-500/[0.12] hover:text-white"
-                aria-label="Open settings"
-              >
-                <Settings size={18} />
-              </Link>
+                <Search size={19} />
+              </button>
 
               <button
                 type="button"
                 onClick={() =>
-                  setLogoutConfirmOpen(true)
+                  setSideMenuOpen((open) => !open)
                 }
-                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-300 transition-all hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-200"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-300 transition hover:bg-white/[0.07] hover:text-white"
+                aria-label="Open menu"
+              >
+                <MoreVertical size={20} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setLogoutConfirmOpen(true)}
+                className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-300 transition hover:bg-red-500/[0.12] hover:text-red-100"
                 aria-label="Logout"
               >
-                <LogOut size={19} />
+                <LogOut size={18} />
               </button>
+
+              <AnimatePresence>
+                {sideMenuOpen ? (
+                  <motion.div
+                    initial={{
+                      opacity: 0,
+                      y: 8,
+                    }}
+                    animate={{
+                      opacity: 1,
+                      y: 0,
+                    }}
+                    exit={{
+                      opacity: 0,
+                      y: 8,
+                    }}
+                    transition={{
+                      duration: 0.16,
+                    }}
+                    className="absolute right-0 top-12 z-30 w-52 overflow-hidden rounded-2xl border border-white/10 bg-[#0B1520]/95 p-1 shadow-lg shadow-black/25 backdrop-blur-xl"
+                  >
+                    <Link
+                      href="/profile"
+                      onClick={() => setSideMenuOpen(false)}
+                      className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-200 transition hover:bg-white/[0.07] hover:text-white"
+                    >
+                      <UserRound size={17} />
+                      Profile
+                    </Link>
+
+                    <Link
+                      href="/settings"
+                      onClick={() => setSideMenuOpen(false)}
+                      className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-200 transition hover:bg-white/[0.07] hover:text-white"
+                    >
+                      <Settings size={17} />
+                      Settings
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSideMenuOpen(false);
+                        setLogoutConfirmOpen(true);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-red-100 transition hover:bg-red-500/[0.12]"
+                    >
+                      <LogOut size={17} />
+                      Log out
+                    </button>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
             </div>
           </div>
 
-          <div className="relative mt-5">
-            <Search
-              size={18}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
-            />
+          <AnimatePresence initial={false}>
+            {searchOpen || search ? (
+              <motion.div
+                initial={{
+                  opacity: 0,
+                  height: 0,
+                }}
+                animate={{
+                  opacity: 1,
+                  height: "auto",
+                }}
+                exit={{
+                  opacity: 0,
+                  height: 0,
+                }}
+                transition={{
+                  duration: 0.18,
+                }}
+                className="overflow-hidden"
+              >
+                <div className="relative mt-3">
+                  <Search
+                    size={17}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
+                  />
 
-            <input
-              value={search}
-              onChange={(event) =>
-                setSearch(event.target.value)
-              }
-              placeholder="Search conversations..."
-              className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.045] pl-12 pr-4 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-purple-500/40 focus:bg-white/[0.07]"
-            />
-          </div>
+                  <input
+                    value={search}
+                    onChange={(event) =>
+                      setSearch(event.target.value)
+                    }
+                    placeholder="Search conversations..."
+                    className="h-11 w-full rounded-2xl border border-white/10 bg-white/[0.045] pl-11 pr-4 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#2481CC]/50 focus:bg-white/[0.07]"
+                  />
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
 
-          <div className="mt-5 flex items-center gap-2 overflow-x-auto pb-1">
+          <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
             {[
               "all",
               "unread",
@@ -827,14 +906,14 @@ export default function ChatSidebar() {
                 }
                 className={`relative overflow-hidden rounded-2xl px-4 py-2 text-sm font-medium capitalize transition-all ${
                   activeFolder === folder
-                    ? "text-white shadow-lg shadow-purple-600/20"
-                    : "bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08]"
+                    ? "text-white"
+                    : "bg-white/[0.035] text-zinc-400 hover:bg-white/[0.07]"
                 }`}
               >
                 {activeFolder === folder ? (
                   <motion.span
                     layoutId="sidebar-folder-active"
-                    className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-600 to-fuchsia-600"
+                    className="absolute inset-0 rounded-2xl bg-[#2481CC]"
                     transition={{
                       type: "spring",
                       stiffness: 360,
@@ -852,7 +931,7 @@ export default function ChatSidebar() {
           {deferredSearch.trim() ? null : <StoryTray />}
         </div>
 
-        <div className="chat-safe-scroll flex-1 space-y-2 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div className="chat-safe-scroll flex-1 space-y-1 overflow-y-auto px-2 py-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {conversationsQuery.isLoading ? (
             <div className="space-y-3">
               {Array.from({
@@ -860,7 +939,7 @@ export default function ChatSidebar() {
               }).map((_, index) => (
                 <div
                   key={index}
-                  className="h-[88px] animate-pulse rounded-3xl bg-white/[0.04]"
+                  className="h-[88px] animate-pulse rounded-2xl bg-white/[0.04]"
                 />
               ))}
             </div>
@@ -915,7 +994,7 @@ export default function ChatSidebar() {
               disabled={
                 conversationsQuery.isFetchingNextPage
               }
-              className="mt-3 w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-medium text-zinc-300 transition hover:border-purple-400/30 hover:bg-purple-500/10 hover:text-white disabled:cursor-wait disabled:opacity-60"
+              className="mt-3 w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-medium text-zinc-300 transition hover:border-[#2481CC]/35 hover:bg-[#2481CC]/10 hover:text-white disabled:cursor-wait disabled:opacity-60"
             >
               {conversationsQuery.isFetchingNextPage
                 ? "Loading..."
@@ -963,7 +1042,7 @@ export default function ChatSidebar() {
                 stiffness: 280,
                 damping: 30,
               }}
-              className="w-full max-w-sm overflow-hidden rounded-[30px] border border-white/10 bg-[#0B111C]/[0.97] text-white shadow-[0_28px_90px_rgba(0,0,0,0.62)]"
+              className="w-full max-w-sm overflow-hidden rounded-2xl border border-white/10 bg-[#0B111C]/[0.97] text-white shadow-lg shadow-black/30"
               onClick={(event) =>
                 event.stopPropagation()
               }
@@ -1002,7 +1081,7 @@ export default function ChatSidebar() {
                 >
                   <Ban
                     size={18}
-                    className="text-purple-200"
+                    className="text-[#9BD0FF]"
                   />
                   {blockedConversationIds.has(
                     actionConversation.id
@@ -1033,7 +1112,7 @@ export default function ChatSidebar() {
                 >
                   <BellOff
                     size={18}
-                    className="text-purple-200"
+                    className="text-[#9BD0FF]"
                   />
                   {mutedConversationIds.has(
                     actionConversation.id
@@ -1049,7 +1128,7 @@ export default function ChatSidebar() {
                 >
                   <UserRound
                     size={18}
-                    className="text-purple-200"
+                    className="text-[#9BD0FF]"
                   />
                   See Profile
                 </button>
@@ -1092,7 +1171,7 @@ export default function ChatSidebar() {
                 stiffness: 260,
                 damping: 28,
               }}
-              className="w-full max-w-sm rounded-[30px] border border-white/10 bg-[#0B111C]/[0.96] p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.6)] backdrop-blur-3xl"
+              className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0B111C]/[0.96] p-5 text-white shadow-lg shadow-black/30 backdrop-blur-3xl"
             >
               <div className="flex items-start gap-4">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/[0.15] text-red-100">
