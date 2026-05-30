@@ -6,6 +6,7 @@ import {
 } from "react";
 
 import {
+  AlertCircle,
   CheckCircle2,
   Loader2,
   Phone,
@@ -101,6 +102,8 @@ export default function PhoneOnboardingGate() {
     useState("");
   const [isSaving, setIsSaving] =
     useState(false);
+  const [saveError, setSaveError] =
+    useState<string | null>(null);
 
   const country = useMemo(
     () =>
@@ -130,6 +133,7 @@ export default function PhoneOnboardingGate() {
     }
 
     setIsSaving(true);
+    setSaveError(null);
 
     try {
       const updatedUser = await updateCurrentUser({
@@ -137,18 +141,22 @@ export default function PhoneOnboardingGate() {
       });
 
       updateUser(updatedUser);
+      setSaveError(null);
       pushToast({
         title: "Mobile number added",
         message: "Your profile is ready across FlexChat.",
         variant: "success",
       });
     } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Please check the number and try again.";
+
+      setSaveError(message);
       pushToast({
         title: "Could not save mobile number",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Please check the number and try again.",
+        message,
         variant: "error",
       });
     } finally {
@@ -205,6 +213,7 @@ export default function PhoneOnboardingGate() {
             onChange={(event) => {
               setCountryCode(event.target.value);
               setPhone("");
+              setSaveError(null);
             }}
             disabled={isSaving}
             className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-sm text-white outline-none transition focus:border-[#2481CC]/55 disabled:cursor-wait disabled:opacity-70"
@@ -227,7 +236,13 @@ export default function PhoneOnboardingGate() {
             >
               Mobile number
             </label>
-            <div className="mt-2 flex overflow-hidden rounded-2xl border border-white/10 bg-white/[0.05] focus-within:border-[#2481CC]/55">
+            <div
+              className={`mt-2 flex overflow-hidden rounded-2xl border bg-white/[0.05] transition ${
+                saveError
+                  ? "border-rose-300/45 focus-within:border-rose-300/70"
+                  : "border-white/10 focus-within:border-[#2481CC]/55"
+              }`}
+            >
               <div className="flex h-12 items-center border-r border-white/10 px-4 text-sm font-semibold text-[#9BD0FF]">
                 +{country.code}
               </div>
@@ -236,13 +251,14 @@ export default function PhoneOnboardingGate() {
                 inputMode="tel"
                 autoComplete="tel-national"
                 value={phone}
-                onChange={(event) =>
+                onChange={(event) => {
+                  setSaveError(null);
                   setPhone(
                     event.target.value
                       .replace(/[^\d\s()-]/g, "")
                       .slice(0, 18),
-                  )
-                }
+                  );
+                }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     void savePhoneNumber();
@@ -253,17 +269,27 @@ export default function PhoneOnboardingGate() {
                 className="h-12 min-w-0 flex-1 bg-transparent px-4 text-sm text-white outline-none placeholder:text-zinc-600 disabled:cursor-wait"
               />
             </div>
-            <p
-              className={`mt-2 text-xs ${
-                digits && !phoneIsValid
-                  ? "text-amber-200"
-                  : "text-zinc-500"
-              }`}
-            >
-              {digits && !phoneIsValid
-                ? `Use ${country.min === country.max ? country.min : `${country.min}-${country.max}`} digits for ${country.label}.`
-                : "You will not be asked again after this is saved."}
-            </p>
+            {saveError ? (
+              <div className="mt-2 flex items-start gap-2 rounded-2xl border border-rose-300/15 bg-rose-500/[0.08] px-3 py-2 text-xs leading-relaxed text-rose-100">
+                <AlertCircle
+                  size={14}
+                  className="mt-0.5 shrink-0 text-rose-200"
+                />
+                <span>{saveError}</span>
+              </div>
+            ) : (
+              <p
+                className={`mt-2 text-xs ${
+                  digits && !phoneIsValid
+                    ? "text-amber-200"
+                    : "text-zinc-500"
+                }`}
+              >
+                {digits && !phoneIsValid
+                  ? `Use ${country.min === country.max ? country.min : `${country.min}-${country.max}`} digits for ${country.label}.`
+                  : "You will not be asked again after this is saved."}
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-[2.5rem_1fr] gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-sm text-zinc-300">

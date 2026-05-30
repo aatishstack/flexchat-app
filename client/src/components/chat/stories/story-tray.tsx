@@ -687,6 +687,7 @@ async function trimStoryVideoFile(
     if (!context) {
       throw new Error("Video trim unavailable.");
     }
+    const renderingContext = context;
 
     canvas.width = Math.max(2, Math.round(sourceWidth * scale));
     canvas.height = Math.max(2, Math.round(sourceHeight * scale));
@@ -736,7 +737,7 @@ async function trimStoryVideoFile(
         return;
       }
 
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      renderingContext.drawImage(video, 0, 0, canvas.width, canvas.height);
       onProgress?.(
         Math.min(
           90,
@@ -1134,6 +1135,10 @@ export default function StoryTray() {
     setOverlayDragging(false);
     setStickerDragging(false);
     setSelectedDraftElement(null);
+    clearDragHoldTimer();
+    deleteHoverRef.current = false;
+    drawingPointerIdRef.current = null;
+    setDragDeleteState(null);
 
     if (failedStoryUpload?.previewUrl) {
       URL.revokeObjectURL(failedStoryUpload.previewUrl);
@@ -1217,6 +1222,10 @@ export default function StoryTray() {
     setOverlayDragging(false);
     setStickerDragging(false);
     setSelectedDraftElement("text");
+    clearDragHoldTimer();
+    deleteHoverRef.current = false;
+    drawingPointerIdRef.current = null;
+    setDragDeleteState(null);
     setStoryComposerOpen(false);
 
     setStoryDraft((currentDraft) => {
@@ -1424,6 +1433,49 @@ export default function StoryTray() {
     setSelectedDraftElement(null);
   }
 
+  function updateVideoTrimStart(value: number) {
+    setStoryDraft((draft) => {
+      if (!draft || draft.mediaType !== "video") {
+        return draft;
+      }
+
+      const duration = Math.max(1, draft.videoDuration ?? 30);
+      const start = Math.max(0, Math.min(value, duration - 1));
+      const currentEnd = draft.trimEnd ?? Math.min(duration, start + 30);
+      const end = Math.min(
+        duration,
+        Math.max(start + 1, Math.min(currentEnd, start + 30)),
+      );
+
+      return {
+        ...draft,
+        trimStart: start,
+        trimEnd: end,
+      };
+    });
+  }
+
+  function updateVideoTrimEnd(value: number) {
+    setStoryDraft((draft) => {
+      if (!draft || draft.mediaType !== "video") {
+        return draft;
+      }
+
+      const duration = Math.max(1, draft.videoDuration ?? 30);
+      const start = Math.max(0, draft.trimStart ?? 0);
+      const end = Math.max(
+        start + 1,
+        Math.min(duration, Math.min(value, start + 30)),
+      );
+
+      return {
+        ...draft,
+        trimStart: start,
+        trimEnd: end,
+      };
+    });
+  }
+
   function finishDraftElementDrag(
     kind: DraftElementKind,
     clientX: number,
@@ -1431,7 +1483,11 @@ export default function StoryTray() {
   ) {
     clearDragHoldTimer();
 
-    if (isInsideDeleteZone(clientX, clientY)) {
+    if (
+      dragDeleteState?.kind === kind &&
+      dragDeleteState.active &&
+      isInsideDeleteZone(clientX, clientY)
+    ) {
       deleteDraftElement(kind);
       navigator.vibrate?.([16, 20, 16]);
     }
@@ -1777,6 +1833,10 @@ export default function StoryTray() {
     setOverlayDragging(false);
     setStickerDragging(false);
     setSelectedDraftElement(null);
+    clearDragHoldTimer();
+    deleteHoverRef.current = false;
+    drawingPointerIdRef.current = null;
+    setDragDeleteState(null);
     setStoryPreparing(false);
     publishStory(uploadDraft);
   }
@@ -1793,6 +1853,8 @@ export default function StoryTray() {
     setSelectedDraftElement(null);
     setStoryPreparing(false);
     clearDragHoldTimer();
+    deleteHoverRef.current = false;
+    drawingPointerIdRef.current = null;
     setDragDeleteState(null);
 
     if (fileInputRef.current) {
@@ -1923,10 +1985,33 @@ export default function StoryTray() {
     }
   }, [storiesQuery.isError, storiesQuery.isSuccess, pushToast]);
 
+  const viewerGroups =
+    viewerGroupSource === "muted"
+      ? mutedStoryGroups
+      : storyGroups;
   const viewerGroup =
-    viewerGroupIndex === null ? null : (allStoryGroups[viewerGroupIndex] ?? null);
+    viewerGroupIndex === null ? null : (viewerGroups[viewerGroupIndex] ?? null);
   const myStoryLoading =
     storiesQuery.isLoading && !storiesQuery.data;
+  const draftVideoDuration =
+    storyDraft?.mediaType === "video"
+      ? Math.max(1, storyDraft.videoDuration ?? 30)
+      : 0;
+  const draftTrimStart =
+    storyDraft?.mediaType === "video"
+      ? Math.max(0, storyDraft.trimStart ?? 0)
+      : 0;
+  const draftTrimEnd =
+    storyDraft?.mediaType === "video"
+      ? Math.max(
+          draftTrimStart + 1,
+          storyDraft.trimEnd ?? Math.min(draftVideoDuration, 30),
+        )
+      : 0;
+  const draftTrimLength =
+    storyDraft?.mediaType === "video"
+      ? Math.max(0, draftTrimEnd - draftTrimStart)
+      : 0;
 
   return (
     <section className="mt-4">
@@ -1960,20 +2045,24 @@ export default function StoryTray() {
           <button
             type="button"
             onClick={() => {
-              if (myStoryLoading) {
+              if (myStoryLoading || currentUserStoryGroupIndex < 0) {
                 return;
               }
 
-              if (currentUserStoryGroupIndex >= 0) {
-                setViewerGroupIndex(currentUserStoryGroupIndex);
-                return;
-              }
-
-              openStoryComposer();
+              setViewerGroupSource("visible");
+              setViewerGroupIndex(currentUserStoryGroupIndex);
             }}
-            disabled={createStoryMutation.isPending || myStoryLoading}
-            className="relative flex h-[60px] w-[60px] items-center justify-center rounded-full p-[2px] disabled:cursor-wait disabled:opacity-70"
-            aria-label="Open my story"
+            disabled={
+              createStoryMutation.isPending ||
+              myStoryLoading ||
+              currentUserStoryGroupIndex < 0
+            }
+            className="relative flex h-[60px] w-[60px] items-center justify-center rounded-full p-[2px] disabled:cursor-default disabled:opacity-70"
+            aria-label={
+              currentUserStoryGroup
+                ? "View my story"
+                : "No story posted yet"
+            }
           >
             <span
               className={`absolute inset-0 rounded-full ${
@@ -2046,7 +2135,10 @@ export default function StoryTray() {
                     scale: 0.96,
                   }
             }
-            onClick={() => setViewerGroupIndex(originalIndex)}
+            onClick={() => {
+              setViewerGroupSource("visible");
+              setViewerGroupIndex(originalIndex);
+            }}
             className="flex w-[66px] shrink-0 flex-col items-center gap-2 text-center text-[11px] text-zinc-400"
           >
             <span
@@ -2069,6 +2161,100 @@ export default function StoryTray() {
           );
         })}
       </div>
+
+      {mutedStoryGroups.length ? (
+        <div className="mt-2 rounded-2xl border border-white/10 bg-white/[0.035] p-2">
+          <button
+            type="button"
+            onClick={() => setMutedStoriesOpen((open) => !open)}
+            className="flex w-full items-center justify-between gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-white/[0.05]"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2481CC]/12 text-[#8ECFFF]">
+                <BellOff size={15} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold text-zinc-200">
+                  Muted stories
+                </span>
+                <span className="block truncate text-[11px] text-zinc-500">
+                  {mutedStoryGroups.length} hidden from your main tray
+                </span>
+              </span>
+            </span>
+            <span className="text-[11px] font-medium text-[#8ECFFF]">
+              {mutedStoriesOpen ? "Hide" : "Show"}
+            </span>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {mutedStoriesOpen ? (
+              <motion.div
+                initial={
+                  reducedMotion
+                    ? false
+                    : {
+                        opacity: 0,
+                        height: 0,
+                      }
+                }
+                animate={{
+                  opacity: 1,
+                  height: "auto",
+                }}
+                exit={
+                  reducedMotion
+                    ? undefined
+                    : {
+                        opacity: 0,
+                        height: 0,
+                      }
+                }
+                className="overflow-hidden"
+              >
+                <div className="mt-2 flex gap-2 overflow-x-auto px-1 pb-1">
+                  {mutedStoryGroups.map((group, index) => (
+                    <div
+                      key={group.userId}
+                      className="flex w-[78px] shrink-0 flex-col items-center gap-2 rounded-2xl px-2 py-2 text-center transition hover:bg-white/[0.04]"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setViewerGroupSource("muted");
+                          setViewerGroupIndex(index);
+                        }}
+                        className="relative flex h-[54px] w-[54px] items-center justify-center rounded-full bg-white/10 p-[2px]"
+                        aria-label={`View muted stories from ${formatDisplayName(group.user.username)}`}
+                      >
+                        <FlexAvatar
+                          src={group.user.avatar}
+                          name={group.user.username}
+                          className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0B1520] text-sm font-bold text-white ring-2 ring-[#07111B]"
+                        />
+                        <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-[#07111B] bg-[#0B1520] text-[#8ECFFF]">
+                          <Eye size={11} />
+                        </span>
+                      </button>
+                      <span className="w-full truncate text-[11px] text-zinc-400">
+                        {formatDisplayName(group.user.username)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => unmuteStoryUser(group.userId)}
+                        className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-zinc-300 transition hover:bg-[#2481CC]/20 hover:text-[#A7D8FF]"
+                        aria-label={`Unmute stories from ${formatDisplayName(group.user.username)}`}
+                      >
+                        <RotateCcw size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </div>
+      ) : null}
 
       <AnimatePresence>
         {storyComposerOpen ? (
@@ -2274,12 +2460,17 @@ export default function StoryTray() {
                   event.stopPropagation();
                   event.currentTarget.setPointerCapture(event.pointerId);
                   setStickerDragging(true);
-                  setSelectedDraftElement("sticker");
+                  startDraftElementDrag("sticker");
                   moveStorySticker(event.clientX, event.clientY);
                 }}
                 onPointerMove={(event) => {
                   if (stickerDragging) {
                     moveStorySticker(event.clientX, event.clientY);
+                    updateDraftElementDrag(
+                      "sticker",
+                      event.clientX,
+                      event.clientY,
+                    );
                   }
                 }}
                 onPointerUp={(event) => {
@@ -2287,9 +2478,18 @@ export default function StoryTray() {
                     event.currentTarget.releasePointerCapture(event.pointerId);
                   }
 
+                  finishDraftElementDrag(
+                    "sticker",
+                    event.clientX,
+                    event.clientY,
+                  );
                   setStickerDragging(false);
                 }}
-                onPointerCancel={() => setStickerDragging(false)}
+                onPointerCancel={() => {
+                  clearDragHoldTimer();
+                  setDragDeleteState(null);
+                  setStickerDragging(false);
+                }}
                 className="absolute z-30 -translate-x-1/2 -translate-y-1/2 touch-none select-none rounded-2xl px-3 py-1 font-black tracking-wide text-white drop-shadow-[0_8px_20px_rgba(0,0,0,0.45)]"
                 style={{
                   left: `${storyDraft.sticker.x}%`,
@@ -2310,12 +2510,17 @@ export default function StoryTray() {
                   event.stopPropagation();
                   event.currentTarget.setPointerCapture(event.pointerId);
                   setOverlayDragging(true);
-                  setSelectedDraftElement("text");
+                  startDraftElementDrag("text");
                   moveStoryTextOverlay(event.clientX, event.clientY);
                 }}
                 onPointerMove={(event) => {
                   if (overlayDragging) {
                     moveStoryTextOverlay(event.clientX, event.clientY);
+                    updateDraftElementDrag(
+                      "text",
+                      event.clientX,
+                      event.clientY,
+                    );
                   }
                 }}
                 onPointerUp={(event) => {
@@ -2323,9 +2528,18 @@ export default function StoryTray() {
                     event.currentTarget.releasePointerCapture(event.pointerId);
                   }
 
+                  finishDraftElementDrag(
+                    "text",
+                    event.clientX,
+                    event.clientY,
+                  );
                   setOverlayDragging(false);
                 }}
-                onPointerCancel={() => setOverlayDragging(false)}
+                onPointerCancel={() => {
+                  clearDragHoldTimer();
+                  setDragDeleteState(null);
+                  setOverlayDragging(false);
+                }}
                 onDoubleClick={() => setTextOverlayEditorOpen(true)}
                 style={{
                   position: "absolute",
@@ -2356,6 +2570,50 @@ export default function StoryTray() {
               </div>
             ) : null}
           </div>
+
+          <AnimatePresence>
+            {dragDeleteState?.active ? (
+              <motion.div
+                ref={deleteZoneRef}
+                initial={
+                  reducedMotion
+                    ? false
+                    : {
+                        opacity: 0,
+                        y: 28,
+                        scale: 0.86,
+                      }
+                }
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                  scale: dragDeleteState.overDelete ? 1.12 : 1,
+                }}
+                exit={
+                  reducedMotion
+                    ? undefined
+                    : {
+                        opacity: 0,
+                        y: 24,
+                        scale: 0.9,
+                      }
+                }
+                transition={{
+                  type: "spring",
+                  stiffness: 360,
+                  damping: 28,
+                }}
+                className={cn(
+                  "pointer-events-none absolute bottom-[calc(6.75rem+env(safe-area-inset-bottom))] left-1/2 z-[42] flex h-20 w-20 -translate-x-1/2 items-center justify-center rounded-full border backdrop-blur-2xl",
+                  dragDeleteState.overDelete
+                    ? "border-red-200/60 bg-red-500/35 text-white shadow-[0_0_34px_rgba(248,113,113,0.36)]"
+                    : "border-white/15 bg-black/45 text-white/80 shadow-[0_18px_44px_rgba(0,0,0,0.35)]",
+                )}
+              >
+                <Trash2 size={28} />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
 
           <div className="absolute inset-x-0 top-0 z-[35] flex items-center justify-between gap-2 bg-gradient-to-b from-black/65 to-transparent px-4 pb-12 pt-[calc(0.75rem+env(safe-area-inset-top))] text-white">
             <button
@@ -2437,6 +2695,61 @@ export default function StoryTray() {
           </div>
 
           <div className="absolute inset-x-0 bottom-0 z-[35] bg-gradient-to-t from-black/75 to-transparent px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-16">
+            {storyDraft.mediaType === "video" ? (
+              <div className="mb-3 rounded-2xl border border-white/10 bg-black/30 p-3 text-white backdrop-blur-xl">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold">
+                    Trim story
+                  </span>
+                  <span
+                    className={cn(
+                      "text-xs font-medium",
+                      draftTrimLength > 30.1
+                        ? "text-amber-200"
+                        : "text-white/60",
+                    )}
+                  >
+                    {formatStoryTrimTime(draftTrimStart)} - {formatStoryTrimTime(draftTrimEnd)}
+                  </span>
+                </div>
+                <div className="grid gap-2">
+                  <label className="grid grid-cols-[3.25rem_1fr] items-center gap-3 text-[11px] text-white/55">
+                    Start
+                    <input
+                      type="range"
+                      min={0}
+                      max={Math.max(1, draftVideoDuration - 1)}
+                      step={0.1}
+                      value={draftTrimStart}
+                      onChange={(event) =>
+                        updateVideoTrimStart(Number(event.target.value))
+                      }
+                      className="w-full"
+                      style={{ accentColor: "#2481CC" }}
+                    />
+                  </label>
+                  <label className="grid grid-cols-[3.25rem_1fr] items-center gap-3 text-[11px] text-white/55">
+                    End
+                    <input
+                      type="range"
+                      min={Math.min(draftVideoDuration, draftTrimStart + 1)}
+                      max={draftVideoDuration}
+                      step={0.1}
+                      value={Math.min(draftVideoDuration, draftTrimEnd)}
+                      onChange={(event) =>
+                        updateVideoTrimEnd(Number(event.target.value))
+                      }
+                      className="w-full"
+                      style={{ accentColor: "#2481CC" }}
+                    />
+                  </label>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[11px] text-white/45">
+                  <span>{formatStoryTrimTime(draftTrimLength)} selected</span>
+                  <span>Maximum 0:30</span>
+                </div>
+              </div>
+            ) : null}
             <div className="mb-3 flex items-center justify-between rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white backdrop-blur-xl">
               <span className="font-semibold">Your Story</span>
               <span className="text-xs text-white/55">24h</span>
@@ -2630,7 +2943,7 @@ export default function StoryTray() {
 
       <StoryViewer
         group={viewerGroup}
-        groups={storyGroups}
+        groups={viewerGroups}
         groupIndex={viewerGroupIndex}
         onGroupIndexChange={setViewerGroupIndex}
         onMuteUser={muteStoryUser}

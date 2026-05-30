@@ -47,6 +47,9 @@ const deleteMeBodySchema = z.object({
   confirmation: z.literal("DELETE"),
 });
 
+const PHONE_NUMBER_IN_USE_MESSAGE =
+  "This phone number is already in use. Please use a different number.";
+
 function publicUser(user: {
   id: string;
   username: string;
@@ -99,6 +102,32 @@ function normalizePhoneNumber(value?: string | null) {
     phoneNumber: `+${digits}`,
     phoneNumberNormalized: digits,
   };
+}
+
+function isPhoneNumberUniqueViolation(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const candidate = error as {
+    code?: unknown;
+    constraint?: unknown;
+    message?: unknown;
+  };
+  const constraint =
+    typeof candidate.constraint === "string"
+      ? candidate.constraint
+      : "";
+  const message =
+    typeof candidate.message === "string"
+      ? candidate.message
+      : "";
+
+  return (
+    candidate.code === "23505" &&
+    (constraint.includes("phone_number_normalized") ||
+      message.includes("phone_number_normalized"))
+  );
 }
 
 function deletedUsername(userId: string) {
@@ -282,7 +311,7 @@ export async function userRoutes(app: FastifyInstance) {
 
         if (existingPhone.length && existingPhone[0].id !== userId) {
           return reply.status(409).send({
-            message: "Mobile number is already linked to another account",
+            message: PHONE_NUMBER_IN_USE_MESSAGE,
           });
         }
       }
@@ -297,28 +326,46 @@ export async function userRoutes(app: FastifyInstance) {
         return publicUser(currentUser);
       }
 
-      const updatedUsers = await db.execute<{
+      let updatedUsers: {
         id: string;
         username: string;
         email: string;
         avatar: string | null;
         phoneNumber: string | null;
-      }>(sql`
-            update users
-            set
-              username = ${nextUsername},
-              avatar = ${nextAvatar},
-              phone_number = ${nextPhone.phoneNumber},
-              phone_number_normalized = ${nextPhone.phoneNumberNormalized}
-            where id = ${userId}
-              and is_deleted = false
-            returning
-              id,
-              username,
-              email,
-              avatar,
-              phone_number as "phoneNumber"
-          `);
+      }[];
+
+      try {
+        updatedUsers = await db.execute<{
+          id: string;
+          username: string;
+          email: string;
+          avatar: string | null;
+          phoneNumber: string | null;
+        }>(sql`
+              update users
+              set
+                username = ${nextUsername},
+                avatar = ${nextAvatar},
+                phone_number = ${nextPhone.phoneNumber},
+                phone_number_normalized = ${nextPhone.phoneNumberNormalized}
+              where id = ${userId}
+                and is_deleted = false
+              returning
+                id,
+                username,
+                email,
+                avatar,
+                phone_number as "phoneNumber"
+            `);
+      } catch (error) {
+        if (isPhoneNumberUniqueViolation(error)) {
+          return reply.status(409).send({
+            message: PHONE_NUMBER_IN_USE_MESSAGE,
+          });
+        }
+
+        throw error;
+      }
 
       const user = updatedUsers[0];
 
