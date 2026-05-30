@@ -116,6 +116,9 @@ type StoryDraft = {
   sticker?: StorySticker;
   drawStrokes?: StoryDrawStroke[];
   drawingMode?: boolean;
+  videoDuration?: number;
+  trimStart?: number;
+  trimEnd?: number;
 };
 
 const TEXT_STORY_MEDIA_URL = "flexchat://story/text";
@@ -570,6 +573,222 @@ async function renderTextStoryFile(
   return canvasToStoryFile(canvas, `text-story-${generateId()}.png`);
 }
 
+function formatStoryTrimTime(value = 0) {
+  const totalSeconds = Math.max(0, Math.floor(value));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function getSupportedStoryRecordingMimeType() {
+  if (typeof MediaRecorder === "undefined") {
+    return "";
+  }
+
+  return (
+    [
+      "video/webm;codecs=vp9,opus",
+      "video/webm;codecs=vp8,opus",
+      "video/webm",
+    ].find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) ?? ""
+  );
+}
+
+async function waitForVideoSeek(video: HTMLVideoElement, time: number) {
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+
+    function cleanup() {
+      video.removeEventListener("seeked", handleSeeked);
+      video.removeEventListener("error", handleError);
+      window.clearTimeout(fallbackTimer);
+    }
+
+    function finish() {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      cleanup();
+      resolve();
+    }
+
+    function handleSeeked() {
+      finish();
+    }
+
+    function handleError() {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      cleanup();
+      reject(new Error("Video trim preview could not seek."));
+    }
+
+    const fallbackTimer = window.setTimeout(finish, 500);
+
+    video.addEventListener("seeked", handleSeeked);
+    video.addEventListener("error", handleError);
+    video.currentTime = time;
+
+    if (Math.abs(video.currentTime - time) < 0.05) {
+      finish();
+    }
+  });
+}
+
+async function trimStoryVideoFile(
+  file: File,
+  startSeconds: number,
+  endSeconds: number,
+  onProgress?: (progress: number) => void,
+) {
+  if (
+    typeof document === "undefined" ||
+    typeof MediaRecorder === "undefined"
+  ) {
+    throw new Error("This browser cannot trim videos.");
+  }
+
+  const mimeType = getSupportedStoryRecordingMimeType();
+
+  if (!mimeType) {
+    throw new Error("This browser cannot trim videos.");
+  }
+
+  const url = URL.createObjectURL(file);
+  const video = document.createElement("video");
+
+  video.preload = "auto";
+  video.playsInline = true;
+  video.muted = true;
+  video.src = url;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => resolve();
+      video.onerror = () => reject(new Error("Video metadata unavailable."));
+    });
+
+    const duration = Number.isFinite(video.duration) ? video.duration : 0;
+    const start = Math.max(0, Math.min(startSeconds, Math.max(duration - 1, 0)));
+    const end = Math.max(start + 1, Math.min(endSeconds, duration || endSeconds));
+    const sourceWidth = video.videoWidth || 720;
+    const sourceHeight = video.videoHeight || 1280;
+    const maxHeight = 1280;
+    const scale = Math.min(1, maxHeight / sourceHeight);
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      throw new Error("Video trim unavailable.");
+    }
+
+    canvas.width = Math.max(2, Math.round(sourceWidth * scale));
+    canvas.height = Math.max(2, Math.round(sourceHeight * scale));
+
+    const canvasStream = canvas.captureStream(24);
+    const mediaElementStream =
+      (
+        video as HTMLVideoElement & {
+          captureStream?: () => MediaStream;
+          mozCaptureStream?: () => MediaStream;
+        }
+      ).captureStream?.() ??
+      (
+        video as HTMLVideoElement & {
+          mozCaptureStream?: () => MediaStream;
+        }
+      ).mozCaptureStream?.();
+
+    mediaElementStream?.getAudioTracks().forEach((track) => {
+      canvasStream.addTrack(track);
+    });
+
+    await waitForVideoSeek(video, start);
+
+    const recorder = new MediaRecorder(canvasStream, {
+      mimeType,
+      videoBitsPerSecond: 2_400_000,
+      audioBitsPerSecond: 96_000,
+    });
+    const chunks: BlobPart[] = [];
+    let frameId = 0;
+    let stopTimer = 0;
+
+    function stopRecording() {
+      window.clearTimeout(stopTimer);
+      cancelAnimationFrame(frameId);
+      video.pause();
+
+      if (recorder.state !== "inactive") {
+        recorder.stop();
+      }
+    }
+
+    function drawFrame() {
+      if (video.currentTime >= end || video.ended) {
+        stopRecording();
+        return;
+      }
+
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      onProgress?.(
+        Math.min(
+          90,
+          Math.max(8, Math.round(((video.currentTime - start) / (end - start)) * 82)),
+        ),
+      );
+      frameId = requestAnimationFrame(drawFrame);
+    }
+
+    stopTimer = window.setTimeout(
+      stopRecording,
+      Math.ceil((end - start) * 1000) + 700,
+    );
+
+    const trimmedBlob = await new Promise<Blob>((resolve, reject) => {
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) {
+          chunks.push(event.data);
+        }
+      };
+      recorder.onerror = () => reject(new Error("Video trim failed."));
+      recorder.onstop = () =>
+        resolve(
+          new Blob(chunks, {
+            type: "video/webm",
+          }),
+        );
+
+      recorder.start(500);
+      frameId = requestAnimationFrame(drawFrame);
+      void video.play().catch(reject);
+    });
+
+    canvasStream.getTracks().forEach((track) => {
+      track.stop();
+    });
+
+    onProgress?.(92);
+
+    return new File(
+      [trimmedBlob],
+      `${file.name.replace(/\.[^.]+$/, "") || "story"}-trimmed.webm`,
+      {
+        type: "video/webm",
+        lastModified: Date.now(),
+      },
+    );
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export default function StoryTray() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const storyCanvasRef = useRef<HTMLDivElement | null>(null);
@@ -578,7 +797,10 @@ export default function StoryTray() {
   const dragHoldTimerRef = useRef<number | null>(null);
   const deleteHoverRef = useRef(false);
   const [viewerGroupIndex, setViewerGroupIndex] = useState<number | null>(null);
+  const [viewerGroupSource, setViewerGroupSource] =
+    useState<"visible" | "muted">("visible");
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [storyPreparing, setStoryPreparing] = useState(false);
   const [failedStoryUpload, setFailedStoryUpload] =
     useState<FailedStoryUpload | null>(null);
   const [storyComposerOpen, setStoryComposerOpen] = useState(false);
@@ -610,9 +832,17 @@ export default function StoryTray() {
   const pushToast = useToastStore((state) => state.pushToast);
   const themeId = useThemeStore((state) => state.themeId);
   const storiesQuery = useStoriesQuery();
-  const storyTextColors = useMemo(() => getStoryTextColors(), [themeId]);
+  const storyTextColors = useMemo(() => {
+    void themeId;
+
+    return getStoryTextColors();
+  }, [themeId]);
   const storyBackgroundColors = useMemo(
-    () => getStoryBackgroundColors(),
+    () => {
+      void themeId;
+
+      return getStoryBackgroundColors();
+    },
     [themeId],
   );
 
@@ -638,12 +868,12 @@ export default function StoryTray() {
 
   const currentUserStoryGroupIndex = useMemo(
     () =>
-      allStoryGroups.findIndex((group) => group.userId === currentUserId),
-    [allStoryGroups, currentUserId],
+      storyGroups.findIndex((group) => group.userId === currentUserId),
+    [currentUserId, storyGroups],
   );
   const currentUserStoryGroup =
     currentUserStoryGroupIndex >= 0
-      ? allStoryGroups[currentUserStoryGroupIndex]
+      ? storyGroups[currentUserStoryGroupIndex]
       : null;
   const visibleStoryGroups = useMemo(
     () => storyGroups.filter((group) => group.userId !== currentUserId),
@@ -859,6 +1089,8 @@ export default function StoryTray() {
 
   useEffect(() => {
     return () => {
+      clearDragHoldTimer();
+
       if (failedStoryUploadRef.current?.previewUrl) {
         URL.revokeObjectURL(failedStoryUploadRef.current.previewUrl);
       }
@@ -896,6 +1128,7 @@ export default function StoryTray() {
     }
 
     const previewUrl = URL.createObjectURL(file);
+    const mediaType = getStoryMediaType(file);
 
     setTextOverlayEditorOpen(false);
     setOverlayDragging(false);
@@ -915,10 +1148,45 @@ export default function StoryTray() {
       return {
         file,
         previewUrl,
-        mediaType: getStoryMediaType(file),
+        mediaType,
         caption: "",
+        trimStart: mediaType === "video" ? 0 : undefined,
       };
     });
+
+    if (mediaType === "video") {
+      void getVideoDurationSeconds(file)
+        .then((duration) => {
+          setStoryDraft((draft) => {
+            if (!draft || draft.previewUrl !== previewUrl) {
+              return draft;
+            }
+
+            const safeDuration = Number.isFinite(duration)
+              ? Math.max(0, duration)
+              : 0;
+
+            return {
+              ...draft,
+              videoDuration: safeDuration,
+              trimStart: 0,
+              trimEnd: Math.min(safeDuration || 30, 30),
+            };
+          });
+        })
+        .catch(() => {
+          setStoryDraft((draft) =>
+            draft && draft.previewUrl === previewUrl
+              ? {
+                  ...draft,
+                  videoDuration: undefined,
+                  trimStart: 0,
+                  trimEnd: 30,
+                }
+              : draft,
+          );
+        });
+    }
   }
 
   function openStoryComposer() {
@@ -1344,12 +1612,14 @@ export default function StoryTray() {
   }, [createStoryMutation]);
 
   async function confirmStoryDraftUpload() {
-    if (!storyDraft || createStoryMutation.isPending) {
+    if (!storyDraft || createStoryMutation.isPending || storyPreparing) {
       return;
     }
 
     const draft = storyDraft;
     let uploadDraft = draft;
+
+    setStoryPreparing(true);
 
     if (
       draft.mediaType === "text"
@@ -1357,6 +1627,7 @@ export default function StoryTray() {
       const text = draft.textOverlay?.text.trim();
 
       if (!text) {
+        setStoryPreparing(false);
         pushToast({
           title: "Add story text",
           message: "Write something before sharing your story.",
@@ -1392,7 +1663,69 @@ export default function StoryTray() {
               : "Please try again in a moment.",
           variant: "error",
         });
+        setStoryPreparing(false);
         return;
+      }
+    }
+
+    if (draft.mediaType === "video" && draft.file) {
+      const duration = draft.videoDuration;
+      const trimStart = Math.max(0, draft.trimStart ?? 0);
+      const trimEnd = Math.max(
+        trimStart + 1,
+        draft.trimEnd ?? Math.min(duration ?? 30, 30),
+      );
+      const shouldTrim =
+        (duration !== undefined && duration > 30) ||
+        trimStart > 0.1 ||
+        (duration !== undefined && trimEnd < duration - 0.1);
+
+      if (duration !== undefined && trimEnd - trimStart > 30.1) {
+        pushToast({
+          title: "Trim story video",
+          message: "Stories can be up to 30 seconds. Shorten the selected clip.",
+          variant: "warning",
+        });
+        setStoryPreparing(false);
+        return;
+      }
+
+      if (shouldTrim) {
+        try {
+          setUploadProgress(8);
+          const trimmedFile = await trimStoryVideoFile(
+            draft.file,
+            trimStart,
+            trimEnd,
+            setUploadProgress,
+          );
+          const trimmedPreviewUrl = URL.createObjectURL(trimmedFile);
+
+          if (draft.previewUrl) {
+            URL.revokeObjectURL(draft.previewUrl);
+          }
+
+          uploadDraft = {
+            ...draft,
+            file: trimmedFile,
+            previewUrl: trimmedPreviewUrl,
+            videoDuration: trimEnd - trimStart,
+            trimStart: 0,
+            trimEnd: trimEnd - trimStart,
+          };
+        } catch (error) {
+          pushToast({
+            title: "Video trim failed",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Please choose a video up to 30 seconds.",
+            variant: "error",
+          });
+          setUploadProgress(0);
+          setStoryPreparing(false);
+          return;
+        }
       }
     }
 
@@ -1434,6 +1767,7 @@ export default function StoryTray() {
               : "Please try again in a moment.",
           variant: "error",
         });
+        setStoryPreparing(false);
         return;
       }
     }
@@ -1443,6 +1777,7 @@ export default function StoryTray() {
     setOverlayDragging(false);
     setStickerDragging(false);
     setSelectedDraftElement(null);
+    setStoryPreparing(false);
     publishStory(uploadDraft);
   }
 
@@ -1456,6 +1791,9 @@ export default function StoryTray() {
     setOverlayDragging(false);
     setStickerDragging(false);
     setSelectedDraftElement(null);
+    setStoryPreparing(false);
+    clearDragHoldTimer();
+    setDragDeleteState(null);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -2108,13 +2446,18 @@ export default function StoryTray() {
               onClick={confirmStoryDraftUpload}
               disabled={
                 createStoryMutation.isPending ||
+                storyPreparing ||
                 (storyDraft.mediaType === "text" &&
                   !storyDraft.caption.trim() &&
                   !storyDraft.textOverlay?.text.trim())
               }
               className="flex h-[52px] w-full items-center justify-center rounded-2xl bg-[#2481CC] px-5 text-base font-semibold text-white transition hover:bg-[#2F8ED8] disabled:cursor-wait disabled:opacity-70"
             >
-              {createStoryMutation.isPending ? "Sharing..." : "Share to Story"}
+              {storyPreparing
+                ? "Preparing..."
+                : createStoryMutation.isPending
+                  ? "Sharing..."
+                  : "Share to Story"}
             </button>
           </div>
 
