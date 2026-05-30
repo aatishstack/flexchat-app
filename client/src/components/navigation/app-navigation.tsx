@@ -49,10 +49,10 @@ function isActivePath(pathname: string, href: string) {
 
 function DesktopNavigation({ pathname }: { pathname: string }) {
   return (
-    <aside className="fixed inset-y-0 left-0 z-[190] hidden w-[72px] border-r border-[var(--fc-app-border)] bg-[#07111B]/95 px-2 py-[calc(0.75rem+env(safe-area-inset-top))] text-white backdrop-blur-xl lg:flex lg:flex-col lg:items-center">
+    <aside className="fc-panel fixed inset-y-0 left-0 z-[190] hidden w-[72px] border-r px-2 py-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur-xl lg:flex lg:flex-col lg:items-center">
       <Link
         href="/chat"
-        className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-[#2481CC] text-white shadow-sm shadow-[#2481CC]/25"
+        className="fc-button-primary mb-5 flex h-11 w-11 items-center justify-center rounded-2xl border border-[rgba(var(--fc-primary-rgb),0.28)]"
         aria-label="Open chats"
       >
         <MessageCircle size={20} />
@@ -71,14 +71,14 @@ function DesktopNavigation({ pathname }: { pathname: string }) {
               aria-label={item.label}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "group relative flex h-12 w-12 items-center justify-center rounded-2xl text-zinc-400 transition hover:bg-white/[0.06] hover:text-white",
-                active && "bg-white/[0.08] text-white",
+                "group fc-hover relative flex h-12 w-12 items-center justify-center rounded-2xl text-[var(--fc-text-subtle)] transition hover:text-[var(--fc-theme-text)]",
+                active && "fc-active text-[var(--fc-theme-text)]",
               )}
             >
               {active ? (
                 <motion.span
                   layoutId="desktop-nav-active"
-                  className="absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-full bg-[#2481CC]"
+                  className="absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-full bg-[var(--fc-primary)]"
                   transition={{
                     type: "spring",
                     stiffness: 420,
@@ -98,7 +98,7 @@ function DesktopNavigation({ pathname }: { pathname: string }) {
 
 function MobileNavigation({ pathname }: { pathname: string }) {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-[190] border-t border-[var(--fc-app-border)] bg-[#07111B]/96 px-3 pb-[calc(0.55rem+env(safe-area-inset-bottom))] pt-2 text-white backdrop-blur-xl lg:hidden">
+    <nav className="fc-panel fixed inset-x-0 bottom-0 z-[190] border-t px-3 pb-[calc(0.55rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl lg:hidden">
       <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
@@ -110,14 +110,14 @@ function MobileNavigation({ pathname }: { pathname: string }) {
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "relative flex h-14 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-medium text-zinc-500 transition active:scale-[0.98]",
-                active && "text-white",
+                "fc-hover relative flex h-14 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-medium text-[var(--fc-text-subtle)] transition active:scale-[0.98]",
+                active && "text-[var(--fc-theme-text)]",
               )}
             >
               {active ? (
                 <motion.span
                   layoutId="mobile-nav-active"
-                  className="absolute inset-x-4 top-1 h-0.5 rounded-full bg-[#2481CC]"
+                  className="absolute inset-x-4 top-1 h-0.5 rounded-full bg-[var(--fc-primary)]"
                   transition={{
                     type: "spring",
                     stiffness: 420,
@@ -129,7 +129,7 @@ function MobileNavigation({ pathname }: { pathname: string }) {
                 size={20}
                 className={cn(
                   "transition",
-                  active && "text-[#4BA3E3]",
+                  active && "text-[var(--fc-accent-text)]",
                 )}
               />
               <span>{item.label}</span>

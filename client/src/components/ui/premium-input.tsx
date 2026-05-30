@@ -15,7 +15,7 @@ const PremiumInput = React.forwardRef<
     <input
       ref={ref}
       className={cn(
-        "h-14 w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 text-sm text-white outline-none transition-all duration-300 placeholder:text-zinc-500 focus:border-purple-500 focus:bg-white/[0.05] focus:ring-4 focus:ring-purple-500/20",
+        "fc-input h-14 w-full rounded-2xl border px-4 text-sm outline-none transition-all duration-300 focus:ring-4 focus:ring-[var(--fc-focus-ring)]",
         className
       )}
       {...props}

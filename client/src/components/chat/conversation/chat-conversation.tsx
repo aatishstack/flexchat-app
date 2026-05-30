@@ -666,7 +666,7 @@ function MessageSkeleton() {
             index % 3 === 0 ? "justify-end" : "justify-start"
           }`}
         >
-          <div className="h-16 w-[min(72%,420px)] animate-pulse rounded-3xl bg-white/[0.05]" />
+          <div className="fc-skeleton h-16 w-[min(72%,420px)] animate-pulse rounded-3xl" />
         </div>
       ))}
     </div>
@@ -774,7 +774,7 @@ function ReactionPicker({
         top,
         width: pickerWidth,
       }}
-      className="fixed z-[260] flex items-center justify-center gap-1 rounded-2xl border border-white/10 bg-[#07101E]/95 p-2 text-white shadow-[0_24px_80px_rgba(0,0,0,0.48)] backdrop-blur-2xl"
+      className="fc-modal fixed z-[260] flex items-center justify-center gap-1 rounded-2xl border p-2 backdrop-blur-2xl"
       role="menu"
       aria-label="Choose reaction"
     >
@@ -1300,11 +1300,11 @@ const ChatMessageRow = memo(function ChatMessageRow({
     <Fragment>
       {showDateDivider ? (
         <div className="my-5 flex items-center gap-3">
-          <div className="h-px flex-1 bg-white/10" />
-          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-medium text-zinc-400 backdrop-blur-xl">
+          <div className="h-px flex-1 bg-[var(--fc-divider)]" />
+          <span className="fc-surface rounded-full border px-3 py-1 text-[11px] font-medium text-[var(--fc-text-muted)] backdrop-blur-xl">
             {formatDateDivider(message.createdAt, now)}
           </span>
-          <div className="h-px flex-1 bg-white/10" />
+          <div className="h-px flex-1 bg-[var(--fc-divider)]" />
         </div>
       ) : null}
 
@@ -1348,7 +1348,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
       >
         {canReply ? (
           <div
-            className={`pointer-events-none absolute top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#2481CC]/25 bg-[#2481CC]/15 text-[#9BD0FF] transition-opacity ${
+            className={`fc-button-soft pointer-events-none absolute top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border transition-opacity ${
               mine ? "right-[calc(100%-2.25rem)]" : "left-0"
             } ${swipeX >= 40 ? "opacity-100" : "opacity-0"}`}
           >
@@ -1363,23 +1363,25 @@ const ChatMessageRow = memo(function ChatMessageRow({
                   background: mine
                     ? "var(--fc-own-bubble)"
                     : "var(--fc-their-bubble)",
-                  color: mine ? "#fff" : "var(--fc-theme-text)",
+                  color: mine
+                    ? "var(--fc-own-bubble-text)"
+                    : "var(--fc-their-bubble-text)",
                 }
               : undefined
           }
           className={`relative max-w-[86%] rounded-[20px] px-4 py-2.5 text-sm text-white sm:max-w-[68%] sm:px-4 sm:py-3 ${
             mine
               ? "rounded-br-md"
-              : "rounded-bl-md border border-white/10"
+              : "rounded-bl-md border border-[var(--fc-app-border)]"
           } ${message.status === "failed" ? "ring-1 ring-red-400/35" : ""} ${
             isDeleted
-              ? "border border-white/10 bg-white/[0.035] text-white/60"
+              ? "border border-[var(--fc-app-border)] bg-[var(--fc-app-surface)] text-[var(--fc-text-muted)]"
               : ""
           }`}
         >
           {message.replyTo ? (
-            <div className="mb-3 rounded-2xl border border-white/10 bg-black/[0.15] px-3 py-2 text-xs text-white/70">
-              <p className="font-medium text-white/85">Reply</p>
+            <div className="mb-3 rounded-2xl border border-[var(--fc-app-border)] bg-[var(--fc-input-bg)] px-3 py-2 text-xs text-[var(--fc-text-muted)]">
+              <p className="font-medium text-[var(--fc-theme-text)]">Reply</p>
               <p className="mt-1 line-clamp-2">{message.replyTo.text}</p>
             </div>
           ) : null}
@@ -1441,7 +1443,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
                 }
                 autoFocus
                 rows={3}
-                className="w-full resize-none rounded-2xl border border-white/15 bg-black/20 px-3 py-2 text-sm leading-relaxed text-white outline-none transition focus:border-white/35"
+                className="fc-input w-full resize-none rounded-2xl border px-3 py-2 text-sm leading-relaxed outline-none transition"
               />
 
               <div className="flex justify-end gap-2">
@@ -1452,7 +1454,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
                     setIsEditing(false);
                   }}
                   disabled={isMutating}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/10 transition hover:bg-white/15 disabled:cursor-wait disabled:opacity-60"
+                  className="fc-surface fc-hover flex h-9 w-9 items-center justify-center rounded-xl border transition disabled:cursor-wait disabled:opacity-60"
                   aria-label="Cancel edit"
                 >
                   <X size={15} />
@@ -1464,7 +1466,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
                     void submitEdit();
                   }}
                   disabled={isMutating || !draftText.trim()}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#155C94] transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[var(--fc-primary)] transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
                   aria-label="Save edit"
                 >
                   <Check size={15} />
@@ -1482,7 +1484,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
               {message.reactions.map((reaction) => (
                 <span
                   key={reaction.emoji}
-                  className="rounded-full border border-white/10 bg-black/15 px-2 py-1 text-xs shadow-sm"
+                  className="rounded-full border border-[var(--fc-app-border)] bg-[var(--fc-input-bg)] px-2 py-1 text-xs shadow-sm"
                 >
                   {reaction.emoji} {reaction.count}
                 </span>
@@ -1492,7 +1494,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
 
           {!isEditing ? (
             <div
-              className={`absolute top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-2xl border border-white/10 bg-[#07101E]/95 p-1 text-white shadow-2xl shadow-black/35 backdrop-blur-xl transition max-sm:bottom-full max-sm:left-auto max-sm:right-0 max-sm:top-auto max-sm:mb-2 max-sm:translate-y-0 ${
+              className={`fc-modal absolute top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-2xl border p-1 backdrop-blur-xl transition max-sm:bottom-full max-sm:left-auto max-sm:right-0 max-sm:top-auto max-sm:mb-2 max-sm:translate-y-0 ${
                 mine ? "right-full mr-2" : "left-full ml-2"
               } ${
                 actionsVisible
@@ -2088,7 +2090,7 @@ export default function ChatConversation({
   }, []);
 
   const compactChat = !!discoverOpen && !!activeNowOpen;
-  const headerActionClass = `flex shrink-0 items-center justify-center border border-white/10 bg-white/[0.04] text-zinc-200 transition hover:border-[#2481CC]/35 hover:bg-[#2481CC]/15 disabled:cursor-not-allowed disabled:opacity-40 ${
+  const headerActionClass = `fc-surface fc-hover flex shrink-0 items-center justify-center border text-[var(--fc-text-muted)] transition hover:border-[rgba(var(--fc-primary-rgb),0.35)] hover:text-[var(--fc-theme-text)] disabled:cursor-not-allowed disabled:opacity-40 ${
     compactChat ? "h-9 w-9 rounded-xl" : "h-11 w-11 rounded-2xl"
   }`;
   const headerIconSize = compactChat ? 16 : 18;
@@ -2699,6 +2701,16 @@ export default function ChatConversation({
       scope,
     });
 
+    const optimisticTheme = getChatTheme(themeId);
+    applyGlobalChatTheme(optimisticTheme.id);
+    window.dispatchEvent(
+      new CustomEvent("flexchat:theme-changed", {
+        detail: {
+          themeId: optimisticTheme.id,
+        },
+      }),
+    );
+
     try {
       const conversation = await applyConversationTheme({
         conversationId,
@@ -2747,6 +2759,14 @@ export default function ChatConversation({
             : "Please try changing the theme again.",
         variant: "error",
       });
+      applyGlobalChatTheme(activeTheme.id);
+      window.dispatchEvent(
+        new CustomEvent("flexchat:theme-changed", {
+          detail: {
+            themeId: activeTheme.id,
+          },
+        }),
+      );
     } finally {
       setThemeApplying(null);
     }
@@ -2939,11 +2959,11 @@ export default function ChatConversation({
   if (!activeConversation) {
     return (
       <section className="flex h-full flex-col items-center justify-center bg-transparent px-6 text-center">
-        <div className="max-w-sm rounded-2xl border border-white/10 bg-white/[0.04] p-8 shadow-lg shadow-black/20 backdrop-blur-xl">
-          <h2 className="text-xl font-semibold text-white">
+        <div className="fc-surface-strong max-w-sm rounded-2xl border p-8 backdrop-blur-xl">
+          <h2 className="text-xl font-semibold text-[var(--fc-theme-text)]">
             Select a conversation
           </h2>
-          <p className="mt-2 text-sm text-zinc-400">
+          <p className="fc-muted mt-2 text-sm">
             Your realtime messages will appear here.
           </p>
         </div>
@@ -2957,7 +2977,7 @@ export default function ChatConversation({
       className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[var(--fc-chat-bg)] text-[var(--fc-theme-text)]"
     >
       <div
-        className={`relative z-10 flex shrink-0 items-center justify-between border-b border-white/10 bg-[var(--fc-chat-header)] ${
+        className={`relative z-10 flex shrink-0 items-center justify-between border-b border-[var(--fc-app-border)] bg-[var(--fc-chat-header)] ${
           compactChat
             ? "gap-2 px-3 py-3 sm:px-4 sm:py-3"
             : "gap-3 px-4 py-4 sm:px-6 sm:py-5"
@@ -2971,19 +2991,19 @@ export default function ChatConversation({
           <button
             type="button"
             onClick={() => setProfileOpen(true)}
-            className="shrink-0 rounded-2xl outline-none transition active:scale-95 focus-visible:ring-2 focus-visible:ring-[#7CC5FF]/70"
+            className="shrink-0 rounded-2xl outline-none transition active:scale-95 focus-visible:ring-2 focus-visible:ring-[var(--fc-focus-ring)]"
             aria-label="Open profile"
           >
             <FlexAvatar
               src={activeConversationAvatar}
               name={activeConversation.name}
-              className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-sm font-bold text-white sm:h-12 sm:w-12 sm:text-base"
+              className="fc-avatar flex h-10 w-10 items-center justify-center overflow-hidden rounded-full text-sm font-bold sm:h-12 sm:w-12 sm:text-base"
             />
           </button>
 
           <div className="min-w-0 flex-1">
             <h2
-              className={`truncate font-semibold text-white ${
+              className={`truncate font-semibold text-[var(--fc-theme-text)] ${
                 compactChat ? "text-sm" : ""
               }`}
             >
@@ -2995,8 +3015,8 @@ export default function ChatConversation({
                 remoteTypingUsers.length
                   ? "text-cyan-300"
                   : isOnline
-                    ? "text-green-400"
-                    : "text-zinc-500"
+                    ? "text-[var(--fc-success)]"
+                    : "text-[var(--fc-text-subtle)]"
               }`}
             >
               {isConnected ? presenceLabel : "Reconnecting..."}
@@ -3039,7 +3059,7 @@ export default function ChatConversation({
           >
             <MoreVertical size={headerIconSize} />
             {unreadNotificationCount ? (
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#2481CC] px-1 text-[10px] font-bold leading-none text-white">
+              <span className="fc-badge absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none">
                 {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
               </span>
             ) : null}
@@ -3074,7 +3094,7 @@ export default function ChatConversation({
                   type="button"
                   onClick={handleLoadOlderMessages}
                   disabled={isFetchingNextPage}
-                  className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-medium text-zinc-300 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-wait disabled:opacity-60"
+                  className="fc-surface fc-hover rounded-full border px-4 py-2 text-xs font-medium text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)] disabled:cursor-wait disabled:opacity-60"
                 >
                   {isFetchingNextPage ? "Loading..." : "Load earlier"}
                 </button>
@@ -3083,11 +3103,11 @@ export default function ChatConversation({
 
             {activeConversation.unreadCount ? (
               <div className="mb-5 flex items-center gap-3">
-                <div className="h-px flex-1 bg-[#2481CC]/30" />
-                <span className="rounded-full border border-[#2481CC]/30 bg-[#2481CC]/10 px-3 py-1 text-xs text-[#9BD0FF]">
+                <div className="h-px flex-1 bg-[rgba(var(--fc-primary-rgb),0.3)]" />
+                <span className="fc-button-soft rounded-full border px-3 py-1 text-xs">
                   Unread messages
                 </span>
-                <div className="h-px flex-1 bg-[#2481CC]/30" />
+                <div className="h-px flex-1 bg-[rgba(var(--fc-primary-rgb),0.3)]" />
               </div>
             ) : null}
 
@@ -3096,11 +3116,11 @@ export default function ChatConversation({
             !visibleMessages.length ? (
               <div className="flex min-h-[45vh] items-center justify-center px-6 text-center">
                 <div>
-                  <MessageCircle className="mx-auto text-zinc-500" size={34} />
-                  <p className="mt-3 text-sm font-medium text-zinc-300">
+                  <MessageCircle className="mx-auto text-[var(--fc-text-subtle)]" size={34} />
+                  <p className="mt-3 text-sm font-medium text-[var(--fc-text-muted)]">
                     No messages yet
                   </p>
-                  <p className="mt-1 text-xs text-zinc-500">
+                  <p className="fc-subtle mt-1 text-xs">
                     Send the first message to start this chat.
                   </p>
                 </div>
@@ -3132,7 +3152,7 @@ export default function ChatConversation({
 
             {remoteTypingUsers.length ? (
               <div className="mt-4 flex justify-start">
-                <div className="rounded-[20px] rounded-bl-md border border-white/10 bg-[#17212B] px-4 py-3">
+                <div className="rounded-[20px] rounded-bl-md border border-[var(--fc-app-border)] bg-[var(--fc-their-bubble)] px-4 py-3">
                   <div className="flex items-center gap-1">
                     {[0, 1, 2].map((dot) => (
                       <motion.div
@@ -3150,7 +3170,7 @@ export default function ChatConversation({
                           repeat: Infinity,
                           delay: dot * 0.15,
                         }}
-                        className="h-2 w-2 rounded-full bg-[#7CC5FF]"
+                        className="h-2 w-2 rounded-full bg-[var(--fc-accent-text)]"
                       />
                     ))}
                   </div>
@@ -3164,23 +3184,23 @@ export default function ChatConversation({
       </div>
 
       <div
-        className={`relative z-10 shrink-0 border-t border-white/10 bg-[var(--fc-chat-header)] ${
+        className={`relative z-10 shrink-0 border-t border-[var(--fc-app-border)] bg-[var(--fc-chat-header)] ${
           compactChat
             ? "p-2.5 pb-[calc(0.65rem+env(safe-area-inset-bottom))] sm:p-3 sm:pb-[calc(0.8rem+env(safe-area-inset-bottom))]"
             : "p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-5 sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
         }`}
       >
         {replyingTo ? (
-          <div className="mb-2 flex items-center gap-3 rounded-2xl border border-[#2481CC]/25 bg-[#2481CC]/10 p-3 text-sm text-[#D7EDFF]">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/20">
+          <div className="fc-button-soft mb-2 flex items-center gap-3 rounded-2xl border p-3 text-sm">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--fc-app-border)] bg-[var(--fc-input-bg)]">
               <Reply size={16} />
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold uppercase text-[#9BD0FF]">
+              <p className="text-xs font-semibold uppercase text-[var(--fc-accent-text)]">
                 Replying
               </p>
-              <p className="truncate text-xs text-white/75">
+              <p className="truncate text-xs text-[var(--fc-text-muted)]">
                 {getMessagePreviewText(replyingTo)}
               </p>
             </div>
@@ -3188,7 +3208,7 @@ export default function ChatConversation({
             <button
               type="button"
               onClick={() => setReplyingTo(null)}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 transition hover:bg-white/15"
+              className="fc-surface fc-hover flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition"
               aria-label="Cancel reply"
             >
               <X size={15} />
@@ -3198,7 +3218,7 @@ export default function ChatConversation({
 
         {failedAttachmentUpload ? (
           <div className="mb-2 flex items-center gap-3 rounded-2xl border border-red-400/20 bg-red-500/[0.08] p-3 text-sm text-red-100">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/20">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--fc-app-border)] bg-[var(--fc-input-bg)]">
               <AlertCircle size={16} />
             </div>
 
@@ -3221,7 +3241,7 @@ export default function ChatConversation({
                 );
               }}
               disabled={isUploadingAttachment}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 transition hover:bg-white/15 disabled:cursor-wait disabled:opacity-60"
+              className="fc-surface fc-hover flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition disabled:cursor-wait disabled:opacity-60"
               aria-label="Retry attachment upload"
             >
               <RefreshCw size={15} />
@@ -3232,7 +3252,7 @@ export default function ChatConversation({
               onClick={() =>
                 setFailedAttachmentUpload(null)
               }
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 transition hover:bg-white/15"
+              className="fc-surface fc-hover flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition"
               aria-label="Dismiss upload error"
             >
               <X size={15} />
@@ -3251,7 +3271,7 @@ export default function ChatConversation({
             }}
           />
 
-          <div className="relative min-w-0 flex-1 rounded-[24px] border border-white/10 bg-[#17212B] px-4 py-2.5 transition-colors duration-200 focus-within:border-[#2481CC]/45 focus-within:bg-[#1B2A38]">
+          <div className="fc-input relative min-w-0 flex-1 rounded-[24px] border px-4 py-2.5 transition-colors duration-200">
             <AnimatePresence>
               {emojiOpen ? (
                 <motion.div
@@ -3273,10 +3293,14 @@ export default function ChatConversation({
                   transition={{
                     duration: 0.16,
                   }}
-                  className="absolute bottom-[calc(100%+0.75rem)] left-0 z-40 w-[min(350px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-white/10 bg-[#0B111C] shadow-lg shadow-black/30"
+                  className="fc-modal absolute bottom-[calc(100%+0.75rem)] left-0 z-40 w-[min(350px,calc(100vw-2rem))] overflow-hidden rounded-2xl border"
                 >
                   <EmojiPicker
-                    theme={Theme.DARK}
+                    theme={
+                      activeTheme.mode === "light"
+                        ? Theme.LIGHT
+                        : Theme.DARK
+                    }
                     emojiStyle={EmojiStyle.NATIVE}
                     lazyLoadEmojis
                     width="100%"
@@ -3295,7 +3319,7 @@ export default function ChatConversation({
               <button
                 type="button"
                 onClick={() => setEmojiOpen((open) => !open)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/[0.07] hover:text-white active:scale-95"
+                className="fc-hover flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--fc-text-subtle)] transition hover:text-[var(--fc-theme-text)] active:scale-95"
                 aria-label="Open emoji picker"
                 aria-expanded={emojiOpen}
               >
@@ -3338,12 +3362,12 @@ export default function ChatConversation({
                             repeat: Infinity,
                             delay: index * 0.035,
                           }}
-                          className="w-1 rounded-full bg-[#9BD0FF]"
+                          className="w-1 rounded-full bg-[var(--fc-accent-text)]"
                         />
                       ))}
                     </div>
 
-                    <span className="shrink-0 text-xs font-medium text-[#9BD0FF]">
+                    <span className="shrink-0 text-xs font-medium text-[var(--fc-accent-text)]">
                       {formatDuration(recordingSeconds)}
                     </span>
                   </div>
@@ -3366,7 +3390,7 @@ export default function ChatConversation({
                       }
                     }}
                     placeholder="Write a message..."
-                    className="max-h-32 min-h-[40px] w-full resize-none overflow-y-auto border-0 bg-transparent py-2.5 text-sm leading-5 text-white shadow-none outline-none ring-0 placeholder:text-zinc-500 focus:border-0 focus:outline-none focus:ring-0 focus-visible:shadow-none sm:min-h-[44px] sm:py-3"
+                    className="max-h-32 min-h-[40px] w-full resize-none overflow-y-auto border-0 bg-transparent py-2.5 text-sm leading-5 text-[var(--fc-theme-text)] shadow-none outline-none ring-0 placeholder:text-[var(--fc-text-subtle)] focus:border-0 focus:outline-none focus:ring-0 focus-visible:shadow-none sm:min-h-[44px] sm:py-3"
                   />
                 )}
               </div>
@@ -3375,21 +3399,21 @@ export default function ChatConversation({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploadingAttachment}
-                className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-zinc-400 transition hover:bg-white/[0.07] hover:text-white active:scale-95 disabled:cursor-wait disabled:opacity-70"
+                className="fc-hover relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-[var(--fc-text-subtle)] transition hover:text-[var(--fc-theme-text)] active:scale-95 disabled:cursor-wait disabled:opacity-70"
                 aria-label="Upload attachment"
               >
                 <Paperclip
                   size={20}
                   className={
                     isUploadingAttachment
-                      ? "animate-pulse text-[#9BD0FF]"
+                      ? "animate-pulse text-[var(--fc-accent-text)]"
                       : undefined
                   }
                 />
                 {isUploadingAttachment ? (
                   <span className="absolute inset-x-2 bottom-1.5 h-1 overflow-hidden rounded-full bg-white/15">
                     <span
-                      className="block h-full rounded-full bg-[#9BD0FF] transition-[width]"
+                      className="block h-full rounded-full bg-[var(--fc-accent-text)] transition-[width]"
                       style={{
                         width: `${attachmentUploadProgress}%`,
                       }}
@@ -3470,10 +3494,10 @@ export default function ChatConversation({
                 }
                 className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition-all hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 ${
                   text.trim()
-                    ? "bg-[#2481CC] hover:bg-[#2F8ED8]"
+                    ? "fc-button-primary"
                   : isRecordingVoice
                       ? "bg-red-500"
-                      : "bg-white/[0.11] hover:bg-white/[0.16]"
+                      : "bg-[var(--fc-app-surface-hover)] hover:bg-[var(--fc-app-surface-active)]"
                 }`}
                 aria-label={
                   text.trim() ? "Send message" : "Hold to record voice note"
@@ -3498,7 +3522,7 @@ export default function ChatConversation({
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[268] flex items-end justify-center bg-black/60 p-3 backdrop-blur-xl sm:items-center sm:p-6"
+            className="fixed inset-0 z-[268] flex items-end justify-center bg-[var(--fc-overlay)] p-3 backdrop-blur-xl sm:items-center sm:p-6"
             onClick={() =>
               setChatSettingsOpen(false)
             }
@@ -3524,17 +3548,17 @@ export default function ChatConversation({
                 stiffness: 300,
                 damping: 30,
               }}
-              className="w-full max-w-sm overflow-hidden rounded-[30px] border border-white/10 bg-[#0B111C]/[0.97] text-white shadow-[0_28px_90px_rgba(0,0,0,0.62)]"
+              className="fc-modal w-full max-w-sm overflow-hidden rounded-[30px] border"
               onClick={(event) =>
                 event.stopPropagation()
               }
             >
-              <div className="flex items-center justify-between border-b border-white/10 p-5">
+              <div className="flex items-center justify-between border-b border-[var(--fc-app-border)] p-5">
                 <div className="min-w-0">
                   <h2 className="truncate font-semibold">
                     Chat Settings
                   </h2>
-                  <p className="mt-1 truncate text-xs text-zinc-500">
+                  <p className="fc-subtle mt-1 truncate text-xs">
                     {activeConversationDisplayName}
                   </p>
                 </div>
@@ -3544,7 +3568,7 @@ export default function ChatConversation({
                   onClick={() =>
                     setChatSettingsOpen(false)
                   }
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] transition hover:bg-white/[0.08]"
+                  className="fc-surface fc-hover flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition"
                   aria-label="Close chat settings"
                 >
                   <X size={17} />
@@ -3559,18 +3583,18 @@ export default function ChatConversation({
                     setChatSettingsOpen(false);
                   }}
                   disabled={!onToggleDiscover}
-                  className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm text-zinc-100 transition hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-45"
+                  className="fc-hover flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--fc-theme-text)] transition disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   <span className="flex min-w-0 items-center gap-3">
                     <Compass
                       size={18}
-                      className="shrink-0 text-purple-200"
+                      className="shrink-0 text-[var(--fc-accent-text)]"
                     />
                     <span className="truncate">Discover</span>
                   </span>
                   <span
                     className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                      discoverOpen ? "bg-purple-300" : "bg-white/20"
+                      discoverOpen ? "bg-[var(--fc-accent-text)]" : "bg-white/20"
                     }`}
                   />
                 </button>
@@ -3582,7 +3606,7 @@ export default function ChatConversation({
                     setChatSettingsOpen(false);
                   }}
                   disabled={!onToggleActiveNow}
-                  className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm text-zinc-100 transition hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-45"
+                  className="fc-hover flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--fc-theme-text)] transition disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   <span className="flex min-w-0 items-center gap-3">
                     <Users
@@ -3593,7 +3617,7 @@ export default function ChatConversation({
                   </span>
                   <span
                     className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                      activeNowOpen ? "bg-cyan-300" : "bg-white/20"
+                      activeNowOpen ? "bg-[var(--fc-accent-text)]" : "bg-white/20"
                     }`}
                   />
                 </button>
@@ -3605,12 +3629,12 @@ export default function ChatConversation({
                     setChatSettingsOpen(false);
                   }}
                   disabled={!onOpenNotifications}
-                  className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm text-zinc-100 transition hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-45"
+                  className="fc-hover flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--fc-theme-text)] transition disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   <span className="flex min-w-0 items-center gap-3">
                     <Bell
                       size={18}
-                      className="shrink-0 text-purple-200"
+                      className="shrink-0 text-[var(--fc-accent-text)]"
                     />
                     <span className="truncate">Notifications</span>
                   </span>
@@ -3627,11 +3651,11 @@ export default function ChatConversation({
                     setThemeSheetOpen(true);
                     setChatSettingsOpen(false);
                   }}
-                  className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-zinc-100 transition hover:bg-white/[0.07]"
+                  className="fc-hover flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--fc-theme-text)] transition"
                 >
                   <Palette
                     size={18}
-                    className="text-purple-200"
+                    className="text-[var(--fc-accent-text)]"
                   />
                   Change Theme
                 </button>
@@ -3653,7 +3677,7 @@ export default function ChatConversation({
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[269] flex items-end justify-center bg-black/65 p-3 backdrop-blur-xl sm:items-center sm:p-6"
+            className="fixed inset-0 z-[269] flex items-end justify-center bg-[var(--fc-overlay)] p-3 backdrop-blur-xl sm:items-center sm:p-6"
             onClick={() =>
               setThemeSheetOpen(false)
             }
@@ -3679,17 +3703,17 @@ export default function ChatConversation({
                 stiffness: 300,
                 damping: 30,
               }}
-              className="flex max-h-[min(86dvh,720px)] w-full max-w-xl flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[#0B111C]/[0.98] text-white shadow-[0_28px_90px_rgba(0,0,0,0.62)]"
+              className="fc-modal flex max-h-[min(86dvh,720px)] w-full max-w-xl flex-col overflow-hidden rounded-[30px] border"
               onClick={(event) =>
                 event.stopPropagation()
               }
             >
-              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+              <div className="flex items-center justify-between border-b border-[var(--fc-app-border)] px-5 py-4">
                 <div className="min-w-0">
                   <h2 className="font-semibold">
                     Change Theme
                   </h2>
-                  <p className="truncate text-xs text-zinc-500">
+                  <p className="fc-subtle truncate text-xs">
                     {activeTheme.name}
                   </p>
                 </div>
@@ -3699,7 +3723,7 @@ export default function ChatConversation({
                   onClick={() =>
                     setThemeSheetOpen(false)
                   }
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white transition hover:bg-white/[0.08]"
+                  className="fc-surface fc-hover flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition"
                   aria-label="Close theme picker"
                 >
                   <X size={18} />
@@ -3725,12 +3749,12 @@ export default function ChatConversation({
                         key={theme.id}
                         className={`overflow-hidden rounded-2xl border p-3 ${
                           selected
-                            ? "border-purple-300/45 bg-purple-500/[0.12]"
-                            : "border-white/10 bg-white/[0.035]"
+                            ? "fc-active"
+                            : "fc-surface"
                         }`}
                       >
                         <div
-                          className="h-20 rounded-xl border border-white/10"
+                          className="h-20 rounded-xl border border-[var(--fc-app-border)]"
                           style={{
                             background:
                               theme.background,
@@ -3758,7 +3782,7 @@ export default function ChatConversation({
                           <p className="truncate text-sm font-medium">
                             {theme.name}
                           </p>
-                          <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] uppercase text-zinc-400">
+                          <span className="fc-surface rounded-full border px-2 py-1 text-[10px] uppercase text-[var(--fc-text-muted)]">
                             {theme.mode}
                           </span>
                         </div>
@@ -3773,7 +3797,7 @@ export default function ChatConversation({
                               );
                             }}
                             disabled={!!themeApplying}
-                            className="flex h-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-xs font-medium text-zinc-100 transition hover:bg-white/[0.1] disabled:cursor-wait disabled:opacity-60"
+                            className="fc-surface fc-hover flex h-10 items-center justify-center rounded-xl border text-xs font-medium text-[var(--fc-theme-text)] transition disabled:cursor-wait disabled:opacity-60"
                           >
                             {applyingForMe
                               ? "Applying"
@@ -3789,7 +3813,7 @@ export default function ChatConversation({
                               );
                             }}
                             disabled={!!themeApplying}
-                            className="flex h-10 items-center justify-center rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 text-xs font-semibold text-white shadow-lg shadow-purple-600/20 transition hover:scale-[1.01] disabled:cursor-wait disabled:opacity-60"
+                            className="fc-button-primary flex h-10 items-center justify-center rounded-xl text-xs font-semibold transition hover:scale-[1.01] disabled:cursor-wait disabled:opacity-60"
                           >
                             {applyingForBoth
                               ? "Applying"
@@ -3818,7 +3842,7 @@ export default function ChatConversation({
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[274] flex items-end justify-center bg-black/[0.66] p-3 backdrop-blur-xl sm:items-center sm:p-6"
+            className="fixed inset-0 z-[274] flex items-end justify-center bg-[var(--fc-overlay)] p-3 backdrop-blur-xl sm:items-center sm:p-6"
             onClick={() => setProfileOpen(false)}
           >
             <motion.div
@@ -3842,14 +3866,14 @@ export default function ChatConversation({
                 stiffness: 300,
                 damping: 30,
               }}
-              className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#0B111C]/[0.97] text-white shadow-lg shadow-black/30"
+              className="fc-modal w-full max-w-md overflow-hidden rounded-2xl border"
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="relative border-b border-white/10 bg-[#0F1A25] px-6 pb-8 pt-8 text-center">
+              <div className="relative border-b border-[var(--fc-app-border)] bg-[var(--fc-app-panel-strong)] px-6 pb-8 pt-8 text-center">
                 <button
                   type="button"
                   onClick={() => setProfileOpen(false)}
-                  className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-2xl border border-white/20 bg-black/20 text-white backdrop-blur-xl"
+                  className="fc-surface absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-2xl border backdrop-blur-xl"
                   aria-label="Close profile"
                 >
                   <X size={18} />
@@ -3858,13 +3882,13 @@ export default function ChatConversation({
                 <button
                   type="button"
                   onClick={() => setProfilePictureOpen(true)}
-                  className="mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-[#17212B] text-4xl font-bold"
+                  className="fc-avatar mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-[var(--fc-app-border-strong)] text-4xl font-bold"
                   aria-label="View profile picture"
                 >
                   <FlexAvatar
                     src={activeConversationAvatar}
                     name={activeConversationDisplayName}
-                    className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-4xl font-bold"
+                    className="fc-avatar flex h-full w-full items-center justify-center overflow-hidden rounded-full text-4xl font-bold"
                   />
                 </button>
 
@@ -3877,16 +3901,16 @@ export default function ChatConversation({
               </div>
 
               <div className="space-y-3 p-5">
-                <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#2481CC]/20 bg-[#2481CC]/15 text-[#9BD0FF]">
+                  <div className="fc-surface flex items-center gap-3 rounded-2xl border p-4">
+                  <div className="fc-button-soft flex h-11 w-11 items-center justify-center rounded-2xl border">
                     <UserRound size={19} />
                   </div>
 
                   <div className="min-w-0">
-                    <p className="text-xs text-zinc-500">
+                    <p className="fc-subtle text-xs">
                       Profile
                     </p>
-                    <p className="truncate text-sm font-medium text-zinc-100">
+                    <p className="truncate text-sm font-medium text-[var(--fc-theme-text)]">
                       {activeConversation.type === "direct"
                         ? "Direct conversation"
                         : `${profileMembers.length} members`}
@@ -3895,8 +3919,8 @@ export default function ChatConversation({
                 </div>
 
                 {profileMembers.length ? (
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
-                    <p className="mb-2 px-1 text-xs font-medium text-zinc-500">
+                  <div className="fc-surface rounded-2xl border p-3">
+                    <p className="fc-subtle mb-2 px-1 text-xs font-medium">
                       Members
                     </p>
                     <div className="space-y-2">
@@ -3908,9 +3932,9 @@ export default function ChatConversation({
                           <FlexAvatar
                             src={member.avatar}
                             name={member.username}
-                            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-xs font-bold"
+                            className="fc-avatar flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-bold"
                           />
-                          <p className="truncate text-sm text-zinc-100">
+                          <p className="truncate text-sm text-[var(--fc-theme-text)]">
                             {formatDisplayName(member.username)}
                           </p>
                         </div>
@@ -3936,12 +3960,12 @@ export default function ChatConversation({
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[276] flex items-center justify-center bg-black/[0.86] p-5 backdrop-blur-xl"
+            className="fixed inset-0 z-[276] flex items-center justify-center bg-[var(--fc-overlay-strong)] p-5 backdrop-blur-xl"
             onClick={() => setProfilePictureOpen(false)}
           >
             <button
               type="button"
-              className="absolute right-5 top-[calc(1rem+env(safe-area-inset-top))] flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white"
+              className="fc-surface absolute right-5 top-[calc(1rem+env(safe-area-inset-top))] flex h-11 w-11 items-center justify-center rounded-2xl border"
               onClick={() => setProfilePictureOpen(false)}
               aria-label="Close profile picture"
             >
@@ -3958,13 +3982,13 @@ export default function ChatConversation({
               exit={{
                 scale: 0.92,
               }}
-              className="flex aspect-square w-full max-w-[min(82vw,420px)] items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-6xl font-bold text-white shadow-lg shadow-black/40"
+              className="fc-avatar flex aspect-square w-full max-w-[min(82vw,420px)] items-center justify-center overflow-hidden rounded-full text-6xl font-bold shadow-lg"
               onClick={(event) => event.stopPropagation()}
             >
               <FlexAvatar
                 src={activeConversationAvatar}
                 name={activeConversationDisplayName}
-                className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-6xl font-bold"
+                className="fc-avatar flex h-full w-full items-center justify-center overflow-hidden rounded-full text-6xl font-bold"
               />
             </motion.div>
           </motion.div>
@@ -3983,7 +4007,7 @@ export default function ChatConversation({
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[272] flex items-end justify-center bg-black/[0.66] p-3 backdrop-blur-xl sm:items-center sm:p-6"
+            className="fixed inset-0 z-[272] flex items-end justify-center bg-[var(--fc-overlay)] p-3 backdrop-blur-xl sm:items-center sm:p-6"
           >
             <motion.div
               initial={{
@@ -4006,12 +4030,12 @@ export default function ChatConversation({
                 stiffness: 300,
                 damping: 30,
               }}
-              className="flex max-h-[min(82dvh,640px)] w-full max-w-md flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[#0B111C]/[0.98] text-white shadow-[0_28px_90px_rgba(0,0,0,0.62)]"
+              className="fc-modal flex max-h-[min(82dvh,640px)] w-full max-w-md flex-col overflow-hidden rounded-[30px] border"
             >
-              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+              <div className="flex items-center justify-between border-b border-[var(--fc-app-border)] px-5 py-4">
                 <div className="min-w-0">
                   <h2 className="font-semibold">Forward message</h2>
-                  <p className="truncate text-xs text-zinc-500">
+                  <p className="fc-subtle truncate text-xs">
                     {getMessagePreviewText(forwardingMessage)}
                   </p>
                 </div>
@@ -4020,24 +4044,24 @@ export default function ChatConversation({
                   type="button"
                   onClick={closeForwardSheet}
                   disabled={isForwarding}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-60"
+                  className="fc-surface fc-hover flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition disabled:cursor-wait disabled:opacity-60"
                   aria-label="Close forward dialog"
                 >
                   <X size={18} />
                 </button>
               </div>
 
-              <div className="border-b border-white/10 p-4">
+              <div className="border-b border-[var(--fc-app-border)] p-4">
                 <div className="relative">
                   <Search
                     size={16}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--fc-text-subtle)]"
                   />
                   <input
                     value={forwardSearch}
                     onChange={(event) => setForwardSearch(event.target.value)}
                     placeholder="Search conversations..."
-                    className="h-11 w-full rounded-2xl border border-white/10 bg-white/[0.04] pl-11 pr-4 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-purple-400/40"
+                    className="fc-input h-11 w-full rounded-2xl border pl-11 pr-4 text-sm outline-none"
                   />
                 </div>
               </div>
@@ -4062,21 +4086,21 @@ export default function ChatConversation({
                         disabled={isForwarding}
                         className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition ${
                           selected
-                            ? "border-purple-300/35 bg-purple-500/[0.14]"
-                            : "border-white/10 bg-white/[0.035] hover:bg-white/[0.06]"
+                            ? "fc-active"
+                            : "fc-surface hover:bg-[var(--fc-app-surface-hover)]"
                         } disabled:cursor-wait disabled:opacity-70`}
                       >
                         <FlexAvatar
                           src={avatar}
                           name={displayName}
-                          className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-sm font-bold text-white"
+                          className="fc-brand-gradient flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-sm font-bold text-white"
                         />
 
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-white">
+                          <p className="truncate text-sm font-medium text-[var(--fc-theme-text)]">
                             {displayName}
                           </p>
-                          <p className="truncate text-xs text-zinc-500">
+                          <p className="fc-subtle truncate text-xs">
                             {conversation.latestMessage ?? "No messages yet"}
                           </p>
                         </div>
@@ -4084,8 +4108,8 @@ export default function ChatConversation({
                         <span
                           className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border ${
                             selected
-                              ? "border-purple-300/40 bg-purple-500 text-white"
-                              : "border-white/10 bg-white/[0.03] text-transparent"
+                              ? "border-[rgba(var(--fc-primary-rgb),0.4)] bg-[var(--fc-primary)] text-white"
+                              : "border-[var(--fc-app-border)] bg-[var(--fc-app-surface)] text-transparent"
                           }`}
                         >
                           <Check size={14} />
@@ -4094,18 +4118,18 @@ export default function ChatConversation({
                     );
                   })
                 ) : (
-                  <div className="flex min-h-32 items-center justify-center px-4 text-center text-sm text-zinc-500">
+                  <div className="fc-subtle flex min-h-32 items-center justify-center px-4 text-center text-sm">
                     No conversations found
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center gap-3 border-t border-white/10 p-4">
+              <div className="flex items-center gap-3 border-t border-[var(--fc-app-border)] p-4">
                 <button
                   type="button"
                   onClick={closeForwardSheet}
                   disabled={isForwarding}
-                  className="h-11 flex-1 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-60"
+                  className="fc-surface fc-hover h-11 flex-1 rounded-2xl border text-sm font-medium text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)] disabled:cursor-wait disabled:opacity-60"
                 >
                   Cancel
                 </button>
@@ -4118,7 +4142,7 @@ export default function ChatConversation({
                   disabled={
                     isForwarding || !selectedForwardConversationIds.size
                   }
-                  className="flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-fuchsia-600 text-sm font-semibold text-white shadow-xl shadow-purple-600/25 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-55"
+                  className="fc-button-primary flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl text-sm font-semibold transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-55"
                 >
                   {isForwarding ? (
                     <RefreshCw size={16} className="motion-safe:animate-spin" />
@@ -4145,7 +4169,7 @@ export default function ChatConversation({
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[275] flex items-end justify-center bg-black/[0.68] p-3 backdrop-blur-xl sm:items-center sm:p-6"
+            className="fixed inset-0 z-[275] flex items-end justify-center bg-[var(--fc-overlay)] p-3 backdrop-blur-xl sm:items-center sm:p-6"
           >
             <motion.div
               initial={{
@@ -4168,10 +4192,10 @@ export default function ChatConversation({
                 stiffness: 300,
                 damping: 30,
               }}
-              className="w-full max-w-sm rounded-[30px] border border-white/10 bg-[#0B111C]/[0.98] p-5 text-white shadow-[0_28px_90px_rgba(0,0,0,0.62)]"
+              className="fc-modal w-full max-w-sm rounded-[30px] border p-5"
             >
               <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-purple-300/20 bg-purple-500/15 text-purple-100">
+                <div className="fc-button-soft flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border">
                   <Video size={21} />
                 </div>
 
@@ -4179,10 +4203,10 @@ export default function ChatConversation({
                   <h2 className="text-lg font-semibold">
                     This video is large.
                   </h2>
-                  <p className="mt-1 text-sm leading-relaxed text-zinc-400">
+                  <p className="fc-muted mt-1 text-sm leading-relaxed">
                     Compress video for faster sending and better compatibility?
                   </p>
-                  <p className="mt-3 truncate text-xs text-zinc-500">
+                  <p className="fc-subtle mt-3 truncate text-xs">
                     {largeVideoFile.name}
                   </p>
                 </div>
@@ -4192,7 +4216,7 @@ export default function ChatConversation({
                 <button
                   type="button"
                   onClick={() => setLargeVideoFile(null)}
-                  className="h-12 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08]"
+                  className="fc-surface fc-hover h-12 rounded-2xl border text-sm font-medium text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
                 >
                   Cancel
                 </button>
@@ -4203,7 +4227,7 @@ export default function ChatConversation({
                     setLargeVideoFile(null);
                     fileInputRef.current?.click();
                   }}
-                  className="h-12 rounded-2xl bg-gradient-to-r from-purple-600 to-fuchsia-600 text-sm font-semibold text-white shadow-xl shadow-purple-600/25 transition hover:scale-[1.01]"
+                  className="fc-button-primary h-12 rounded-2xl text-sm font-semibold transition hover:scale-[1.01]"
                 >
                   Choose another
                 </button>
@@ -4225,7 +4249,7 @@ export default function ChatConversation({
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[270] flex items-end justify-center bg-black/[0.62] p-3 backdrop-blur-xl sm:items-center sm:p-6"
+            className="fixed inset-0 z-[270] flex items-end justify-center bg-[var(--fc-overlay)] p-3 backdrop-blur-xl sm:items-center sm:p-6"
           >
             <motion.div
               initial={{
@@ -4248,23 +4272,23 @@ export default function ChatConversation({
                 stiffness: 320,
                 damping: 30,
               }}
-              className="w-full max-w-md overflow-hidden rounded-[30px] border border-white/10 bg-[#0B111C]/[0.96] text-white shadow-[0_28px_90px_rgba(0,0,0,0.62)] backdrop-blur-3xl"
+              className="fc-modal w-full max-w-md overflow-hidden rounded-[30px] border backdrop-blur-3xl"
             >
-              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+              <div className="flex items-center justify-between border-b border-[var(--fc-app-border)] px-5 py-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 to-fuchsia-600 shadow-lg shadow-purple-600/25">
+                  <div className="fc-brand-gradient flex h-11 w-11 items-center justify-center rounded-2xl shadow-lg">
                     <Sparkles size={19} />
                   </div>
                   <div>
                     <h2 className="font-semibold">FlexChat AI</h2>
-                    <p className="text-xs text-zinc-500">Local assistant</p>
+                    <p className="fc-subtle text-xs">Local assistant</p>
                   </div>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setAiOpen(false)}
-                  className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white transition hover:bg-white/[0.08]"
+                  className="fc-surface fc-hover flex h-10 w-10 items-center justify-center rounded-2xl border transition"
                   aria-label="Close AI assistant"
                 >
                   <X size={18} />
@@ -4272,8 +4296,8 @@ export default function ChatConversation({
               </div>
 
               <div className="space-y-4 p-5">
-                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-                  <p className="text-sm font-medium text-white">
+                <div className="fc-surface rounded-3xl border p-4">
+                  <p className="text-sm font-medium text-[var(--fc-theme-text)]">
                     {getTimeAwareGreeting(user?.username)}
                   </p>
                 </div>
@@ -4293,7 +4317,7 @@ export default function ChatConversation({
                           }),
                         );
                       }}
-                      className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-left text-sm text-zinc-200 transition hover:border-purple-300/25 hover:bg-purple-500/10 hover:text-white"
+                      className="fc-surface fc-hover rounded-2xl border px-4 py-3 text-left text-sm text-[var(--fc-text-muted)] transition hover:border-[rgba(var(--fc-primary-rgb),0.25)] hover:text-[var(--fc-theme-text)]"
                     >
                       {suggestion}
                     </button>
@@ -4307,20 +4331,20 @@ export default function ChatConversation({
                   }
                   rows={5}
                   placeholder="Ask for a summary, rewrite, or reply idea..."
-                  className="w-full resize-none rounded-3xl border border-white/10 bg-white/[0.04] px-4 py-4 text-sm leading-relaxed text-white outline-none transition placeholder:text-zinc-500 focus:border-purple-300/40 focus:bg-white/[0.06]"
+                  className="fc-input w-full resize-none rounded-3xl border px-4 py-4 text-sm leading-relaxed outline-none transition"
                 />
 
                 <button
                   type="button"
                   onClick={handleAskAi}
-                  className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-fuchsia-600 text-sm font-semibold text-white shadow-xl shadow-purple-600/25 transition hover:scale-[1.01]"
+                  className="fc-button-primary flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-semibold transition hover:scale-[1.01]"
                 >
                   <Sparkles size={18} />
                   Ask AI
                 </button>
 
                 {aiResponse ? (
-                  <div className="rounded-3xl border border-purple-300/15 bg-purple-500/[0.10] p-4 text-sm leading-relaxed text-purple-50">
+                  <div className="fc-button-soft rounded-3xl border p-4 text-sm leading-relaxed">
                     {aiResponse}
                   </div>
                 ) : null}

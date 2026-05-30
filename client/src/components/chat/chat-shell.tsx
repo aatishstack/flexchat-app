@@ -47,7 +47,7 @@ export default function ChatShell({
   }
 
   return (
-    <main className="flex h-full min-h-0 w-full overflow-hidden bg-transparent text-white">
+    <main className="flex h-full min-h-0 w-full overflow-hidden bg-transparent text-[var(--fc-theme-text)]">
       <div
         className={`h-full w-full shrink-0 lg:flex lg:w-auto ${
           activeConversationId
@@ -65,11 +65,11 @@ export default function ChatShell({
             : "hidden lg:flex"
         }`}
       >
-        <div className="flex min-h-16 shrink-0 items-center border-b border-[var(--fc-app-border)] bg-[var(--fc-app-panel)] px-4 pt-[env(safe-area-inset-top)] shadow-lg shadow-black/20 backdrop-blur-2xl sm:px-5 lg:hidden">
+        <div className="fc-panel flex min-h-16 shrink-0 items-center border-b px-4 pt-[env(safe-area-inset-top)] shadow-lg backdrop-blur-2xl sm:px-5 lg:hidden">
           <button
             type="button"
             onClick={returnToConversationList}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]"
+            className="fc-surface fc-hover flex h-11 w-11 items-center justify-center rounded-2xl border"
             aria-label="Back to conversations"
           >
             <ChevronLeft size={20} />

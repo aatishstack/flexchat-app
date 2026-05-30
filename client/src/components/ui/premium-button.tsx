@@ -30,7 +30,7 @@ export default function PremiumButton({
       <button
         {...props}
         className={cn(
-          "flex h-14 w-full items-center justify-center rounded-2xl bg-purple-600 font-medium text-white shadow-xl shadow-purple-600/20 transition-all duration-300 hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-70",
+          "fc-button-primary flex h-14 w-full items-center justify-center rounded-2xl font-medium transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-70",
           className
         )}
       >

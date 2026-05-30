@@ -279,26 +279,26 @@ const ConversationListButton = memo(
         }}
         className={`group flex min-h-[76px] w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition-all ${
           active
-            ? "border-[#2481CC]/30 bg-[#2481CC]/[0.12]"
-            : "border-transparent hover:bg-white/[0.045]"
+            ? "fc-active"
+            : "border-transparent hover:bg-[var(--fc-app-surface-hover)]"
         }`}
       >
         <div className="relative">
           <FlexAvatar
             src={avatar}
             name={conversation.name}
-            className="flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full bg-[#1F2D3A] text-lg font-bold text-white"
+            className="fc-avatar flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full text-lg font-bold"
           />
 
           {isOnline ? (
-            <div className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[#07111B] bg-green-500" />
+            <div className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[var(--fc-app-panel)] bg-[var(--fc-success)]" />
           ) : null}
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
-              <h3 className="truncate font-semibold text-white">
+              <h3 className="truncate font-semibold text-[var(--fc-theme-text)]">
                 {formatDisplayName(
                   conversation.name ||
                     "Untitled"
@@ -308,19 +308,19 @@ const ConversationListButton = memo(
               {conversation.pinned ? (
                 <Pin
                   size={13}
-                  className="shrink-0 text-[#4BA3E3]"
+                  className="shrink-0 text-[var(--fc-accent-text)]"
                 />
               ) : null}
 
               {muted ? (
                 <BellOff
                   size={13}
-                  className="shrink-0 text-zinc-500"
+                  className="shrink-0 text-[var(--fc-text-subtle)]"
                 />
               ) : null}
             </div>
 
-            <span className="shrink-0 text-[11px] text-zinc-500">
+            <span className="fc-subtle shrink-0 text-[11px]">
               {formatConversationTime(
                 conversation.lastActivityAt ??
                   conversation.createdAt,
@@ -330,13 +330,13 @@ const ConversationListButton = memo(
           </div>
 
           <div className="mt-1 flex items-center justify-between gap-3">
-            <p className="truncate text-sm text-zinc-400">
+            <p className="fc-muted truncate text-sm">
               {conversation.latestMessage ||
                 "No messages yet"}
             </p>
 
             {conversation.unreadCount ? (
-              <div className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#2481CC] px-1.5 text-[10px] font-bold text-white">
+              <div className="fc-badge flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold">
                 {conversation.unreadCount}
               </div>
             ) : null}
@@ -748,19 +748,19 @@ export default function ChatSidebar() {
   ]);
 
   return (
-    <aside className="flex h-full w-full border-r border-[var(--fc-app-border)] bg-[#07111B]/95 backdrop-blur-xl lg:w-[360px]">
+    <aside className="fc-panel flex h-full w-full border-r backdrop-blur-xl lg:w-[360px]">
       <div className="flex w-full flex-col">
-        <div className="relative border-b border-white/10 bg-[#07111B] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+        <div className="fc-panel-strong relative border-b px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#2481CC] text-white">
+              <div className="fc-button-primary flex h-10 w-10 items-center justify-center rounded-2xl">
                 <MessageCircle
                   size={20}
                 />
               </div>
 
               <div>
-                <h1 className="text-lg font-semibold text-white">
+                <h1 className="text-lg font-semibold text-[var(--fc-theme-text)]">
                   FlexChat
                 </h1>
               </div>
@@ -772,7 +772,7 @@ export default function ChatSidebar() {
                 onClick={() =>
                   setSearchOpen((open) => !open)
                 }
-                className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-300 transition hover:bg-white/[0.07] hover:text-white"
+                className="fc-hover flex h-10 w-10 items-center justify-center rounded-full text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
                 aria-label="Search conversations"
               >
                 <Search size={19} />
@@ -783,7 +783,7 @@ export default function ChatSidebar() {
                 onClick={() =>
                   setSideMenuOpen((open) => !open)
                 }
-                className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-300 transition hover:bg-white/[0.07] hover:text-white"
+                className="fc-hover flex h-10 w-10 items-center justify-center rounded-full text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
                 aria-label="Open menu"
               >
                 <MoreVertical size={20} />
@@ -792,7 +792,7 @@ export default function ChatSidebar() {
               <button
                 type="button"
                 onClick={() => setLogoutConfirmOpen(true)}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-300 transition hover:bg-red-500/[0.12] hover:text-red-100"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--fc-text-muted)] transition hover:bg-red-500/[0.12] hover:text-red-100"
                 aria-label="Logout"
               >
                 <LogOut size={18} />
@@ -816,12 +816,12 @@ export default function ChatSidebar() {
                     transition={{
                       duration: 0.16,
                     }}
-                    className="absolute right-0 top-12 z-30 w-52 overflow-hidden rounded-2xl border border-white/10 bg-[#0B1520]/95 p-1 shadow-lg shadow-black/25 backdrop-blur-xl"
+                    className="fc-modal absolute right-0 top-12 z-30 w-52 overflow-hidden rounded-2xl border p-1 backdrop-blur-xl"
                   >
                     <Link
                       href="/profile"
                       onClick={() => setSideMenuOpen(false)}
-                      className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-200 transition hover:bg-white/[0.07] hover:text-white"
+                      className="fc-hover flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
                     >
                       <UserRound size={17} />
                       Profile
@@ -830,7 +830,7 @@ export default function ChatSidebar() {
                     <Link
                       href="/settings"
                       onClick={() => setSideMenuOpen(false)}
-                      className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-200 transition hover:bg-white/[0.07] hover:text-white"
+                      className="fc-hover flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
                     >
                       <Settings size={17} />
                       Settings
@@ -885,7 +885,7 @@ export default function ChatSidebar() {
                       setSearch(event.target.value)
                     }
                     placeholder="Search conversations..."
-                    className="h-11 w-full rounded-2xl border border-white/10 bg-white/[0.045] pl-11 pr-4 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#2481CC]/50 focus:bg-white/[0.07]"
+                    className="fc-input h-11 w-full rounded-2xl border pl-11 pr-4 text-sm outline-none"
                   />
                 </div>
               </motion.div>
@@ -907,13 +907,13 @@ export default function ChatSidebar() {
                 className={`relative overflow-hidden rounded-2xl px-4 py-2 text-sm font-medium capitalize transition-all ${
                   activeFolder === folder
                     ? "text-white"
-                    : "bg-white/[0.035] text-zinc-400 hover:bg-white/[0.07]"
+                    : "fc-surface text-[var(--fc-text-muted)] hover:bg-[var(--fc-app-surface-hover)]"
                 }`}
               >
                 {activeFolder === folder ? (
                   <motion.span
                     layoutId="sidebar-folder-active"
-                    className="absolute inset-0 rounded-2xl bg-[#2481CC]"
+                    className="absolute inset-0 rounded-2xl bg-[var(--fc-primary)]"
                     transition={{
                       type: "spring",
                       stiffness: 360,
@@ -939,7 +939,7 @@ export default function ChatSidebar() {
               }).map((_, index) => (
                 <div
                   key={index}
-                  className="h-[88px] animate-pulse rounded-2xl bg-white/[0.04]"
+                  className="fc-skeleton h-[88px] animate-pulse rounded-2xl"
                 />
               ))}
             </div>
@@ -994,7 +994,7 @@ export default function ChatSidebar() {
               disabled={
                 conversationsQuery.isFetchingNextPage
               }
-              className="mt-3 w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-medium text-zinc-300 transition hover:border-[#2481CC]/35 hover:bg-[#2481CC]/10 hover:text-white disabled:cursor-wait disabled:opacity-60"
+              className="fc-surface fc-hover mt-3 w-full rounded-2xl border px-4 py-3 text-sm font-medium text-[var(--fc-text-muted)] transition hover:border-[rgba(var(--fc-primary-rgb),0.35)] hover:text-[var(--fc-theme-text)] disabled:cursor-wait disabled:opacity-60"
             >
               {conversationsQuery.isFetchingNextPage
                 ? "Loading..."
@@ -1016,7 +1016,7 @@ export default function ChatSidebar() {
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[270] flex items-end justify-center bg-black/65 p-3 backdrop-blur-xl sm:items-center"
+            className="fixed inset-0 z-[270] flex items-end justify-center bg-[var(--fc-overlay)] p-3 backdrop-blur-xl sm:items-center"
             onClick={
               closeConversationActions
             }
@@ -1042,12 +1042,12 @@ export default function ChatSidebar() {
                 stiffness: 280,
                 damping: 30,
               }}
-              className="w-full max-w-sm overflow-hidden rounded-2xl border border-white/10 bg-[#0B111C]/[0.97] text-white shadow-lg shadow-black/30"
+              className="fc-modal w-full max-w-sm overflow-hidden rounded-2xl border"
               onClick={(event) =>
                 event.stopPropagation()
               }
             >
-              <div className="flex items-center justify-between border-b border-white/10 p-5">
+              <div className="flex items-center justify-between border-b border-[var(--fc-app-border)] p-5">
                 <div className="min-w-0">
                   <h2 className="truncate font-semibold">
                     {formatDisplayName(
@@ -1055,7 +1055,7 @@ export default function ChatSidebar() {
                         "Untitled"
                     )}
                   </h2>
-                  <p className="mt-1 truncate text-xs text-zinc-500">
+                  <p className="fc-subtle mt-1 truncate text-xs">
                     {actionConversation.latestMessage ??
                       "No messages yet"}
                   </p>
@@ -1066,7 +1066,7 @@ export default function ChatSidebar() {
                   onClick={
                     closeConversationActions
                   }
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] transition hover:bg-white/[0.08]"
+                  className="fc-surface fc-hover flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition"
                   aria-label="Close conversation actions"
                 >
                   <X size={17} />
@@ -1077,11 +1077,11 @@ export default function ChatSidebar() {
                 <button
                   type="button"
                   onClick={handleToggleBlock}
-                  className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-zinc-100 transition hover:bg-white/[0.07]"
+                  className="fc-hover flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--fc-theme-text)] transition"
                 >
                   <Ban
                     size={18}
-                    className="text-[#9BD0FF]"
+                    className="text-[var(--fc-accent-text)]"
                   />
                   {blockedConversationIds.has(
                     actionConversation.id
@@ -1108,11 +1108,11 @@ export default function ChatSidebar() {
                 <button
                   type="button"
                   onClick={handleToggleMute}
-                  className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-zinc-100 transition hover:bg-white/[0.07]"
+                  className="fc-hover flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--fc-theme-text)] transition"
                 >
                   <BellOff
                     size={18}
-                    className="text-[#9BD0FF]"
+                    className="text-[var(--fc-accent-text)]"
                   />
                   {mutedConversationIds.has(
                     actionConversation.id
@@ -1148,7 +1148,7 @@ export default function ChatSidebar() {
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[280] flex items-center justify-center bg-black/70 p-4 backdrop-blur-xl"
+            className="fixed inset-0 z-[280] flex items-center justify-center bg-[var(--fc-overlay-strong)] p-4 backdrop-blur-xl"
           >
             <motion.div
               initial={{
@@ -1171,7 +1171,7 @@ export default function ChatSidebar() {
                 stiffness: 260,
                 damping: 28,
               }}
-              className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0B111C]/[0.96] p-5 text-white shadow-lg shadow-black/30 backdrop-blur-3xl"
+              className="fc-modal w-full max-w-sm rounded-2xl border p-5 backdrop-blur-3xl"
             >
               <div className="flex items-start gap-4">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/[0.15] text-red-100">
@@ -1182,7 +1182,7 @@ export default function ChatSidebar() {
                   <h2 className="text-lg font-semibold">
                     Log out?
                   </h2>
-                  <p className="mt-1 text-sm leading-relaxed text-zinc-400">
+                  <p className="fc-muted mt-1 text-sm leading-relaxed">
                     Your session will end on this device. Realtime sync resumes after you sign in again.
                   </p>
                 </div>
@@ -1194,7 +1194,7 @@ export default function ChatSidebar() {
                   onClick={() =>
                     setLogoutConfirmOpen(false)
                   }
-                  className="h-12 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08]"
+                  className="fc-surface fc-hover h-12 rounded-2xl border text-sm font-medium text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
                 >
                   Cancel
                 </button>

@@ -29,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="bg-[var(--fc-chat-bg)] text-[var(--fc-theme-text)] antialiased">
+      <body className="fc-theme-transition bg-[var(--fc-app-bg)] text-[var(--fc-theme-text)] antialiased">
         <QueryProvider>
           <ServerTimeProvider>
             <SocketProvider>

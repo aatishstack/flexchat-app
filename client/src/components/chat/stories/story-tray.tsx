@@ -43,6 +43,7 @@ import {
   uploadImage,
 } from "@/services/upload.service";
 import { useToastStore } from "@/store/toast-store";
+import { useThemeStore } from "@/store/theme-store";
 import { useAuthStore } from "@/stores/auth.store";
 import { getServerNow } from "@/lib/server-time";
 import type { Story } from "@/types/story";
@@ -114,8 +115,8 @@ type StoryDraft = {
 
 const TEXT_STORY_MEDIA_URL = "flexchat://story/text";
 const MUTED_STORY_USERS_KEY = "flexchat:muted-story-users";
-const STORY_TEXT_COLORS = ["#ffffff", "#fbbf24", "#60a5fa", "#fb7185", "#34d399"];
-const STORY_BACKGROUND_COLORS = ["#17212B", "#0F766E", "#1D4ED8", "#7F1D1D", "#111827"];
+const FALLBACK_STORY_TEXT_COLORS = ["#ffffff", "#fff2bd", "#8eb0ff", "#fb7185", "#34d399"];
+const FALLBACK_STORY_BACKGROUND_COLORS = ["#285ccc", "#fff2bd", "#07111b", "#0f766e", "#7f1d1d"];
 const STORY_STICKERS = ["WOW", "YES", "LIVE", "MOOD", "FLEX"];
 const STORY_IMAGE_EXTENSIONS = ["avif", "gif", "heic", "heif", "jpg", "jpeg", "png", "webp"];
 const STORY_VIDEO_EXTENSIONS = ["mov", "mp4", "m4v", "3gp", "3gpp", "3g2", "3gpp2", "webm"];
@@ -132,6 +133,39 @@ const DEFAULT_STORY_TEXT_OVERLAY: StoryTextOverlay = {
   fontSize: 34,
   fontFamily: "Inter",
 };
+
+function readThemeValue(token: string, fallback: string) {
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+
+  const value = window
+    .getComputedStyle(document.documentElement)
+    .getPropertyValue(token)
+    .trim();
+
+  return value || fallback;
+}
+
+function getStoryTextColors() {
+  return [
+    "#ffffff",
+    readThemeValue("--fc-accent", FALLBACK_STORY_TEXT_COLORS[1]),
+    readThemeValue("--fc-accent-text", FALLBACK_STORY_TEXT_COLORS[2]),
+    "#fb7185",
+    "#34d399",
+  ];
+}
+
+function getStoryBackgroundColors() {
+  return [
+    readThemeValue("--fc-primary", FALLBACK_STORY_BACKGROUND_COLORS[0]),
+    readThemeValue("--fc-accent", FALLBACK_STORY_BACKGROUND_COLORS[1]),
+    readThemeValue("--flexchat-bg", FALLBACK_STORY_BACKGROUND_COLORS[2]),
+    "#0f766e",
+    "#7f1d1d",
+  ];
+}
 
 function readMutedStoryUserIds() {
   if (typeof window === "undefined") {

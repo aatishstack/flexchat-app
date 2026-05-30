@@ -113,19 +113,19 @@ export default function ActivityBar() {
           1,
         ],
       }}
-      className="pointer-events-none fixed left-1/2 top-[calc(0.75rem+env(safe-area-inset-top))] z-[130] flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-[#0B111C]/90 px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-xl sm:gap-4 sm:px-6"
+      className="fc-modal pointer-events-none fixed left-1/2 top-[calc(0.75rem+env(safe-area-inset-top))] z-[130] flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2 items-center gap-3 rounded-full border px-4 py-3 backdrop-blur-xl sm:gap-4 sm:px-6"
     >
       <div
         className={`h-3 w-3 rounded-full shadow-lg motion-safe:animate-pulse ${status.dot}`}
       />
 
-      <p className="text-sm font-medium text-white">
+      <p className="text-sm font-medium text-[var(--fc-theme-text)]">
         {status.label}
       </p>
 
-      <div className="hidden h-5 w-px bg-white/10 sm:block" />
+      <div className="hidden h-5 w-px bg-[var(--fc-divider)] sm:block" />
 
-      <p className="hidden max-w-[320px] truncate text-sm text-zinc-400 sm:block">
+      <p className="fc-muted hidden max-w-[320px] truncate text-sm sm:block">
         {status.detail}
       </p>
     </motion.div>
