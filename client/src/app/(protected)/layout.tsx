@@ -2,6 +2,7 @@
 
 import { useAppLifecycle } from "@/hooks/use-app-lifecycle";
 import AppNavigation from "@/components/navigation/app-navigation";
+import PhoneOnboardingGate from "@/components/onboarding/phone-onboarding-gate";
 
 export default function ProtectedLayout({
   children,
@@ -16,6 +17,7 @@ export default function ProtectedLayout({
       <div className="min-h-dvh lg:pl-[72px]">
         {children}
       </div>
+      <PhoneOnboardingGate />
     </div>
   );
 }

@@ -56,13 +56,14 @@ function profileStorageKey(userId: string) {
 
 function createDefaultProfile(
   username: string,
-  avatar?: string | null
+  avatar?: string | null,
+  phoneNumber?: string | null
 ): ProfileDetails {
   return {
     displayName: username,
     about:
       "Hey there! I am using FlexChat.",
-    phone: "",
+    phone: phoneNumber ?? "",
     avatar: avatar ?? null,
   };
 }
@@ -71,11 +72,13 @@ function readStoredProfile(user: {
   id: string;
   username: string;
   avatar?: string | null;
+  phoneNumber?: string | null;
 }) {
   const fallback =
     createDefaultProfile(
       user.username,
-      user.avatar
+      user.avatar,
+      user.phoneNumber
     );
 
   if (typeof window === "undefined") {
@@ -100,6 +103,7 @@ function readStoredProfile(user: {
       ...parsedProfile,
       displayName: user.username,
       avatar: user.avatar ?? null,
+      phone: user.phoneNumber ?? parsedProfile.phone ?? fallback.phone,
     };
   } catch {
     return fallback;
@@ -235,12 +239,21 @@ export default function ProfilePage() {
         const shouldUpdateServer =
           displayName !== user.username ||
           avatarUrl !==
-            (user.avatar ?? null);
+            (user.avatar ?? null) ||
+          (!user.phoneNumber &&
+            !!draft.phone.trim());
         const serverUser =
           shouldUpdateServer
             ? await updateCurrentUser({
                 username: displayName,
                 avatar: avatarUrl,
+                ...(!user.phoneNumber &&
+                draft.phone.trim()
+                  ? {
+                      phoneNumber:
+                        draft.phone.trim(),
+                    }
+                  : {}),
               })
             : user;
 
@@ -262,6 +275,7 @@ export default function ProfilePage() {
           about:
             draft.about.trim(),
           phone:
+            authoritativeUser.phoneNumber ??
             draft.phone.trim(),
         };
 
@@ -483,6 +497,7 @@ export default function ProfilePage() {
                 icon: Phone,
                 label: "Phone",
                 value:
+                  user.phoneNumber ||
                   profile.phone ||
                   "Not added",
               },
@@ -765,10 +780,10 @@ export default function ProfilePage() {
                   </label>
                   <input
                     id="profile-phone"
-                    value={draft.phone}
-                    onChange={(event) =>
-                      setDraft({
-                        ...draft,
+                  value={draft.phone}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
                         phone:
                           event.target.value.slice(
                             0,
@@ -776,9 +791,15 @@ export default function ProfilePage() {
                           ),
                       })
                     }
+                    disabled={Boolean(user.phoneNumber)}
                     className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none transition focus:border-[#2481CC]/55 focus:bg-white/[0.07]"
-                    placeholder="+1 555 0100"
+                    placeholder="+91 98765 43210"
                   />
+                  {user.phoneNumber ? (
+                    <p className="text-xs leading-relaxed text-zinc-500">
+                      Changing your mobile number will require OTP verification in a future update.
+                    </p>
+                  ) : null}
                 </div>
               </div>
 

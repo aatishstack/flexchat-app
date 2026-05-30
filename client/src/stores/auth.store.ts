@@ -11,6 +11,8 @@ interface User {
 
   avatar?: string | null;
 
+  phoneNumber?: string | null;
+
   createdAt?: string | null;
 }
 

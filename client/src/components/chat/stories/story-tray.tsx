@@ -14,13 +14,16 @@ import {
   AlignLeft,
   AlignRight,
   AlertCircle,
+  BellOff,
   Check,
+  Eye,
   Image as ImageIcon,
   Loader2,
   Palette,
   PenLine,
   Plus,
   RefreshCw,
+  RotateCcw,
   Smile,
   Trash2,
   Type,
@@ -100,6 +103,8 @@ type StoryDrawStroke = {
   color: string;
   points: StoryDrawPoint[];
 };
+
+type DraftElementKind = "text" | "sticker" | "draw";
 
 type StoryDraft = {
   file?: File;
@@ -568,7 +573,10 @@ async function renderTextStoryFile(
 export default function StoryTray() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const storyCanvasRef = useRef<HTMLDivElement | null>(null);
+  const deleteZoneRef = useRef<HTMLDivElement | null>(null);
   const drawingPointerIdRef = useRef<number | null>(null);
+  const dragHoldTimerRef = useRef<number | null>(null);
+  const deleteHoverRef = useRef(false);
   const [viewerGroupIndex, setViewerGroupIndex] = useState<number | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [failedStoryUpload, setFailedStoryUpload] =
@@ -580,10 +588,16 @@ export default function StoryTray() {
   const [overlayDragging, setOverlayDragging] = useState(false);
   const [stickerDragging, setStickerDragging] = useState(false);
   const [selectedDraftElement, setSelectedDraftElement] =
-    useState<"text" | "sticker" | "draw" | null>(null);
+    useState<DraftElementKind | null>(null);
+  const [dragDeleteState, setDragDeleteState] = useState<{
+    kind: DraftElementKind;
+    active: boolean;
+    overDelete: boolean;
+  } | null>(null);
   const [mutedStoryUserIds, setMutedStoryUserIds] = useState<Set<string>>(
     readMutedStoryUserIds,
   );
+  const [mutedStoriesOpen, setMutedStoriesOpen] = useState(false);
   const [expiryCheckAt, setExpiryCheckAt] =
     useState(0);
   const reducedMotion = useReducedMotion();
@@ -602,31 +616,47 @@ export default function StoryTray() {
     [themeId],
   );
 
-  const storyGroups = useMemo(
+  const allStoryGroups = useMemo(
     () =>
       groupStories(
         storiesQuery.data ?? [],
         currentUserId,
         Math.max(expiryCheckAt, getServerNow()),
-      ).filter(
-        (group) =>
-          group.userId === currentUserId || !mutedStoryUserIds.has(group.userId),
       ),
-    [currentUserId, expiryCheckAt, mutedStoryUserIds, storiesQuery.data],
+    [currentUserId, expiryCheckAt, storiesQuery.data],
+  );
+
+  const storyGroups = useMemo(
+    () =>
+      allStoryGroups.filter(
+        (group) =>
+          group.userId === currentUserId ||
+          !mutedStoryUserIds.has(group.userId),
+      ),
+    [allStoryGroups, currentUserId, mutedStoryUserIds],
   );
 
   const currentUserStoryGroupIndex = useMemo(
     () =>
-      storyGroups.findIndex((group) => group.userId === currentUserId),
-    [currentUserId, storyGroups],
+      allStoryGroups.findIndex((group) => group.userId === currentUserId),
+    [allStoryGroups, currentUserId],
   );
   const currentUserStoryGroup =
     currentUserStoryGroupIndex >= 0
-      ? storyGroups[currentUserStoryGroupIndex]
+      ? allStoryGroups[currentUserStoryGroupIndex]
       : null;
   const visibleStoryGroups = useMemo(
     () => storyGroups.filter((group) => group.userId !== currentUserId),
     [currentUserId, storyGroups],
+  );
+  const mutedStoryGroups = useMemo(
+    () =>
+      allStoryGroups.filter(
+        (group) =>
+          group.userId !== currentUserId &&
+          mutedStoryUserIds.has(group.userId),
+      ),
+    [allStoryGroups, currentUserId, mutedStoryUserIds],
   );
 
   useEffect(() => {
@@ -1013,6 +1043,135 @@ export default function StoryTray() {
     );
   }
 
+  function clearDragHoldTimer() {
+    if (!dragHoldTimerRef.current) {
+      return;
+    }
+
+    window.clearTimeout(dragHoldTimerRef.current);
+    dragHoldTimerRef.current = null;
+  }
+
+  function isInsideDeleteZone(clientX: number, clientY: number) {
+    const zone = deleteZoneRef.current?.getBoundingClientRect();
+
+    if (!zone) {
+      return false;
+    }
+
+    const magneticPadding = 28;
+
+    return (
+      clientX >= zone.left - magneticPadding &&
+      clientX <= zone.right + magneticPadding &&
+      clientY >= zone.top - magneticPadding &&
+      clientY <= zone.bottom + magneticPadding
+    );
+  }
+
+  function vibrateDeleteHover() {
+    if (deleteHoverRef.current) {
+      return;
+    }
+
+    deleteHoverRef.current = true;
+    navigator.vibrate?.(12);
+  }
+
+  function startDraftElementDrag(kind: DraftElementKind) {
+    clearDragHoldTimer();
+    deleteHoverRef.current = false;
+    setSelectedDraftElement(kind);
+    setDragDeleteState({
+      kind,
+      active: false,
+      overDelete: false,
+    });
+
+    dragHoldTimerRef.current = window.setTimeout(() => {
+      setDragDeleteState((current) =>
+        current?.kind === kind
+          ? {
+              ...current,
+              active: true,
+            }
+          : current,
+      );
+    }, 160);
+  }
+
+  function updateDraftElementDrag(
+    kind: DraftElementKind,
+    clientX: number,
+    clientY: number,
+  ) {
+    setDragDeleteState((current) => {
+      if (!current || current.kind !== kind) {
+        return current;
+      }
+
+      const overDelete =
+        current.active && isInsideDeleteZone(clientX, clientY);
+
+      if (overDelete) {
+        vibrateDeleteHover();
+      } else {
+        deleteHoverRef.current = false;
+      }
+
+      return {
+        ...current,
+        overDelete,
+      };
+    });
+  }
+
+  function deleteDraftElement(kind: DraftElementKind | null) {
+    setStoryDraft((draft) => {
+      if (!draft || !kind) {
+        return draft;
+      }
+
+      if (kind === "sticker") {
+        return {
+          ...draft,
+          sticker: undefined,
+        };
+      }
+
+      if (kind === "draw") {
+        return {
+          ...draft,
+          drawStrokes: undefined,
+          drawingMode: false,
+        };
+      }
+
+      return {
+        ...draft,
+        textOverlay: undefined,
+      };
+    });
+    setTextOverlayEditorOpen(false);
+    setSelectedDraftElement(null);
+  }
+
+  function finishDraftElementDrag(
+    kind: DraftElementKind,
+    clientX: number,
+    clientY: number,
+  ) {
+    clearDragHoldTimer();
+
+    if (isInsideDeleteZone(clientX, clientY)) {
+      deleteDraftElement(kind);
+      navigator.vibrate?.([16, 20, 16]);
+    }
+
+    deleteHoverRef.current = false;
+    setDragDeleteState(null);
+  }
+
   function addOrCycleSticker() {
     setStoryDraft((draft) => {
       if (!draft || draft.mediaType === "video") {
@@ -1377,8 +1536,33 @@ export default function StoryTray() {
     setViewerGroupIndex(null);
     pushToast({
       title: "Story muted",
-      message: "Stories from this person are hidden on this device.",
+      message: "Stories from this person moved to Muted.",
       variant: "info",
+    });
+  }
+
+  function unmuteStoryUser(userId: string) {
+    setMutedStoryUserIds((current) => {
+      const next = new Set(current);
+
+      next.delete(userId);
+
+      try {
+        window.localStorage.setItem(
+          MUTED_STORY_USERS_KEY,
+          JSON.stringify(Array.from(next)),
+        );
+      } catch {
+        // Unmuting still applies for the current session.
+      }
+
+      return next;
+    });
+
+    pushToast({
+      title: "Story unmuted",
+      message: "Stories from this person are back in your tray.",
+      variant: "success",
     });
   }
 
@@ -1402,7 +1586,7 @@ export default function StoryTray() {
   }, [storiesQuery.isError, storiesQuery.isSuccess, pushToast]);
 
   const viewerGroup =
-    viewerGroupIndex === null ? null : (storyGroups[viewerGroupIndex] ?? null);
+    viewerGroupIndex === null ? null : (allStoryGroups[viewerGroupIndex] ?? null);
   const myStoryLoading =
     storiesQuery.isLoading && !storiesQuery.data;
 

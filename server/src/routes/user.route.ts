@@ -256,6 +256,17 @@ export async function userRoutes(app: FastifyInstance) {
       }
 
       if (
+        parsedBody.data.phoneNumber !== undefined &&
+        currentUser.phoneNumberNormalized &&
+        nextPhone.phoneNumberNormalized !== currentUser.phoneNumberNormalized
+      ) {
+        return reply.status(409).send({
+          message:
+            "Changing your mobile number will require OTP verification in a future update",
+        });
+      }
+
+      if (
         nextPhone.phoneNumberNormalized &&
         nextPhone.phoneNumberNormalized !== currentUser.phoneNumberNormalized
       ) {

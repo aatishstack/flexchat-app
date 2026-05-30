@@ -16,11 +16,15 @@ const seedUsers = [
     id: "phase3b-user-alice",
     username: "phase3b_alice",
     email: "phase3b.alice@flexchat.local",
+    phoneNumber: "+910000000001",
+    phoneNumberNormalized: "910000000001",
   },
   {
     id: "phase3b-user-bob",
     username: "phase3b_bob",
     email: "phase3b.bob@flexchat.local",
+    phoneNumber: "+910000000002",
+    phoneNumberNormalized: "910000000002",
   },
 ] as const;
 
@@ -41,22 +45,38 @@ async function upsertUser(user: (typeof seedUsers)[number]) {
     .limit(1);
 
   if (existing.length) {
-    await db
-      .update(users)
-      .set({
-        username: user.username,
-        email: user.email,
-        password: hashedPassword,
-      })
-      .where(eq(users.id, user.id));
+    await db.execute(sql`
+      update users
+      set
+        username = ${user.username},
+        email = ${user.email},
+        password = ${hashedPassword},
+        phone_number = ${user.phoneNumber},
+        phone_number_normalized = ${user.phoneNumberNormalized}
+      where id = ${user.id}
+    `);
 
     return;
   }
 
-  await db.insert(users).values({
-    ...user,
-    password: hashedPassword,
-  });
+  await db.execute(sql`
+    insert into users (
+      id,
+      username,
+      email,
+      password,
+      phone_number,
+      phone_number_normalized
+    )
+    values (
+      ${user.id},
+      ${user.username},
+      ${user.email},
+      ${hashedPassword},
+      ${user.phoneNumber},
+      ${user.phoneNumberNormalized}
+    )
+  `);
 }
 
 async function ensureConversation() {

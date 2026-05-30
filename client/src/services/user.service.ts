@@ -7,6 +7,7 @@ export type CurrentUser = {
   username: string;
   email: string;
   avatar?: string | null;
+  phoneNumber?: string | null;
 };
 
 export async function getDiscoverUsers(
@@ -31,6 +32,7 @@ export async function updateCurrentUser(
   data: {
     username?: string;
     avatar?: string | null;
+    phoneNumber?: string | null;
   }
 ) {
   const response =
