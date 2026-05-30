@@ -298,7 +298,7 @@ export default function PhoneOnboardingGate() {
           </div>
 
           <div className="grid grid-cols-[2.5rem_1fr] gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-sm text-zinc-300">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-400/10 text-emerald-200">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#2481CC]/15 text-[#9BD0FF]">
               <ShieldCheck size={18} />
             </div>
             <p className="leading-relaxed">

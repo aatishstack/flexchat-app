@@ -101,18 +101,15 @@ const QUICK_REACTIONS = ["👍", "❤️", "😂", "🔥", "👏", "😮", "😢
 const MESSAGE_TIME_FORMATTER = new Intl.DateTimeFormat("en", {
   hour: "numeric",
   minute: "2-digit",
-  timeZone: "UTC",
 });
 const DATE_DIVIDER_FORMATTER = new Intl.DateTimeFormat("en", {
   month: "short",
   day: "numeric",
-  timeZone: "UTC",
 });
 const DATE_DIVIDER_WITH_YEAR_FORMATTER = new Intl.DateTimeFormat("en", {
   month: "short",
   day: "numeric",
   year: "numeric",
-  timeZone: "UTC",
 });
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -168,13 +165,13 @@ function formatDuration(seconds: number) {
   return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 }
 
-function getUtcDayStart(time: number) {
+function getLocalDayStart(time: number) {
   const date = new Date(time);
 
-  return Date.UTC(
-    date.getUTCFullYear(),
-    date.getUTCMonth(),
-    date.getUTCDate(),
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
   );
 }
 
@@ -190,8 +187,8 @@ function formatDateDivider(createdAt?: string, now = Date.now()) {
   }
 
   const date = new Date(time);
-  const storyDay = getUtcDayStart(time);
-  const today = getUtcDayStart(now);
+  const storyDay = getLocalDayStart(time).getTime();
+  const today = getLocalDayStart(now).getTime();
   const yesterday = today - DAY_MS;
 
   if (storyDay === today) {
@@ -203,10 +200,39 @@ function formatDateDivider(createdAt?: string, now = Date.now()) {
   }
 
   return (
-    date.getUTCFullYear() === new Date(now).getUTCFullYear()
+    date.getFullYear() === new Date(now).getFullYear()
       ? DATE_DIVIDER_FORMATTER
       : DATE_DIVIDER_WITH_YEAR_FORMATTER
   ).format(date);
+}
+
+function shouldFocusComposerAfterEmoji() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.matchMedia("(pointer: fine)").matches;
+}
+
+function hideVirtualKeyboard() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const virtualKeyboard = (
+    navigator as Navigator & {
+      virtualKeyboard?: {
+        hide?: () => void;
+      };
+    }
+  ).virtualKeyboard;
+
+  virtualKeyboard?.hide?.();
+  window.requestAnimationFrame(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  });
 }
 
 function formatLastSeen(serverUtcTimestamp?: number | string | null) {
@@ -275,7 +301,10 @@ function isSameMessageDay(left?: string, right?: string) {
     return false;
   }
 
-  return getUtcDayStart(leftTime) === getUtcDayStart(rightTime);
+  return (
+    getLocalDayStart(leftTime).getTime() ===
+    getLocalDayStart(rightTime).getTime()
+  );
 }
 
 function isImageAttachment(url: string) {
@@ -1320,20 +1349,27 @@ const ChatMessageRow = memo(function ChatMessageRow({
         animate={{
           opacity: 1,
           y: 0,
-          scale: 1,
+          scale: actionsOpen ? 0.992 : 1,
           x: swipeX,
         }}
+        whileTap={
+          reducedMotion || isEditing || actionsOpen
+            ? undefined
+            : {
+                scale: 0.992,
+              }
+        }
         transition={
           swipingReply
             ? { duration: 0 }
             : {
-                duration: reducedMotion ? 0 : 0.3,
-                ease: [0.34, 1.56, 0.64, 1],
+                duration: reducedMotion ? 0 : 0.2,
+                ease: [0.22, 1, 0.36, 1],
               }
         }
-        className={`flex ${grouped ? "mt-1" : "mt-4"} ${
+        className={`fc-telegram-touch flex ${grouped ? "mt-0.5" : "mt-3"} ${
           mine ? "justify-end" : "justify-start"
-        } group/message relative [transition:transform_0.3s_cubic-bezier(0.34,1.56,0.64,1)]`}
+        } group/message relative [transition:transform_0.2s_cubic-bezier(0.22,1,0.36,1)]`}
         onPointerDown={handlePointerDown}
         onPointerUp={clearLongPressTimer}
         onPointerCancel={clearLongPressTimer}
@@ -1367,10 +1403,10 @@ const ChatMessageRow = memo(function ChatMessageRow({
                 }
               : undefined
           }
-          className={`relative max-w-[86%] rounded-[20px] px-4 py-2.5 text-sm text-white sm:max-w-[68%] sm:px-4 sm:py-3 ${
+          className={`fc-message-bubble relative max-w-[84%] rounded-[18px] px-3.5 py-2 text-[15px] text-white sm:max-w-[68%] sm:px-4 sm:py-2.5 ${
             mine
-              ? "rounded-br-md"
-              : "rounded-bl-md border border-[var(--fc-app-border)]"
+              ? "rounded-br-[6px]"
+              : "rounded-bl-[6px] border border-[var(--fc-app-border)]"
           } ${message.status === "failed" ? "ring-1 ring-red-400/35" : ""} ${
             isDeleted
               ? "border border-[var(--fc-app-border)] bg-[var(--fc-app-surface)] text-[var(--fc-text-muted)]"
@@ -1472,7 +1508,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
               </div>
             </div>
           ) : !isDeleted && message.text && !media ? (
-            <p className="whitespace-pre-wrap break-words leading-relaxed">
+            <p className="whitespace-pre-wrap break-words leading-[1.45]">
               {message.text}
             </p>
           ) : null}
@@ -1492,7 +1528,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
 
           {!isEditing ? (
             <div
-              className={`fc-modal absolute top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-2xl border p-1 backdrop-blur-xl transition max-sm:bottom-full max-sm:left-auto max-sm:right-0 max-sm:top-auto max-sm:mb-2 max-sm:translate-y-0 ${
+              className={`fc-modal absolute top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-[18px] border p-1 shadow-[0_14px_44px_rgba(0,0,0,0.34)] backdrop-blur-xl transition max-sm:bottom-full max-sm:left-auto max-sm:right-0 max-sm:top-auto max-sm:mb-2 max-sm:translate-y-0 ${
                 mine ? "right-full mr-2" : "left-full ml-2"
               } ${
                 actionsVisible
@@ -1630,7 +1666,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
             ) : null}
           </AnimatePresence>
 
-          <div className="mt-2 flex items-center justify-end gap-2 text-[11px] text-white/65">
+          <div className="mt-1.5 flex items-center justify-end gap-1.5 text-[10.5px] font-medium text-white/62">
             {message.editedAt && !isDeleted ? <span>edited</span> : null}
             <span>{formatMessageTime(message.createdAt)}</span>
 
@@ -2356,8 +2392,30 @@ export default function ChatConversation() {
 
     handleTyping(nextText);
 
-    window.requestAnimationFrame(() => {
-      textareaRef.current?.focus();
+    if (shouldFocusComposerAfterEmoji()) {
+      window.requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+      });
+    }
+  }
+
+  function toggleEmojiPanel() {
+    if (isConversationBlocked) {
+      return;
+    }
+
+    setEmojiOpen((open) => {
+      const nextOpen = !open;
+
+      if (nextOpen) {
+        hideVirtualKeyboard();
+      } else if (shouldFocusComposerAfterEmoji()) {
+        window.requestAnimationFrame(() => {
+          textareaRef.current?.focus();
+        });
+      }
+
+      return nextOpen;
     });
   }
 
@@ -3271,7 +3329,7 @@ export default function ChatConversation() {
       </div>
 
       <div
-        className="relative z-10 shrink-0 border-t border-[var(--fc-app-border)] bg-[var(--fc-chat-header)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-5 sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
+        className="relative z-10 shrink-0 border-t border-[var(--fc-app-border)] bg-[rgba(9,18,29,0.94)] px-2.5 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur-2xl sm:px-5 sm:py-4 sm:pb-[calc(1rem+env(safe-area-inset-bottom))]"
       >
         {replyingTo ? (
           <div className="fc-button-soft mb-2 flex items-center gap-3 rounded-2xl border p-3 text-sm">
@@ -3356,60 +3414,21 @@ export default function ChatConversation() {
           />
 
           <div
-            className={`fc-input relative min-w-0 flex-1 rounded-[24px] border px-4 py-2.5 transition-colors duration-200 ${
+            className={`fc-input relative min-w-0 flex-1 rounded-[22px] border px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors duration-200 ${
               isConversationBlocked ? "opacity-75" : ""
             }`}
           >
-            <AnimatePresence>
-              {emojiOpen ? (
-                <motion.div
-                  initial={{
-                    opacity: 0,
-                    y: 8,
-                    scale: 0.98,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    y: 0,
-                    scale: 1,
-                  }}
-                  exit={{
-                    opacity: 0,
-                    y: 8,
-                    scale: 0.98,
-                  }}
-                  transition={{
-                    duration: 0.16,
-                  }}
-                  className="fc-modal absolute bottom-[calc(100%+0.75rem)] left-0 z-40 w-[min(350px,calc(100vw-2rem))] overflow-hidden rounded-2xl border"
-                >
-                  <EmojiPicker
-                    theme={
-                      activeTheme.mode === "light"
-                        ? Theme.LIGHT
-                        : Theme.DARK
-                    }
-                    emojiStyle={EmojiStyle.NATIVE}
-                    lazyLoadEmojis
-                    width="100%"
-                    height={360}
-                    previewConfig={{
-                      showPreview: false,
-                    }}
-                    searchDisabled={false}
-                    onEmojiClick={handleEmojiSelect}
-                  />
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-
             <div className="flex items-end gap-1">
               <button
                 type="button"
-                onClick={() => setEmojiOpen((open) => !open)}
+                onClick={toggleEmojiPanel}
                 disabled={isConversationBlocked}
-                className="fc-hover flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--fc-text-subtle)] transition hover:text-[var(--fc-theme-text)] active:scale-95"
-                aria-label="Open emoji picker"
+                className={`fc-telegram-touch fc-hover flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition hover:text-[var(--fc-theme-text)] ${
+                  emojiOpen
+                    ? "bg-[var(--fc-app-surface-active)] text-[var(--fc-accent-text)]"
+                    : "text-[var(--fc-text-subtle)]"
+                }`}
+                aria-label={emojiOpen ? "Close emoji picker" : "Open emoji picker"}
                 aria-expanded={emojiOpen}
               >
                 <SmilePlus size={20} />
@@ -3484,7 +3503,7 @@ export default function ChatConversation() {
                         : "Write a message..."
                     }
                     disabled={isConversationBlocked}
-                    className="max-h-32 min-h-[40px] w-full resize-none overflow-y-auto border-0 bg-transparent py-2.5 text-sm leading-5 text-[var(--fc-theme-text)] shadow-none outline-none ring-0 placeholder:text-[var(--fc-text-subtle)] focus:border-0 focus:outline-none focus:ring-0 focus-visible:shadow-none disabled:cursor-not-allowed sm:min-h-[44px] sm:py-3"
+                    className="max-h-32 min-h-[40px] w-full resize-none overflow-y-auto border-0 bg-transparent py-2.5 text-[15px] leading-5 text-[var(--fc-theme-text)] shadow-none outline-none ring-0 placeholder:text-[var(--fc-text-subtle)] focus:border-0 focus:outline-none focus:ring-0 focus-visible:shadow-none disabled:cursor-not-allowed sm:min-h-[44px] sm:py-3"
                   />
                 )}
               </div>
@@ -3493,7 +3512,7 @@ export default function ChatConversation() {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploadingAttachment || isConversationBlocked}
-                className="fc-hover relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-[var(--fc-text-subtle)] transition hover:text-[var(--fc-theme-text)] active:scale-95 disabled:cursor-wait disabled:opacity-70"
+                className="fc-telegram-touch fc-hover relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-[var(--fc-text-subtle)] transition hover:text-[var(--fc-theme-text)] disabled:cursor-wait disabled:opacity-70"
                 aria-label="Upload attachment"
               >
                 <Paperclip
@@ -3587,7 +3606,7 @@ export default function ChatConversation() {
                   isConversationBlocked ||
                   (!!text.trim() && isRecordingVoice)
                 }
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition-all hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 ${
+                className={`fc-telegram-touch flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition-all hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-45 ${
                   text.trim()
                     ? "fc-button-primary"
                   : isRecordingVoice
@@ -3603,6 +3622,47 @@ export default function ChatConversation() {
             </div>
           </div>
         </div>
+
+        <AnimatePresence initial={false}>
+          {emojiOpen ? (
+            <motion.div
+              initial={{
+                height: 0,
+                opacity: 0,
+              }}
+              animate={{
+                height: 320,
+                opacity: 1,
+              }}
+              exit={{
+                height: 0,
+                opacity: 0,
+              }}
+              transition={{
+                duration: reducedMotion ? 0 : 0.2,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+              className="mt-2 overflow-hidden rounded-[22px] border fc-emoji-panel shadow-[0_18px_60px_rgba(0,0,0,0.22)]"
+            >
+              <EmojiPicker
+                theme={
+                  activeTheme.mode === "light"
+                    ? Theme.LIGHT
+                    : Theme.DARK
+                }
+                emojiStyle={EmojiStyle.NATIVE}
+                lazyLoadEmojis
+                width="100%"
+                height={320}
+                previewConfig={{
+                  showPreview: false,
+                }}
+                searchDisabled={false}
+                onEmojiClick={handleEmojiSelect}
+              />
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </div>
 
       <AnimatePresence>

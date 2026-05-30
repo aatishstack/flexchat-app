@@ -227,7 +227,7 @@ export default function VerifyPage() {
 
         {/* SECURITY */}
         <div className="mt-10 flex items-center justify-center gap-3 rounded-3xl border border-white/10 bg-white/[0.03] px-5 py-4">
-          <ShieldCheck className="h-5 w-5 text-green-400" />
+          <ShieldCheck className="h-5 w-5 text-[#7CC5FF]" />
 
           <span className="text-sm text-white/55">
             End-to-end encrypted verification

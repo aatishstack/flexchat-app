@@ -124,7 +124,7 @@ function ToggleSwitch({
       aria-checked={checked}
       aria-label={label}
       onClick={onChange}
-      className={`relative h-8 w-14 shrink-0 rounded-full border p-1 transition-all duration-200 ${
+      className={`relative h-7 w-12 shrink-0 rounded-full border p-1 transition-all duration-200 ${
         checked
           ? "border-[#2481CC]/40 bg-[#2481CC]"
           : "border-white/10 bg-white/[0.06]"
@@ -137,9 +137,9 @@ function ToggleSwitch({
           stiffness: 420,
           damping: 30,
         }}
-        className={`absolute top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#121624] shadow-lg ${
+        className={`absolute top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[#121624] shadow-lg ${
           checked
-            ? "left-7"
+            ? "left-6"
             : "left-1"
         }`}
       >
@@ -165,16 +165,16 @@ function SettingRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="flex items-center gap-4 border-b border-white/10 px-4 py-4 last:border-b-0">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2481CC]/12 text-[#7CC5FF]">
-        <Icon size={19} />
+    <div className="flex items-center gap-3 border-b border-white/[0.07] px-4 py-3.5 last:border-b-0">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#2481CC]/13 text-[#7CC5FF]">
+        <Icon size={18} />
       </div>
 
       <div className="min-w-0 flex-1">
-        <h3 className="text-sm font-semibold text-white">
+        <h3 className="text-[15px] font-semibold text-white">
           {title}
         </h3>
-        <p className="mt-1 text-xs leading-relaxed text-zinc-400">
+        <p className="mt-0.5 text-xs leading-snug text-zinc-500">
           {detail}
         </p>
       </div>
@@ -197,10 +197,10 @@ function Section({
 }) {
   return (
     <section>
-      <h2 className="mb-2 px-1 text-xs font-semibold uppercase text-zinc-500">
+      <h2 className="mb-2 px-2 text-[13px] font-semibold text-[#7CC5FF]">
         {title}
       </h2>
-      <div className="overflow-hidden rounded-2xl border border-[var(--fc-app-border)] bg-[#0B1520]/90">
+      <div className="overflow-hidden rounded-[20px] border border-[var(--fc-app-border)] bg-[#111d2a]/88 shadow-[0_16px_44px_rgba(0,0,0,0.18)]">
         {children}
       </div>
     </section>
@@ -437,19 +437,19 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="modal-safe-scroll h-dvh min-h-svh overflow-y-auto bg-[var(--fc-app-bg)] px-4 py-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 sm:py-8">
-      <section className="mx-auto flex min-h-[calc(100dvh-3rem)] max-w-4xl flex-col">
-        <div className="mb-5 flex items-center justify-between gap-3">
+    <main className="modal-safe-scroll h-dvh min-h-svh overflow-y-auto bg-[#07111B] px-3 py-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 sm:py-7">
+      <section className="mx-auto flex min-h-[calc(100dvh-2rem)] max-w-2xl flex-col">
+        <div className="mb-4 flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={() => router.replace("/chat")}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-zinc-200 shadow-lg shadow-black/20 backdrop-blur-xl transition hover:bg-white/[0.09]"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-200 transition hover:bg-white/[0.08] active:scale-95"
             aria-label="Back to chat"
           >
             <ArrowLeft size={19} />
           </button>
 
-          <div className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs text-zinc-300 backdrop-blur-xl">
+          <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-400 backdrop-blur-xl">
             FlexChat 1.0.0
           </div>
         </div>
@@ -468,13 +468,13 @@ export default function SettingsPage() {
             stiffness: 260,
             damping: 28,
           }}
-          className="relative overflow-hidden rounded-2xl border border-[var(--fc-app-border)] bg-transparent"
+          className="relative"
         >
-          <div className="grid gap-5 sm:p-1 lg:grid-cols-[0.82fr_1.18fr]">
-            <div className="flex flex-col gap-4">
-              <div className="rounded-2xl border border-[var(--fc-app-border)] bg-[#0B1520]/90 p-5">
-                <div className="flex items-center gap-4">
-                  <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-2xl font-bold">
+          <div className="grid gap-4">
+            <div className="flex flex-col gap-3">
+              <div className="rounded-[22px] border border-[var(--fc-app-border)] bg-[#111d2a]/88 p-5 shadow-[0_16px_44px_rgba(0,0,0,0.18)]">
+                <div className="flex flex-col items-center text-center">
+                  <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-3xl font-bold shadow-[0_18px_44px_rgba(0,0,0,0.25)]">
                     {user.avatar ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -489,9 +489,9 @@ export default function SettingsPage() {
                     )}
                   </div>
 
-                  <div className="min-w-0">
-                    <h1 className="truncate text-2xl font-bold">
-                      Settings
+                  <div className="mt-4 min-w-0">
+                    <h1 className="truncate text-2xl font-semibold">
+                      {user.username}
                     </h1>
                     <p className="mt-1 truncate text-sm text-zinc-400">
                       {formatHandle(user.username)}
@@ -502,7 +502,7 @@ export default function SettingsPage() {
                 <div className="mt-5 grid gap-2">
                   <Link
                     href="/profile"
-                    className="group flex items-center gap-3 rounded-2xl bg-white/[0.04] px-4 py-3 transition hover:bg-white/[0.08]"
+                    className="group flex items-center gap-3 rounded-2xl bg-white/[0.04] px-4 py-3 transition hover:bg-white/[0.08] active:scale-[0.99]"
                   >
                     <UserRound
                       size={18}
@@ -521,7 +521,7 @@ export default function SettingsPage() {
                     <span
                       className={`h-2.5 w-2.5 rounded-full ${
                         isConnected
-                          ? "bg-green-400 shadow-lg shadow-green-500/40"
+                          ? "bg-[#4BA3E3] shadow-lg shadow-[#2481CC]/35"
                           : "bg-amber-300 shadow-lg shadow-amber-500/30"
                       }`}
                     />
@@ -539,7 +539,7 @@ export default function SettingsPage() {
                 onClick={() =>
                   setLogoutConfirmOpen(true)
                 }
-                className="flex h-14 items-center justify-center gap-2 rounded-2xl border border-red-300/20 bg-red-500/[0.10] px-5 py-4 text-sm font-semibold text-red-100 transition hover:bg-red-500/15"
+                className="flex h-12 items-center justify-center gap-2 rounded-[18px] border border-red-300/20 bg-red-500/[0.10] px-5 text-sm font-semibold text-red-100 transition hover:bg-red-500/15 active:scale-[0.99]"
               >
                 <LogOut size={18} />
                 Log out
@@ -551,14 +551,14 @@ export default function SettingsPage() {
                   setDeleteConfirmation("");
                   setDeleteConfirmOpen(true);
                 }}
-                className="flex h-14 items-center justify-center gap-2 rounded-2xl border border-red-300/20 bg-[#0B1520]/90 px-5 py-4 text-sm font-semibold text-red-100 transition hover:bg-red-500/[0.12]"
+                className="flex h-12 items-center justify-center gap-2 rounded-[18px] border border-red-300/20 bg-[#111d2a]/88 px-5 text-sm font-semibold text-red-100 transition hover:bg-red-500/[0.12] active:scale-[0.99]"
               >
                 <Trash2 size={18} />
                 Delete account
               </button>
             </div>
 
-            <div className="grid gap-6">
+            <div className="grid gap-5">
               {sections.map((section) => (
                 <Section
                   key={section.title}

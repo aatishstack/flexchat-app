@@ -22,9 +22,9 @@ const variantStyles = {
   success: {
     icon: CheckCircle2,
     iconClass:
-      "border-sky-200/25 bg-sky-400/[0.14] text-sky-50 shadow-sky-500/15",
+      "border-[#7CC5FF]/20 bg-[#2481CC]/15 text-[#DDF2FF] shadow-[#2481CC]/10",
     glowClass:
-      "from-sky-400/[0.18] via-cyan-300/[0.08] to-transparent",
+      "from-[#2481CC]/[0.14] via-[#7CC5FF]/[0.06] to-transparent",
     borderClass:
       "border-sky-200/[0.16]",
   },
@@ -40,9 +40,9 @@ const variantStyles = {
   info: {
     icon: Info,
     iconClass:
-      "border-sky-200/25 bg-sky-500/[0.14] text-sky-50 shadow-sky-500/20",
+      "border-[#7CC5FF]/20 bg-[#2481CC]/[0.14] text-[#DDF2FF] shadow-[#2481CC]/10",
     glowClass:
-      "from-sky-400/[0.20] via-cyan-300/[0.10] to-transparent",
+      "from-[#2481CC]/[0.16] via-[#7CC5FF]/[0.07] to-transparent",
     borderClass:
       "border-sky-200/[0.16]",
   },
@@ -87,29 +87,26 @@ function ToastCard({
       layout
       initial={{
         opacity: 0,
-        y: 18,
-        scale: 0.96,
-        filter: "blur(8px)",
+        y: 12,
+        scale: 0.98,
       }}
       animate={{
         opacity: 1,
         y: 0,
         scale: 1,
-        filter: "blur(0px)",
       }}
       exit={{
         opacity: 0,
-        y: 14,
-        scale: 0.96,
-        filter: "blur(8px)",
+        y: 10,
+        scale: 0.98,
       }}
       transition={{
         type: "spring",
-        stiffness: 330,
-        damping: 28,
+        stiffness: 360,
+        damping: 34,
         mass: 0.8,
       }}
-      className={`pointer-events-auto relative w-[min(calc(100vw-1.5rem),360px)] overflow-hidden rounded-2xl border ${variant.borderClass} bg-[#09111f]/[0.88] p-4 text-left shadow-[0_20px_64px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-3xl`}
+      className={`pointer-events-auto relative w-[min(calc(100vw-1.5rem),340px)] overflow-hidden rounded-[18px] border ${variant.borderClass} bg-[#0B1520]/[0.92] p-3.5 text-left shadow-[0_16px_44px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-3xl`}
       role="status"
       aria-live="polite"
     >
@@ -118,20 +115,20 @@ function ToastCard({
       />
       <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" />
 
-      <div className="relative flex items-start gap-4">
+      <div className="relative flex items-start gap-3">
         <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border shadow-xl ${variant.iconClass}`}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] border shadow-xl ${variant.iconClass}`}
         >
-          <Icon size={18} />
+          <Icon size={17} />
         </div>
 
-        <div className="min-w-0 flex-1 pt-0.5">
+        <div className="min-w-0 flex-1">
           <h3 className="truncate text-sm font-semibold text-white">
             {toast.title}
           </h3>
 
           {toast.message ? (
-            <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-zinc-300/85">
+            <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-zinc-300/85">
               {toast.message}
             </p>
           ) : null}

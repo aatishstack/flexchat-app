@@ -123,8 +123,8 @@ type StoryDraft = {
 
 const TEXT_STORY_MEDIA_URL = "flexchat://story/text";
 const MUTED_STORY_USERS_KEY = "flexchat:muted-story-users";
-const FALLBACK_STORY_TEXT_COLORS = ["#ffffff", "#fff2bd", "#8eb0ff", "#fb7185", "#34d399"];
-const FALLBACK_STORY_BACKGROUND_COLORS = ["#285ccc", "#fff2bd", "#07111b", "#0f766e", "#7f1d1d"];
+const FALLBACK_STORY_TEXT_COLORS = ["#ffffff", "#dff3ff", "#8ecfff", "#f8a4c5", "#c7d2fe"];
+const FALLBACK_STORY_BACKGROUND_COLORS = ["#285ccc", "#2481cc", "#07111b", "#12385c", "#0b1724"];
 const STORY_STICKERS = ["WOW", "YES", "LIVE", "MOOD", "FLEX"];
 const STORY_IMAGE_EXTENSIONS = ["avif", "gif", "heic", "heif", "jpg", "jpeg", "png", "webp"];
 const STORY_VIDEO_EXTENSIONS = ["mov", "mp4", "m4v", "3gp", "3gpp", "3g2", "3gpp2", "webm"];
@@ -2067,7 +2067,7 @@ export default function StoryTray() {
             <span
               className={`absolute inset-0 rounded-full ${
                 currentUserStoryGroup
-                  ? "bg-gradient-to-tr from-[#2481CC] via-[#E1306C] to-[#FCAF45]"
+                  ? "fc-story-ring-unseen"
                   : "bg-white/10"
               }`}
             />
@@ -2144,7 +2144,7 @@ export default function StoryTray() {
             <span
               className={`relative flex h-[60px] w-[60px] items-center justify-center rounded-full p-[2px] ${
                 group.hasUnseen
-                  ? "bg-gradient-to-tr from-[#2481CC] via-[#E1306C] to-[#FCAF45]"
+                  ? "fc-story-ring-unseen"
                   : "bg-white/10"
               }`}
             >

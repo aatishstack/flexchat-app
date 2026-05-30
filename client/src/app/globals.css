@@ -8,17 +8,17 @@
   --fc-primary: #285ccc;
   --fc-primary-rgb: 40 92 204;
   --fc-primary-hover: #346ee6;
-  --fc-accent: #fff2bd;
-  --fc-accent-rgb: 255 242 189;
+  --fc-accent: #7cc5ff;
+  --fc-accent-rgb: 124 197 255;
   --fc-accent-soft: rgba(40, 92, 204, 0.16);
   --fc-accent-muted: rgba(40, 92, 204, 0.24);
-  --fc-accent-text: #8eb0ff;
+  --fc-accent-text: #8ecfff;
   --fc-chat-bg: radial-gradient(circle at 12% 0%, rgba(40, 92, 204, 0.16), transparent 32%), #07111b;
   --fc-chat-header: rgba(12, 25, 39, 0.9);
   --fc-chat-composer: rgba(255, 255, 255, 0.07);
-  --fc-own-bubble: linear-gradient(135deg, #285ccc 0%, #3f78e9 58%, #fff2bd 160%);
+  --fc-own-bubble: linear-gradient(135deg, #2481cc 0%, #2f8ee2 52%, #55b7ff 100%);
   --fc-own-bubble-text: #ffffff;
-  --fc-their-bubble: linear-gradient(145deg, rgba(255, 242, 189, 0.11), rgba(255, 255, 255, 0.055));
+  --fc-their-bubble: linear-gradient(145deg, rgba(23, 33, 43, 0.96), rgba(18, 30, 43, 0.94));
   --fc-their-bubble-text: #f8fbff;
   --fc-theme-accent: #285ccc;
   --fc-theme-text: #f8fbff;
@@ -26,7 +26,7 @@
   --fc-text: #f8fbff;
   --fc-text-muted: rgba(225, 232, 242, 0.72);
   --fc-text-subtle: rgba(225, 232, 242, 0.48);
-  --fc-app-bg: radial-gradient(circle at 14% -10%, rgba(255, 242, 189, 0.18), transparent 28%), radial-gradient(circle at 88% 2%, rgba(40, 92, 204, 0.24), transparent 36%), linear-gradient(145deg, #07111b 0%, #0b1724 52%, #0b1724 100%);
+  --fc-app-bg: radial-gradient(circle at 88% 2%, rgba(40, 92, 204, 0.22), transparent 34%), linear-gradient(145deg, #07111b 0%, #0b1724 52%, #0b1724 100%);
   --fc-app-panel: rgba(12, 25, 39, 0.9);
   --fc-app-panel-strong: rgba(17, 30, 45, 0.96);
   --fc-app-surface: rgba(25, 39, 56, 0.68);
@@ -43,13 +43,13 @@
   --fc-skeleton: rgba(255, 255, 255, 0.055);
   --fc-selection: rgba(40, 92, 204, 0.38);
   --fc-focus-ring: rgba(40, 92, 204, 0.34);
-  --fc-story-gradient: linear-gradient(135deg, #fff2bd 0%, #285ccc 58%, #5f7fd3 100%);
-  --fc-brand-gradient: linear-gradient(135deg, #fff2bd 0%, #285ccc 48%, #fff2bd 100%);
+  --fc-story-gradient: conic-gradient(from 210deg, #2481cc, #5ac8ff, #38bdf8, #f45d8f, #2481cc);
+  --fc-brand-gradient: linear-gradient(135deg, #1d5fa8 0%, #2481cc 52%, #5ac8ff 100%);
   --fc-avatar-bg: rgba(40, 92, 204, 0.18);
   --fc-shadow-color: rgba(0, 0, 0, 0.46);
   --fc-scrollbar: rgba(255, 255, 255, 0.18);
   --fc-divider: rgba(255, 255, 255, 0.1);
-  --fc-success: #22c55e;
+  --fc-success: #4ba3e3;
   --fc-warning: #f59e0b;
   --fc-danger: #ef4444;
   --fc-motion-fast: 140ms;
@@ -175,6 +175,45 @@ textarea,
 
 .fc-story-gradient {
   background: var(--fc-story-gradient);
+}
+
+.fc-telegram-touch {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.fc-telegram-touch:active {
+  transform: scale(0.985);
+}
+
+.fc-message-bubble {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 8px 22px rgba(0, 0, 0, 0.1);
+}
+
+.fc-emoji-panel {
+  background:
+    linear-gradient(180deg, rgba(15, 27, 41, 0.98), rgba(10, 20, 32, 0.98));
+  border-color: var(--fc-app-border);
+}
+
+.fc-story-ring-unseen {
+  background: var(--fc-story-gradient);
+  background-size: 160% 160%;
+  animation: fc-story-ring-flow 3.4s linear infinite;
+}
+
+@keyframes fc-story-ring-flow {
+  0% {
+    filter: saturate(1.05);
+    background-position: 0% 50%;
+  }
+
+  100% {
+    filter: saturate(1.2);
+    background-position: 100% 50%;
+  }
 }
 
 .fc-avatar {

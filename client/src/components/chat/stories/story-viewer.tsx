@@ -89,6 +89,25 @@ function formatStoryTime(value?: string, now = Date.now()) {
   return `${Math.round(diffMinutes / 60)}h`;
 }
 
+function formatStoryViewTimestamp(value?: string) {
+  if (!value) {
+    return "";
+  }
+
+  const viewedAt = new Date(value);
+
+  if (Number.isNaN(viewedAt.getTime())) {
+    return "";
+  }
+
+  return viewedAt.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function getStoryReplyPreview(story: Story) {
   const caption = story.caption?.trim();
 
@@ -245,6 +264,7 @@ export default function StoryViewer({
           currentStoryId ?? ""
         ),
       staleTime: 10 * 1000,
+      refetchInterval: viewerListOpen ? 4_000 : false,
     });
 
   const deleteStoryMutation =
@@ -1009,6 +1029,11 @@ export default function StoryViewer({
                               </p>
                               <p className="text-xs text-zinc-500">
                                 {formatStoryTime(viewer.viewedAt, now)} ago
+                                {formatStoryViewTimestamp(viewer.viewedAt)
+                                  ? ` - ${formatStoryViewTimestamp(
+                                      viewer.viewedAt,
+                                    )}`
+                                  : ""}
                               </p>
                             </div>
                           </div>
