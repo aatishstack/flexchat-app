@@ -176,7 +176,7 @@ export default function NotificationPanel({
     <div className="flex h-full w-full flex-col">
       <div className="flex items-center justify-between border-b border-white/10 p-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-600/20 text-white">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-600/18 text-white">
             <Bell size={20} />
           </div>
 
@@ -298,7 +298,7 @@ export default function NotificationPanel({
                   </button>
 
                   {!notification.read && (
-                    <div className="ml-1 h-2.5 w-2.5 rounded-full bg-purple-500" />
+                    <div className="ml-1 h-2.5 w-2.5 rounded-full bg-sky-400" />
                   )}
                 </div>
               </div>

@@ -21,13 +21,13 @@ export default function AuthButton({
         relative
         overflow-hidden
         rounded-2xl
-        bg-purple-600
+        bg-[#2481CC]
         py-3
         font-semibold
         text-white
         transition-all
         duration-300
-        hover:bg-purple-500
+        hover:bg-[#2F8ED8]
         disabled:cursor-not-allowed
         disabled:opacity-70
       "

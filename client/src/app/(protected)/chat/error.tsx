@@ -20,7 +20,7 @@ export default function ChatError({
         <button
           type="button"
           onClick={reset}
-          className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-purple-600 px-5 text-sm font-semibold text-white shadow-xl shadow-purple-600/25 transition hover:bg-purple-500"
+          className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#2481CC] px-5 text-sm font-semibold text-white shadow-xl shadow-sky-700/25 transition hover:bg-[#2F8ED8]"
         >
           <RefreshCw size={16} />
           Retry chat

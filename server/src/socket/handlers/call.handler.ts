@@ -6,6 +6,7 @@ import {
   getConversationMembers,
   isConversationMember,
 } from "../../lib/conversation-access.js";
+import { debugLog } from "../../lib/debug-log.js";
 import { generateId } from "../../lib/uuid.js";
 import { getOnlineUserIds } from "../socket-store.js";
 import { SOCKET_EVENTS } from "../socket-events.js";
@@ -185,7 +186,7 @@ function relayCallPayload(
     return;
   }
 
-  console.info("[FlexChat Call] relaying signal", {
+  debugLog("[FlexChat Call] relaying signal", {
     callId,
     fromUserId: socket.data.user.id,
     targetUserId,
@@ -267,7 +268,7 @@ export function registerCallHandlers(io: Server, socket: Socket) {
 
       const { conversationId, targetUserId, kind } = parsed.data;
 
-      console.info("[FlexChat Call] invite received", {
+      debugLog("[FlexChat Call] invite received", {
         socketId: socket.id,
         callerId: userId,
         targetUserId,
@@ -311,7 +312,7 @@ export function registerCallHandlers(io: Server, socket: Socket) {
 
       socket.join(`call:${call.id}`);
 
-      console.info("[FlexChat Call] invite created", {
+      debugLog("[FlexChat Call] invite created", {
         callId: call.id,
         callerId: userId,
         targetUserId,
@@ -366,7 +367,7 @@ export function registerCallHandlers(io: Server, socket: Socket) {
     call.status = "active";
     socket.join(`call:${call.id}`);
 
-    console.info("[FlexChat Call] accepted", {
+    debugLog("[FlexChat Call] accepted", {
       callId: call.id,
       calleeId: userId,
       transport: socket.conn.transport.name,
@@ -456,7 +457,7 @@ export function registerCallHandlers(io: Server, socket: Socket) {
       return;
     }
 
-    console.info("[FlexChat Call] offer received", {
+    debugLog("[FlexChat Call] offer received", {
       callId: parsed.data.callId,
       fromUserId: userId,
       transport: socket.conn.transport.name,
@@ -475,7 +476,7 @@ export function registerCallHandlers(io: Server, socket: Socket) {
       return;
     }
 
-    console.info("[FlexChat Call] answer received", {
+    debugLog("[FlexChat Call] answer received", {
       callId: parsed.data.callId,
       fromUserId: userId,
       transport: socket.conn.transport.name,
@@ -500,7 +501,7 @@ export function registerCallHandlers(io: Server, socket: Socket) {
       return;
     }
 
-    console.info("[FlexChat Call] ICE candidate received", {
+    debugLog("[FlexChat Call] ICE candidate received", {
       callId: parsed.data.callId,
       fromUserId: userId,
       candidateType: getCandidateType(parsed.data.candidate),

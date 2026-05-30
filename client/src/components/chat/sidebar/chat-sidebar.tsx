@@ -52,6 +52,7 @@ import {
   formatDisplayName,
 } from "@/lib/user-display";
 import { useSocketStore } from "@/store/socket-store";
+import { useBlockStore } from "@/store/block-store";
 import { useToastStore } from "@/store/toast-store";
 import { useAuthStore } from "@/stores/auth.store";
 import { useConversationStore } from "@/stores/conversation.store";
@@ -375,12 +376,6 @@ export default function ChatSidebar() {
   ] = useState<Set<string>>(
     () => new Set()
   );
-  const [
-    blockedConversationIds,
-    setBlockedConversationIds,
-  ] = useState<Set<string>>(
-    () => new Set()
-  );
   const now = useServerNow();
   const deferredSearch =
     useDeferredValue(search);
@@ -413,6 +408,19 @@ export default function ChatSidebar() {
   );
   const currentUserId = useAuthStore(
     (state) => state.user?.id
+  );
+  const blockedConversationIds = useBlockStore(
+    (state) => state.blockedConversationIds
+  );
+  const blockConversation = useBlockStore(
+    (state) => state.blockConversation
+  );
+  const unblockConversation = useBlockStore(
+    (state) => state.unblockConversation
+  );
+  const blockedConversationSet = useMemo(
+    () => new Set(blockedConversationIds),
+    [blockedConversationIds]
   );
 
   const patchedConversations = useMemo(
@@ -628,38 +636,44 @@ export default function ChatSidebar() {
       }
 
       const wasBlocked =
-        blockedConversationIds.has(
+        blockedConversationSet.has(
           actionConversation.id
         );
 
-      setBlockedConversationIds((current) => {
-        const next = new Set(current);
-
-        if (wasBlocked) {
-          next.delete(actionConversation.id);
-        } else {
-          next.add(actionConversation.id);
-        }
-
-        return next;
-      });
+      if (wasBlocked) {
+        unblockConversation(
+          actionConversation.id,
+          formatDisplayName(
+            actionConversation.name ?? "this user"
+          )
+        );
+      } else {
+        blockConversation(
+          actionConversation.id,
+          formatDisplayName(
+            actionConversation.name ?? "this user"
+          )
+        );
+      }
 
       pushToast({
         title: wasBlocked
-          ? "Conversation unblocked"
-          : "Conversation blocked",
+          ? `${formatDisplayName(actionConversation.name ?? "User")} unblocked`
+          : `${formatDisplayName(actionConversation.name ?? "User")} blocked`,
         message: wasBlocked
-          ? "Messages from this chat are no longer locally blocked."
-          : "This chat is locally blocked on this device.",
+          ? "You can message this chat again."
+          : "Messages and calls are paused for this chat.",
         variant: "info",
       });
 
       closeConversationActions();
     }, [
       actionConversation,
-      blockedConversationIds,
+      blockConversation,
+      blockedConversationSet,
       closeConversationActions,
       pushToast,
+      unblockConversation,
     ]);
 
   const handleToggleMute =
@@ -1014,7 +1028,7 @@ export default function ChatSidebar() {
                     size={18}
                     className="text-[var(--fc-accent-text)]"
                   />
-                  {blockedConversationIds.has(
+                  {blockedConversationSet.has(
                     actionConversation.id
                   )
                     ? "Unblock"

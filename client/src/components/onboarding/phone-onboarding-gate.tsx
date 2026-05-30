@@ -117,12 +117,17 @@ export default function PhoneOnboardingGate() {
   const phoneIsValid =
     digits.length >= country.min &&
     digits.length <= country.max;
+  const phoneNumberKnown =
+    user?.phoneNumber !== undefined;
+  const needsPhoneNumber =
+    phoneNumberKnown && !user?.phoneNumber;
 
   if (
     !isHydrated ||
     !isAuthenticated ||
     !user ||
-    user.phoneNumber
+    !phoneNumberKnown ||
+    !needsPhoneNumber
   ) {
     return null;
   }

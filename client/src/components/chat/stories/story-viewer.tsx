@@ -601,7 +601,7 @@ export default function StoryViewer({
           exit={{
             opacity: 0,
           }}
-          className="fixed inset-0 z-[260] flex items-center justify-center bg-black text-white"
+          className="fixed inset-0 z-[260] flex items-center justify-center overscroll-none bg-black text-white"
         >
           <motion.div
             initial={
@@ -657,10 +657,10 @@ export default function StoryViewer({
             onPointerLeave={() => setIsPaused(false)}
             style={{
               aspectRatio: "9 / 16",
-              width: "min(100vw, calc(100dvh * 9 / 16))",
-              height: "min(100dvh, calc(100vw * 16 / 9))",
+              width: "min(100vw, calc(100dvh * 9 / 16), calc(100svh * 9 / 16))",
+              height: "min(100dvh, 100svh, calc(100vw * 16 / 9))",
             }}
-            className="relative overflow-hidden bg-[#07111B]"
+            className="relative touch-pan-y overflow-hidden bg-[#07111B]"
           >
             <div className="absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/70 via-black/20 to-transparent px-4 pb-8 pt-[calc(1rem+env(safe-area-inset-top))]">
               <div className="flex gap-1.5">

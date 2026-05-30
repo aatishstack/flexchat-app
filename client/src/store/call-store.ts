@@ -91,6 +91,7 @@ interface CallState {
 let peerConnection: RTCPeerConnection | null = null;
 let pendingIceCandidates: RTCIceCandidateInit[] = [];
 let remoteMediaStream: MediaStream | null = null;
+let remoteTrackCleanupFns: Array<() => void> = [];
 let isMakingOffer = false;
 let preferredFacingMode: "user" | "environment" = "user";
 let callConnectTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -139,6 +140,12 @@ function getIceServers(): RTCIceServer[] {
   return iceServers;
 }
 
+function getIceTransportPolicy(): RTCIceTransportPolicy {
+  return process.env.NEXT_PUBLIC_ICE_TRANSPORT_POLICY === "relay"
+    ? "relay"
+    : "all";
+}
+
 function clearConnectionTimers() {
   if (callConnectTimeout) {
     clearTimeout(callConnectTimeout);
@@ -164,8 +171,28 @@ function streamHasLiveTracks(stream: MediaStream | null) {
   );
 }
 
+function snapshotStream(stream: MediaStream) {
+  return new MediaStream(stream.getTracks());
+}
+
+function clearRemoteTrackListeners() {
+  remoteTrackCleanupFns.forEach((cleanup) => cleanup());
+  remoteTrackCleanupFns = [];
+}
+
+function addTrackOnce(stream: MediaStream, track: MediaStreamTrack) {
+  const existingTrack = stream
+    .getTracks()
+    .find((item) => item.id === track.id);
+
+  if (!existingTrack) {
+    stream.addTrack(track);
+  }
+}
+
 function closePeerConnection() {
   clearConnectionTimers();
+  clearRemoteTrackListeners();
 
   if (peerConnection) {
     peerConnection.onicecandidate = null;
@@ -421,6 +448,7 @@ async function makePeerConnection(
 
   const pc = new RTCPeerConnection({
     iceServers: getIceServers(),
+    iceTransportPolicy: getIceTransportPolicy(),
     iceCandidatePoolSize: 10,
     bundlePolicy: "max-bundle",
     rtcpMuxPolicy: "require",
@@ -442,25 +470,52 @@ async function makePeerConnection(
   };
 
   pc.ontrack = (event) => {
-    const remoteStream =
-      event.streams[0] ??
-      remoteMediaStream ??
-      new MediaStream();
+    const remoteStream = remoteMediaStream ?? new MediaStream();
+    const incomingTracks = event.streams[0]?.getTracks().length
+      ? event.streams[0].getTracks()
+      : [event.track];
 
-    if (!event.streams[0]) {
-      const hasTrack = remoteStream
-        .getTracks()
-        .some((track) => track.id === event.track.id);
-
-      if (!hasTrack) {
-        remoteStream.addTrack(event.track);
-      }
-    }
+    incomingTracks.forEach((track) => {
+      addTrackOnce(remoteStream, track);
+    });
 
     remoteMediaStream = remoteStream;
 
+    const syncRemoteStream = () => {
+      if (peerConnection !== pc) {
+        return;
+      }
+
+      set({
+        remoteStream: snapshotStream(remoteStream),
+        phase: streamHasLiveTracks(remoteStream) ? "active" : "connecting",
+        networkState: "stable",
+      });
+    };
+
+    if (event.track.readyState !== "ended") {
+      const handleEnded = () => {
+        remoteStream.removeTrack(event.track);
+        syncRemoteStream();
+      };
+      const handleTrackStateChange = () => {
+        syncRemoteStream();
+      };
+
+      event.track.addEventListener("ended", handleEnded, {
+        once: true,
+      });
+      event.track.addEventListener("mute", handleTrackStateChange);
+      event.track.addEventListener("unmute", handleTrackStateChange);
+      remoteTrackCleanupFns.push(() => {
+        event.track.removeEventListener("ended", handleEnded);
+        event.track.removeEventListener("mute", handleTrackStateChange);
+        event.track.removeEventListener("unmute", handleTrackStateChange);
+      });
+    }
+
     set({
-      remoteStream,
+      remoteStream: snapshotStream(remoteStream),
       phase: "active",
       networkState: "stable",
     });
@@ -984,7 +1039,20 @@ export const useCallStore =
         return;
       }
 
+      if (
+        currentCall?.id === call.id &&
+        get().phase === "active" &&
+        peerConnection &&
+        peerConnection.connectionState !== "closed"
+      ) {
         set({
+          currentCall: call,
+          modalError: null,
+        });
+        return;
+      }
+
+      set({
           currentCall: call,
           phase: "connecting",
           error: null,
@@ -1023,8 +1091,11 @@ export const useCallStore =
     handleCallRejected: (payload) => {
       const call = get().currentCall;
 
+      if (!call) {
+        return;
+      }
+
       if (
-        call &&
         payload.callId &&
         call.id !== payload.callId
       ) {
@@ -1044,8 +1115,11 @@ export const useCallStore =
     handleCallCanceled: (payload) => {
       const call = get().currentCall;
 
+      if (!call) {
+        return;
+      }
+
       if (
-        call &&
         payload.callId &&
         call.id !== payload.callId
       ) {
@@ -1065,8 +1139,11 @@ export const useCallStore =
     handleCallEnded: (payload) => {
       const call = get().currentCall;
 
+      if (!call) {
+        return;
+      }
+
       if (
-        call &&
         payload.callId &&
         call.id !== payload.callId
       ) {
@@ -1190,8 +1267,11 @@ export const useCallStore =
     handleCallError: (payload) => {
       const call = get().currentCall;
 
+      if (!call) {
+        return;
+      }
+
       if (
-        call &&
         payload.callId &&
         call.id !== payload.callId
       ) {

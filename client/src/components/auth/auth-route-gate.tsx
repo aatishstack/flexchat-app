@@ -16,6 +16,7 @@ import { TOKEN_CHANGE_EVENT, TOKEN_KEY, tokenStorage } from "@/lib/token";
 
 const protectedPrefixes = [
   "/chat",
+  "/calls",
   "/contacts",
   "/profile",
   "/settings",
@@ -55,7 +56,7 @@ function RouteGateLoader() {
           duration: 3,
           repeat: Infinity,
         }}
-        className="absolute h-[360px] w-[360px] rounded-full bg-purple-500/20 blur-[110px]"
+        className="absolute h-[360px] w-[360px] rounded-full bg-sky-500/20 blur-[110px]"
       />
 
       <div className="relative z-10 flex flex-col items-center gap-6">
@@ -68,7 +69,7 @@ function RouteGateLoader() {
             repeat: Infinity,
             ease: "linear",
           }}
-          className="h-16 w-16 rounded-2xl border border-purple-500/30 border-t-purple-300 bg-white/[0.04] shadow-2xl shadow-purple-950/30"
+          className="h-16 w-16 rounded-2xl border border-sky-500/30 border-t-sky-300 bg-white/[0.04] shadow-2xl shadow-sky-950/30"
         />
 
         <div className="text-center">
@@ -104,7 +105,7 @@ function SessionRecoveryScreen() {
                 new Event(SESSION_RETRY_EVENT),
               );
             }}
-            className="flex-1 rounded-xl bg-purple-600 px-4 py-3 text-sm font-semibold transition hover:bg-purple-500"
+            className="flex-1 rounded-xl bg-[#2481CC] px-4 py-3 text-sm font-semibold transition hover:bg-[#2F8ED8]"
           >
             Retry now
           </button>

@@ -22,36 +22,36 @@ const variantStyles = {
   success: {
     icon: CheckCircle2,
     iconClass:
-      "border-emerald-300/25 bg-emerald-400/[0.16] text-emerald-100 shadow-emerald-500/20",
+      "border-sky-200/25 bg-sky-400/[0.14] text-sky-50 shadow-sky-500/15",
     glowClass:
-      "from-emerald-400/[0.24] via-cyan-300/10 to-transparent",
+      "from-sky-400/[0.18] via-cyan-300/[0.08] to-transparent",
     borderClass:
-      "border-emerald-300/[0.18]",
+      "border-sky-200/[0.16]",
   },
   error: {
     icon: ShieldAlert,
     iconClass:
       "border-red-300/25 bg-red-500/[0.16] text-red-100 shadow-red-500/25",
     glowClass:
-      "from-red-400/[0.24] via-fuchsia-400/10 to-transparent",
+      "from-red-400/[0.20] via-sky-400/[0.08] to-transparent",
     borderClass:
       "border-red-300/[0.18]",
   },
   info: {
     icon: Info,
     iconClass:
-      "border-purple-300/25 bg-purple-500/[0.16] text-purple-100 shadow-purple-500/25",
+      "border-sky-200/25 bg-sky-500/[0.14] text-sky-50 shadow-sky-500/20",
     glowClass:
-      "from-purple-400/[0.24] via-cyan-300/[0.12] to-transparent",
+      "from-sky-400/[0.20] via-cyan-300/[0.10] to-transparent",
     borderClass:
-      "border-purple-300/[0.18]",
+      "border-sky-200/[0.16]",
   },
   warning: {
     icon: AlertTriangle,
     iconClass:
       "border-amber-200/25 bg-amber-400/[0.16] text-amber-100 shadow-amber-500/20",
     glowClass:
-      "from-amber-300/[0.24] via-purple-400/10 to-transparent",
+      "from-amber-300/[0.18] via-sky-400/[0.08] to-transparent",
     borderClass:
       "border-amber-200/[0.18]",
   },
@@ -109,7 +109,7 @@ function ToastCard({
         damping: 28,
         mass: 0.8,
       }}
-      className={`pointer-events-auto relative w-[min(calc(100vw-1.5rem),370px)] overflow-hidden rounded-[26px] border ${variant.borderClass} bg-[#09111f]/[0.88] p-4 text-left shadow-[0_24px_80px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-3xl sm:p-5`}
+      className={`pointer-events-auto relative w-[min(calc(100vw-1.5rem),360px)] overflow-hidden rounded-2xl border ${variant.borderClass} bg-[#09111f]/[0.88] p-4 text-left shadow-[0_20px_64px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-3xl`}
       role="status"
       aria-live="polite"
     >
@@ -120,9 +120,9 @@ function ToastCard({
 
       <div className="relative flex items-start gap-4">
         <div
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border shadow-2xl ${variant.iconClass}`}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border shadow-xl ${variant.iconClass}`}
         >
-          <Icon size={20} />
+          <Icon size={18} />
         </div>
 
         <div className="min-w-0 flex-1 pt-0.5">

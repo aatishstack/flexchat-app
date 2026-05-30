@@ -15,9 +15,8 @@ import {
 
 import {
   AlertCircle,
-  Bell,
+  Ban,
   Check,
-  Compass,
   Download,
   FileText,
   Forward,
@@ -37,7 +36,6 @@ import {
   Sparkles,
   Trash2,
   UserRound,
-  Users,
   Video,
   X,
 } from "lucide-react";
@@ -75,7 +73,7 @@ import {
 import { SOCKET_EVENTS } from "@/socket/socket-events";
 import { Message, useSocketStore } from "@/store/socket-store";
 import { useCallStore } from "@/store/call-store";
-import { useNotificationStore } from "@/store/notification-store";
+import { useBlockStore } from "@/store/block-store";
 import { useToastStore } from "@/store/toast-store";
 import { updateConversationInQueryCache } from "@/lib/conversation-query-cache";
 import type { ConversationQueryCache } from "@/lib/conversation-query-cache";
@@ -1657,26 +1655,12 @@ const ChatMessageRow = memo(function ChatMessageRow({
   );
 });
 
-type ChatConversationProps = {
-  onOpenNotifications?: () => void;
-  discoverOpen?: boolean;
-  activeNowOpen?: boolean;
-  onToggleDiscover?: () => void;
-  onToggleActiveNow?: () => void;
-};
-
 type FailedAttachmentUpload = {
   file: File;
   message: string;
 };
 
-export default function ChatConversation({
-  onOpenNotifications,
-  discoverOpen,
-  activeNowOpen,
-  onToggleDiscover,
-  onToggleActiveNow,
-}: ChatConversationProps) {
+export default function ChatConversation() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
@@ -1734,9 +1718,13 @@ export default function ChatConversation({
   const reducedMotion = useReducedMotion();
   const now = useServerNow();
   const pushToast = useToastStore((state) => state.pushToast);
-  const unreadNotificationCount = useNotificationStore(
-    (state) =>
-      state.notifications.filter((notification) => !notification.read).length,
+  const blockedConversationIds = useBlockStore(
+    (state) => state.blockedConversationIds,
+  );
+  const blockEvents = useBlockStore((state) => state.blockEvents);
+  const blockConversation = useBlockStore((state) => state.blockConversation);
+  const unblockConversation = useBlockStore(
+    (state) => state.unblockConversation,
   );
 
   const conversationsQuery = useConversationsQuery();
@@ -2023,6 +2011,10 @@ export default function ChatConversation({
   const activeConversationDisplayName = formatDisplayName(
     activeConversation?.name ?? "FlexChat",
   );
+  const isConversationBlocked =
+    !!conversationId && blockedConversationIds.includes(conversationId);
+  const blockEvent =
+    conversationId ? blockEvents[conversationId] : undefined;
   const profileMembers =
     activeConversation?.members ?? [];
   const remoteMember =
@@ -2030,11 +2022,13 @@ export default function ChatConversation({
       (member) => member.id !== user?.id
     ) ?? null;
   const presenceLabel =
-    remoteTypingUsers.length
-      ? "Typing..."
-      : isOnline
-        ? "Online"
-        : formatLastSeen(remoteMember?.lastSeenAt);
+    isConversationBlocked
+      ? "Profile hidden"
+      : remoteTypingUsers.length
+        ? "Typing..."
+        : isOnline
+          ? "Online"
+          : formatLastSeen(remoteMember?.lastSeenAt);
   const activeTheme = getChatTheme(
     activeConversation?.localThemeId ??
       activeConversation?.sharedThemeId ??
@@ -2065,6 +2059,14 @@ export default function ChatConversation({
           .activeConversationId;
 
       if (
+        useBlockStore
+          .getState()
+          .isConversationBlocked(currentConversationId)
+      ) {
+        return;
+      }
+
+      if (
         detail.conversationId &&
         currentConversationId &&
         detail.conversationId !==
@@ -2089,11 +2091,9 @@ export default function ChatConversation({
     };
   }, []);
 
-  const compactChat = !!discoverOpen && !!activeNowOpen;
-  const headerActionClass = `fc-surface fc-hover flex shrink-0 items-center justify-center border text-[var(--fc-text-muted)] transition hover:border-[rgba(var(--fc-primary-rgb),0.35)] hover:text-[var(--fc-theme-text)] disabled:cursor-not-allowed disabled:opacity-40 ${
-    compactChat ? "h-9 w-9 rounded-xl" : "h-11 w-11 rounded-2xl"
-  }`;
-  const headerIconSize = compactChat ? 16 : 18;
+  const headerActionClass =
+    "fc-surface fc-hover flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border text-[var(--fc-text-muted)] transition hover:border-[rgba(var(--fc-primary-rgb),0.35)] hover:text-[var(--fc-theme-text)] disabled:cursor-not-allowed disabled:opacity-40";
+  const headerIconSize = 18;
   const aiSuggestions = useMemo(
     () => [
       "Summarize recent messages",
@@ -2318,6 +2318,16 @@ export default function ChatConversation({
   }
 
   function handleTyping(value: string) {
+    if (isConversationBlocked) {
+      setText("");
+
+      if (conversationId) {
+        stopActiveTyping(conversationId);
+      }
+
+      return;
+    }
+
     setText(value);
 
     if (!conversationId) {
@@ -2369,6 +2379,11 @@ export default function ChatConversation({
 
   async function uploadVoiceNote(blob: Blob) {
     if (!conversationId) {
+      return;
+    }
+
+    if (isConversationBlocked) {
+      showBlockedInteractionToast();
       return;
     }
 
@@ -2480,6 +2495,11 @@ export default function ChatConversation({
       return;
     }
 
+    if (isConversationBlocked) {
+      showBlockedInteractionToast();
+      return;
+    }
+
     if (!navigator.mediaDevices?.getUserMedia) {
       pushToast({
         title: "Voice recording unavailable",
@@ -2560,6 +2580,16 @@ export default function ChatConversation({
 
   async function handleAttachmentUpload(file?: File) {
     if (!file || !conversationId || isUploadingAttachment) {
+      return;
+    }
+
+    if (isConversationBlocked) {
+      showBlockedInteractionToast();
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
       return;
     }
 
@@ -2655,6 +2685,11 @@ export default function ChatConversation({
       return;
     }
 
+    if (isConversationBlocked) {
+      showBlockedInteractionToast();
+      return;
+    }
+
     const nextText = text.trim();
 
     if (!nextText) {
@@ -2686,6 +2721,44 @@ export default function ChatConversation({
         conversationName: activeConversationDisplayName,
       }),
     );
+  }
+
+  function handleToggleBlock() {
+    if (!conversationId) {
+      return;
+    }
+
+    if (isConversationBlocked) {
+      unblockConversation(conversationId, activeConversationDisplayName);
+      pushToast({
+        title: `${activeConversationDisplayName} unblocked`,
+        message: "You can message this chat again.",
+        variant: "info",
+      });
+    } else {
+      blockConversation(conversationId, activeConversationDisplayName);
+      setReplyingTo(null);
+      setText("");
+      setProfileOpen(false);
+      setProfilePictureOpen(false);
+      setEmojiOpen(false);
+      stopActiveTyping(conversationId);
+      pushToast({
+        title: `${activeConversationDisplayName} blocked`,
+        message: "Messages and calls are paused for this chat.",
+        variant: "info",
+      });
+    }
+
+    setChatSettingsOpen(false);
+  }
+
+  function showBlockedInteractionToast() {
+    pushToast({
+      title: `You have blocked ${activeConversationDisplayName}`,
+      message: "Unblock this chat to send messages or start calls.",
+      variant: "info",
+    });
   }
 
   async function handleApplyTheme(
@@ -2774,6 +2847,11 @@ export default function ChatConversation({
 
   function handleStartCall(kind: "voice" | "video") {
     if (!conversationId || !callTargetUserId) {
+      return;
+    }
+
+    if (isConversationBlocked) {
+      showBlockedInteractionToast();
       return;
     }
 
@@ -2977,21 +3055,21 @@ export default function ChatConversation({
       className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[var(--fc-chat-bg)] text-[var(--fc-theme-text)]"
     >
       <div
-        className={`relative z-10 flex shrink-0 items-center justify-between border-b border-[var(--fc-app-border)] bg-[var(--fc-chat-header)] ${
-          compactChat
-            ? "gap-2 px-3 py-3 sm:px-4 sm:py-3"
-            : "gap-3 px-4 py-4 sm:px-6 sm:py-5"
-        }`}
+        className="relative z-10 flex shrink-0 items-center justify-between gap-3 border-b border-[var(--fc-app-border)] bg-[var(--fc-chat-header)] px-4 py-4 sm:px-6 sm:py-5"
       >
-        <div
-          className={`flex min-w-0 flex-1 items-center ${
-            compactChat ? "gap-2" : "gap-3 sm:gap-4"
-          }`}
-        >
+        <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
           <button
             type="button"
-            onClick={() => setProfileOpen(true)}
-            className="shrink-0 rounded-2xl outline-none transition active:scale-95 focus-visible:ring-2 focus-visible:ring-[var(--fc-focus-ring)]"
+            onClick={() => {
+              if (isConversationBlocked) {
+                showBlockedInteractionToast();
+                return;
+              }
+
+              setProfileOpen(true);
+            }}
+            className="shrink-0 rounded-2xl outline-none transition active:scale-95 focus-visible:ring-2 focus-visible:ring-[var(--fc-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isConversationBlocked}
             aria-label="Open profile"
           >
             <FlexAvatar
@@ -3003,16 +3081,16 @@ export default function ChatConversation({
 
           <div className="min-w-0 flex-1">
             <h2
-              className={`truncate font-semibold text-[var(--fc-theme-text)] ${
-                compactChat ? "text-sm" : ""
-              }`}
+              className="truncate font-semibold text-[var(--fc-theme-text)]"
             >
               {activeConversationDisplayName}
             </h2>
 
             <p
-              className={`truncate ${compactChat ? "text-xs" : "text-sm"} ${
-                remoteTypingUsers.length
+              className={`truncate text-sm ${
+                isConversationBlocked
+                  ? "text-[var(--fc-text-subtle)]"
+                  : remoteTypingUsers.length
                   ? "text-cyan-300"
                   : isOnline
                     ? "text-[var(--fc-success)]"
@@ -3025,14 +3103,12 @@ export default function ChatConversation({
         </div>
 
         <div
-          className={`flex max-w-[58vw] shrink-0 items-center overflow-x-auto pl-1 sm:max-w-none sm:overflow-visible sm:pl-0 ${
-            compactChat ? "gap-1.5" : "gap-2"
-          }`}
+          className="flex max-w-[58vw] shrink-0 items-center gap-2 overflow-x-auto pl-1 sm:max-w-none sm:overflow-visible sm:pl-0"
         >
           <button
             type="button"
             onClick={() => handleStartCall("voice")}
-            disabled={!callTargetUserId}
+            disabled={!callTargetUserId || isConversationBlocked}
             className={headerActionClass}
             aria-label="Start voice call"
           >
@@ -3042,7 +3118,7 @@ export default function ChatConversation({
           <button
             type="button"
             onClick={() => handleStartCall("video")}
-            disabled={!callTargetUserId}
+            disabled={!callTargetUserId || isConversationBlocked}
             className={headerActionClass}
             aria-label="Start video call"
           >
@@ -3054,15 +3130,10 @@ export default function ChatConversation({
             onClick={() =>
               setChatSettingsOpen(true)
             }
-            className={`relative ${headerActionClass}`}
+            className={headerActionClass}
             aria-label="Open chat settings"
           >
             <MoreVertical size={headerIconSize} />
-            {unreadNotificationCount ? (
-              <span className="fc-badge absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none">
-                {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
-              </span>
-            ) : null}
           </button>
         </div>
       </div>
@@ -3108,6 +3179,22 @@ export default function ChatConversation({
                   Unread messages
                 </span>
                 <div className="h-px flex-1 bg-[rgba(var(--fc-primary-rgb),0.3)]" />
+              </div>
+            ) : null}
+
+            {blockEvent ? (
+              <div className="mb-5 flex justify-center">
+                <div className="fc-button-soft inline-flex max-w-[min(92%,34rem)] items-center gap-2 rounded-full border px-3 py-2 text-xs text-[var(--fc-text-muted)]">
+                  <Ban
+                    size={13}
+                    className={
+                      blockEvent.blocked
+                        ? "text-red-200"
+                        : "text-[var(--fc-accent-text)]"
+                    }
+                  />
+                  <span className="truncate">{blockEvent.message}</span>
+                </div>
               </div>
             ) : null}
 
@@ -3184,11 +3271,7 @@ export default function ChatConversation({
       </div>
 
       <div
-        className={`relative z-10 shrink-0 border-t border-[var(--fc-app-border)] bg-[var(--fc-chat-header)] ${
-          compactChat
-            ? "p-2.5 pb-[calc(0.65rem+env(safe-area-inset-bottom))] sm:p-3 sm:pb-[calc(0.8rem+env(safe-area-inset-bottom))]"
-            : "p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-5 sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
-        }`}
+        className="relative z-10 shrink-0 border-t border-[var(--fc-app-border)] bg-[var(--fc-chat-header)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-5 sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
       >
         {replyingTo ? (
           <div className="fc-button-soft mb-2 flex items-center gap-3 rounded-2xl border p-3 text-sm">
@@ -3240,7 +3323,7 @@ export default function ChatConversation({
                   failed.file
                 );
               }}
-              disabled={isUploadingAttachment}
+              disabled={isUploadingAttachment || isConversationBlocked}
               className="fc-surface fc-hover flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition disabled:cursor-wait disabled:opacity-60"
               aria-label="Retry attachment upload"
             >
@@ -3266,12 +3349,17 @@ export default function ChatConversation({
             type="file"
             accept="image/*,audio/*,video/*,application/pdf"
             className="hidden"
+            disabled={isConversationBlocked}
             onChange={(event) => {
               void handleAttachmentUpload(event.target.files?.[0]);
             }}
           />
 
-          <div className="fc-input relative min-w-0 flex-1 rounded-[24px] border px-4 py-2.5 transition-colors duration-200">
+          <div
+            className={`fc-input relative min-w-0 flex-1 rounded-[24px] border px-4 py-2.5 transition-colors duration-200 ${
+              isConversationBlocked ? "opacity-75" : ""
+            }`}
+          >
             <AnimatePresence>
               {emojiOpen ? (
                 <motion.div
@@ -3319,6 +3407,7 @@ export default function ChatConversation({
               <button
                 type="button"
                 onClick={() => setEmojiOpen((open) => !open)}
+                disabled={isConversationBlocked}
                 className="fc-hover flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--fc-text-subtle)] transition hover:text-[var(--fc-theme-text)] active:scale-95"
                 aria-label="Open emoji picker"
                 aria-expanded={emojiOpen}
@@ -3389,8 +3478,13 @@ export default function ChatConversation({
                         stopActiveTyping(conversationId);
                       }
                     }}
-                    placeholder="Write a message..."
-                    className="max-h-32 min-h-[40px] w-full resize-none overflow-y-auto border-0 bg-transparent py-2.5 text-sm leading-5 text-[var(--fc-theme-text)] shadow-none outline-none ring-0 placeholder:text-[var(--fc-text-subtle)] focus:border-0 focus:outline-none focus:ring-0 focus-visible:shadow-none sm:min-h-[44px] sm:py-3"
+                    placeholder={
+                      isConversationBlocked
+                        ? `You have blocked ${activeConversationDisplayName}`
+                        : "Write a message..."
+                    }
+                    disabled={isConversationBlocked}
+                    className="max-h-32 min-h-[40px] w-full resize-none overflow-y-auto border-0 bg-transparent py-2.5 text-sm leading-5 text-[var(--fc-theme-text)] shadow-none outline-none ring-0 placeholder:text-[var(--fc-text-subtle)] focus:border-0 focus:outline-none focus:ring-0 focus-visible:shadow-none disabled:cursor-not-allowed sm:min-h-[44px] sm:py-3"
                   />
                 )}
               </div>
@@ -3398,7 +3492,7 @@ export default function ChatConversation({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isUploadingAttachment}
+                disabled={isUploadingAttachment || isConversationBlocked}
                 className="fc-hover relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-[var(--fc-text-subtle)] transition hover:text-[var(--fc-theme-text)] active:scale-95 disabled:cursor-wait disabled:opacity-70"
                 aria-label="Upload attachment"
               >
@@ -3490,6 +3584,7 @@ export default function ChatConversation({
                 disabled={
                   !conversationId ||
                   isUploadingAttachment ||
+                  isConversationBlocked ||
                   (!!text.trim() && isRecordingVoice)
                 }
                 className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition-all hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 ${
@@ -3578,71 +3673,20 @@ export default function ChatConversation({
               <div className="grid gap-2 p-3">
                 <button
                   type="button"
-                  onClick={() => {
-                    onToggleDiscover?.();
-                    setChatSettingsOpen(false);
-                  }}
-                  disabled={!onToggleDiscover}
-                  className="fc-hover flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--fc-theme-text)] transition disabled:cursor-not-allowed disabled:opacity-45"
+                  onClick={handleToggleBlock}
+                  className="fc-hover flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--fc-theme-text)] transition"
                 >
-                  <span className="flex min-w-0 items-center gap-3">
-                    <Compass
-                      size={18}
-                      className="shrink-0 text-[var(--fc-accent-text)]"
-                    />
-                    <span className="truncate">Discover</span>
-                  </span>
-                  <span
-                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                      discoverOpen ? "bg-[var(--fc-accent-text)]" : "bg-white/20"
-                    }`}
+                  <Ban
+                    size={18}
+                    className={
+                      isConversationBlocked
+                        ? "text-red-200"
+                        : "text-[var(--fc-accent-text)]"
+                    }
                   />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    onToggleActiveNow?.();
-                    setChatSettingsOpen(false);
-                  }}
-                  disabled={!onToggleActiveNow}
-                  className="fc-hover flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--fc-theme-text)] transition disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  <span className="flex min-w-0 items-center gap-3">
-                    <Users
-                      size={18}
-                      className="shrink-0 text-cyan-200"
-                    />
-                    <span className="truncate">Active Now</span>
-                  </span>
-                  <span
-                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                      activeNowOpen ? "bg-[var(--fc-accent-text)]" : "bg-white/20"
-                    }`}
-                  />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    onOpenNotifications?.();
-                    setChatSettingsOpen(false);
-                  }}
-                  disabled={!onOpenNotifications}
-                  className="fc-hover flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--fc-theme-text)] transition disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  <span className="flex min-w-0 items-center gap-3">
-                    <Bell
-                      size={18}
-                      className="shrink-0 text-[var(--fc-accent-text)]"
-                    />
-                    <span className="truncate">Notifications</span>
-                  </span>
-                  {unreadNotificationCount ? (
-                    <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white">
-                      {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
-                    </span>
-                  ) : null}
+                  {isConversationBlocked
+                    ? `Unblock ${activeConversationDisplayName}`
+                    : `Block ${activeConversationDisplayName}`}
                 </button>
 
                 <button
@@ -3813,7 +3857,7 @@ export default function ChatConversation({
                               );
                             }}
                             disabled={!!themeApplying}
-                            className="fc-button-primary flex h-10 items-center justify-center rounded-xl text-xs font-semibold transition hover:scale-[1.01] disabled:cursor-wait disabled:opacity-60"
+                            className="flex h-10 items-center justify-center rounded-xl border border-[rgba(var(--fc-primary-rgb),0.22)] bg-[rgba(var(--fc-primary-rgb),0.10)] text-xs font-semibold text-[var(--fc-theme-text)] transition hover:bg-[rgba(var(--fc-primary-rgb),0.16)] disabled:cursor-wait disabled:opacity-60"
                           >
                             {applyingForBoth
                               ? "Applying"
@@ -3831,7 +3875,7 @@ export default function ChatConversation({
       </AnimatePresence>
 
       <AnimatePresence>
-        {profileOpen ? (
+        {profileOpen && !isConversationBlocked ? (
           <motion.div
             initial={{
               opacity: 0,
@@ -3949,7 +3993,7 @@ export default function ChatConversation({
       </AnimatePresence>
 
       <AnimatePresence>
-        {profilePictureOpen ? (
+        {profilePictureOpen && !isConversationBlocked ? (
           <motion.div
             initial={{
               opacity: 0,

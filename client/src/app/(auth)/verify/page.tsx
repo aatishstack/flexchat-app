@@ -83,7 +83,7 @@ export default function VerifyPage() {
             duration: 12,
             repeat: Infinity,
           }}
-          className="absolute left-[-120px] top-[-120px] h-[420px] w-[420px] rounded-full bg-purple-500/20 blur-[120px]"
+          className="absolute left-[-120px] top-[-120px] h-[420px] w-[420px] rounded-full bg-sky-500/20 blur-[120px]"
         />
 
         <motion.div
@@ -128,7 +128,7 @@ export default function VerifyPage() {
         </Link>
 
         {/* ICON */}
-        <div className="mb-8 flex h-20 w-20 items-center justify-center rounded-[30px] bg-gradient-to-br from-purple-600 to-blue-500 shadow-[0_10px_50px_rgba(139,92,246,0.45)]">
+        <div className="mb-8 flex h-20 w-20 items-center justify-center rounded-[30px] bg-gradient-to-br from-[#2481CC] to-blue-500 shadow-[0_10px_50px_rgba(36,129,204,0.35)]">
           <Smartphone className="h-10 w-10" />
         </div>
 
@@ -180,7 +180,7 @@ export default function VerifyPage() {
               }
               className={`h-16 w-14 rounded-3xl border bg-white/[0.04] text-center text-2xl font-black outline-none transition-all ${
                 index === 2
-                  ? "border-purple-500/50 shadow-[0_0_30px_rgba(139,92,246,0.35)]"
+                  ? "border-sky-500/50 shadow-[0_0_30px_rgba(36,129,204,0.28)]"
                   : "border-white/10"
               }`}
             />
@@ -193,7 +193,7 @@ export default function VerifyPage() {
             Resend code in
           </span>
 
-          <span className="font-semibold text-purple-300">
+          <span className="font-semibold text-sky-200">
             00:24
           </span>
         </div>
@@ -209,7 +209,7 @@ export default function VerifyPage() {
           }}
           onClick={handleVerify}
           disabled={!canVerify}
-          className="mt-8 flex w-full items-center justify-center gap-3 rounded-3xl bg-gradient-to-r from-purple-600 to-blue-500 py-5 text-lg font-bold shadow-[0_10px_40px_rgba(139,92,246,0.35)] transition disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-8 flex w-full items-center justify-center gap-3 rounded-3xl bg-gradient-to-r from-[#2481CC] to-blue-500 py-5 text-lg font-bold shadow-[0_10px_40px_rgba(36,129,204,0.30)] transition disabled:cursor-not-allowed disabled:opacity-50"
         >
           Verify & Continue
 

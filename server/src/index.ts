@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 
 import { buildApp } from "./app.js";
 import { closeDb } from "./db/index.js";
+import { debugLog } from "./lib/debug-log.js";
 import { setupSocket } from "./socket/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -48,10 +49,7 @@ function logRuntimeDiagnostics() {
     nodeModulesExists: fs.existsSync("./node_modules"),
   };
 
-  console.info(
-    "FlexChat runtime diagnostics",
-    diagnostics,
-  );
+  debugLog("FlexChat runtime diagnostics", diagnostics);
 }
 
 function getPort() {

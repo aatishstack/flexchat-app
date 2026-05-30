@@ -2268,7 +2268,7 @@ export default function StoryTray() {
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[250] flex items-end bg-black/60 p-3 backdrop-blur-md sm:items-center sm:justify-center"
+            className="fixed inset-0 z-[250] flex items-end bg-black/60 px-3 py-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-md sm:items-center sm:justify-center"
             onClick={() => setStoryComposerOpen(false)}
           >
             <motion.div
@@ -2289,7 +2289,7 @@ export default function StoryTray() {
                 stiffness: 300,
                 damping: 30,
               }}
-              className="w-full overflow-hidden rounded-2xl border border-white/10 bg-[#07111B]/95 p-3 text-white shadow-lg shadow-black/25 sm:max-w-sm"
+              className="chat-safe-scroll max-h-[min(88dvh,640px)] w-full overflow-y-auto rounded-2xl border border-white/10 bg-[#07111B]/95 p-3 text-white shadow-lg shadow-black/25 sm:max-w-sm"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-center justify-between px-2 py-2">
@@ -2391,14 +2391,14 @@ export default function StoryTray() {
       ) : null}
 
       {storyDraft ? (
-        <div className="fixed inset-0 z-[255] flex items-center justify-center bg-black text-white">
+        <div className="fixed inset-0 z-[255] flex items-center justify-center overscroll-none bg-black text-white">
           <div
             ref={storyCanvasRef}
-            className="relative overflow-hidden bg-black"
+            className="relative touch-none overflow-hidden bg-black"
             style={{
               aspectRatio: "9 / 16",
-              width: "min(100vw, calc(100dvh * 9 / 16))",
-              height: "min(100dvh, calc(100vw * 16 / 9))",
+              width: "min(100vw, calc(100dvh * 9 / 16), calc(100svh * 9 / 16))",
+              height: "min(100dvh, 100svh, calc(100vw * 16 / 9))",
             }}
             onPointerDown={startStoryDrawing}
             onPointerMove={continueStoryDrawing}
@@ -2604,7 +2604,7 @@ export default function StoryTray() {
                   damping: 28,
                 }}
                 className={cn(
-                  "pointer-events-none absolute bottom-[calc(6.75rem+env(safe-area-inset-bottom))] left-1/2 z-[42] flex h-20 w-20 -translate-x-1/2 items-center justify-center rounded-full border backdrop-blur-2xl",
+                  "pointer-events-none absolute bottom-[calc(7.25rem+env(safe-area-inset-bottom))] left-1/2 z-[42] flex h-24 w-24 -translate-x-1/2 items-center justify-center rounded-full border backdrop-blur-2xl will-change-transform",
                   dragDeleteState.overDelete
                     ? "border-red-200/60 bg-red-500/35 text-white shadow-[0_0_34px_rgba(248,113,113,0.36)]"
                     : "border-white/15 bg-black/45 text-white/80 shadow-[0_18px_44px_rgba(0,0,0,0.35)]",
@@ -2694,7 +2694,7 @@ export default function StoryTray() {
             </div>
           </div>
 
-          <div className="absolute inset-x-0 bottom-0 z-[35] bg-gradient-to-t from-black/75 to-transparent px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-16">
+          <div className="chat-safe-scroll absolute inset-x-0 bottom-0 z-[35] max-h-[56dvh] overflow-y-auto bg-gradient-to-t from-black/75 to-transparent px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-16">
             {storyDraft.mediaType === "video" ? (
               <div className="mb-3 rounded-2xl border border-white/10 bg-black/30 p-3 text-white backdrop-blur-xl">
                 <div className="mb-2 flex items-center justify-between gap-3">

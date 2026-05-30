@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   MessageCircle,
+  PhoneCall,
   Settings,
   UserRound,
   UsersRound,
@@ -25,6 +26,11 @@ const NAV_ITEMS: NavItem[] = [
     href: "/chat",
     label: "Chats",
     icon: MessageCircle,
+  },
+  {
+    href: "/calls",
+    label: "Calls",
+    icon: PhoneCall,
   },
   {
     href: "/contacts",
@@ -99,7 +105,7 @@ function DesktopNavigation({ pathname }: { pathname: string }) {
 function MobileNavigation({ pathname }: { pathname: string }) {
   return (
     <nav className="fc-panel fixed inset-x-0 bottom-0 z-[190] border-t px-3 pb-[calc(0.55rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl lg:hidden">
-      <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
+      <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = isActivePath(pathname, item.href);

@@ -24,7 +24,7 @@ export default function BackgroundEffects() {
           repeat:
             Number.POSITIVE_INFINITY,
         }}
-        className="absolute left-[-120px] top-[-120px] h-[420px] w-[420px] rounded-full bg-violet-700/30 blur-[140px]"
+        className="absolute left-[-120px] top-[-120px] h-[420px] w-[420px] rounded-full bg-sky-700/24 blur-[140px]"
       />
 
       {/* Secondary Glow */}
@@ -37,7 +37,7 @@ export default function BackgroundEffects() {
           repeat:
             Number.POSITIVE_INFINITY,
         }}
-        className="absolute bottom-[-120px] right-[-120px] h-[420px] w-[420px] rounded-full bg-fuchsia-700/20 blur-[140px]"
+        className="absolute bottom-[-120px] right-[-120px] h-[420px] w-[420px] rounded-full bg-blue-700/20 blur-[140px]"
       />
 
       {/* Center Orb */}

@@ -70,6 +70,7 @@ const googleOAuthUserSchema = z.object({
   username: z.string(),
   email: z.string(),
   avatar: z.string().nullable().optional(),
+  phoneNumber: z.string().nullable().optional(),
   createdAt: z.string().nullable().optional(),
 }) satisfies z.ZodType<AuthResponse["user"]>;
 
@@ -459,7 +460,7 @@ export default function AuthPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#07070a] text-white">
         <div className="flex flex-col items-center gap-5">
-          <div className="h-14 w-14 animate-spin rounded-2xl border border-purple-500/30 border-t-purple-400" />
+          <div className="h-14 w-14 animate-spin rounded-2xl border border-sky-500/30 border-t-sky-400" />
 
           <div className="text-center">
             <h2 className="text-lg font-semibold">Loading FlexChat</h2>
@@ -479,7 +480,7 @@ export default function AuthPage() {
 
       <div className="relative z-10 grid min-h-full lg:grid-cols-[minmax(360px,0.9fr)_minmax(420px,1.1fr)]">
         <div className="relative hidden overflow-hidden border-r border-white/10 lg:flex">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-600/[0.12] via-transparent to-cyan-400/[0.08]" />
+          <div className="absolute inset-0 bg-gradient-to-br from-sky-600/[0.12] via-transparent to-cyan-400/[0.08]" />
 
           <div className="relative flex w-full flex-col justify-between p-10 xl:p-12">
             <motion.div
@@ -493,7 +494,7 @@ export default function AuthPage() {
               }}
               className="flex items-center gap-4"
             >
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-600 shadow-lg shadow-purple-600/30">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#2481CC] shadow-lg shadow-sky-700/25">
                 <MessageCircle size={28} />
               </div>
 
@@ -518,7 +519,7 @@ export default function AuthPage() {
                 className="text-5xl font-bold leading-tight tracking-tight xl:text-6xl"
               >
                 Secure messaging,
-                <span className="block bg-gradient-to-r from-purple-300 via-fuchsia-200 to-cyan-200 bg-clip-text text-transparent">
+                <span className="block bg-gradient-to-r from-sky-200 via-blue-100 to-cyan-200 bg-clip-text text-transparent">
                   realtime by design.
                 </span>
               </motion.h2>
@@ -549,7 +550,7 @@ export default function AuthPage() {
                     }}
                     className="flex max-w-md items-center gap-4 rounded-[24px] border border-white/10 bg-white/[0.04] p-4 shadow-2xl shadow-black/20 backdrop-blur-2xl"
                   >
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-purple-300/20 bg-purple-500/[0.15] text-purple-100">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-sky-300/20 bg-sky-500/[0.14] text-sky-50">
                       <Icon size={21} />
                     </div>
 
@@ -582,7 +583,7 @@ export default function AuthPage() {
             className="w-full max-w-[440px]"
           >
             <div className="mb-5 flex items-center justify-center gap-3 sm:mb-7 lg:hidden">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-600 shadow-lg shadow-purple-600/30">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2481CC] to-[#2F8ED8] shadow-lg shadow-sky-700/25">
                 <MessageCircle size={24} />
               </div>
 
@@ -600,7 +601,7 @@ export default function AuthPage() {
                 }}
                 className={`h-12 flex-1 rounded-xl text-sm font-medium transition-all ${
                   isLogin
-                    ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-600/25"
+                    ? "bg-gradient-to-r from-[#2481CC] to-[#2F8ED8] text-white shadow-lg shadow-sky-700/20"
                     : "text-zinc-400 hover:text-white"
                 }`}
               >
@@ -615,7 +616,7 @@ export default function AuthPage() {
                 }}
                 className={`h-12 flex-1 rounded-xl text-sm font-medium transition-all ${
                   !isLogin
-                    ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-600/25"
+                    ? "bg-gradient-to-r from-[#2481CC] to-[#2F8ED8] text-white shadow-lg shadow-sky-700/20"
                     : "text-zinc-400 hover:text-white"
                 }`}
               >
@@ -623,7 +624,7 @@ export default function AuthPage() {
               </button>
             </div>
 
-            <div className="rounded-[28px] border border-white/10 bg-[#0B111C]/[0.82] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.45),0_0_60px_rgba(124,58,237,0.13)] backdrop-blur-3xl sm:rounded-[34px] sm:p-7">
+            <div className="rounded-[28px] border border-white/10 bg-[#0B111C]/[0.82] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.45),0_0_60px_rgba(36,129,204,0.13)] backdrop-blur-3xl sm:rounded-[34px] sm:p-7">
               <div className="mb-5 sm:mb-7">
                 <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
                   {isLogin ? "Welcome back" : "Create account"}
@@ -704,8 +705,8 @@ export default function AuthPage() {
                       onClick={() => setAcceptedTerms((value) => !value)}
                       className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${
                         acceptedTerms
-                          ? "border-purple-400 bg-purple-600 text-white"
-                          : "border-white/[0.15] bg-white/[0.04] text-transparent hover:border-purple-400/50"
+                          ? "border-sky-300 bg-[#2481CC] text-white"
+                          : "border-white/[0.15] bg-white/[0.04] text-transparent hover:border-sky-300/50"
                       }`}
                       role="checkbox"
                       aria-checked={acceptedTerms}
@@ -747,7 +748,7 @@ export default function AuthPage() {
                     void handleGoogleSignIn();
                   }}
                   disabled={loading || googleLoading}
-                  className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.055] text-sm font-semibold text-white shadow-[0_16px_50px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:border-purple-300/30 hover:bg-purple-500/[0.10] disabled:cursor-wait disabled:opacity-70"
+                  className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.055] text-sm font-semibold text-white shadow-[0_16px_50px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:border-sky-300/30 hover:bg-sky-500/[0.10] disabled:cursor-wait disabled:opacity-70"
                 >
                   {googleLoading ? (
                     <Loader2 size={19} className="motion-safe:animate-spin" />

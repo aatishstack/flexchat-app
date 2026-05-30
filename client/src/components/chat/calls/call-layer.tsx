@@ -34,6 +34,16 @@ function formatElapsed(seconds: number) {
     .padStart(2, "0")}`;
 }
 
+function playElementMedia(
+  element: HTMLMediaElement | null,
+) {
+  if (!element) {
+    return;
+  }
+
+  void element.play().catch(() => undefined);
+}
+
 function StreamVideo({
   stream,
   muted,
@@ -46,11 +56,28 @@ function StreamVideo({
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
-    if (!videoRef.current) {
+    const video = videoRef.current;
+
+    if (!video) {
       return;
     }
 
-    videoRef.current.srcObject = stream;
+    video.srcObject = stream;
+    playElementMedia(video);
+
+    const retryPlayback = () => playElementMedia(video);
+
+    stream?.getTracks().forEach((track) => {
+      track.addEventListener("unmute", retryPlayback);
+      track.addEventListener("ended", retryPlayback);
+    });
+
+    return () => {
+      stream?.getTracks().forEach((track) => {
+        track.removeEventListener("unmute", retryPlayback);
+        track.removeEventListener("ended", retryPlayback);
+      });
+    };
   }, [stream]);
 
   return (
@@ -60,6 +87,50 @@ function StreamVideo({
       playsInline
       muted={muted}
       className={className}
+      onLoadedMetadata={(event) => {
+        playElementMedia(event.currentTarget);
+      }}
+    />
+  );
+}
+
+function StreamAudio({
+  stream,
+}: {
+  stream: MediaStream | null;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+
+    if (!audio) {
+      return;
+    }
+
+    audio.srcObject = stream;
+    playElementMedia(audio);
+
+    const retryPlayback = () => playElementMedia(audio);
+
+    stream?.getAudioTracks().forEach((track) => {
+      track.addEventListener("unmute", retryPlayback);
+      track.addEventListener("ended", retryPlayback);
+    });
+
+    return () => {
+      stream?.getAudioTracks().forEach((track) => {
+        track.removeEventListener("unmute", retryPlayback);
+        track.removeEventListener("ended", retryPlayback);
+      });
+    };
+  }, [stream]);
+
+  return (
+    <audio
+      ref={audioRef}
+      autoPlay
+      className="hidden"
     />
   );
 }
@@ -287,13 +358,18 @@ function CallScreen({
   const [, forceTrackUpdate] = useState(0);
   const isVideoCall = currentCall?.kind === "video" && answerKind !== "voice";
   const remoteVideoTrack = remoteStream?.getVideoTracks()[0] ?? null;
+  const localVideoTrack = localStream?.getVideoTracks()[0] ?? null;
   const hasRemoteVideo =
     isVideoCall &&
     !!remoteVideoTrack &&
     remoteVideoTrack.enabled &&
     remoteVideoTrack.readyState === "live";
   const hasSelfVideo =
-    isVideoCall && !!localStream?.getVideoTracks().length;
+    isVideoCall &&
+    !!localVideoTrack &&
+    localVideoTrack.readyState === "live";
+  const shouldPlayRemoteAudio =
+    !!remoteStream?.getAudioTracks().length && !hasRemoteVideo;
 
   useEffect(() => {
     if (!remoteVideoTrack) {
@@ -312,6 +388,35 @@ function CallScreen({
       remoteVideoTrack.removeEventListener("ended", update);
     };
   }, [remoteVideoTrack]);
+
+  useEffect(() => {
+    function clampSelfPreview() {
+      setSelfPosition((position) => {
+        if (!position) {
+          return position;
+        }
+
+        return {
+          x: Math.min(
+            window.innerWidth - 136,
+            Math.max(16, position.x),
+          ),
+          y: Math.min(
+            window.innerHeight - 196,
+            Math.max(16, position.y),
+          ),
+        };
+      });
+    }
+
+    window.addEventListener("resize", clampSelfPreview);
+    window.addEventListener("orientationchange", clampSelfPreview);
+
+    return () => {
+      window.removeEventListener("resize", clampSelfPreview);
+      window.removeEventListener("orientationchange", clampSelfPreview);
+    };
+  }, []);
 
   function beginDrag(event: ReactPointerEvent<HTMLDivElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -376,6 +481,10 @@ function CallScreen({
           <h2 className="mt-7 text-2xl font-semibold">{name}</h2>
         </div>
       )}
+
+      {shouldPlayRemoteAudio ? (
+        <StreamAudio stream={remoteStream} />
+      ) : null}
 
       {hasSelfVideo && selfPosition ? (
         <div

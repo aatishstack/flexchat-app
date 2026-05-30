@@ -9,6 +9,7 @@ import {
   getConversationMembers,
   isConversationMember,
 } from "../../lib/conversation-access.js";
+import { debugLog } from "../../lib/debug-log.js";
 import { SOCKET_EVENTS } from "../socket-events.js";
 
 type ConversationPayload = {
@@ -549,7 +550,7 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
 
       const messageData = parsedData.data;
 
-      console.info("[FlexChat Message] send received", {
+      debugLog("[FlexChat Message] send received", {
         socketId: socket.id,
         userId,
         conversationId: messageData.conversationId,
@@ -591,7 +592,7 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
       const duplicateMessage = getRecentClientMessage(dedupeKey);
 
       if (duplicateMessage) {
-        console.info("[FlexChat Message] duplicate tempId acknowledged", {
+        debugLog("[FlexChat Message] duplicate tempId acknowledged", {
           socketId: socket.id,
           userId,
           conversationId: messageData.conversationId,
@@ -666,7 +667,7 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
 
       acknowledgeSentMessage(socket, ack, socketMessage, messageData.tempId);
 
-      console.info("[FlexChat Message] send acknowledged", {
+      debugLog("[FlexChat Message] send acknowledged", {
         socketId: socket.id,
         userId,
         conversationId: messageData.conversationId,

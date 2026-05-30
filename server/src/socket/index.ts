@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 
 import { env } from "../config/env.js";
 import { db } from "../db/index.js";
+import { debugLog } from "../lib/debug-log.js";
 import { authenticateSocket } from "./socket-auth.js";
 import { SOCKET_EVENTS } from "./socket-events.js";
 import {
@@ -146,7 +147,7 @@ export function setupSocket(server: HttpServer) {
   io.on(SOCKET_EVENTS.CONNECTION, (socket) => {
     const userId = socket.data.user.id as string;
 
-    console.info("[SOCKET] connected", {
+    debugLog("[SOCKET] connected", {
       socketId: socket.id,
       userId,
       recovered: socket.recovered,
