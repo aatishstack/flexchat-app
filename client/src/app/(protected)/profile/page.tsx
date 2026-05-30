@@ -379,8 +379,8 @@ export default function ProfilePage() {
     : "";
 
   return (
-    <main className="modal-safe-scroll h-dvh min-h-svh overflow-y-auto bg-[var(--fc-app-bg)] px-4 py-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 sm:py-8">
-      <section className="mx-auto flex min-h-[calc(100dvh-3rem)] max-w-3xl flex-col">
+    <main className="modal-safe-scroll min-h-dvh overflow-y-auto scroll-pb-[calc(7rem+env(safe-area-inset-bottom))] bg-[var(--fc-app-bg)] px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 sm:pt-8 lg:pb-[calc(2rem+env(safe-area-inset-bottom))]">
+      <section className="mx-auto flex min-h-0 max-w-3xl flex-col">
         <div className="mb-5 flex items-center justify-between gap-3">
           <button
             type="button"

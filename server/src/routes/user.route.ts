@@ -40,6 +40,7 @@ const updateMeBodySchema = z.object({
     .regex(/^[a-zA-Z0-9_ .-]+$/)
     .optional(),
   avatar: z.string().url().max(2048).nullable().optional(),
+  phoneNumber: z.string().trim().max(32).nullable().optional(),
 });
 
 const deleteMeBodySchema = z.object({
@@ -51,6 +52,7 @@ function publicUser(user: {
   username: string;
   email?: string;
   avatar?: string | null;
+  phoneNumber?: string | null;
   lastSeenAt?: Date | string | null;
   createdAt?: Date | string | null;
 }) {
@@ -63,6 +65,7 @@ function publicUser(user: {
         }
       : {}),
     avatar: user.avatar ?? null,
+    phoneNumber: user.phoneNumber ?? null,
     lastSeenAt:
       user.lastSeenAt instanceof Date
         ? user.lastSeenAt.toISOString()
@@ -71,6 +74,30 @@ function publicUser(user: {
       user.createdAt instanceof Date
         ? user.createdAt.toISOString()
         : (user.createdAt ?? null),
+  };
+}
+
+function normalizePhoneDigits(value?: string | null) {
+  return value?.replace(/\D/g, "") ?? "";
+}
+
+function normalizePhoneNumber(value?: string | null) {
+  const digits = normalizePhoneDigits(value);
+
+  if (!digits) {
+    return {
+      phoneNumber: null,
+      phoneNumberNormalized: null,
+    };
+  }
+
+  if (digits.length < 8 || digits.length > 15) {
+    return null;
+  }
+
+  return {
+    phoneNumber: `+${digits}`,
+    phoneNumberNormalized: digits,
   };
 }
 
@@ -214,10 +241,47 @@ export async function userRoutes(app: FastifyInstance) {
         parsedBody.data.avatar !== undefined
           ? parsedBody.data.avatar
           : (currentUser.avatar ?? null);
+      const nextPhone =
+        parsedBody.data.phoneNumber !== undefined
+          ? normalizePhoneNumber(parsedBody.data.phoneNumber)
+          : {
+              phoneNumber: currentUser.phoneNumber ?? null,
+              phoneNumberNormalized: currentUser.phoneNumberNormalized ?? null,
+            };
+
+      if (!nextPhone) {
+        return reply.status(400).send({
+          message: "Enter a valid mobile number with country code",
+        });
+      }
+
+      if (
+        nextPhone.phoneNumberNormalized &&
+        nextPhone.phoneNumberNormalized !== currentUser.phoneNumberNormalized
+      ) {
+        const existingPhone = await db.execute<{
+          id: string;
+        }>(sql`
+          select id
+          from users
+          where phone_number_normalized = ${nextPhone.phoneNumberNormalized}
+            and is_deleted = false
+          limit 1
+        `);
+
+        if (existingPhone.length && existingPhone[0].id !== userId) {
+          return reply.status(409).send({
+            message: "Mobile number is already linked to another account",
+          });
+        }
+      }
 
       if (
         nextUsername === currentUser.username &&
-        nextAvatar === (currentUser.avatar ?? null)
+        nextAvatar === (currentUser.avatar ?? null) &&
+        nextPhone.phoneNumber === (currentUser.phoneNumber ?? null) &&
+        nextPhone.phoneNumberNormalized ===
+          (currentUser.phoneNumberNormalized ?? null)
       ) {
         return publicUser(currentUser);
       }
@@ -227,18 +291,22 @@ export async function userRoutes(app: FastifyInstance) {
         username: string;
         email: string;
         avatar: string | null;
+        phoneNumber: string | null;
       }>(sql`
             update users
             set
               username = ${nextUsername},
-              avatar = ${nextAvatar}
+              avatar = ${nextAvatar},
+              phone_number = ${nextPhone.phoneNumber},
+              phone_number_normalized = ${nextPhone.phoneNumberNormalized}
             where id = ${userId}
               and is_deleted = false
             returning
               id,
               username,
               email,
-              avatar
+              avatar,
+              phone_number as "phoneNumber"
           `);
 
       const user = updatedUsers[0];
@@ -340,6 +408,8 @@ export async function userRoutes(app: FastifyInstance) {
               email = ${deletedEmail(userId)},
               password = ${disabledPassword},
               avatar = null,
+              phone_number = null,
+              phone_number_normalized = null,
               is_deleted = true,
               deleted_at = ${deletedAtIso}
             where id = ${userId}
@@ -417,21 +487,52 @@ export async function userRoutes(app: FastifyInstance) {
 
       const { q, limit } = parsedQuery.data;
       const normalizedQuery = q?.trim();
+      const normalizedPhoneQuery = normalizePhoneDigits(normalizedQuery);
+      const canSearchPhone = normalizedPhoneQuery.length >= 5;
       const generatedUserPrefix = ["du", "mmy"].join("");
       const searchFilter = normalizedQuery
-        ? sql`and username ilike ${`%${normalizedQuery}%`}`
+        ? sql`and (
+            username ilike ${`%${normalizedQuery}%`}
+            ${
+              canSearchPhone
+                ? sql`or phone_number_normalized = ${normalizedPhoneQuery}
+                    or phone_number_normalized like ${`%${normalizedPhoneQuery}`}`
+                : sql``
+            }
+          )`
         : sql``;
+      const searchOrder = normalizedQuery
+        ? sql`
+            ${
+              canSearchPhone
+                ? sql`case
+                    when phone_number_normalized = ${normalizedPhoneQuery}
+                      or phone_number_normalized like ${`%${normalizedPhoneQuery}`}
+                    then 0
+                    else 1
+                  end,`
+                : sql``
+            }
+            username asc,
+            id asc
+          `
+        : sql`
+            created_at desc,
+            id desc
+          `;
 
       const discoveredUsers = await db.execute<{
         id: string;
         username: string;
         avatar: string | null;
+        phoneNumber: string | null;
         lastSeenAt: Date | string | null;
       }>(sql`
           select
             id,
             username,
             avatar,
+            phone_number as "phoneNumber",
             last_seen_at as "lastSeenAt"
           from users
           where id <> ${userId}
@@ -455,8 +556,7 @@ export async function userRoutes(app: FastifyInstance) {
             and email not ilike '%@test.com'
           ${searchFilter}
           order by
-            username asc,
-            id asc
+            ${searchOrder}
           limit ${limit}
         `);
 
@@ -571,6 +671,7 @@ export async function userRoutes(app: FastifyInstance) {
           id: users.id,
           username: users.username,
           avatar: users.avatar,
+          phoneNumber: users.phoneNumber,
           lastSeenAt: users.lastSeenAt,
         })
         .from(users)

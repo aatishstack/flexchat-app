@@ -21,6 +21,22 @@ await db.execute(sql`
 `);
 
 await db.execute(sql`
+  alter table users
+    add column if not exists phone_number text
+`);
+
+await db.execute(sql`
+  alter table users
+    add column if not exists phone_number_normalized text
+`);
+
+await db.execute(sql`
+  create unique index if not exists users_phone_number_normalized_unique_idx
+    on users (phone_number_normalized)
+    where phone_number_normalized is not null
+`);
+
+await db.execute(sql`
   create index if not exists users_active_lookup_idx
     on users (id, is_deleted)
 `);

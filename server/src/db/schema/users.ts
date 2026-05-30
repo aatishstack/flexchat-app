@@ -36,6 +36,17 @@ export const users =
           "avatar"
         ),
 
+      phoneNumber:
+        text(
+          "phone_number"
+        ),
+
+      phoneNumberNormalized:
+        text(
+          "phone_number_normalized"
+        )
+          .unique(),
+
       isDeleted:
         boolean(
           "is_deleted"

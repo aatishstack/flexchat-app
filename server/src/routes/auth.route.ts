@@ -89,6 +89,7 @@ function publicUser(user: {
   username: string;
   email: string;
   avatar?: string | null;
+  phoneNumber?: string | null;
   createdAt?: Date | string | null;
 }) {
   return {
@@ -96,6 +97,7 @@ function publicUser(user: {
     username: user.username,
     email: user.email,
     avatar: user.avatar ?? null,
+    phoneNumber: user.phoneNumber ?? null,
     createdAt:
       user.createdAt instanceof Date
         ? user.createdAt.toISOString()
@@ -283,6 +285,7 @@ type UserRow = {
   email: string;
   password: string;
   avatar: string | null;
+  phoneNumber: string | null;
   createdAt: Date;
 };
 
@@ -350,6 +353,7 @@ async function findOrCreateGoogleUser(profile: z.infer<typeof googleUserInfoSche
           email,
           password,
           avatar,
+          phone_number as "phoneNumber",
           created_at as "createdAt"
       `);
 
@@ -387,6 +391,7 @@ async function findOrCreateGoogleUser(profile: z.infer<typeof googleUserInfoSche
       email,
       password,
       avatar,
+      phone_number as "phoneNumber",
       created_at as "createdAt"
   `);
 
@@ -482,6 +487,7 @@ export async function authRoutes(app: FastifyInstance) {
           email,
           password,
           avatar,
+          phone_number as "phoneNumber",
           created_at as "createdAt"
       `);
       const createdUser = insertedUsers[0] ?? newUser;

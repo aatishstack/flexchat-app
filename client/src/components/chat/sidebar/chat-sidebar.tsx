@@ -16,10 +16,8 @@ import {
   BellOff,
   LogOut,
   MessageCircle,
-  MoreVertical,
   Pin,
   Search,
-  Settings,
   Trash2,
   UserRound,
   X,
@@ -33,7 +31,6 @@ import type {
   PointerEvent as ReactPointerEvent,
 } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useShallow } from "zustand/react/shallow";
 
 import { useConversationsQuery } from "@/hooks/queries/use-conversations-query";
@@ -352,8 +349,6 @@ export default function ChatSidebar() {
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] =
     useState(true);
-  const [sideMenuOpen, setSideMenuOpen] =
-    useState(false);
   const [activeFolder, setActiveFolder] =
     useState("all");
   const [
@@ -766,7 +761,7 @@ export default function ChatSidebar() {
               </div>
             </div>
 
-            <div className="relative flex items-center gap-1">
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() =>
@@ -780,76 +775,12 @@ export default function ChatSidebar() {
 
               <button
                 type="button"
-                onClick={() =>
-                  setSideMenuOpen((open) => !open)
-                }
-                className="fc-hover flex h-10 w-10 items-center justify-center rounded-full text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
-                aria-label="Open menu"
-              >
-                <MoreVertical size={20} />
-              </button>
-
-              <button
-                type="button"
                 onClick={() => setLogoutConfirmOpen(true)}
                 className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--fc-text-muted)] transition hover:bg-red-500/[0.12] hover:text-red-100"
                 aria-label="Logout"
               >
                 <LogOut size={18} />
               </button>
-
-              <AnimatePresence>
-                {sideMenuOpen ? (
-                  <motion.div
-                    initial={{
-                      opacity: 0,
-                      y: 8,
-                    }}
-                    animate={{
-                      opacity: 1,
-                      y: 0,
-                    }}
-                    exit={{
-                      opacity: 0,
-                      y: 8,
-                    }}
-                    transition={{
-                      duration: 0.16,
-                    }}
-                    className="fc-modal absolute right-0 top-12 z-30 w-52 overflow-hidden rounded-2xl border p-1 backdrop-blur-xl"
-                  >
-                    <Link
-                      href="/profile"
-                      onClick={() => setSideMenuOpen(false)}
-                      className="fc-hover flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
-                    >
-                      <UserRound size={17} />
-                      Profile
-                    </Link>
-
-                    <Link
-                      href="/settings"
-                      onClick={() => setSideMenuOpen(false)}
-                      className="fc-hover flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
-                    >
-                      <Settings size={17} />
-                      Settings
-                    </Link>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSideMenuOpen(false);
-                        setLogoutConfirmOpen(true);
-                      }}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-red-100 transition hover:bg-red-500/[0.12]"
-                    >
-                      <LogOut size={17} />
-                      Log out
-                    </button>
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
             </div>
           </div>
 

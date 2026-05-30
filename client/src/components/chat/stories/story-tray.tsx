@@ -536,7 +536,10 @@ async function bakeStoryTextOverlay(
   }
 }
 
-async function renderTextStoryFile(draft: StoryDraft) {
+async function renderTextStoryFile(
+  draft: StoryDraft,
+  storyBackgroundColors: string[],
+) {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
 
@@ -550,7 +553,7 @@ async function renderTextStoryFile(draft: StoryDraft) {
   canvas.height = height;
 
   const gradient = context.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, draft.backgroundColor ?? STORY_BACKGROUND_COLORS[0]);
+  gradient.addColorStop(0, draft.backgroundColor ?? storyBackgroundColors[0]);
   gradient.addColorStop(1, "#020617");
   context.fillStyle = gradient;
   context.fillRect(0, 0, width, height);
@@ -591,7 +594,13 @@ export default function StoryTray() {
   const currentUser = useAuthStore((state) => state.user);
   const currentUserId = currentUser?.id;
   const pushToast = useToastStore((state) => state.pushToast);
+  const themeId = useThemeStore((state) => state.themeId);
   const storiesQuery = useStoriesQuery();
+  const storyTextColors = useMemo(() => getStoryTextColors(), [themeId]);
+  const storyBackgroundColors = useMemo(
+    () => getStoryBackgroundColors(),
+    [themeId],
+  );
 
   const storyGroups = useMemo(
     () =>
@@ -920,7 +929,7 @@ export default function StoryTray() {
       return {
         mediaType: "text",
         caption: "",
-        backgroundColor: STORY_BACKGROUND_COLORS[0],
+        backgroundColor: storyBackgroundColors[0],
         textOverlay: {
           ...DEFAULT_STORY_TEXT_OVERLAY,
           text: "",
@@ -1198,7 +1207,10 @@ export default function StoryTray() {
       }
 
       try {
-        const textStoryFile = await renderTextStoryFile(draft);
+        const textStoryFile = await renderTextStoryFile(
+          draft,
+          storyBackgroundColors,
+        );
         const textStoryPreviewUrl = URL.createObjectURL(textStoryFile);
 
         uploadDraft = {
@@ -1705,7 +1717,7 @@ export default function StoryTray() {
               <div
                 className="h-full w-full"
                 style={{
-                  background: `linear-gradient(135deg, ${storyDraft.backgroundColor ?? STORY_BACKGROUND_COLORS[0]}, #020617)`,
+                  background: `linear-gradient(135deg, ${storyDraft.backgroundColor ?? storyBackgroundColors[0]}, #020617)`,
                 }}
               />
             )}
@@ -1850,9 +1862,9 @@ export default function StoryTray() {
                 updateStoryTextOverlay((overlay) => ({
                   ...overlay,
                   color:
-                    STORY_TEXT_COLORS[
-                      (STORY_TEXT_COLORS.indexOf(overlay.color) + 1) %
-                        STORY_TEXT_COLORS.length
+                    storyTextColors[
+                      (storyTextColors.indexOf(overlay.color) + 1) %
+                        storyTextColors.length
                     ] ?? "#ffffff",
                 }))
               }
@@ -1944,7 +1956,7 @@ export default function StoryTray() {
               <div className="absolute inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] px-4">
                 {storyDraft.mediaType === "text" ? (
                   <div className="mb-3 flex justify-center gap-2.5">
-                    {STORY_BACKGROUND_COLORS.map((color) => (
+                    {storyBackgroundColors.map((color) => (
                       <button
                         key={color}
                         type="button"
@@ -2001,7 +2013,7 @@ export default function StoryTray() {
                 </div>
 
                 <div className="mt-3 flex justify-center gap-2.5">
-                  {STORY_TEXT_COLORS.map((color) => (
+                  {storyTextColors.map((color) => (
                     <button
                       key={color}
                       type="button"
