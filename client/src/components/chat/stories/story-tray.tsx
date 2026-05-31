@@ -129,7 +129,7 @@ const STORY_STICKERS = ["WOW", "YES", "LIVE", "MOOD", "FLEX"];
 const STORY_IMAGE_EXTENSIONS = ["avif", "gif", "heic", "heif", "jpg", "jpeg", "png", "webp"];
 const STORY_VIDEO_EXTENSIONS = ["mov", "mp4", "m4v", "3gp", "3gpp", "3g2", "3gpp2", "webm"];
 const STORY_TOOL_BUTTON_CLASS =
-  "flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/25 text-white backdrop-blur-xl transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-45";
+  "fc-telegram-touch flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/25 text-white backdrop-blur-xl transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-45";
 
 const DEFAULT_STORY_TEXT_OVERLAY: StoryTextOverlay = {
   text: "Tap to edit",
@@ -1374,7 +1374,7 @@ export default function StoryTray() {
             }
           : current,
       );
-    }, 160);
+    }, 140);
   }
 
   function updateDraftElementDrag(
@@ -2286,8 +2286,8 @@ export default function StoryTray() {
               }}
               transition={{
                 type: "spring",
-                stiffness: 300,
-                damping: 30,
+                stiffness: 340,
+                damping: 34,
               }}
               className="chat-safe-scroll max-h-[min(88dvh,640px)] w-full overflow-y-auto rounded-2xl border border-white/10 bg-[#07111B]/95 p-3 text-white shadow-lg shadow-black/25 sm:max-w-sm"
               onClick={(event) => event.stopPropagation()}
@@ -2297,7 +2297,7 @@ export default function StoryTray() {
                 <button
                   type="button"
                   onClick={() => setStoryComposerOpen(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/[0.07] hover:text-white"
+                  className="fc-telegram-touch flex h-9 w-9 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/[0.07] hover:text-white"
                   aria-label="Close story creator"
                 >
                   <X size={18} />
@@ -2308,7 +2308,7 @@ export default function StoryTray() {
                 <button
                   type="button"
                   onClick={chooseMediaStory}
-                  className="flex items-center gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-white/[0.07]"
+                  className="fc-telegram-touch flex items-center gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-white/[0.07]"
                 >
                   <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2481CC]/15 text-[#7CC5FF]">
                     <ImageIcon size={19} />
@@ -2326,7 +2326,7 @@ export default function StoryTray() {
                 <button
                   type="button"
                   onClick={openTextStoryDraft}
-                  className="flex items-center gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-white/[0.07]"
+                  className="fc-telegram-touch flex items-center gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-white/[0.07]"
                 >
                   <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#E1306C]/15 text-[#FF8FB5]">
                     <Type size={19} />
@@ -2373,7 +2373,7 @@ export default function StoryTray() {
             type="button"
             onClick={retryFailedStoryUpload}
             disabled={createStoryMutation.isPending}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 transition hover:bg-white/15 disabled:cursor-wait disabled:opacity-60"
+            className="fc-telegram-touch flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 transition hover:bg-white/15 disabled:cursor-wait disabled:opacity-60"
             aria-label="Retry story upload"
           >
             <RefreshCw size={15} />
@@ -2382,7 +2382,7 @@ export default function StoryTray() {
           <button
             type="button"
             onClick={clearFailedStoryUpload}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 transition hover:bg-white/15"
+            className="fc-telegram-touch flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 transition hover:bg-white/15"
             aria-label="Dismiss story upload error"
           >
             <X size={15} />
@@ -2615,7 +2615,13 @@ export default function StoryTray() {
             ) : null}
           </AnimatePresence>
 
-          <div className="absolute inset-x-0 top-0 z-[35] flex items-center justify-between gap-2 bg-gradient-to-b from-black/65 to-transparent px-4 pb-12 pt-[calc(0.75rem+env(safe-area-inset-top))] text-white">
+          <div
+            className={cn(
+              "absolute inset-x-0 top-0 z-[35] flex items-center justify-between gap-2 bg-gradient-to-b from-black/65 to-transparent px-4 pb-12 pt-[calc(0.75rem+env(safe-area-inset-top))] text-white transition-opacity duration-150",
+              textOverlayEditorOpen &&
+                "pointer-events-none opacity-0",
+            )}
+          >
             <button
               type="button"
               onClick={cancelStoryDraft}
@@ -2764,7 +2770,7 @@ export default function StoryTray() {
                   !storyDraft.caption.trim() &&
                   !storyDraft.textOverlay?.text.trim())
               }
-              className="flex h-[52px] w-full items-center justify-center rounded-2xl bg-[#2481CC] px-5 text-base font-semibold text-white transition hover:bg-[#2F8ED8] disabled:cursor-wait disabled:opacity-70"
+              className="fc-telegram-touch flex h-[52px] w-full items-center justify-center rounded-2xl bg-[#2481CC] px-5 text-base font-semibold text-white transition hover:bg-[#2F8ED8] disabled:cursor-wait disabled:opacity-70"
             >
               {storyPreparing
                 ? "Preparing..."

@@ -457,7 +457,7 @@ export default function SettingsPage() {
         <motion.div
           initial={{
             opacity: 0,
-            y: 18,
+            y: 10,
           }}
           animate={{
             opacity: 1,
@@ -465,8 +465,8 @@ export default function SettingsPage() {
           }}
           transition={{
             type: "spring",
-            stiffness: 260,
-            damping: 28,
+            stiffness: 340,
+            damping: 34,
           }}
           className="relative"
         >
@@ -600,8 +600,8 @@ export default function SettingsPage() {
             <motion.div
               initial={{
                 opacity: 0,
-                y: 18,
-                scale: 0.96,
+                y: 10,
+                scale: 0.985,
               }}
               animate={{
                 opacity: 1,
@@ -610,13 +610,13 @@ export default function SettingsPage() {
               }}
               exit={{
                 opacity: 0,
-                y: 18,
-                scale: 0.96,
+                y: 10,
+                scale: 0.985,
               }}
               transition={{
                 type: "spring",
-                stiffness: 260,
-                damping: 28,
+                stiffness: 340,
+                damping: 34,
               }}
               className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0B111C]/[0.96] p-5 text-white shadow-lg shadow-black/30 backdrop-blur-3xl"
             >
@@ -641,7 +641,7 @@ export default function SettingsPage() {
                   onClick={() =>
                     setLogoutConfirmOpen(false)
                   }
-                  className="h-12 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08]"
+                  className="fc-telegram-touch h-12 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08]"
                 >
                   Cancel
                 </button>
@@ -649,7 +649,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={confirmLogout}
-                  className="h-12 rounded-2xl bg-red-500 text-sm font-semibold text-white transition hover:bg-red-400"
+                  className="fc-telegram-touch h-12 rounded-2xl bg-red-500 text-sm font-semibold text-white transition hover:bg-red-400"
                 >
                   Log out
                 </button>
@@ -676,8 +676,8 @@ export default function SettingsPage() {
             <motion.div
               initial={{
                 opacity: 0,
-                y: 18,
-                scale: 0.96,
+                y: 10,
+                scale: 0.985,
               }}
               animate={{
                 opacity: 1,
@@ -686,13 +686,13 @@ export default function SettingsPage() {
               }}
               exit={{
                 opacity: 0,
-                y: 18,
-                scale: 0.96,
+                y: 10,
+                scale: 0.985,
               }}
               transition={{
                 type: "spring",
-                stiffness: 260,
-                damping: 28,
+                stiffness: 340,
+                damping: 34,
               }}
               className="w-full max-w-md rounded-2xl border border-red-300/15 bg-[#0B111C]/[0.97] p-5 text-white shadow-lg shadow-black/30 backdrop-blur-3xl"
             >
@@ -738,7 +738,7 @@ export default function SettingsPage() {
                     setDeleteConfirmOpen(false)
                   }
                   disabled={deletingAccount}
-                  className="h-12 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-70"
+                  className="fc-telegram-touch h-12 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-70"
                 >
                   Cancel
                 </button>
@@ -752,7 +752,7 @@ export default function SettingsPage() {
                     deletingAccount ||
                     deleteConfirmation !== "DELETE"
                   }
-                  className="flex h-12 items-center justify-center rounded-2xl bg-red-500 text-sm font-semibold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="fc-telegram-touch flex h-12 items-center justify-center rounded-2xl bg-red-500 text-sm font-semibold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {deletingAccount ? (
                     <Loader2

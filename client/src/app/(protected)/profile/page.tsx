@@ -417,7 +417,7 @@ export default function ProfilePage() {
         <motion.div
           initial={{
             opacity: 0,
-            y: 18,
+            y: 10,
           }}
           animate={{
             opacity: 1,
@@ -425,8 +425,8 @@ export default function ProfilePage() {
           }}
           transition={{
             type: "spring",
-            stiffness: 260,
-            damping: 28,
+            stiffness: 340,
+            damping: 34,
           }}
           className="relative overflow-hidden rounded-[22px] border border-[var(--fc-app-border)] bg-[#17212B]/95 shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
         >
@@ -574,7 +574,7 @@ export default function ProfilePage() {
               onClick={() =>
                 setPhotoPreviewOpen(false)
               }
-              className="absolute right-5 top-[calc(1rem+env(safe-area-inset-top))] flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white"
+              className="fc-telegram-touch absolute right-5 top-[calc(1rem+env(safe-area-inset-top))] flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white"
               aria-label="Close profile photo"
             >
               <X size={18} />
@@ -582,13 +582,18 @@ export default function ProfilePage() {
 
             <motion.div
               initial={{
-                scale: 0.92,
+                scale: 0.965,
               }}
               animate={{
                 scale: 1,
               }}
               exit={{
-                scale: 0.92,
+                scale: 0.985,
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 340,
+                damping: 34,
               }}
               className="flex aspect-square w-full max-w-[min(82vw,420px)] items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-6xl font-bold text-white shadow-lg shadow-black/40"
               onClick={(event) =>
@@ -627,8 +632,8 @@ export default function ProfilePage() {
             <motion.div
               initial={{
                 opacity: 0,
-                y: 28,
-                scale: 0.96,
+                y: 14,
+                scale: 0.985,
               }}
               animate={{
                 opacity: 1,
@@ -637,13 +642,13 @@ export default function ProfilePage() {
               }}
               exit={{
                 opacity: 0,
-                y: 28,
-                scale: 0.96,
+                y: 14,
+                scale: 0.985,
               }}
               transition={{
                 type: "spring",
-                stiffness: 260,
-                damping: 28,
+                stiffness: 340,
+                damping: 34,
               }}
               className="flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0B111C]/[0.96] text-white shadow-lg shadow-black/30 backdrop-blur-3xl"
             >
@@ -662,7 +667,7 @@ export default function ProfilePage() {
                   onClick={() =>
                     setEditOpen(false)
                   }
-                  className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white transition hover:bg-white/[0.08]"
+                  className="fc-telegram-touch flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white transition hover:bg-white/[0.08]"
                   aria-label="Close edit profile"
                 >
                   <X size={18} />
@@ -719,7 +724,7 @@ export default function ProfilePage() {
                       });
                     }}
                     disabled={savingProfile}
-                    className="mx-auto flex h-10 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/10 px-4 text-sm font-medium text-red-100 transition hover:bg-red-500/15 disabled:cursor-wait disabled:opacity-60"
+                    className="fc-telegram-touch mx-auto flex h-10 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/10 px-4 text-sm font-medium text-red-100 transition hover:bg-red-500/15 disabled:cursor-wait disabled:opacity-60"
                   >
                     Remove photo
                   </button>
@@ -780,10 +785,10 @@ export default function ProfilePage() {
                   </label>
                   <input
                     id="profile-phone"
-                  value={draft.phone}
-                  onChange={(event) =>
-                    setDraft({
-                      ...draft,
+                    value={draft.phone}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
                         phone:
                           event.target.value.slice(
                             0,
@@ -810,7 +815,7 @@ export default function ProfilePage() {
                     setEditOpen(false)
                   }
                   disabled={savingProfile}
-                  className="h-12 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08]"
+                  className="fc-telegram-touch h-12 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08]"
                 >
                   Cancel
                 </button>
@@ -821,7 +826,7 @@ export default function ProfilePage() {
                     void saveProfile();
                   }}
                   disabled={savingProfile}
-                  className="flex h-12 items-center justify-center rounded-2xl bg-[#2481CC] text-sm font-semibold text-white transition hover:bg-[#2F8ED8] disabled:cursor-wait disabled:opacity-70"
+                  className="fc-telegram-touch flex h-12 items-center justify-center rounded-2xl bg-[#2481CC] text-sm font-semibold text-white transition hover:bg-[#2F8ED8] disabled:cursor-wait disabled:opacity-70"
                 >
                   {savingProfile ? (
                     <Loader2

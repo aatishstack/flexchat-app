@@ -879,8 +879,9 @@ function MessageActionOverlay({
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
   const stackWidth = Math.min(286, viewportWidth - 24);
-  const actionCount = 2 + (canReply ? 1 : 0) + (canEdit ? 1 : 0) + (canDelete ? 1 : 0);
-  const stackHeight = 58 + 8 + actionCount * 50 + 12;
+  const actionCount =
+    2 + (canReply ? 1 : 0) + (canEdit ? 1 : 0) + (canDelete ? 1 : 0);
+  const stackHeight = 56 + 8 + actionCount * 48 + 10;
   const stackLeft = clamp(
     mine ? anchorRect.right - stackWidth : anchorRect.left,
     12,
@@ -894,7 +895,7 @@ function MessageActionOverlay({
       : clamp(aboveTop, 12, viewportHeight - stackHeight - 12);
 
   const actionButtonClass =
-    "fc-telegram-touch flex h-[50px] w-full items-center gap-4 px-4 text-left text-[15px] font-medium text-white/92 transition hover:bg-white/[0.06] disabled:cursor-wait disabled:opacity-55";
+    "fc-telegram-touch flex h-12 w-full items-center gap-4 px-4 text-left text-[15px] font-medium text-white/92 transition hover:bg-white/[0.06] disabled:cursor-wait disabled:opacity-55";
 
   const content = (
     <AnimatePresence>
@@ -910,15 +911,15 @@ function MessageActionOverlay({
         exit={{
           opacity: 0,
         }}
-        className="fixed inset-0 z-[255] bg-black/24 backdrop-blur-[1.5px]"
+        className="fixed inset-0 z-[255] bg-black/18 backdrop-blur-[2px]"
         onPointerDown={onClose}
       >
         <motion.div
           ref={panelRef}
           initial={{
             opacity: 0,
-            y: 10,
-            scale: 0.94,
+            y: 6,
+            scale: 0.97,
           }}
           animate={{
             opacity: 1,
@@ -927,14 +928,14 @@ function MessageActionOverlay({
           }}
           exit={{
             opacity: 0,
-            y: 8,
-            scale: 0.95,
+            y: 5,
+            scale: 0.98,
           }}
           transition={{
             type: "spring",
-            stiffness: 440,
-            damping: 34,
-            mass: 0.8,
+            stiffness: 520,
+            damping: 38,
+            mass: 0.72,
           }}
           style={{
             left: stackLeft,
@@ -946,18 +947,34 @@ function MessageActionOverlay({
           role="menu"
           aria-label="Message actions"
         >
-          <div className="fc-telegram-menu mb-2 flex h-[58px] items-center justify-between rounded-[22px] border px-2 backdrop-blur-2xl">
-            {QUICK_REACTIONS.map((emoji) => (
-              <button
+          <div className="fc-telegram-menu mb-2 flex h-14 items-center justify-between rounded-[21px] border px-2 backdrop-blur-2xl">
+            {QUICK_REACTIONS.map((emoji, index) => (
+              <motion.button
                 key={emoji}
                 type="button"
+                initial={{
+                  opacity: 0,
+                  y: 4,
+                  scale: 0.86,
+                }}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                  scale: 1,
+                }}
+                transition={{
+                  type: "spring",
+                  stiffness: 520,
+                  damping: 30,
+                  delay: index * 0.012,
+                }}
                 onClick={() => onReact(emoji)}
                 disabled={disabled}
-                className="fc-telegram-touch flex h-11 w-9 items-center justify-center rounded-full text-[24px] transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-55"
+                className="fc-telegram-touch flex h-10 w-9 items-center justify-center rounded-full text-[23px] transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-55"
                 aria-label={`React ${emoji}`}
               >
                 {emoji}
-              </button>
+              </motion.button>
             ))}
           </div>
 
@@ -1355,6 +1372,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
       return;
     }
 
+    navigator.vibrate?.(8);
     setActionAnchorRect(anchor.getBoundingClientRect());
     setReactionAnchorRect(null);
     setActionsOpen(true);
@@ -1431,7 +1449,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
     longPressTimerRef.current = setTimeout(() => {
       openActions();
       longPressTimerRef.current = null;
-    }, 360);
+    }, 330);
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
@@ -1443,7 +1461,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
 
     if (
       Math.hypot(event.clientX - pressStart.x, event.clientY - pressStart.y) >
-      8
+      10
     ) {
       pressStartRef.current = null;
       clearLongPressTimer();
@@ -1566,9 +1584,9 @@ const ChatMessageRow = memo(function ChatMessageRow({
   return (
     <Fragment>
       {showDateDivider ? (
-        <div className="my-3 flex items-center gap-3">
+        <div className="my-2.5 flex items-center gap-3">
           <div className="h-px flex-1 bg-[var(--fc-divider)]" />
-          <span className="fc-surface rounded-full border px-3 py-1 text-[11px] font-medium text-[var(--fc-text-muted)] backdrop-blur-xl">
+          <span className="fc-surface rounded-full border px-3 py-0.5 text-[11px] font-medium text-[var(--fc-text-muted)] backdrop-blur-xl">
             {formatDateDivider(message.createdAt, now)}
           </span>
           <div className="h-px flex-1 bg-[var(--fc-divider)]" />
@@ -1596,18 +1614,21 @@ const ChatMessageRow = memo(function ChatMessageRow({
           reducedMotion || isEditing || actionsOpen
             ? undefined
             : {
-                scale: 0.992,
+                scale: 0.996,
+                transition: {
+                  duration: 0.08,
+                },
               }
         }
         transition={
           swipingReply
             ? { duration: 0 }
             : {
-                duration: reducedMotion ? 0 : 0.2,
+                duration: reducedMotion ? 0 : 0.16,
                 ease: [0.22, 1, 0.36, 1],
               }
         }
-        className={`fc-telegram-touch flex ${grouped ? "mt-0.5" : "mt-2"} ${
+        className={`fc-telegram-touch flex ${grouped ? "mt-[3px]" : "mt-2"} ${
           mine ? "justify-end" : "justify-start"
         } group/message relative ${actionsOpen ? "z-[266]" : "z-0"} [transition:transform_0.2s_cubic-bezier(0.22,1,0.36,1)]`}
         onPointerDown={handlePointerDown}
@@ -1654,7 +1675,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
                 }
               : undefined
           }
-          className={`fc-message-bubble relative max-w-[86%] rounded-[17px] px-3.5 py-1.5 text-[15px] text-white sm:max-w-[68%] sm:px-4 sm:py-2 ${
+          className={`fc-message-bubble relative max-w-[86%] rounded-[17px] px-3.5 py-[7px] text-[15px] text-white sm:max-w-[68%] sm:px-4 sm:py-2 ${
             mine
               ? "rounded-br-[6px]"
               : "rounded-bl-[6px] border border-[var(--fc-app-border)]"
@@ -1759,7 +1780,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
               </div>
             </div>
           ) : !isDeleted && message.text && !media ? (
-            <p className="whitespace-pre-wrap break-words leading-[1.45]">
+            <p className="whitespace-pre-wrap break-words leading-[1.36]">
               {message.text}
             </p>
           ) : null}
@@ -1948,7 +1969,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
             ) : null}
           </AnimatePresence>
 
-          <div className="mt-1.5 flex items-center justify-end gap-1.5 text-[10.5px] font-medium text-white/62">
+          <div className="mt-0.5 flex items-center justify-end gap-1.5 text-[10px] font-medium leading-none text-white/62">
             {message.editedAt && !isDeleted ? <span>edited</span> : null}
             <span>{formatMessageTime(message.createdAt)}</span>
 
@@ -2666,7 +2687,7 @@ export default function ChatConversation() {
 
     typingTimeoutRef.current = setTimeout(() => {
       stopActiveTyping(conversationId);
-    }, 900);
+    }, 760);
   }
 
   function handleEmojiSelect(emoji: EmojiClickData) {
@@ -3613,9 +3634,9 @@ export default function ChatConversation() {
                               }
                         }
                         transition={{
-                          duration: 0.8,
+                          duration: 0.72,
                           repeat: Infinity,
-                          delay: dot * 0.15,
+                          delay: dot * 0.13,
                         }}
                         className="h-2 w-2 rounded-full bg-[var(--fc-accent-text)]"
                       />
@@ -3631,7 +3652,7 @@ export default function ChatConversation() {
       </div>
 
       <div
-        className="relative z-10 shrink-0 border-t border-[var(--fc-app-border)] bg-[var(--fc-chat-composer)] px-2.5 py-2 pb-[calc(0.45rem+env(safe-area-inset-bottom))] backdrop-blur-2xl sm:px-5 sm:py-3 sm:pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+        className="relative z-10 shrink-0 border-t border-[var(--fc-app-border)] bg-[var(--fc-chat-composer)] px-2.5 py-1.5 pb-[calc(0.45rem+env(safe-area-inset-bottom))] backdrop-blur-2xl sm:px-5 sm:py-2.5 sm:pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
       >
         {replyingTo ? (
           <div className="fc-button-soft mb-2 flex items-center gap-3 rounded-2xl border p-3 text-sm">
@@ -3716,7 +3737,7 @@ export default function ChatConversation() {
           />
 
           <div
-            className={`fc-composer relative min-w-0 flex-1 rounded-[24px] border border-white/[0.035] bg-[#1d2b38]/95 px-2 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition-colors duration-200 ${
+            className={`fc-composer relative min-w-0 flex-1 rounded-[23px] border border-white/[0.035] bg-[#1d2b38]/95 px-2 py-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition-colors duration-200 ${
               isConversationBlocked ? "opacity-75" : ""
             }`}
           >
@@ -3805,7 +3826,7 @@ export default function ChatConversation() {
                         : "Write a message..."
                     }
                     disabled={isConversationBlocked}
-                    className="max-h-32 min-h-[38px] w-full resize-none overflow-y-auto border-0 bg-transparent py-2.5 text-[16px] leading-5 text-[var(--fc-theme-text)] shadow-none outline-none ring-0 placeholder:text-[var(--fc-text-subtle)] focus:border-0 focus:outline-none focus:ring-0 focus-visible:shadow-none disabled:cursor-not-allowed sm:min-h-[42px] sm:py-2.5"
+                    className="max-h-32 min-h-[38px] w-full resize-none overflow-y-auto border-0 bg-transparent py-2.5 text-[16px] leading-5 text-[var(--fc-theme-text)] shadow-none outline-none ring-0 placeholder:text-[var(--fc-text-subtle)] focus:border-0 focus:outline-none focus:ring-0 focus-visible:shadow-none disabled:cursor-not-allowed sm:min-h-[40px] sm:py-2.5"
                   />
                 )}
               </div>
@@ -3933,7 +3954,7 @@ export default function ChatConversation() {
                 opacity: 0,
               }}
               animate={{
-                height: "min(320px, 44dvh)",
+                height: "min(316px, 42dvh)",
                 opacity: 1,
               }}
               exit={{
@@ -3941,7 +3962,7 @@ export default function ChatConversation() {
                 opacity: 0,
               }}
               transition={{
-                duration: reducedMotion ? 0 : 0.2,
+                duration: reducedMotion ? 0 : 0.18,
                 ease: [0.22, 1, 0.36, 1],
               }}
               className="mt-2 overflow-hidden rounded-[22px] border fc-emoji-panel shadow-[0_18px_60px_rgba(0,0,0,0.22)]"
@@ -4002,10 +4023,10 @@ export default function ChatConversation() {
               }}
               transition={{
                 type: "spring",
-                stiffness: 300,
-                damping: 30,
+                stiffness: 340,
+                damping: 34,
               }}
-              className="fc-modal w-full max-w-sm overflow-hidden rounded-[30px] border"
+              className="fc-modal w-full max-w-sm overflow-hidden rounded-[24px] border"
               onClick={(event) =>
                 event.stopPropagation()
               }
@@ -4106,10 +4127,10 @@ export default function ChatConversation() {
               }}
               transition={{
                 type: "spring",
-                stiffness: 300,
-                damping: 30,
+                stiffness: 340,
+                damping: 34,
               }}
-              className="fc-modal flex max-h-[min(86dvh,720px)] w-full max-w-xl flex-col overflow-hidden rounded-[30px] border"
+              className="fc-modal flex max-h-[min(86dvh,720px)] w-full max-w-xl flex-col overflow-hidden rounded-[24px] border"
               onClick={(event) =>
                 event.stopPropagation()
               }
@@ -4269,8 +4290,8 @@ export default function ChatConversation() {
               }}
               transition={{
                 type: "spring",
-                stiffness: 300,
-                damping: 30,
+                stiffness: 340,
+                damping: 34,
               }}
               className="fc-modal flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border"
               onClick={(event) => event.stopPropagation()}
@@ -4433,10 +4454,10 @@ export default function ChatConversation() {
               }}
               transition={{
                 type: "spring",
-                stiffness: 300,
-                damping: 30,
+                stiffness: 340,
+                damping: 34,
               }}
-              className="fc-modal flex max-h-[min(82dvh,640px)] w-full max-w-md flex-col overflow-hidden rounded-[30px] border"
+              className="fc-modal flex max-h-[min(82dvh,640px)] w-full max-w-md flex-col overflow-hidden rounded-[24px] border"
             >
               <div className="flex items-center justify-between border-b border-[var(--fc-app-border)] px-5 py-4">
                 <div className="min-w-0">
@@ -4595,10 +4616,10 @@ export default function ChatConversation() {
               }}
               transition={{
                 type: "spring",
-                stiffness: 300,
-                damping: 30,
+                stiffness: 340,
+                damping: 34,
               }}
-              className="fc-modal w-full max-w-sm rounded-[30px] border p-5"
+              className="fc-modal w-full max-w-sm rounded-[24px] border p-5"
             >
               <div className="flex items-start gap-4">
                 <div className="fc-button-soft flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border">
@@ -4676,9 +4697,9 @@ export default function ChatConversation() {
               transition={{
                 type: "spring",
                 stiffness: 320,
-                damping: 30,
+                damping: 34,
               }}
-              className="fc-modal w-full max-w-md overflow-hidden rounded-[30px] border backdrop-blur-3xl"
+              className="fc-modal w-full max-w-md overflow-hidden rounded-[24px] border backdrop-blur-3xl"
             >
               <div className="flex items-center justify-between border-b border-[var(--fc-app-border)] px-5 py-4">
                 <div className="flex items-center gap-3">

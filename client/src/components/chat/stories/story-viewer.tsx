@@ -587,7 +587,7 @@ export default function StoryViewer({
     return group.stories.map((story, index) => (
       <div
         key={story.id}
-        className="h-1 flex-1 overflow-hidden rounded-full bg-white/20"
+        className="h-0.5 flex-1 overflow-hidden rounded-full bg-white/22"
       >
         <div
           style={{
@@ -628,8 +628,8 @@ export default function StoryViewer({
               reducedMotion
                 ? false
                 : {
-                    scale: 0.96,
-                    y: 18,
+                    scale: 0.985,
+                    y: 10,
                   }
             }
             animate={{
@@ -640,33 +640,33 @@ export default function StoryViewer({
               reducedMotion
                 ? undefined
                 : {
-                    scale: 0.96,
-                    y: 18,
+                    scale: 0.985,
+                    y: 10,
                   }
             }
             transition={{
               type: "spring",
-              stiffness: 260,
-              damping: 28,
+              stiffness: 340,
+              damping: 34,
             }}
             drag="x"
             dragConstraints={{
               left: 0,
               right: 0,
             }}
-            dragElastic={0.18}
+            dragElastic={0.12}
             onDragEnd={(_, info) => {
               if (
-                info.offset.x < -70 ||
-                info.velocity.x < -520
+                info.offset.x < -58 ||
+                info.velocity.x < -480
               ) {
                 goNext();
                 return;
               }
 
               if (
-                info.offset.x > 70 ||
-                info.velocity.x > 520
+                info.offset.x > 58 ||
+                info.velocity.x > 480
               ) {
                 goPrevious();
               }
@@ -680,10 +680,10 @@ export default function StoryViewer({
               width: "min(100vw, calc(100dvh * 9 / 16), calc(100svh * 9 / 16))",
               height: "min(100dvh, 100svh, calc(100vw * 16 / 9))",
             }}
-            className="relative touch-pan-y overflow-hidden bg-[#07111B]"
+            className="relative touch-pan-y overflow-hidden bg-[#07111B] will-change-transform"
           >
-            <div className="absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/70 via-black/20 to-transparent px-4 pb-8 pt-[calc(1rem+env(safe-area-inset-top))]">
-              <div className="flex gap-1.5">
+            <div className="absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/70 via-black/20 to-transparent px-4 pb-8 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+              <div className="flex gap-1">
                 {progressBars}
               </div>
 
@@ -727,7 +727,7 @@ export default function StoryViewer({
                         onClick={() =>
                           setViewerListOpen(true)
                         }
-                        className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white transition hover:bg-white/20"
+                        className="fc-telegram-touch flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white transition hover:bg-white/20"
                         aria-label="Show story viewers"
                       >
                         <Eye size={17} />
@@ -741,7 +741,7 @@ export default function StoryViewer({
                         disabled={
                           deleteStoryMutation.isPending
                         }
-                        className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white transition hover:bg-red-500/30 disabled:cursor-wait disabled:opacity-60"
+                        className="fc-telegram-touch flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white transition hover:bg-red-500/30 disabled:cursor-wait disabled:opacity-60"
                         aria-label="Delete story"
                       >
                         <Trash2 size={17} />
@@ -755,7 +755,7 @@ export default function StoryViewer({
                           onMuteUser(currentStory.userId);
                         }
                       }}
-                      className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white transition hover:bg-white/20"
+                      className="fc-telegram-touch flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white transition hover:bg-white/20"
                       aria-label="Mute story"
                     >
                       <BellOff size={17} />
@@ -765,7 +765,7 @@ export default function StoryViewer({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white transition hover:bg-white/20"
+                    className="fc-telegram-touch flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white transition hover:bg-white/20"
                     aria-label="Close stories"
                   >
                     <X size={18} />
@@ -881,7 +881,7 @@ export default function StoryViewer({
               <button
                 type="button"
                 onClick={() => setViewerListOpen(true)}
-                className="absolute inset-x-5 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30 rounded-2xl bg-black/45 px-4 py-3 text-left text-sm font-semibold text-white backdrop-blur-xl transition hover:bg-black/60"
+                className="fc-telegram-touch absolute inset-x-5 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30 rounded-2xl bg-black/45 px-4 py-3 text-left text-sm font-semibold text-white backdrop-blur-xl transition hover:bg-black/60"
               >
                 Seen by {storyViewersQuery.data?.length ?? currentStory.viewCount ?? 0}
               </button>
@@ -912,7 +912,7 @@ export default function StoryViewer({
                 <button
                   type="submit"
                   disabled={!replyText.trim() || isSendingReply}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#2481CC] text-white transition hover:bg-[#2F8ED8] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="fc-telegram-touch flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#2481CC] text-white transition hover:bg-[#2F8ED8] disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label="Send story reply"
                 >
                   {isSendingReply ? (
@@ -964,8 +964,8 @@ export default function StoryViewer({
                     }}
                     transition={{
                       type: "spring",
-                      stiffness: 280,
-                      damping: 30,
+                      stiffness: 340,
+                      damping: 34,
                     }}
                     className="max-h-[60%] w-full overflow-hidden rounded-t-2xl border border-white/10 bg-[#0B111C]/95 shadow-lg shadow-black/30"
                     onClick={(event) =>
@@ -987,7 +987,7 @@ export default function StoryViewer({
                         onClick={() =>
                           setViewerListOpen(false)
                         }
-                        className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/10"
+                        className="fc-telegram-touch flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/10"
                         aria-label="Close viewers"
                       >
                         <X size={16} />
@@ -1062,8 +1062,8 @@ export default function StoryViewer({
                   <motion.div
                     initial={{
                       opacity: 0,
-                      y: 16,
-                      scale: 0.96,
+                      y: 10,
+                      scale: 0.985,
                     }}
                     animate={{
                       opacity: 1,
@@ -1072,8 +1072,13 @@ export default function StoryViewer({
                     }}
                     exit={{
                       opacity: 0,
-                      y: 16,
-                      scale: 0.96,
+                      y: 10,
+                      scale: 0.985,
+                    }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 340,
+                      damping: 34,
                     }}
                     className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0B111C]/95 p-5 shadow-lg shadow-black/30"
                   >
@@ -1101,7 +1106,7 @@ export default function StoryViewer({
                         disabled={
                           deleteStoryMutation.isPending
                         }
-                        className="h-12 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-60"
+                        className="fc-telegram-touch h-12 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-60"
                       >
                         Cancel
                       </button>
@@ -1116,7 +1121,7 @@ export default function StoryViewer({
                         disabled={
                           deleteStoryMutation.isPending
                         }
-                        className="flex h-12 items-center justify-center rounded-2xl bg-red-500 text-sm font-semibold text-white transition hover:bg-red-400 disabled:cursor-wait disabled:opacity-70"
+                        className="fc-telegram-touch flex h-12 items-center justify-center rounded-2xl bg-red-500 text-sm font-semibold text-white transition hover:bg-red-400 disabled:cursor-wait disabled:opacity-70"
                       >
                         {deleteStoryMutation.isPending ? (
                           <Loader2

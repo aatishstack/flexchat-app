@@ -232,8 +232,9 @@ const ConversationListButton = memo(
           longPressTimerRef.current =
             setTimeout(() => {
               longPressTriggeredRef.current = true;
+              navigator.vibrate?.(6);
               onContextOpen(conversation);
-            }, 430);
+            }, 340);
         },
         [
           clearLongPressTimer,
@@ -269,13 +270,13 @@ const ConversationListButton = memo(
           clearLongPressTimer();
           onContextOpen(conversation);
         }}
-        whileHover={{
-          x: 2,
-        }}
         whileTap={{
-          scale: 0.985,
+          scale: 0.992,
         }}
-        className={`group flex min-h-[76px] w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition-all ${
+        transition={{
+          duration: 0.12,
+        }}
+        className={`group fc-telegram-touch flex min-h-[72px] w-full items-center gap-3 rounded-2xl border px-3 py-2 text-left transition-all ${
           active
             ? "fc-active"
             : "border-transparent hover:bg-[var(--fc-app-surface-hover)]"
@@ -285,7 +286,7 @@ const ConversationListButton = memo(
           <FlexAvatar
             src={avatar}
             name={conversation.name}
-            className="fc-avatar flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full text-lg font-bold"
+            className="fc-avatar flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-base font-bold"
           />
 
           {isOnline ? (
