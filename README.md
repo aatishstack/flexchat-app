@@ -1,17 +1,31 @@
-# FlexChat — Premium Realtime Messaging Platform 🚀
+# 🚀 FlexChat — Premium Realtime Messaging Platform
 
-FlexChat is a next-generation realtime messaging platform focused on premium mobile UX, privacy, smooth interactions, and modern communication experiences.
+<div align="center">
 
-Built with a Telegram-inspired design philosophy, FlexChat combines:
+### ⚡ Telegram-Grade Messaging Experience
 
-* ⚡ ultra-smooth realtime messaging
-* 🎨 premium customizable themes
-* 📞 audio/video calling
-* 📸 modern stories system
-* 😊 expressive reactions & emoji UX
-* 🔒 privacy-focused architecture
-* 🌐 global realtime communication
-* 📱 mobile-native interaction feel
+### 🎨 Premium Mobile UX • 📞 Calls • 📸 Stories • 🔒 Privacy
+
+<br/>
+
+![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge\&logo=nextdotjs)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge\&logo=typescript\&logoColor=white)
+![Socket.IO](https://img.shields.io/badge/Socket.IO-Realtime-black?style=for-the-badge\&logo=socketdotio)
+![Status](https://img.shields.io/badge/Status-Release_Candidate-2563eb?style=for-the-badge)
+![WebRTC](https://img.shields.io/badge/WebRTC-Calls-0f172a?style=for-the-badge)
+
+<br/>
+
+### 🌍 Live Demo
+
+> https://flexchat-app-gtn5.vercel.app/auth
+
+<br/>
+
+Premium realtime messaging platform focused on:
+**smooth mobile interactions, modern realtime systems, Telegram-grade UX, stories, calls, and scalable architecture.**
+
+</div>
 
 ---
 
@@ -19,68 +33,73 @@ Built with a Telegram-inspired design philosophy, FlexChat combines:
 
 ## 💬 Realtime Messaging
 
-* Instant realtime messaging
-* Typing indicators
-* Realtime message sync
-* Optimistic message delivery
-* Read receipts
-* Unread counters
-* Smooth message animations
-* Telegram-grade compact chat UX
+* ⚡ Instant realtime messaging
+* ✍️ Typing indicators
+* 👀 Read receipts
+* 📨 Optimistic message delivery
+* 🔄 Live message synchronization
+* 📱 Compact Telegram-style chat layout
+* 😊 Reactions & premium hold menus
+* 🧠 Native-feeling interaction system
 
 ---
 
 ## 📸 Stories System
 
-* Photo/video/text stories
-* Premium animated story rings
-* Story viewer insights
-* Realtime story updates
-* Story gestures & interactions
-* Modern fullscreen story experience
+* 📷 Photo stories
+* 🎥 Video stories
+* ✨ Text stories
+* 🌈 Animated premium story rings
+* 👁️ Realtime story views
+* 📊 Story viewer insights
+* 🎞️ Fullscreen immersive story viewer
+* 🖐️ Gesture-based interactions
 
 ---
 
-## 📞 Calling
+## 📞 Audio & Video Calling
 
-* Audio calling
-* Video calling
-* Realtime call states
-* Dedicated calls section
-* WebRTC-powered communication
-* Mobile-first calling UX
-
----
-
-## 🎨 Premium Themes
-
-* Global adaptive theming
-* Premium blue identity system
-* Dark-mode optimized UI
-* Consistent modern surfaces
-* Smooth visual hierarchy
+* 📞 Audio calls
+* 🎥 Video calls
+* 🌐 WebRTC-powered communication
+* ⚡ Realtime call states
+* 📱 Mobile-first calling UX
+* 🔊 Realtime audio/video synchronization
 
 ---
 
-## 😊 Modern Interaction System
+## 🎨 Premium UI/UX
 
-* Native-feeling touch interactions
-* Premium long-press menus
-* Smooth reactions system
-* Compact Telegram-style layouts
-* Native emoji + keyboard behavior
-* Optimized mobile motion system
+* 🌌 Premium dark surfaces
+* 🔵 Adaptive blue theme system
+* 📱 Native-feeling mobile interactions
+* ✨ Smooth animations & transitions
+* 🎯 Compact Telegram-grade spacing
+* 😊 Emoji + keyboard optimized UX
+* ⚡ Realtime interaction feedback
 
 ---
 
 ## 🔒 Privacy & Security
 
-* Secure authentication
-* Phone onboarding system
-* Protected user sessions
-* Block/unblock system
-* Privacy-focused architecture
-* Production-safe realtime systems
+* 🔐 Secure authentication
+* 📱 Phone onboarding system
+* 🚫 Block/unblock system
+* 🛡️ Protected sessions
+* 🔑 Production-safe architecture
+* 🌍 Global realtime infrastructure
+
+---
+
+# 📸 Screenshots
+
+> 📱 Premium mobile UI previews coming soon.
+
+* 💬 Chat Screen
+* 📸 Stories Viewer
+* 📞 Calls Interface
+* ⚙️ Telegram-style Settings
+* 👤 Modern Profile UI
 
 ---
 
@@ -88,43 +107,40 @@ Built with a Telegram-inspired design philosophy, FlexChat combines:
 
 ## Frontend
 
-* Next.js 16
-* React
-* TypeScript
-* Tailwind CSS
-* Framer Motion
-* Zustand
-* TanStack Query
+* ⚛️ Next.js 16
+* ⚛️ React
+* 📘 TypeScript
+* 🎨 Tailwind CSS
+* 🎞️ Framer Motion
+* 🧠 Zustand
+* 🔄 TanStack Query
+
+---
 
 ## Backend
 
-* Fastify
-* Socket.IO
-* PostgreSQL
-* Drizzle ORM
-* Redis
-* WebRTC
+* ⚡ Fastify
+* 🔌 Socket.IO
+* 🐘 PostgreSQL
+* 🧬 Drizzle ORM
+* ⚡ Redis
+* 📞 WebRTC
 
 ---
 
 # 🚀 Getting Started
 
-## Install dependencies
+## 📦 Install Dependencies
 
 ```bash
 npm install
 ```
 
-## Run frontend
+---
+
+## 💻 Run Frontend
 
 ```bash
-npm run dev
-```
-
-## Run backend
-
-```bash
-cd server
 npm run dev
 ```
 
@@ -136,64 +152,84 @@ http://localhost:3000
 
 ---
 
-# 📱 APK Download
+## ⚡ Run Backend
 
-Android APK builds and mobile releases will be available soon.
+```bash
+cd server
+npm run dev
+```
+
+---
+
+# 📲 Android APK
+
+> Android APK builds will be available soon.
 
 Planned:
 
 * 📦 Android APK
-* 📲 PWA install support
+* 📱 PWA install support
 * 🔔 Push notifications
-* ☁️ Production deployment
-* 🌍 Global scaling support
+* 🌍 Global deployment support
+* ☁️ Production scaling infrastructure
 
 ---
 
 # 🎯 Project Vision
 
-FlexChat aims to deliver:
+FlexChat aims to combine:
 
-* premium messaging UX
-* native mobile feel
-* modern realtime systems
-* scalable architecture
-* polished interaction design
-* production-grade performance
+* ⚡ premium realtime systems
+* 🎨 modern mobile UX
+* 📱 native-feeling interactions
+* 🌍 scalable infrastructure
+* 🔒 privacy-focused architecture
+* 📞 modern communication features
 
-The goal is to create a communication platform that feels:
+The goal is to create a messaging platform that feels:
 
-* fast ⚡
-* modern 🎨
-* expressive 😊
-* immersive 📱
-* reliable 🔒
+* ⚡ Fast
+* 🎨 Modern
+* 📱 Native
+* 😊 Expressive
+* 🔒 Reliable
+* 🌍 Realtime
 
 ---
 
 # 📌 Current Status
 
-🚧 Release Candidate Stage
+## 🚧 Release Candidate
 
-Current progress includes:
+### Current Progress
 
-* stable realtime systems
-* Telegram-grade interaction polish
-* premium mobile UX
-* production-ready architecture
-* modern stories & calling systems
-* responsive mobile-first layouts
+* ✅ Stable realtime architecture
+* ✅ Telegram-grade interaction polish
+* ✅ Premium mobile UX
+* ✅ Stories system
+* ✅ Audio/video calling
+* ✅ Theme engine
+* ✅ Responsive mobile-first layouts
+* ✅ Production-ready architecture
 
 ---
 
 # ❤️ FlexChat
 
-Built with a focus on:
+Built with focus on:
 
 * smoothness
 * realtime experiences
-* premium UX
-* modern mobile interaction design
-* scalable production architecture
+* premium interactions
+* modern mobile design
+* scalable production systems
 
-Welcome to the future of messaging 🚀
+---
+
+<div align="center">
+
+## 🚀 Welcome to the future of messaging
+
+### FlexChat
+
+</div>
