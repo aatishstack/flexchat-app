@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/aatishstack/flexchat-app/main/public/banner.png" alt="FlexChat Banner"/>
+</p>
+
 # 🚀 FlexChat — Premium Realtime Messaging Platform
 
 <div align="center">
@@ -165,7 +169,7 @@ npm run dev
 
 > Android APK builds will be available soon.
 
-Planned:
+### Planned
 
 * 📦 Android APK
 * 📱 PWA install support
