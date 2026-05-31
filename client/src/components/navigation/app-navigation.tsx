@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useConversationStore } from "@/stores/conversation.store";
 
 type NavItem = {
   href: string;
@@ -102,10 +103,20 @@ function DesktopNavigation({ pathname }: { pathname: string }) {
   );
 }
 
-function MobileNavigation({ pathname }: { pathname: string }) {
+function MobileNavigation({
+  pathname,
+  hidden,
+}: {
+  pathname: string;
+  hidden: boolean;
+}) {
+  if (hidden) {
+    return null;
+  }
+
   return (
-    <nav className="fc-panel fixed inset-x-0 bottom-0 z-[190] border-t px-3 pb-[calc(0.55rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl lg:hidden">
-      <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
+    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-[190] px-3 pb-[calc(0.55rem+env(safe-area-inset-bottom))] pt-2 lg:hidden">
+      <div className="fc-panel pointer-events-auto mx-auto grid max-w-md grid-cols-5 gap-1 rounded-[26px] border px-1.5 py-1.5 shadow-[0_16px_44px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = isActivePath(pathname, item.href);
@@ -116,8 +127,9 @@ function MobileNavigation({ pathname }: { pathname: string }) {
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "fc-hover relative flex h-14 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-medium text-[var(--fc-text-subtle)] transition active:scale-[0.98]",
-                active && "text-[var(--fc-theme-text)]",
+                "fc-telegram-touch relative flex h-[52px] flex-col items-center justify-center gap-0.5 rounded-[22px] text-[11px] font-medium text-[var(--fc-text-subtle)] transition",
+                active &&
+                  "bg-[var(--fc-app-surface-active)] text-[var(--fc-theme-text)]",
               )}
             >
               {active ? (
@@ -149,11 +161,19 @@ function MobileNavigation({ pathname }: { pathname: string }) {
 
 export default function AppNavigation() {
   const pathname = usePathname();
+  const activeConversationId = useConversationStore(
+    (state) => state.activeConversationId,
+  );
+  const hideMobileNavigation =
+    pathname.startsWith("/chat") && !!activeConversationId;
 
   return (
     <>
       <DesktopNavigation pathname={pathname} />
-      <MobileNavigation pathname={pathname} />
+      <MobileNavigation
+        pathname={pathname}
+        hidden={hideMobileNavigation}
+      />
     </>
   );
 }

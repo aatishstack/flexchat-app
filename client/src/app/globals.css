@@ -2,8 +2,8 @@
 
 :root {
   color-scheme: dark;
-  --flexchat-bg: #07111b;
-  --flexchat-panel: rgba(12, 25, 39, 0.9);
+  --flexchat-bg: #0f1c29;
+  --flexchat-panel: rgba(23, 33, 43, 0.94);
   --flexchat-border: rgba(255, 255, 255, 0.1);
   --fc-primary: #285ccc;
   --fc-primary-rgb: 40 92 204;
@@ -13,9 +13,9 @@
   --fc-accent-soft: rgba(40, 92, 204, 0.16);
   --fc-accent-muted: rgba(40, 92, 204, 0.24);
   --fc-accent-text: #8ecfff;
-  --fc-chat-bg: radial-gradient(circle at 12% 0%, rgba(40, 92, 204, 0.16), transparent 32%), #07111b;
-  --fc-chat-header: rgba(12, 25, 39, 0.9);
-  --fc-chat-composer: rgba(255, 255, 255, 0.07);
+  --fc-chat-bg: #0f1c29;
+  --fc-chat-header: rgba(23, 33, 43, 0.96);
+  --fc-chat-composer: rgba(23, 33, 43, 0.96);
   --fc-own-bubble: linear-gradient(135deg, #2481cc 0%, #2f8ee2 52%, #55b7ff 100%);
   --fc-own-bubble-text: #ffffff;
   --fc-their-bubble: linear-gradient(145deg, rgba(23, 33, 43, 0.96), rgba(18, 30, 43, 0.94));
@@ -26,10 +26,10 @@
   --fc-text: #f8fbff;
   --fc-text-muted: rgba(225, 232, 242, 0.72);
   --fc-text-subtle: rgba(225, 232, 242, 0.48);
-  --fc-app-bg: radial-gradient(circle at 88% 2%, rgba(40, 92, 204, 0.22), transparent 34%), linear-gradient(145deg, #07111b 0%, #0b1724 52%, #0b1724 100%);
-  --fc-app-panel: rgba(12, 25, 39, 0.9);
-  --fc-app-panel-strong: rgba(17, 30, 45, 0.96);
-  --fc-app-surface: rgba(25, 39, 56, 0.68);
+  --fc-app-bg: #0f1c29;
+  --fc-app-panel: rgba(23, 33, 43, 0.94);
+  --fc-app-panel-strong: rgba(23, 33, 43, 0.98);
+  --fc-app-surface: rgba(35, 49, 64, 0.76);
   --fc-app-surface-hover: rgba(255, 255, 255, 0.07);
   --fc-app-surface-active: rgba(40, 92, 204, 0.18);
   --fc-app-elevated: rgba(25, 39, 56, 0.94);
@@ -56,9 +56,10 @@
   --fc-motion-base: 200ms;
   --fc-motion-slow: 320ms;
   --fc-mobile-nav-height: 4.75rem;
-  --fc-radius: 16px;
-  --fc-radius-lg: 22px;
-  --fc-radius-xl: 28px;
+  --fc-safe-bottom: env(safe-area-inset-bottom);
+  --fc-radius: 14px;
+  --fc-radius-lg: 18px;
+  --fc-radius-xl: 22px;
 }
 
 html[data-flexchat-theme-mode="light"] {
@@ -180,10 +181,41 @@ textarea,
 .fc-telegram-touch {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  user-select: none;
+  transition:
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 160ms ease,
+    opacity 160ms ease;
 }
 
 .fc-telegram-touch:active {
-  transform: scale(0.985);
+  transform: scale(0.975);
+}
+
+.fc-telegram-menu {
+  background: rgba(35, 49, 64, 0.98);
+  border-color: rgba(255, 255, 255, 0.055);
+  box-shadow:
+    0 22px 54px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.fc-composer textarea:focus,
+.fc-composer textarea:focus-visible {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.fc-composer:focus-within {
+  border-color: rgba(255, 255, 255, 0.075) !important;
+}
+
+.fc-chat-doodle {
+  background-color: var(--fc-chat-bg);
+  background-image:
+    radial-gradient(circle at 12px 12px, rgba(255, 255, 255, 0.045) 1px, transparent 1.5px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.025) 12.5%, transparent 12.5%, transparent 50%, rgba(255, 255, 255, 0.025) 50%, rgba(255, 255, 255, 0.025) 62.5%, transparent 62.5%, transparent);
+  background-size: 34px 34px, 68px 68px;
 }
 
 .fc-message-bubble {
@@ -237,6 +269,7 @@ html,
 body {
   margin: 0;
   padding: 0;
+  height: 100%;
   min-height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
@@ -247,6 +280,14 @@ body {
   overscroll-behavior: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+.fc-native-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fc-scrollbar) transparent;
 }
 
 body {

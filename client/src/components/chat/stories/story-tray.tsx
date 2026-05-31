@@ -2040,7 +2040,7 @@ export default function StoryTray() {
         }}
       />
 
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="relative flex w-[66px] shrink-0 flex-col items-center gap-2 text-center text-[11px] text-zinc-400">
           <button
             type="button"
@@ -2057,7 +2057,7 @@ export default function StoryTray() {
               myStoryLoading ||
               currentUserStoryGroupIndex < 0
             }
-            className="relative flex h-[60px] w-[60px] items-center justify-center rounded-full p-[2px] disabled:cursor-default disabled:opacity-70"
+            className="fc-telegram-touch relative flex h-[60px] w-[60px] items-center justify-center rounded-full p-[2px] disabled:cursor-default disabled:opacity-70"
             aria-label={
               currentUserStoryGroup
                 ? "View my story"
@@ -2087,7 +2087,7 @@ export default function StoryTray() {
             type="button"
             onClick={openStoryComposer}
             disabled={createStoryMutation.isPending}
-            className="absolute right-1 top-10 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#07111B] bg-[#2481CC] text-white shadow-md disabled:cursor-wait disabled:opacity-70"
+            className="fc-telegram-touch absolute right-1 top-10 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#07111B] bg-[#2481CC] text-white shadow-md disabled:cursor-wait disabled:opacity-70"
             aria-label="Create story"
           >
             <Plus size={14} />
@@ -2139,7 +2139,7 @@ export default function StoryTray() {
               setViewerGroupSource("visible");
               setViewerGroupIndex(originalIndex);
             }}
-            className="flex w-[66px] shrink-0 flex-col items-center gap-2 text-center text-[11px] text-zinc-400"
+            className="fc-telegram-touch flex w-[66px] shrink-0 flex-col items-center gap-2 text-center text-[11px] text-zinc-400"
           >
             <span
               className={`relative flex h-[60px] w-[60px] items-center justify-center rounded-full p-[2px] ${

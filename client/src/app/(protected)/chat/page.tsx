@@ -11,6 +11,7 @@ import GlobalSearch from "../../../components/chat/sidebar/global-search";
 import { useGlobalSearchStore } from "../../../store/global-search-store";
 import ActivityBar from "../../../components/chat/sidebar/activity-bar";
 import { useConversationStore } from "../../../stores/conversation.store";
+import { cn } from "@/lib/utils";
 
 export default function ChatPage() {
   const setGlobalSearchOpen = useGlobalSearchStore((state) => state.setOpen);
@@ -94,7 +95,12 @@ export default function ChatPage() {
             "calc(5.75rem + env(safe-area-inset-bottom))",
         } as CSSProperties
       }
-      className="relative h-[calc(100dvh-var(--fc-mobile-nav-height))] min-h-[calc(100svh-var(--fc-mobile-nav-height))] overflow-hidden bg-[var(--fc-app-bg)] text-[var(--fc-theme-text)] lg:h-dvh lg:min-h-svh"
+      className={cn(
+        "relative overflow-hidden bg-[var(--fc-app-bg)] text-[var(--fc-theme-text)] lg:h-dvh lg:min-h-svh",
+        activeConversationId
+          ? "h-dvh min-h-svh"
+          : "h-[calc(100dvh-var(--fc-mobile-nav-height))] min-h-[calc(100svh-var(--fc-mobile-nav-height))]",
+      )}
     >
       <GlobalSearch />
       <ActivityBar />

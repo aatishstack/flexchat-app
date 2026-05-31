@@ -6,6 +6,7 @@ import {
   AnimatePresence,
   motion,
 } from "framer-motion";
+import { usePathname } from "next/navigation";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -17,6 +18,7 @@ import {
   Toast,
   useToastStore,
 } from "@/store/toast-store";
+import { useConversationStore } from "@/stores/conversation.store";
 
 const variantStyles = {
   success: {
@@ -106,7 +108,7 @@ function ToastCard({
         damping: 34,
         mass: 0.8,
       }}
-      className={`pointer-events-auto relative w-[min(calc(100vw-1.5rem),340px)] overflow-hidden rounded-[18px] border ${variant.borderClass} bg-[#0B1520]/[0.92] p-3.5 text-left shadow-[0_16px_44px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-3xl`}
+      className={`pointer-events-auto relative w-[min(calc(100vw-1.5rem),310px)] overflow-hidden rounded-2xl border ${variant.borderClass} bg-[#17212B]/[0.94] p-3 text-left shadow-[0_14px_34px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-3xl`}
       role="status"
       aria-live="polite"
     >
@@ -117,9 +119,9 @@ function ToastCard({
 
       <div className="relative flex items-start gap-3">
         <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] border shadow-xl ${variant.iconClass}`}
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border shadow-xl ${variant.iconClass}`}
         >
-          <Icon size={17} />
+          <Icon size={16} />
         </div>
 
         <div className="min-w-0 flex-1">
@@ -139,6 +141,7 @@ function ToastCard({
 }
 
 export default function LiveToast() {
+  const pathname = usePathname();
   const toasts =
     useToastStore(
       (state) =>
@@ -149,9 +152,20 @@ export default function LiveToast() {
       (state) =>
         state.removeToast
     );
+  const activeConversationId = useConversationStore(
+    (state) => state.activeConversationId,
+  );
+  const chatDetailOpen =
+    pathname.startsWith("/chat") && !!activeConversationId;
 
   return (
-    <div className="pointer-events-none fixed inset-x-3 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-[300] flex flex-col-reverse items-center gap-3 sm:inset-x-auto sm:bottom-auto sm:right-5 sm:top-[calc(1rem+env(safe-area-inset-top))] sm:flex-col sm:items-end xl:right-[calc(var(--chat-right-rail-width,20rem)+1.25rem)]">
+    <div
+      className={`pointer-events-none fixed inset-x-3 z-[300] flex flex-col-reverse items-center gap-2.5 sm:inset-x-auto sm:bottom-auto sm:right-5 sm:top-[calc(1rem+env(safe-area-inset-top))] sm:flex-col sm:items-end xl:right-[calc(var(--chat-right-rail-width,20rem)+1.25rem)] ${
+        chatDetailOpen
+          ? "bottom-[calc(0.75rem+env(safe-area-inset-bottom))]"
+          : "bottom-[calc(5.75rem+env(safe-area-inset-bottom))]"
+      }`}
+    >
       <AnimatePresence mode="popLayout">
         {toasts.map((toast) => (
           <ToastCard

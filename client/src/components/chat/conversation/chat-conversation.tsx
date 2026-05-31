@@ -15,6 +15,7 @@ import {
 
 import {
   AlertCircle,
+  ArrowLeft,
   Ban,
   Check,
   Download,
@@ -97,7 +98,7 @@ import type { MessageQueryCache } from "@/lib/message-query-cache";
 
 const RENDER_WINDOW_SIZE = 360;
 const EMPTY_MESSAGES: Message[] = [];
-const QUICK_REACTIONS = ["👍", "❤️", "😂", "🔥", "👏", "😮", "😢"];
+const QUICK_REACTIONS = ["❤️", "👍", "👎", "🔥", "🥰", "👏", "😁"];
 const MESSAGE_TIME_FORMATTER = new Intl.DateTimeFormat("en", {
   hour: "numeric",
   minute: "2-digit",
@@ -721,6 +722,25 @@ type ReactionPickerProps = {
   onSelect: (emoji: string) => void;
 };
 
+type MessageActionOverlayProps = {
+  anchorRect: DOMRect;
+  mine: boolean;
+  disabled: boolean;
+  canReply: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  onClose: () => void;
+  onReact: (emoji: string) => void;
+  onReply: () => void;
+  onShare: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+};
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
 function ReactionPicker({
   anchorRect,
   disabled,
@@ -820,6 +840,186 @@ function ReactionPicker({
     </motion.div>,
     document.body,
   );
+}
+
+function MessageActionOverlay({
+  anchorRect,
+  mine,
+  disabled,
+  canReply,
+  canEdit,
+  canDelete,
+  onClose,
+  onReact,
+  onReply,
+  onShare,
+  onEdit,
+  onDelete,
+}: MessageActionOverlayProps) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
+
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return null;
+  }
+
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const stackWidth = Math.min(286, viewportWidth - 24);
+  const actionCount = 2 + (canReply ? 1 : 0) + (canEdit ? 1 : 0) + (canDelete ? 1 : 0);
+  const stackHeight = 58 + 8 + actionCount * 50 + 12;
+  const stackLeft = clamp(
+    mine ? anchorRect.right - stackWidth : anchorRect.left,
+    12,
+    viewportWidth - stackWidth - 12,
+  );
+  const belowTop = anchorRect.bottom + 10;
+  const aboveTop = anchorRect.top - stackHeight - 10;
+  const stackTop =
+    belowTop + stackHeight < viewportHeight - 12
+      ? belowTop
+      : clamp(aboveTop, 12, viewportHeight - stackHeight - 12);
+
+  const actionButtonClass =
+    "fc-telegram-touch flex h-[50px] w-full items-center gap-4 px-4 text-left text-[15px] font-medium text-white/92 transition hover:bg-white/[0.06] disabled:cursor-wait disabled:opacity-55";
+
+  const content = (
+    <AnimatePresence>
+      <motion.div
+        key="message-action-overlay"
+        data-message-overlay="true"
+        initial={{
+          opacity: 0,
+        }}
+        animate={{
+          opacity: 1,
+        }}
+        exit={{
+          opacity: 0,
+        }}
+        className="fixed inset-0 z-[255] bg-black/24 backdrop-blur-[1.5px]"
+        onPointerDown={onClose}
+      >
+        <motion.div
+          ref={panelRef}
+          initial={{
+            opacity: 0,
+            y: 10,
+            scale: 0.94,
+          }}
+          animate={{
+            opacity: 1,
+            y: 0,
+            scale: 1,
+          }}
+          exit={{
+            opacity: 0,
+            y: 8,
+            scale: 0.95,
+          }}
+          transition={{
+            type: "spring",
+            stiffness: 440,
+            damping: 34,
+            mass: 0.8,
+          }}
+          style={{
+            left: stackLeft,
+            top: stackTop,
+            width: stackWidth,
+          }}
+          className="fixed z-[270]"
+          onPointerDown={(event) => event.stopPropagation()}
+          role="menu"
+          aria-label="Message actions"
+        >
+          <div className="fc-telegram-menu mb-2 flex h-[58px] items-center justify-between rounded-[22px] border px-2 backdrop-blur-2xl">
+            {QUICK_REACTIONS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => onReact(emoji)}
+                disabled={disabled}
+                className="fc-telegram-touch flex h-11 w-9 items-center justify-center rounded-full text-[24px] transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-55"
+                aria-label={`React ${emoji}`}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+
+          <div className="fc-telegram-menu overflow-hidden rounded-[18px] border py-1 backdrop-blur-2xl">
+            {canReply ? (
+              <button
+                type="button"
+                onClick={onReply}
+                className={actionButtonClass}
+              >
+                <Reply size={22} />
+                Reply
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={onShare}
+              className={actionButtonClass}
+            >
+              <Forward size={22} />
+              Forward
+            </button>
+
+            {canEdit ? (
+              <button
+                type="button"
+                onClick={onEdit}
+                className={actionButtonClass}
+              >
+                <Pencil size={22} />
+                Edit
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className={actionButtonClass}
+            >
+              <X size={22} />
+              Cancel
+            </button>
+
+            {canDelete ? (
+              <button
+                type="button"
+                onClick={onDelete}
+                disabled={disabled}
+                className={`${actionButtonClass} text-red-100 hover:bg-red-500/15`}
+              >
+                <Trash2 size={22} />
+                Delete
+              </button>
+            ) : null}
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+
+  return createPortal(content, document.body);
 }
 
 function MessageMediaAttachment({
@@ -1086,9 +1286,17 @@ const ChatMessageRow = memo(function ChatMessageRow({
   onShare,
 }: ChatMessageRowProps) {
   const rowRef = useRef<HTMLDivElement | null>(null);
+  const bubbleRef = useRef<HTMLDivElement | null>(null);
   const reactionButtonRef = useRef<HTMLButtonElement | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pressStartRef = useRef<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [reactionAnchorRect, setReactionAnchorRect] = useState<DOMRect | null>(
+    null,
+  );
+  const [actionAnchorRect, setActionAnchorRect] = useState<DOMRect | null>(
     null,
   );
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -1122,7 +1330,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
   const canReply = isSettled && !isDeleted;
   const media = getMediaFromMessage(message);
   const showLegacyInlineReactionPicker = false;
-  const actionsVisible = actionsOpen || !!reactionAnchorRect;
+  const actionsVisible = !!reactionAnchorRect;
 
   const clearLongPressTimer = useCallback(() => {
     if (!longPressTimerRef.current) {
@@ -1131,6 +1339,25 @@ const ChatMessageRow = memo(function ChatMessageRow({
 
     clearTimeout(longPressTimerRef.current);
     longPressTimerRef.current = null;
+  }, []);
+
+  const closeActions = useCallback(() => {
+    clearLongPressTimer();
+    setActionsOpen(false);
+    setActionAnchorRect(null);
+    setReactionAnchorRect(null);
+  }, [clearLongPressTimer]);
+
+  const openActions = useCallback(() => {
+    const anchor = bubbleRef.current ?? rowRef.current;
+
+    if (!anchor) {
+      return;
+    }
+
+    setActionAnchorRect(anchor.getBoundingClientRect());
+    setReactionAnchorRect(null);
+    setActionsOpen(true);
   }, []);
 
   async function submitEdit() {
@@ -1148,8 +1375,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
 
     if (ok) {
       setIsEditing(false);
-      setReactionAnchorRect(null);
-      setActionsOpen(false);
+      closeActions();
     }
   }
 
@@ -1159,8 +1385,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
     setIsMutating(false);
 
     if (ok) {
-      setReactionAnchorRect(null);
-      setActionsOpen(false);
+      closeActions();
     }
   }
 
@@ -1170,8 +1395,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
     setIsMutating(false);
 
     if (ok) {
-      setReactionAnchorRect(null);
-      setActionsOpen(false);
+      closeActions();
     }
   }
 
@@ -1182,7 +1406,8 @@ const ChatMessageRow = memo(function ChatMessageRow({
       return;
     }
 
-    setActionsOpen(true);
+    setActionsOpen(false);
+    setActionAnchorRect(null);
     setReactionAnchorRect((current) =>
       current ? null : anchor.getBoundingClientRect(),
     );
@@ -1190,29 +1415,45 @@ const ChatMessageRow = memo(function ChatMessageRow({
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     if (
-      !shouldUseLongPressActions() ||
+      event.pointerType === "mouse" ||
       isEditing ||
       isInteractiveMessageTarget(event.target)
     ) {
       return;
     }
 
+    pressStartRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+    };
     clearLongPressTimer();
 
     longPressTimerRef.current = setTimeout(() => {
-      setActionsOpen(true);
+      openActions();
       longPressTimerRef.current = null;
-    }, 420);
+    }, 360);
   }
 
-  function handleContextMenu(event: ReactMouseEvent<HTMLDivElement>) {
-    if (!shouldUseLongPressActions()) {
+  function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const pressStart = pressStartRef.current;
+
+    if (!pressStart) {
       return;
     }
 
+    if (
+      Math.hypot(event.clientX - pressStart.x, event.clientY - pressStart.y) >
+      8
+    ) {
+      pressStartRef.current = null;
+      clearLongPressTimer();
+    }
+  }
+
+  function handleContextMenu(event: ReactMouseEvent<HTMLDivElement>) {
     event.preventDefault();
     clearLongPressTimer();
-    setActionsOpen(true);
+    openActions();
   }
 
   function handleTouchStart(event: ReactTouchEvent<HTMLDivElement>) {
@@ -1279,8 +1520,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
     setSwipeX(0);
 
     if (shouldReply) {
-      setActionsOpen(false);
-      setReactionAnchorRect(null);
+      closeActions();
       onReply(message);
     }
   }
@@ -1305,8 +1545,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
         return;
       }
 
-      setActionsOpen(false);
-      setReactionAnchorRect(null);
+      closeActions();
     }
 
     document.addEventListener("pointerdown", handleOutsidePointerDown);
@@ -1314,10 +1553,11 @@ const ChatMessageRow = memo(function ChatMessageRow({
     return () => {
       document.removeEventListener("pointerdown", handleOutsidePointerDown);
     };
-  }, [actionsOpen, reactionAnchorRect]);
+  }, [actionsOpen, closeActions, reactionAnchorRect]);
 
   useEffect(
     () => () => {
+      pressStartRef.current = null;
       clearLongPressTimer();
     },
     [clearLongPressTimer],
@@ -1326,7 +1566,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
   return (
     <Fragment>
       {showDateDivider ? (
-        <div className="my-5 flex items-center gap-3">
+        <div className="my-3 flex items-center gap-3">
           <div className="h-px flex-1 bg-[var(--fc-divider)]" />
           <span className="fc-surface rounded-full border px-3 py-1 text-[11px] font-medium text-[var(--fc-text-muted)] backdrop-blur-xl">
             {formatDateDivider(message.createdAt, now)}
@@ -1349,7 +1589,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
         animate={{
           opacity: 1,
           y: 0,
-          scale: actionsOpen ? 0.992 : 1,
+          scale: actionsOpen ? 1.012 : 1,
           x: swipeX,
         }}
         whileTap={
@@ -1367,13 +1607,23 @@ const ChatMessageRow = memo(function ChatMessageRow({
                 ease: [0.22, 1, 0.36, 1],
               }
         }
-        className={`fc-telegram-touch flex ${grouped ? "mt-0.5" : "mt-3"} ${
+        className={`fc-telegram-touch flex ${grouped ? "mt-0.5" : "mt-2"} ${
           mine ? "justify-end" : "justify-start"
-        } group/message relative [transition:transform_0.2s_cubic-bezier(0.22,1,0.36,1)]`}
+        } group/message relative ${actionsOpen ? "z-[266]" : "z-0"} [transition:transform_0.2s_cubic-bezier(0.22,1,0.36,1)]`}
         onPointerDown={handlePointerDown}
-        onPointerUp={clearLongPressTimer}
-        onPointerCancel={clearLongPressTimer}
-        onPointerLeave={clearLongPressTimer}
+        onPointerMove={handlePointerMove}
+        onPointerUp={() => {
+          pressStartRef.current = null;
+          clearLongPressTimer();
+        }}
+        onPointerCancel={() => {
+          pressStartRef.current = null;
+          clearLongPressTimer();
+        }}
+        onPointerLeave={() => {
+          pressStartRef.current = null;
+          clearLongPressTimer();
+        }}
         onContextMenu={handleContextMenu}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -1391,6 +1641,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
         ) : null}
 
         <div
+          ref={bubbleRef}
           style={
             !isDeleted
               ? {
@@ -1403,7 +1654,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
                 }
               : undefined
           }
-          className={`fc-message-bubble relative max-w-[84%] rounded-[18px] px-3.5 py-2 text-[15px] text-white sm:max-w-[68%] sm:px-4 sm:py-2.5 ${
+          className={`fc-message-bubble relative max-w-[86%] rounded-[17px] px-3.5 py-1.5 text-[15px] text-white sm:max-w-[68%] sm:px-4 sm:py-2 ${
             mine
               ? "rounded-br-[6px]"
               : "rounded-bl-[6px] border border-[var(--fc-app-border)]"
@@ -1526,7 +1777,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
             </div>
           ) : null}
 
-          {!isEditing ? (
+          {!isEditing && !actionsOpen ? (
             <div
               className={`fc-modal absolute top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-[18px] border p-1 shadow-[0_14px_44px_rgba(0,0,0,0.34)] backdrop-blur-xl transition max-sm:bottom-full max-sm:left-auto max-sm:right-0 max-sm:top-auto max-sm:mb-2 max-sm:translate-y-0 ${
                 mine ? "right-full mr-2" : "left-full ml-2"
@@ -1630,6 +1881,37 @@ const ChatMessageRow = memo(function ChatMessageRow({
                 </button>
               ) : null}
             </div>
+          ) : null}
+
+          {actionsOpen && actionAnchorRect && !isEditing ? (
+            <MessageActionOverlay
+              anchorRect={actionAnchorRect}
+              mine={mine}
+              disabled={isMutating || !isSettled}
+              canReply={canReply}
+              canEdit={canEdit}
+              canDelete={canDelete}
+              onClose={closeActions}
+              onReact={(emoji) => {
+                void submitReaction(emoji);
+              }}
+              onReply={() => {
+                closeActions();
+                onReply(message);
+              }}
+              onShare={() => {
+                closeActions();
+                onShare(message);
+              }}
+              onEdit={() => {
+                setDraftText(message.text ?? "");
+                setIsEditing(true);
+                closeActions();
+              }}
+              onDelete={() => {
+                void submitDelete();
+              }}
+            />
           ) : null}
 
           {showLegacyInlineReactionPicker &&
@@ -2128,7 +2410,7 @@ export default function ChatConversation() {
   }, []);
 
   const headerActionClass =
-    "fc-surface fc-hover flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border text-[var(--fc-text-muted)] transition hover:border-[rgba(var(--fc-primary-rgb),0.35)] hover:text-[var(--fc-theme-text)] disabled:cursor-not-allowed disabled:opacity-40";
+    "fc-telegram-touch fc-hover flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)] disabled:cursor-not-allowed disabled:opacity-40";
   const headerIconSize = 18;
   const aiSuggestions = useMemo(
     () => [
@@ -2819,6 +3101,17 @@ export default function ChatConversation() {
     });
   }
 
+  function returnToConversationList() {
+    closeForwardSheet();
+    setEmojiOpen(false);
+    setProfileOpen(false);
+    setProfilePictureOpen(false);
+    useConversationStore.setState({
+      activeConversationId: null,
+    });
+    window.dispatchEvent(new CustomEvent("flexchat:open-mobile-sidebar"));
+  }
+
   async function handleApplyTheme(
     themeId: string | null,
     scope: "me" | "both",
@@ -3110,12 +3403,21 @@ export default function ChatConversation() {
   return (
     <section
       style={activeThemeStyle}
-      className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[var(--fc-chat-bg)] text-[var(--fc-theme-text)]"
+      className="fc-chat-doodle relative flex h-full min-h-0 flex-col overflow-hidden text-[var(--fc-theme-text)]"
     >
       <div
-        className="relative z-10 flex shrink-0 items-center justify-between gap-3 border-b border-[var(--fc-app-border)] bg-[var(--fc-chat-header)] px-4 py-4 sm:px-6 sm:py-5"
+        className="relative z-10 flex shrink-0 items-center justify-between gap-2 border-b border-[var(--fc-app-border)] bg-[var(--fc-chat-header)] px-2.5 py-2.5 pt-[calc(0.45rem+env(safe-area-inset-top))] shadow-[0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-2xl sm:px-5 sm:py-3.5"
       >
-        <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
+          <button
+            type="button"
+            onClick={returnToConversationList}
+            className="fc-telegram-touch fc-hover flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--fc-theme-text)] transition lg:hidden"
+            aria-label="Back to conversations"
+          >
+            <ArrowLeft size={24} />
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -3133,19 +3435,19 @@ export default function ChatConversation() {
             <FlexAvatar
               src={activeConversationAvatar}
               name={activeConversation.name}
-              className="fc-avatar flex h-10 w-10 items-center justify-center overflow-hidden rounded-full text-sm font-bold sm:h-12 sm:w-12 sm:text-base"
+              className="fc-avatar flex h-10 w-10 items-center justify-center overflow-hidden rounded-full text-sm font-bold sm:h-11 sm:w-11 sm:text-base"
             />
           </button>
 
           <div className="min-w-0 flex-1">
             <h2
-              className="truncate font-semibold text-[var(--fc-theme-text)]"
+              className="truncate text-[19px] font-semibold leading-tight text-[var(--fc-theme-text)]"
             >
               {activeConversationDisplayName}
             </h2>
 
             <p
-              className={`truncate text-sm ${
+              className={`truncate text-[13px] leading-tight ${
                 isConversationBlocked
                   ? "text-[var(--fc-text-subtle)]"
                   : remoteTypingUsers.length
@@ -3199,7 +3501,7 @@ export default function ChatConversation() {
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="chat-safe-scroll relative z-10 min-h-0 flex-1 touch-pan-y overscroll-contain overflow-y-auto scroll-pb-32 px-3 py-4 sm:px-6 sm:py-6"
+        className="chat-safe-scroll relative z-10 min-h-0 flex-1 touch-pan-y overscroll-contain overflow-y-auto scroll-pb-28 px-2.5 py-3 sm:px-5 sm:py-5"
       >
         {showInitialMessageSkeleton ? (
           <MessageSkeleton />
@@ -3329,7 +3631,7 @@ export default function ChatConversation() {
       </div>
 
       <div
-        className="relative z-10 shrink-0 border-t border-[var(--fc-app-border)] bg-[rgba(9,18,29,0.94)] px-2.5 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur-2xl sm:px-5 sm:py-4 sm:pb-[calc(1rem+env(safe-area-inset-bottom))]"
+        className="relative z-10 shrink-0 border-t border-[var(--fc-app-border)] bg-[var(--fc-chat-composer)] px-2.5 py-2 pb-[calc(0.45rem+env(safe-area-inset-bottom))] backdrop-blur-2xl sm:px-5 sm:py-3 sm:pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
       >
         {replyingTo ? (
           <div className="fc-button-soft mb-2 flex items-center gap-3 rounded-2xl border p-3 text-sm">
@@ -3414,7 +3716,7 @@ export default function ChatConversation() {
           />
 
           <div
-            className={`fc-input relative min-w-0 flex-1 rounded-[22px] border px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors duration-200 ${
+            className={`fc-composer relative min-w-0 flex-1 rounded-[24px] border border-white/[0.035] bg-[#1d2b38]/95 px-2 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition-colors duration-200 ${
               isConversationBlocked ? "opacity-75" : ""
             }`}
           >
@@ -3503,7 +3805,7 @@ export default function ChatConversation() {
                         : "Write a message..."
                     }
                     disabled={isConversationBlocked}
-                    className="max-h-32 min-h-[40px] w-full resize-none overflow-y-auto border-0 bg-transparent py-2.5 text-[15px] leading-5 text-[var(--fc-theme-text)] shadow-none outline-none ring-0 placeholder:text-[var(--fc-text-subtle)] focus:border-0 focus:outline-none focus:ring-0 focus-visible:shadow-none disabled:cursor-not-allowed sm:min-h-[44px] sm:py-3"
+                    className="max-h-32 min-h-[38px] w-full resize-none overflow-y-auto border-0 bg-transparent py-2.5 text-[16px] leading-5 text-[var(--fc-theme-text)] shadow-none outline-none ring-0 placeholder:text-[var(--fc-text-subtle)] focus:border-0 focus:outline-none focus:ring-0 focus-visible:shadow-none disabled:cursor-not-allowed sm:min-h-[42px] sm:py-2.5"
                   />
                 )}
               </div>
@@ -3631,7 +3933,7 @@ export default function ChatConversation() {
                 opacity: 0,
               }}
               animate={{
-                height: 320,
+                height: "min(320px, 44dvh)",
                 opacity: 1,
               }}
               exit={{
@@ -3970,10 +4272,10 @@ export default function ChatConversation() {
                 stiffness: 300,
                 damping: 30,
               }}
-              className="fc-modal w-full max-w-md overflow-hidden rounded-2xl border"
+              className="fc-modal flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border"
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="relative border-b border-[var(--fc-app-border)] bg-[var(--fc-app-panel-strong)] px-6 pb-8 pt-8 text-center">
+              <div className="relative shrink-0 border-b border-[var(--fc-app-border)] bg-[var(--fc-app-panel-strong)] px-6 pb-7 pt-7 text-center">
                 <button
                   type="button"
                   onClick={() => setProfileOpen(false)}
@@ -4004,7 +4306,7 @@ export default function ChatConversation() {
                 </p>
               </div>
 
-              <div className="space-y-3 p-5">
+              <div className="modal-safe-scroll min-h-0 flex-1 space-y-3 p-5">
                   <div className="fc-surface flex items-center gap-3 rounded-2xl border p-4">
                   <div className="fc-button-soft flex h-11 w-11 items-center justify-center rounded-2xl border">
                     <UserRound size={19} />

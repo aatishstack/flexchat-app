@@ -393,13 +393,13 @@ export default function ProfilePage() {
     : "";
 
   return (
-    <main className="modal-safe-scroll min-h-dvh overflow-y-auto scroll-pb-[calc(7rem+env(safe-area-inset-bottom))] bg-[var(--fc-app-bg)] px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 sm:pt-8 lg:pb-[calc(2rem+env(safe-area-inset-bottom))]">
+    <main className="fc-native-scroll h-dvh min-h-0 overflow-y-auto scroll-pb-[calc(var(--fc-mobile-nav-height)+1rem+env(safe-area-inset-bottom))] bg-[#0F1C29] px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(var(--fc-mobile-nav-height)+1rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 sm:pt-7 lg:pb-[calc(2rem+env(safe-area-inset-bottom))]">
       <section className="mx-auto flex min-h-0 max-w-3xl flex-col">
-        <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="mb-4 flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={() => router.replace("/chat")}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-zinc-200 shadow-lg shadow-black/20 backdrop-blur-xl transition hover:bg-white/[0.09]"
+            className="fc-telegram-touch flex h-10 w-10 items-center justify-center rounded-full text-zinc-200 transition hover:bg-white/[0.08]"
             aria-label="Back to chat"
           >
             <ArrowLeft size={19} />
@@ -407,7 +407,7 @@ export default function ProfilePage() {
 
           <Link
             href="/settings"
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-zinc-200 shadow-lg shadow-black/20 backdrop-blur-xl transition hover:bg-white/[0.09]"
+            className="fc-telegram-touch flex h-10 w-10 items-center justify-center rounded-full text-zinc-200 transition hover:bg-white/[0.08]"
             aria-label="Open settings"
           >
             <Settings size={19} />
@@ -428,15 +428,15 @@ export default function ProfilePage() {
             stiffness: 260,
             damping: 28,
           }}
-          className="relative overflow-hidden rounded-2xl border border-[var(--fc-app-border)] bg-[#0B1520]/90"
+          className="relative overflow-hidden rounded-[22px] border border-[var(--fc-app-border)] bg-[#17212B]/95 shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
         >
-          <div className="px-6 pb-8 pt-9 text-center">
+          <div className="px-6 pb-7 pt-7 text-center">
             <button
               type="button"
               onClick={() =>
                 setPhotoPreviewOpen(true)
               }
-              className="relative mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-[#17212B] text-4xl font-bold text-white"
+              className="fc-telegram-touch relative mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-[#0F1C29] text-4xl font-bold text-white"
               aria-label="View profile photo"
             >
               {avatar ? (
@@ -479,14 +479,14 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={openEditModal}
-              className="mx-auto mt-5 flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#2481CC] px-5 text-sm font-semibold text-white transition hover:bg-[#2F8ED8]"
+              className="fc-telegram-touch mx-auto mt-5 flex h-11 items-center justify-center gap-2 rounded-full bg-[#2481CC] px-5 text-sm font-semibold text-white transition hover:bg-[#2F8ED8]"
             >
               <PenLine size={17} />
               Edit profile
             </button>
           </div>
 
-          <div className="border-t border-white/10 px-5 py-2 sm:px-6">
+          <div className="border-t border-white/10 px-4 py-1 sm:px-5">
             {[
               {
                 icon: Mail,
@@ -531,9 +531,9 @@ export default function ProfilePage() {
               return (
                 <div
                   key={item.label}
-                  className="flex items-center gap-4 border-b border-white/10 py-4 last:border-b-0"
+                  className="flex min-h-[64px] items-center gap-4 border-b border-white/[0.06] py-2.5 last:border-b-0"
                 >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2481CC]/12 text-[#7CC5FF]">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#2481CC]/14 text-[#7CC5FF]">
                     <Icon size={19} />
                   </div>
 
@@ -645,9 +645,9 @@ export default function ProfilePage() {
                 stiffness: 260,
                 damping: 28,
               }}
-              className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#0B111C]/[0.96] text-white shadow-lg shadow-black/30 backdrop-blur-3xl"
+              className="flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0B111C]/[0.96] text-white shadow-lg shadow-black/30 backdrop-blur-3xl"
             >
-              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+              <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-4">
                 <div>
                   <h2 className="text-lg font-semibold">
                     Edit profile
@@ -669,7 +669,7 @@ export default function ProfilePage() {
                 </button>
               </div>
 
-              <div className="modal-safe-scroll max-h-[min(68dvh,620px)] space-y-4 p-5">
+              <div className="modal-safe-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
                 <label className="mx-auto flex w-fit cursor-pointer flex-col items-center gap-3">
                   <span className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-white/[0.15] bg-[#17212B] text-3xl font-bold">
                     {draft.avatar ? (
@@ -803,7 +803,7 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 border-t border-white/10 p-5">
+              <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-white/10 p-5">
                 <button
                   type="button"
                   onClick={() =>

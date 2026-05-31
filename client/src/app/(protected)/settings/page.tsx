@@ -124,10 +124,10 @@ function ToggleSwitch({
       aria-checked={checked}
       aria-label={label}
       onClick={onChange}
-      className={`relative h-7 w-12 shrink-0 rounded-full border p-1 transition-all duration-200 ${
+      className={`fc-telegram-touch relative h-7 w-12 shrink-0 rounded-full border p-1 transition-all duration-200 ${
         checked
           ? "border-[#2481CC]/40 bg-[#2481CC]"
-          : "border-white/10 bg-white/[0.06]"
+          : "border-white/10 bg-[#0F1C29]"
       }`}
     >
       <motion.span
@@ -165,16 +165,16 @@ function SettingRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 border-b border-white/[0.07] px-4 py-3.5 last:border-b-0">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#2481CC]/13 text-[#7CC5FF]">
+    <div className="flex min-h-[64px] items-center gap-3 border-b border-white/[0.06] px-4 py-2.5 last:border-b-0">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#2481CC]/16 text-[#7CC5FF]">
         <Icon size={18} />
       </div>
 
       <div className="min-w-0 flex-1">
-        <h3 className="text-[15px] font-semibold text-white">
+        <h3 className="truncate text-[15px] font-medium text-white">
           {title}
         </h3>
-        <p className="mt-0.5 text-xs leading-snug text-zinc-500">
+        <p className="mt-0.5 line-clamp-1 text-xs leading-snug text-zinc-500">
           {detail}
         </p>
       </div>
@@ -197,10 +197,10 @@ function Section({
 }) {
   return (
     <section>
-      <h2 className="mb-2 px-2 text-[13px] font-semibold text-[#7CC5FF]">
+      <h2 className="mb-1.5 px-3 text-[13px] font-semibold text-[#7CC5FF]">
         {title}
       </h2>
-      <div className="overflow-hidden rounded-[20px] border border-[var(--fc-app-border)] bg-[#111d2a]/88 shadow-[0_16px_44px_rgba(0,0,0,0.18)]">
+      <div className="overflow-hidden rounded-[22px] border border-[var(--fc-app-border)] bg-[#17212B]/95 shadow-[0_10px_28px_rgba(0,0,0,0.18)]">
         {children}
       </div>
     </section>
@@ -437,19 +437,19 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="modal-safe-scroll h-dvh min-h-svh overflow-y-auto bg-[#07111B] px-3 py-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 sm:py-7">
-      <section className="mx-auto flex min-h-[calc(100dvh-2rem)] max-w-2xl flex-col">
+    <main className="fc-native-scroll h-dvh min-h-0 overflow-y-auto bg-[#0F1C29] px-3 py-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(var(--fc-mobile-nav-height)+1rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 sm:py-7 lg:pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+      <section className="mx-auto flex min-h-0 max-w-2xl flex-col">
         <div className="mb-4 flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={() => router.replace("/chat")}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-200 transition hover:bg-white/[0.08] active:scale-95"
+            className="fc-telegram-touch flex h-10 w-10 items-center justify-center rounded-full text-zinc-200 transition hover:bg-white/[0.08]"
             aria-label="Back to chat"
           >
             <ArrowLeft size={19} />
           </button>
 
-          <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-400 backdrop-blur-xl">
+          <div className="rounded-full border border-white/10 bg-[#17212B]/90 px-3 py-1.5 text-xs text-zinc-400 backdrop-blur-xl">
             FlexChat 1.0.0
           </div>
         </div>
@@ -471,8 +471,8 @@ export default function SettingsPage() {
           className="relative"
         >
           <div className="grid gap-4">
-            <div className="flex flex-col gap-3">
-              <div className="rounded-[22px] border border-[var(--fc-app-border)] bg-[#111d2a]/88 p-5 shadow-[0_16px_44px_rgba(0,0,0,0.18)]">
+            <div className="flex flex-col gap-2.5">
+              <div className="rounded-[22px] border border-[var(--fc-app-border)] bg-[#17212B]/95 p-5 shadow-[0_10px_28px_rgba(0,0,0,0.18)]">
                 <div className="flex flex-col items-center text-center">
                   <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-3xl font-bold shadow-[0_18px_44px_rgba(0,0,0,0.25)]">
                     {user.avatar ? (
@@ -502,7 +502,7 @@ export default function SettingsPage() {
                 <div className="mt-5 grid gap-2">
                   <Link
                     href="/profile"
-                    className="group flex items-center gap-3 rounded-2xl bg-white/[0.04] px-4 py-3 transition hover:bg-white/[0.08] active:scale-[0.99]"
+                    className="fc-telegram-touch group flex items-center gap-3 rounded-2xl bg-white/[0.04] px-4 py-3 transition hover:bg-white/[0.08]"
                   >
                     <UserRound
                       size={18}
@@ -539,7 +539,7 @@ export default function SettingsPage() {
                 onClick={() =>
                   setLogoutConfirmOpen(true)
                 }
-                className="flex h-12 items-center justify-center gap-2 rounded-[18px] border border-red-300/20 bg-red-500/[0.10] px-5 text-sm font-semibold text-red-100 transition hover:bg-red-500/15 active:scale-[0.99]"
+                className="fc-telegram-touch flex h-12 items-center justify-center gap-2 rounded-[18px] border border-red-300/20 bg-red-500/[0.10] px-5 text-sm font-semibold text-red-100 transition hover:bg-red-500/15"
               >
                 <LogOut size={18} />
                 Log out
@@ -551,14 +551,14 @@ export default function SettingsPage() {
                   setDeleteConfirmation("");
                   setDeleteConfirmOpen(true);
                 }}
-                className="flex h-12 items-center justify-center gap-2 rounded-[18px] border border-red-300/20 bg-[#111d2a]/88 px-5 text-sm font-semibold text-red-100 transition hover:bg-red-500/[0.12] active:scale-[0.99]"
+                className="fc-telegram-touch flex h-12 items-center justify-center gap-2 rounded-[18px] border border-red-300/20 bg-[#17212B]/95 px-5 text-sm font-semibold text-red-100 transition hover:bg-red-500/[0.12]"
               >
                 <Trash2 size={18} />
                 Delete account
               </button>
             </div>
 
-            <div className="grid gap-5">
+            <div className="grid gap-4">
               {sections.map((section) => (
                 <Section
                   key={section.title}
