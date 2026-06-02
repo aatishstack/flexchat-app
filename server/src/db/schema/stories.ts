@@ -1,5 +1,6 @@
 import {
   index,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -16,6 +17,16 @@ export const stories = pgTable(
     mediaUrl: text("media_url").notNull(),
 
     mediaType: text("media_type").notNull(),
+
+    durationSeconds:
+      integer("duration_seconds")
+        .default(5)
+        .notNull(),
+
+    viewCount:
+      integer("view_count")
+        .default(0)
+        .notNull(),
 
     caption: text("caption"),
 

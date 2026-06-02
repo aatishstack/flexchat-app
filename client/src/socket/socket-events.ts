@@ -32,8 +32,10 @@ export const SOCKET_EVENTS = {
   CONVERSATION_THEME_UPDATED: "conversation_theme_updated",
 
   STORY_CREATED: "story_created",
+  STORY_NEW: "story:new",
   STORY_VIEWED: "story_viewed",
   STORY_DELETED: "story_deleted",
+  STORY_EXPIRED: "story:expired",
 
   CALL_INVITE: "call:initiate",
   CALL_INCOMING: "call:incoming",

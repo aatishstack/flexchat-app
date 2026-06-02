@@ -68,7 +68,7 @@ type Props = {
   onClose: () => void;
 };
 
-const STORY_DURATION_MS = 5500;
+const STORY_DURATION_MS = 5000;
 const VIDEO_FALLBACK_DURATION_MS = 12000;
 
 function formatStoryTime(value?: string, now = Date.now()) {
@@ -226,8 +226,12 @@ export default function StoryViewer({
       ? videoDuration.storyId ===
         currentStory.id
         ? videoDuration.durationMs
-        : VIDEO_FALLBACK_DURATION_MS
-    : STORY_DURATION_MS;
+        : (currentStory.durationSeconds ?? 0) > 0
+          ? (currentStory.durationSeconds ?? 0) * 1000
+          : VIDEO_FALLBACK_DURATION_MS
+    : (currentStory?.durationSeconds ?? 0) > 0
+      ? (currentStory?.durationSeconds ?? 0) * 1000
+      : STORY_DURATION_MS;
 
   const {
     mutate: markStoryAsViewed,

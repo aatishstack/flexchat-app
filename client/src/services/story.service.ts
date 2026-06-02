@@ -27,6 +27,17 @@ export async function createStory(input: {
   return response.data;
 }
 
+export async function getStoriesByUser(
+  userId: string
+) {
+  const response =
+    await api.get<Story[]>(
+      `/stories/${encodeURIComponent(userId)}`
+    );
+
+  return response.data;
+}
+
 export async function markStoryViewed(
   storyId: string
 ) {

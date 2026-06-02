@@ -1,5 +1,7 @@
 import type { Server as HttpServer } from "http";
 
+import fs from "fs/promises";
+import path from "path";
 import { Server } from "socket.io";
 import { sql } from "drizzle-orm";
 
@@ -22,6 +24,7 @@ import { setSocketServer } from "./socket-hub.js";
 
 type ServerListenerName = "request" | "upgrade";
 type ServerListener = ReturnType<HttpServer["listeners"]>[number];
+const STORY_EXPIRATION_SWEEP_MS = 5 * 60 * 1000;
 
 function buildAllowedOrigins() {
   return Array.from(
@@ -50,6 +53,94 @@ function prioritizeNewListeners(
     server.off(eventName, listener);
     server.prependListener(eventName, listener);
   });
+}
+
+function getUploadedFilePath(url: string | null) {
+  if (!url) {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    const publicApiUrl = new URL(env.PUBLIC_API_URL);
+
+    if (
+      parsedUrl.origin !== publicApiUrl.origin ||
+      !parsedUrl.pathname.startsWith("/uploads/")
+    ) {
+      return null;
+    }
+
+    const relativeUploadPath =
+      decodeURIComponent(parsedUrl.pathname.replace(/^\/uploads\//, ""));
+    const uploadsDir = path.resolve(process.cwd(), "uploads");
+    const filepath = path.resolve(uploadsDir, relativeUploadPath);
+
+    if (!filepath.startsWith(`${uploadsDir}${path.sep}`)) {
+      return null;
+    }
+
+    return filepath;
+  } catch {
+    return null;
+  }
+}
+
+function startExpiredStoryCleanup(io: Server) {
+  const sweepExpiredStories = async () => {
+    const expiredAt = new Date().toISOString();
+    const expiredStories = await db.execute<{
+      id: string;
+      mediaUrl: string | null;
+    }>(sql`
+      update stories
+      set deleted_at = now()
+      where deleted_at is null
+        and expires_at <= now()
+      returning
+        id,
+        media_url as "mediaUrl"
+    `);
+
+    if (!expiredStories.length) {
+      return;
+    }
+
+    const storyIds = expiredStories.map((story) => story.id);
+
+    io.emit(SOCKET_EVENTS.STORY_EXPIRED, {
+      storyIds,
+      expiredAt,
+    });
+
+    storyIds.forEach((storyId) => {
+      io.emit(SOCKET_EVENTS.STORY_DELETED, {
+        storyId,
+        deletedAt: expiredAt,
+      });
+    });
+
+    await Promise.all(
+      expiredStories
+        .map((story) => getUploadedFilePath(story.mediaUrl))
+        .filter((filepath): filepath is string => Boolean(filepath))
+        .map((filepath) => fs.unlink(filepath).catch(() => undefined)),
+    );
+  };
+
+  const timer = setInterval(() => {
+    void sweepExpiredStories().catch((error) => {
+      console.error("Failed to clean expired stories", error);
+    });
+  }, STORY_EXPIRATION_SWEEP_MS);
+
+  timer.unref?.();
+
+  void sweepExpiredStories().catch((error) => {
+    console.error("Failed to clean expired stories", error);
+  });
+
+  return timer;
 }
 
 export function setupSocket(server: HttpServer) {
@@ -129,6 +220,7 @@ export function setupSocket(server: HttpServer) {
   }, 30_000);
 
   presenceCleanupTimer.unref?.();
+  startExpiredStoryCleanup(io);
 
   io.use(async (socket, next) => {
     try {

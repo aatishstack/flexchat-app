@@ -121,6 +121,16 @@ await db.execute(sql`
 `);
 
 await db.execute(sql`
+  alter table stories
+    add column if not exists duration_seconds integer default 5 not null
+`);
+
+await db.execute(sql`
+  alter table stories
+    add column if not exists view_count integer default 0 not null
+`);
+
+await db.execute(sql`
   create table if not exists story_views (
     id text primary key not null,
     story_id text not null,

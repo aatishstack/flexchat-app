@@ -994,6 +994,7 @@ export default function StoryTray() {
         userId: currentUser.id,
         mediaUrl: previewUrl ?? TEXT_STORY_MEDIA_URL,
         mediaType,
+        durationSeconds: mediaType === "video" ? 30 : 5,
         caption: caption.trim(),
         createdAt: new Date(getServerNow()).toISOString(),
         expiresAt: new Date(getServerNow() + 24 * 60 * 60 * 1000).toISOString(),

@@ -98,6 +98,11 @@ type StoryDeletedPayload = {
   deletedAt?: string;
 };
 
+type StoryExpiredPayload = {
+  storyIds?: string[];
+  expiredAt?: string;
+};
+
 type AccountDeletedPayload = {
   userId?: string;
   deletedAt?: string;
@@ -993,6 +998,31 @@ export default function SocketProvider({
       );
     }
 
+    function onStoryExpired(
+      payload: StoryExpiredPayload
+    ) {
+      const storyIds = new Set(
+        payload.storyIds?.filter(Boolean) ?? []
+      );
+
+      if (!storyIds.size) {
+        void queryClient.invalidateQueries({
+          queryKey:
+            queryKeys.stories.all,
+        });
+        return;
+      }
+
+      queryClient.setQueryData<Story[]>(
+        queryKeys.stories.all,
+        (stories) =>
+          (stories ?? []).filter(
+            (story) =>
+              !storyIds.has(story.id)
+          )
+      );
+    }
+
     function onAccountDeleted(
       payload: AccountDeletedPayload
     ) {
@@ -1367,6 +1397,10 @@ export default function SocketProvider({
       SOCKET_EVENTS.STORY_CREATED,
       onStoryCreated,
     );
+    const safeOnStoryNew = guardSocketHandler(
+      SOCKET_EVENTS.STORY_NEW,
+      onStoryCreated,
+    );
     const safeOnStoryViewed = guardSocketHandler(
       SOCKET_EVENTS.STORY_VIEWED,
       onStoryViewed,
@@ -1374,6 +1408,10 @@ export default function SocketProvider({
     const safeOnStoryDeleted = guardSocketHandler(
       SOCKET_EVENTS.STORY_DELETED,
       onStoryDeleted,
+    );
+    const safeOnStoryExpired = guardSocketHandler(
+      SOCKET_EVENTS.STORY_EXPIRED,
+      onStoryExpired,
     );
     const safeOnAccountDeleted = guardSocketHandler(
       SOCKET_EVENTS.ACCOUNT_DELETED,
@@ -1463,8 +1501,10 @@ export default function SocketProvider({
       safeOnConversationThemeUpdated
     );
     socket.on(SOCKET_EVENTS.STORY_CREATED, safeOnStoryCreated);
+    socket.on(SOCKET_EVENTS.STORY_NEW, safeOnStoryNew);
     socket.on(SOCKET_EVENTS.STORY_VIEWED, safeOnStoryViewed);
     socket.on(SOCKET_EVENTS.STORY_DELETED, safeOnStoryDeleted);
+    socket.on(SOCKET_EVENTS.STORY_EXPIRED, safeOnStoryExpired);
     socket.on(SOCKET_EVENTS.ACCOUNT_DELETED, safeOnAccountDeleted);
     socket.on(SOCKET_EVENTS.USER_UPDATED, safeOnUserUpdated);
     socket.on(
@@ -1513,8 +1553,10 @@ export default function SocketProvider({
         safeOnConversationThemeUpdated
       );
       socket.off(SOCKET_EVENTS.STORY_CREATED, safeOnStoryCreated);
+      socket.off(SOCKET_EVENTS.STORY_NEW, safeOnStoryNew);
       socket.off(SOCKET_EVENTS.STORY_VIEWED, safeOnStoryViewed);
       socket.off(SOCKET_EVENTS.STORY_DELETED, safeOnStoryDeleted);
+      socket.off(SOCKET_EVENTS.STORY_EXPIRED, safeOnStoryExpired);
       socket.off(SOCKET_EVENTS.ACCOUNT_DELETED, safeOnAccountDeleted);
       socket.off(SOCKET_EVENTS.USER_UPDATED, safeOnUserUpdated);
       socket.off(

@@ -5,6 +5,7 @@ export interface Story {
   userId: string;
   mediaUrl: string;
   mediaType: StoryMediaType;
+  durationSeconds?: number;
   caption?: string;
   createdAt: string;
   expiresAt: string;

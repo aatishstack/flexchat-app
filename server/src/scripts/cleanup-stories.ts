@@ -27,14 +27,15 @@ function getUploadedFilePath(url: string | null) {
       return null;
     }
 
-    const filename = path.basename(parsedUrl.pathname);
+    const relativeUploadPath =
+      decodeURIComponent(parsedUrl.pathname.replace(/^\/uploads\//, ""));
 
-    if (!filename || filename === "uploads") {
+    if (!relativeUploadPath || relativeUploadPath === "uploads") {
       return null;
     }
 
     const uploadsDir = path.resolve(process.cwd(), "uploads");
-    const filepath = path.resolve(uploadsDir, filename);
+    const filepath = path.resolve(uploadsDir, relativeUploadPath);
 
     if (!filepath.startsWith(`${uploadsDir}${path.sep}`)) {
       return null;
