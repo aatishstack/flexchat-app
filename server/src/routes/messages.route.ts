@@ -1,4 +1,8 @@
-import { FastifyInstance } from "fastify";
+import {
+  FastifyInstance,
+  type FastifyReply,
+  type FastifyRequest,
+} from "fastify";
 
 import { and, desc, eq, lt, or, sql } from "drizzle-orm";
 
@@ -298,6 +302,110 @@ async function emitLatestConversationIfNeeded(
       createdAt: message.createdAt,
     });
   });
+}
+
+async function handleMessageReactionRequest(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const parsedParams = messageActionParamsSchema.safeParse(request.params);
+  const parsedBody = reactMessageBodySchema.safeParse(request.body);
+
+  if (!parsedParams.success || !parsedBody.success) {
+    return reply.status(400).send({
+      message: "Invalid reaction request",
+    });
+  }
+
+  const userId = (request.user as any)?.id;
+
+  if (!userId) {
+    return reply.status(401).send({
+      message: "Unauthorized",
+    });
+  }
+
+  const allowed = await isConversationMember(
+    userId,
+    parsedBody.data.conversationId,
+  );
+
+  if (!allowed) {
+    return reply.status(403).send({
+      message: "Conversation unavailable",
+    });
+  }
+
+  const foundMessages = await db
+    .select({
+      id: messages.id,
+      deletedAt: messages.deletedAt,
+    })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.id, parsedParams.data.messageId),
+        eq(messages.conversationId, parsedBody.data.conversationId),
+      ),
+    )
+    .limit(1);
+
+  const targetMessage = foundMessages[0];
+
+  if (!targetMessage || targetMessage.deletedAt) {
+    return reply.status(404).send({
+      message: "Message unavailable",
+    });
+  }
+
+  const existingReactions = await db
+    .select()
+    .from(messageReactions)
+    .where(
+      and(
+        eq(messageReactions.messageId, targetMessage.id),
+        eq(messageReactions.userId, userId),
+      ),
+    )
+    .limit(1);
+
+  const existingReaction = existingReactions[0];
+
+  if (existingReaction?.emoji === parsedBody.data.emoji) {
+    await db
+      .delete(messageReactions)
+      .where(eq(messageReactions.id, existingReaction.id));
+  } else if (existingReaction) {
+    await db
+      .update(messageReactions)
+      .set({
+        emoji: parsedBody.data.emoji,
+      })
+      .where(eq(messageReactions.id, existingReaction.id));
+  } else {
+    await db.insert(messageReactions).values({
+      id: generateId(),
+      messageId: targetMessage.id,
+      conversationId: parsedBody.data.conversationId,
+      userId,
+      emoji: parsedBody.data.emoji,
+    });
+  }
+
+  const message = await getSerializedMessage(targetMessage.id);
+
+  if (!message) {
+    return reply.status(404).send({
+      message: "Message unavailable",
+    });
+  }
+
+  await emitMessageMutation(
+    SOCKET_EVENTS.MESSAGE_REACTION_UPDATED,
+    message,
+  );
+
+  return message;
 }
 
 export async function messageRoutes(app: FastifyInstance) {
@@ -702,105 +810,14 @@ export async function messageRoutes(app: FastifyInstance) {
     {
       preHandler: authMiddleware,
     },
-    async (request, reply) => {
-      const parsedParams = messageActionParamsSchema.safeParse(request.params);
-      const parsedBody = reactMessageBodySchema.safeParse(request.body);
+    handleMessageReactionRequest,
+  );
 
-      if (!parsedParams.success || !parsedBody.success) {
-        return reply.status(400).send({
-          message: "Invalid reaction request",
-        });
-      }
-
-      const userId = (request.user as any)?.id;
-
-      if (!userId) {
-        return reply.status(401).send({
-          message: "Unauthorized",
-        });
-      }
-
-      const allowed = await isConversationMember(
-        userId,
-        parsedBody.data.conversationId,
-      );
-
-      if (!allowed) {
-        return reply.status(403).send({
-          message: "Conversation unavailable",
-        });
-      }
-
-      const foundMessages = await db
-        .select({
-          id: messages.id,
-          deletedAt: messages.deletedAt,
-        })
-        .from(messages)
-        .where(
-          and(
-            eq(messages.id, parsedParams.data.messageId),
-            eq(messages.conversationId, parsedBody.data.conversationId),
-          ),
-        )
-        .limit(1);
-
-      const targetMessage = foundMessages[0];
-
-      if (!targetMessage || targetMessage.deletedAt) {
-        return reply.status(404).send({
-          message: "Message unavailable",
-        });
-      }
-
-      const existingReactions = await db
-        .select()
-        .from(messageReactions)
-        .where(
-          and(
-            eq(messageReactions.messageId, targetMessage.id),
-            eq(messageReactions.userId, userId),
-          ),
-        )
-        .limit(1);
-
-      const existingReaction = existingReactions[0];
-
-      if (existingReaction?.emoji === parsedBody.data.emoji) {
-        await db
-          .delete(messageReactions)
-          .where(eq(messageReactions.id, existingReaction.id));
-      } else if (existingReaction) {
-        await db
-          .update(messageReactions)
-          .set({
-            emoji: parsedBody.data.emoji,
-          })
-          .where(eq(messageReactions.id, existingReaction.id));
-      } else {
-        await db.insert(messageReactions).values({
-          id: generateId(),
-          messageId: targetMessage.id,
-          conversationId: parsedBody.data.conversationId,
-          userId,
-          emoji: parsedBody.data.emoji,
-        });
-      }
-
-      const message = await getSerializedMessage(targetMessage.id);
-
-      if (!message) {
-        return reply.status(404).send({
-          message: "Message unavailable",
-        });
-      }
-
-      await emitMessageMutation(
-        SOCKET_EVENTS.MESSAGE_REACTION_UPDATED,
-        message,
-      );
-
-      return message;
+  app.post(
+    "/messages/:messageId/react",
+    {
+      preHandler: authMiddleware,
     },
+    handleMessageReactionRequest,
   );
 }

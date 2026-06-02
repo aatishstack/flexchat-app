@@ -20,9 +20,11 @@ import {
   LockKeyhole,
   LogOut,
   MessageCircle,
+  Moon,
   Palette,
   ShieldCheck,
   Smartphone,
+  Sun,
   Trash2,
   UserRound,
   Video,
@@ -44,6 +46,7 @@ import {
 import { clearClientSession } from "@/lib/session-cleanup";
 import { deleteCurrentUser } from "@/services/user.service";
 import { useSocketStore } from "@/store/socket-store";
+import { useThemeStore } from "@/store/theme-store";
 import { useToastStore } from "@/store/toast-store";
 
 type SettingKey =
@@ -126,8 +129,8 @@ function ToggleSwitch({
       onClick={onChange}
       className={`fc-telegram-touch relative h-7 w-12 shrink-0 rounded-full border p-1 transition-all duration-200 ${
         checked
-          ? "border-[#2481CC]/40 bg-[#2481CC]"
-          : "border-white/10 bg-[#0F1C29]"
+          ? "border-[rgba(var(--fc-primary-rgb),0.4)] bg-[var(--fc-primary)]"
+          : "border-[var(--fc-app-border)] bg-[var(--fc-app-surface)]"
       }`}
     >
       <motion.span
@@ -165,16 +168,16 @@ function SettingRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="flex min-h-[64px] items-center gap-3 border-b border-white/[0.06] px-4 py-2.5 last:border-b-0">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#2481CC]/16 text-[#7CC5FF]">
+    <div className="flex min-h-[64px] items-center gap-3 border-b border-[var(--fc-app-border)] px-4 py-2.5 last:border-b-0">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--fc-accent-soft)] text-[var(--fc-accent-text)]">
         <Icon size={18} />
       </div>
 
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-[15px] font-medium text-white">
+        <h3 className="truncate text-[15px] font-medium text-[var(--fc-theme-text)]">
           {title}
         </h3>
-        <p className="mt-0.5 line-clamp-1 text-xs leading-snug text-zinc-500">
+        <p className="mt-0.5 line-clamp-1 text-xs leading-snug text-[var(--fc-text-muted)]">
           {detail}
         </p>
       </div>
@@ -197,13 +200,46 @@ function Section({
 }) {
   return (
     <section>
-      <h2 className="mb-1.5 px-3 text-[13px] font-semibold text-[#7CC5FF]">
+      <h2 className="mb-1.5 px-3 text-[13px] font-semibold text-[var(--fc-accent-text)]">
         {title}
       </h2>
-      <div className="overflow-hidden rounded-[22px] border border-[var(--fc-app-border)] bg-[#17212B]/95 shadow-[0_10px_28px_rgba(0,0,0,0.18)]">
+      <div className="fc-surface-strong overflow-hidden rounded-[22px] border shadow-[0_10px_28px_rgba(0,0,0,0.18)]">
         {children}
       </div>
     </section>
+  );
+}
+
+function ThemeModeRow({
+  lightMode,
+  onToggle,
+}: {
+  lightMode: boolean;
+  onToggle: () => void;
+}) {
+  const Icon = lightMode ? Sun : Moon;
+
+  return (
+    <div className="flex min-h-[64px] items-center gap-3 border-b border-[var(--fc-app-border)] px-4 py-2.5">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--fc-accent-soft)] text-[var(--fc-accent-text)]">
+        <Icon size={18} />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <h3 className="truncate text-[15px] font-medium text-[var(--fc-theme-text)]">
+          Light mode
+        </h3>
+        <p className="mt-0.5 line-clamp-1 text-xs leading-snug text-[var(--fc-text-muted)]">
+          Switch between Telegram dark and Flex day themes.
+        </p>
+      </div>
+
+      <ToggleSwitch
+        checked={lightMode}
+        onChange={onToggle}
+        label="Light mode"
+      />
+    </div>
   );
 }
 
@@ -241,6 +277,16 @@ export default function SettingsPage() {
     useToastStore(
       (state) => state.pushToast
     );
+  const theme =
+    useThemeStore(
+      (state) => state.theme
+    );
+  const setTheme =
+    useThemeStore(
+      (state) => state.setTheme
+    );
+  const lightMode =
+    theme.mode === "light";
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -389,6 +435,17 @@ export default function SettingsPage() {
         [key]: !current[key],
       }));
     }, []);
+  const toggleThemeMode =
+    useCallback(() => {
+      setTheme(
+        lightMode
+          ? "buttermilk-blue"
+          : "buttermilk-day"
+      );
+    }, [
+      lightMode,
+      setTheme,
+    ]);
 
   const confirmLogout =
     useCallback(() => {
@@ -437,19 +494,19 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="fc-native-scroll h-dvh min-h-0 overflow-y-auto bg-[#0F1C29] px-3 py-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(var(--fc-mobile-nav-height)+1rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 sm:py-7 lg:pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+    <main className="fc-native-scroll h-dvh min-h-0 overflow-y-auto bg-[var(--fc-app-bg)] px-3 py-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(var(--fc-mobile-nav-height)+1rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 sm:py-7 lg:pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
       <section className="mx-auto flex min-h-0 max-w-2xl flex-col">
         <div className="mb-4 flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={() => router.replace("/chat")}
-            className="fc-telegram-touch flex h-10 w-10 items-center justify-center rounded-full text-zinc-200 transition hover:bg-white/[0.08]"
+            className="fc-telegram-touch fc-hover flex h-10 w-10 items-center justify-center rounded-full text-[var(--fc-theme-text)] transition"
             aria-label="Back to chat"
           >
             <ArrowLeft size={19} />
           </button>
 
-          <div className="rounded-full border border-white/10 bg-[#17212B]/90 px-3 py-1.5 text-xs text-zinc-400 backdrop-blur-xl">
+          <div className="fc-surface rounded-full border px-3 py-1.5 text-xs text-[var(--fc-text-muted)] backdrop-blur-xl">
             FlexChat 1.0.0
           </div>
         </div>
@@ -472,9 +529,9 @@ export default function SettingsPage() {
         >
           <div className="grid gap-4">
             <div className="flex flex-col gap-2.5">
-              <div className="rounded-[22px] border border-[var(--fc-app-border)] bg-[#17212B]/95 p-5 shadow-[0_10px_28px_rgba(0,0,0,0.18)]">
+              <div className="fc-surface-strong rounded-[22px] border p-5 shadow-[0_10px_28px_rgba(0,0,0,0.18)]">
                 <div className="flex flex-col items-center text-center">
-                  <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-3xl font-bold shadow-[0_18px_44px_rgba(0,0,0,0.25)]">
+                  <div className="fc-avatar relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full text-3xl font-bold shadow-[0_18px_44px_rgba(0,0,0,0.25)]">
                     {user.avatar ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -493,7 +550,7 @@ export default function SettingsPage() {
                     <h1 className="truncate text-2xl font-semibold">
                       {user.username}
                     </h1>
-                    <p className="mt-1 truncate text-sm text-zinc-400">
+                    <p className="mt-1 truncate text-sm text-[var(--fc-text-muted)]">
                       {formatHandle(user.username)}
                     </p>
                   </div>
@@ -502,22 +559,22 @@ export default function SettingsPage() {
                 <div className="mt-5 grid gap-2">
                   <Link
                     href="/profile"
-                    className="fc-telegram-touch group flex items-center gap-3 rounded-2xl bg-white/[0.04] px-4 py-3 transition hover:bg-white/[0.08]"
+                    className="fc-telegram-touch fc-hover group flex items-center gap-3 rounded-2xl px-4 py-3 transition"
                   >
                     <UserRound
                       size={18}
-                      className="text-[#9BD0FF]"
+                      className="text-[var(--fc-accent-text)]"
                     />
                     <span className="min-w-0 flex-1 text-sm font-medium">
                       View profile
                     </span>
                     <ChevronRight
                       size={17}
-                      className="text-zinc-500 transition group-hover:translate-x-0.5 group-hover:text-white"
+                      className="text-[var(--fc-text-muted)] transition group-hover:translate-x-0.5 group-hover:text-[var(--fc-theme-text)]"
                     />
                   </Link>
 
-                  <div className="flex items-center gap-3 rounded-2xl bg-white/[0.04] px-4 py-3">
+                  <div className="fc-surface flex items-center gap-3 rounded-2xl px-4 py-3">
                     <span
                       className={`h-2.5 w-2.5 rounded-full ${
                         isConnected
@@ -525,7 +582,7 @@ export default function SettingsPage() {
                           : "bg-amber-300 shadow-lg shadow-amber-500/30"
                       }`}
                     />
-                    <span className="text-sm text-zinc-300">
+                    <span className="text-sm text-[var(--fc-text-muted)]">
                       {isConnected
                         ? "Realtime connected"
                         : "Reconnecting"}
@@ -551,7 +608,7 @@ export default function SettingsPage() {
                   setDeleteConfirmation("");
                   setDeleteConfirmOpen(true);
                 }}
-                className="fc-telegram-touch flex h-12 items-center justify-center gap-2 rounded-[18px] border border-red-300/20 bg-[#17212B]/95 px-5 text-sm font-semibold text-red-100 transition hover:bg-red-500/[0.12]"
+                className="fc-telegram-touch fc-surface flex h-12 items-center justify-center gap-2 rounded-[18px] border px-5 text-sm font-semibold text-red-100 transition hover:bg-red-500/[0.12]"
               >
                 <Trash2 size={18} />
                 Delete account
@@ -564,6 +621,13 @@ export default function SettingsPage() {
                   key={section.title}
                   title={section.title}
                 >
+                  {section.title === "Appearance" ? (
+                    <ThemeModeRow
+                      lightMode={lightMode}
+                      onToggle={toggleThemeMode}
+                    />
+                  ) : null}
+
                   {section.rows.map((row) => (
                     <SettingRow
                       key={row.key}

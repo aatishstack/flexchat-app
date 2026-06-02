@@ -5,6 +5,7 @@ import {
   memo,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
   type TouchEvent as ReactTouchEvent,
   useCallback,
   useEffect,
@@ -19,6 +20,8 @@ import {
   ArrowLeft,
   Ban,
   Check,
+  ChevronDown,
+  ChevronUp,
   Download,
   FileText,
   Forward,
@@ -27,6 +30,7 @@ import {
   MoreVertical,
   Paperclip,
   Palette,
+  Pause,
   Pencil,
   Phone,
   PlayCircle,
@@ -178,6 +182,73 @@ function formatDuration(seconds: number) {
     safeSeconds % 60;
 
   return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+}
+
+function getMessageSearchText(message: Message) {
+  return [
+    message.text,
+    message.replyTo?.text,
+    getMessagePreviewText(message),
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function renderHighlightedText(
+  text: string | null | undefined,
+  query: string,
+): ReactNode {
+  const value = text ?? "";
+  const normalizedQuery = query.trim();
+
+  if (!normalizedQuery) {
+    return value;
+  }
+
+  const lowerValue = value.toLowerCase();
+  const lowerQuery = normalizedQuery.toLowerCase();
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  let matchIndex = lowerValue.indexOf(lowerQuery);
+
+  while (matchIndex !== -1) {
+    if (matchIndex > cursor) {
+      parts.push(value.slice(cursor, matchIndex));
+    }
+
+    const matchEnd = matchIndex + normalizedQuery.length;
+
+    parts.push(
+      <mark
+        key={`${matchIndex}-${matchEnd}-${parts.length}`}
+        className="rounded bg-[#FDE047]/85 px-0.5 text-[#111827]"
+      >
+        {value.slice(matchIndex, matchEnd)}
+      </mark>,
+    );
+
+    cursor = matchEnd;
+    matchIndex = lowerValue.indexOf(lowerQuery, cursor);
+  }
+
+  if (cursor < value.length) {
+    parts.push(value.slice(cursor));
+  }
+
+  return parts.length ? parts : value;
+}
+
+function buildVoiceWaveform(url: string) {
+  const seed =
+    Array.from(url).reduce((sum, character) => sum + character.charCodeAt(0), 0) ||
+    19;
+
+  return Array.from({ length: 30 }, (_, index) => {
+    const wave = Math.sin((index + 1) * 1.37 + seed * 0.017);
+    const pulse = Math.cos((index + 3) * 0.91 + seed * 0.011);
+
+    return 9 + Math.round(Math.abs(wave * 18) + Math.abs(pulse * 7));
+  });
 }
 
 function getLocalDayStart(time: number) {
@@ -727,6 +798,8 @@ type ChatMessageRowProps = {
   onReact: (message: Message, emoji: string) => Promise<boolean>;
   onReply: (message: Message) => void;
   onShare: (message: Message) => void;
+  searchTerm?: string;
+  activeSearchMatch?: boolean;
 };
 
 type ReactionPickerProps = {
@@ -1303,6 +1376,159 @@ function MessageFileAttachment({
   );
 }
 
+function MessageVoiceAttachment({ url }: { url: string }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const waveform = useMemo(() => buildVoiceWaveform(url), [url]);
+  const progress =
+    duration > 0 ? clamp(currentTime / duration, 0, 1) : 0;
+
+  useEffect(() => {
+    const audio = audioRef.current;
+
+    if (!audio) {
+      return;
+    }
+
+    audio.playbackRate = playbackRate;
+  }, [playbackRate]);
+
+  useEffect(
+    () => () => {
+      audioRef.current?.pause();
+    },
+    [],
+  );
+
+  function handleTogglePlay() {
+    const audio = audioRef.current;
+
+    if (!audio) {
+      return;
+    }
+
+    if (isPlaying) {
+      audio.pause();
+      return;
+    }
+
+    audio.playbackRate = playbackRate;
+    void audio.play().catch(() => {
+      setIsPlaying(false);
+    });
+  }
+
+  function handleSeek(event: ReactMouseEvent<HTMLButtonElement>) {
+    const audio = audioRef.current;
+
+    if (!audio || duration <= 0) {
+      return;
+    }
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const nextProgress = clamp(
+      (event.clientX - bounds.left) / bounds.width,
+      0,
+      1,
+    );
+
+    audio.currentTime = nextProgress * duration;
+    setCurrentTime(audio.currentTime);
+  }
+
+  function cyclePlaybackRate() {
+    setPlaybackRate((currentRate) =>
+      currentRate === 1 ? 1.5 : currentRate === 1.5 ? 2 : 1,
+    );
+  }
+
+  return (
+    <div className="mb-3 flex w-[min(78vw,316px)] items-center gap-2 rounded-2xl border border-white/10 bg-black/[0.16] px-3 py-2.5 text-white/85">
+      <button
+        type="button"
+        onClick={handleTogglePlay}
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.12] text-white transition hover:bg-white/[0.18]"
+        aria-label={isPlaying ? "Pause voice message" : "Play voice message"}
+      >
+        {isPlaying ? <Pause size={17} /> : <PlayCircle size={19} />}
+      </button>
+
+      <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={handleSeek}
+          className="flex h-8 w-full items-center gap-[3px]"
+          aria-label="Seek voice message"
+        >
+          {waveform.map((height, index) => {
+            const active = index / waveform.length <= progress;
+
+            return (
+              <span
+                key={index}
+                className={`w-1 flex-1 rounded-full transition-colors ${
+                  active
+                    ? "bg-[var(--fc-accent-text)]"
+                    : "bg-white/[0.22]"
+                }`}
+                style={{
+                  height: `${height}px`,
+                }}
+              />
+            );
+          })}
+        </button>
+
+        <div className="mt-0.5 flex items-center justify-between text-[11px] font-medium text-white/55">
+          <span>{formatDuration(currentTime)}</span>
+          <span>{formatDuration(duration)}</span>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={cyclePlaybackRate}
+        className="h-8 min-w-10 rounded-full bg-white/10 px-2 text-[11px] font-semibold transition hover:bg-white/15"
+        aria-label="Change voice playback speed"
+      >
+        {playbackRate}x
+      </button>
+
+      <a
+        href={url}
+        download
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 transition hover:bg-white/15"
+        aria-label="Download voice message"
+      >
+        <Download size={14} />
+      </a>
+
+      <audio
+        ref={audioRef}
+        src={url}
+        preload="metadata"
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={(event) => {
+          event.currentTarget.currentTime = 0;
+          setIsPlaying(false);
+          setCurrentTime(0);
+        }}
+        onLoadedMetadata={(event) => {
+          const nextDuration = event.currentTarget.duration;
+
+          setDuration(Number.isFinite(nextDuration) ? nextDuration : 0);
+        }}
+        onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+        className="hidden"
+      />
+    </div>
+  );
+}
+
 const ChatMessageRow = memo(function ChatMessageRow({
   message,
   previous,
@@ -1315,6 +1541,8 @@ const ChatMessageRow = memo(function ChatMessageRow({
   onReact,
   onReply,
   onShare,
+  searchTerm = "",
+  activeSearchMatch = false,
 }: ChatMessageRowProps) {
   const rowRef = useRef<HTMLDivElement | null>(null);
   const bubbleRef = useRef<HTMLDivElement | null>(null);
@@ -1696,6 +1924,8 @@ const ChatMessageRow = memo(function ChatMessageRow({
           } ${!grouped ? "fc-bubble-tail" : ""} ${
             grouped ? "fc-bubble-grouped" : ""
           } ${message.status === "failed" ? "ring-1 ring-red-400/35" : ""} ${
+            activeSearchMatch ? "ring-2 ring-[#FDE047]/70" : ""
+          } ${
             isDeleted
               ? "border border-[var(--fc-app-border)] bg-[var(--fc-app-surface)] text-[var(--fc-text-muted)]"
               : ""
@@ -1704,7 +1934,9 @@ const ChatMessageRow = memo(function ChatMessageRow({
           {message.replyTo ? (
             <div className="mb-3 rounded-lg border border-[#0D1823] border-l-2 border-l-[#2AABEE] bg-black/10 px-3 py-2 text-xs text-[#B9C2CA]">
               <p className="font-medium text-white">Reply</p>
-              <p className="mt-1 line-clamp-2">{message.replyTo.text}</p>
+              <p className="mt-1 line-clamp-2">
+                {renderHighlightedText(message.replyTo.text, searchTerm)}
+              </p>
             </div>
           ) : null}
 
@@ -1749,11 +1981,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
           ) : null}
 
           {!isDeleted && message.audio ? (
-            <audio
-              controls
-              src={message.audio}
-              className="mb-3 w-full max-w-[260px]"
-            />
+            <MessageVoiceAttachment url={message.audio} />
           ) : null}
 
           {!isDeleted && isEditing ? (
@@ -1797,7 +2025,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
             </div>
           ) : !isDeleted && message.text && !media ? (
             <p className="whitespace-pre-wrap break-words">
-              {message.text}
+              {renderHighlightedText(message.text, searchTerm)}
             </p>
           ) : null}
 
@@ -2046,8 +2274,12 @@ export default function ChatConversation() {
     useState<FailedAttachmentUpload | null>(null);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [messageSearchOpen, setMessageSearchOpen] = useState(false);
+  const [messageSearch, setMessageSearch] = useState("");
+  const [activeSearchIndex, setActiveSearchIndex] = useState(0);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingStreamRef = useRef<MediaStream | null>(null);
@@ -2347,6 +2579,37 @@ export default function ChatConversation() {
 
     return mergeMessages(serverMessages, realtimeMessages);
   }, [conversationId, realtimeMessages, messagesQuery.data]);
+  const normalizedMessageSearch = messageSearch.trim().toLowerCase();
+  const messageSearchMatches = useMemo(() => {
+    if (!normalizedMessageSearch) {
+      return [];
+    }
+
+    return visibleMessages.reduce<
+      {
+        messageId: string;
+        index: number;
+      }[]
+    >((matches, message, index) => {
+      if (message.deletedAt) {
+        return matches;
+      }
+
+      if (getMessageSearchText(message).toLowerCase().includes(normalizedMessageSearch)) {
+        matches.push({
+          messageId: message.id,
+          index,
+        });
+      }
+
+      return matches;
+    }, []);
+  }, [normalizedMessageSearch, visibleMessages]);
+  const activeMessageSearchMatch = messageSearchMatches.length
+    ? messageSearchMatches[
+        clamp(activeSearchIndex, 0, messageSearchMatches.length - 1)
+      ]
+    : null;
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const messageVirtualizer = useVirtualizer({
@@ -2459,6 +2722,71 @@ export default function ChatConversation() {
   useEffect(() => {
     messageVirtualizer.measure();
   }, [messageVirtualizer, visibleMessages.length]);
+
+  useEffect(() => {
+    setActiveSearchIndex(0);
+  }, [conversationId, normalizedMessageSearch]);
+
+  useEffect(() => {
+    setActiveSearchIndex((currentIndex) =>
+      messageSearchMatches.length
+        ? Math.min(currentIndex, messageSearchMatches.length - 1)
+        : 0,
+    );
+  }, [messageSearchMatches.length]);
+
+  useEffect(() => {
+    if (!messageSearchOpen) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [messageSearchOpen]);
+
+  useEffect(() => {
+    if (!activeMessageSearchMatch || !normalizedMessageSearch) {
+      return;
+    }
+
+    messageVirtualizer.scrollToIndex(activeMessageSearchMatch.index, {
+      align: "center",
+    });
+  }, [
+    activeMessageSearchMatch,
+    messageVirtualizer,
+    normalizedMessageSearch,
+  ]);
+
+  useEffect(() => {
+    function handleConversationFindShortcut(event: KeyboardEvent) {
+      const shouldOpenSearch =
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLowerCase() === "f";
+
+      if (shouldOpenSearch) {
+        event.preventDefault();
+        setMessageSearchOpen(true);
+        return;
+      }
+
+      if (event.key === "Escape" && messageSearchOpen) {
+        setMessageSearchOpen(false);
+        setMessageSearch("");
+      }
+    }
+
+    window.addEventListener("keydown", handleConversationFindShortcut);
+
+    return () => {
+      window.removeEventListener("keydown", handleConversationFindShortcut);
+    };
+  }, [messageSearchOpen]);
 
   useEffect(() => {
     applyGlobalChatTheme(activeTheme.id);
@@ -2711,6 +3039,8 @@ export default function ChatConversation() {
   useEffect(() => {
     seenMessageIdsRef.current.clear();
     hasAnchoredInitialMessagesRef.current = false;
+    setMessageSearchOpen(false);
+    setMessageSearch("");
 
     const frameId = window.requestAnimationFrame(() => {
       setReplyingTo(null);
@@ -2738,6 +3068,26 @@ export default function ChatConversation() {
         element.scrollHeight - element.scrollTop - element.clientHeight < 180;
       scrollMeasureFrameRef.current = null;
     });
+  }
+
+  function goToPreviousSearchMatch() {
+    if (!messageSearchMatches.length) {
+      return;
+    }
+
+    setActiveSearchIndex((currentIndex) =>
+      currentIndex <= 0 ? messageSearchMatches.length - 1 : currentIndex - 1,
+    );
+  }
+
+  function goToNextSearchMatch() {
+    if (!messageSearchMatches.length) {
+      return;
+    }
+
+    setActiveSearchIndex((currentIndex) =>
+      currentIndex >= messageSearchMatches.length - 1 ? 0 : currentIndex + 1,
+    );
   }
 
   function handleTyping(value: string) {
@@ -3596,6 +3946,20 @@ export default function ChatConversation() {
 
           <button
             type="button"
+            onClick={() => setMessageSearchOpen((open) => !open)}
+            className={`${headerActionClass} ${
+              messageSearchOpen
+                ? "bg-[var(--fc-app-surface-active)] text-white"
+                : ""
+            }`}
+            aria-label={messageSearchOpen ? "Close message search" : "Search messages"}
+            aria-expanded={messageSearchOpen}
+          >
+            <Search size={headerIconSize} />
+          </button>
+
+          <button
+            type="button"
             onClick={() =>
               setChatSettingsOpen(true)
             }
@@ -3606,6 +3970,89 @@ export default function ChatConversation() {
           </button>
         </div>
       </div>
+
+      <AnimatePresence initial={false}>
+        {messageSearchOpen ? (
+          <motion.div
+            initial={{
+              height: 0,
+              opacity: 0,
+            }}
+            animate={{
+              height: "auto",
+              opacity: 1,
+            }}
+            exit={{
+              height: 0,
+              opacity: 0,
+            }}
+            transition={{
+              duration: reducedMotion ? 0 : 0.18,
+            }}
+            className="relative z-10 overflow-hidden border-b border-[#0D1823] bg-[var(--fc-chat-header)] px-2.5 py-2 backdrop-blur-2xl sm:px-5"
+          >
+            <div className="flex items-center gap-2">
+              <div className="fc-input flex h-11 min-w-0 flex-1 items-center gap-2 rounded-2xl border px-3">
+                <Search
+                  size={16}
+                  className="shrink-0 text-[var(--fc-text-subtle)]"
+                />
+                <input
+                  ref={searchInputRef}
+                  value={messageSearch}
+                  onChange={(event) => setMessageSearch(event.target.value)}
+                  placeholder="Search this chat"
+                  className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--fc-text-subtle)]"
+                />
+              </div>
+
+              <span className="hidden min-w-[4.75rem] text-center text-xs font-medium text-[var(--fc-text-muted)] sm:inline">
+                {normalizedMessageSearch
+                  ? `${messageSearchMatches.length ? activeSearchIndex + 1 : 0}/${messageSearchMatches.length}`
+                  : "0/0"}
+              </span>
+
+              <button
+                type="button"
+                onClick={goToPreviousSearchMatch}
+                disabled={!messageSearchMatches.length}
+                className="fc-surface fc-hover flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition disabled:cursor-not-allowed disabled:opacity-45"
+                aria-label="Previous search result"
+              >
+                <ChevronUp size={17} />
+              </button>
+
+              <button
+                type="button"
+                onClick={goToNextSearchMatch}
+                disabled={!messageSearchMatches.length}
+                className="fc-surface fc-hover flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition disabled:cursor-not-allowed disabled:opacity-45"
+                aria-label="Next search result"
+              >
+                <ChevronDown size={17} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMessageSearchOpen(false);
+                  setMessageSearch("");
+                }}
+                className="fc-surface fc-hover flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition"
+                aria-label="Close message search"
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            {normalizedMessageSearch && !messageSearchMatches.length ? (
+              <p className="px-2 pt-1.5 text-xs text-[var(--fc-text-muted)]">
+                No messages found
+              </p>
+            ) : null}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <div
         ref={containerRef}
@@ -3725,6 +4172,10 @@ export default function ChatConversation() {
                       onReact={handleReactMessage}
                       onReply={handleReplyMessage}
                       onShare={handleShareMessage}
+                      searchTerm={messageSearch}
+                      activeSearchMatch={
+                        activeMessageSearchMatch?.messageId === message.id
+                      }
                     />
                   </div>
                 );

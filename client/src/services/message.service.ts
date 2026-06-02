@@ -150,7 +150,7 @@ export async function reactToMessage(input: {
 }) {
   const response =
     await api.post<Message>(
-      `/messages/${input.messageId}/reactions`,
+      `/messages/${input.messageId}/react`,
       {
         conversationId:
           input.conversationId,
