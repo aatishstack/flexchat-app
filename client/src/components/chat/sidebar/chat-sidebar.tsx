@@ -276,10 +276,10 @@ const ConversationListButton = memo(
         transition={{
           duration: 0.12,
         }}
-        className={`group fc-telegram-touch flex min-h-[72px] w-full items-center gap-3 rounded-2xl border px-3 py-2 text-left transition-all ${
+        className={`group fc-telegram-touch flex h-[72px] w-full items-center gap-3 rounded-lg border px-3 py-0 text-left transition-[background-color,border-color] duration-150 ease-out ${
           active
             ? "fc-active"
-            : "border-transparent hover:bg-[var(--fc-app-surface-hover)]"
+            : "border-transparent hover:bg-[#2B3A4D]"
         }`}
       >
         <div className="relative">
@@ -297,7 +297,7 @@ const ConversationListButton = memo(
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
-              <h3 className="truncate font-semibold text-[var(--fc-theme-text)]">
+              <h3 className="truncate text-[15px] font-semibold text-[var(--fc-theme-text)]">
                 {formatDisplayName(
                   conversation.name ||
                     "Untitled"
@@ -319,7 +319,7 @@ const ConversationListButton = memo(
               ) : null}
             </div>
 
-            <span className="fc-subtle shrink-0 text-[11px]">
+            <span className="shrink-0 text-xs text-[#6C7883]">
               {formatConversationTime(
                 conversation.lastActivityAt ??
                   conversation.createdAt,
@@ -329,13 +329,13 @@ const ConversationListButton = memo(
           </div>
 
           <div className="mt-1 flex items-center justify-between gap-3">
-            <p className="fc-muted truncate text-sm">
+            <p className="truncate text-sm text-[#6C7883]">
               {conversation.latestMessage ||
                 "No messages yet"}
             </p>
 
             {conversation.unreadCount ? (
-              <div className="fc-badge flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold">
+              <div className="fc-badge flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none">
                 {conversation.unreadCount}
               </div>
             ) : null}
@@ -758,12 +758,12 @@ export default function ChatSidebar() {
   ]);
 
   return (
-    <aside className="fc-panel flex h-full w-full border-r backdrop-blur-xl lg:w-[360px]">
+    <aside className="fc-panel flex h-full w-full border-r border-[#0D1823] backdrop-blur-xl lg:w-[360px]">
       <div className="flex w-full flex-col">
-        <div className="fc-panel-strong relative border-b px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+        <div className="fc-panel-strong relative border-b border-[#0D1823] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="fc-button-primary flex h-10 w-10 items-center justify-center rounded-2xl">
+              <div className="fc-button-primary flex h-10 w-10 items-center justify-center rounded-lg">
                 <MessageCircle
                   size={20}
                 />
@@ -831,7 +831,7 @@ export default function ChatSidebar() {
                       setSearch(event.target.value)
                     }
                     placeholder="Search conversations..."
-                    className="fc-input h-11 w-full rounded-2xl border pl-11 pr-4 text-sm outline-none"
+                    className="fc-input h-11 w-full rounded-lg border pl-11 pr-4 text-sm outline-none"
                   />
                 </div>
               </motion.div>
@@ -850,7 +850,7 @@ export default function ChatSidebar() {
                 onClick={() =>
                   setActiveFolder(folder)
                 }
-                className={`relative overflow-hidden rounded-2xl px-4 py-2 text-sm font-medium capitalize transition-all ${
+                className={`relative overflow-hidden rounded-lg px-4 py-2 text-sm font-medium capitalize transition-all ${
                   activeFolder === folder
                     ? "text-white"
                     : "fc-surface text-[var(--fc-text-muted)] hover:bg-[var(--fc-app-surface-hover)]"
@@ -859,7 +859,7 @@ export default function ChatSidebar() {
                 {activeFolder === folder ? (
                   <motion.span
                     layoutId="sidebar-folder-active"
-                    className="absolute inset-0 rounded-2xl bg-[var(--fc-primary)]"
+                    className="absolute inset-0 rounded-lg bg-[var(--fc-primary)]"
                     transition={{
                       type: "spring",
                       stiffness: 360,

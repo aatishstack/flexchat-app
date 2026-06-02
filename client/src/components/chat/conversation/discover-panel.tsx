@@ -306,7 +306,7 @@ export default function DiscoverPanel({
               )
             }
             placeholder="Search name or phone number..."
-            className="h-11 w-full rounded-2xl border border-white/10 bg-white/[0.03] pl-11 pr-4 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#2481CC]/45"
+            className="h-11 w-full rounded-2xl border border-white/10 bg-white/[0.03] pl-11 pr-4 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#2AABEE]/45"
           />
         </div>
       </div>
@@ -369,13 +369,13 @@ export default function DiscoverPanel({
                         setDebouncedSearch("");
                         onConversationOpen?.();
                       }}
-                      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-left transition hover:border-[#2481CC]/25 hover:bg-[#2481CC]/10"
+                      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-left transition hover:border-[#2AABEE]/25 hover:bg-[#2AABEE]/10"
                     >
                       <span className="flex min-w-0 items-center gap-3">
                         <FlexAvatar
                           src={contact.avatar}
                           name={contact.username}
-                          className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#0B1520] text-base font-bold text-white ring-1 ring-white/10"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#0E1621] text-base font-bold text-white ring-1 ring-white/10"
                         />
 
                         <span className="min-w-0">
@@ -389,7 +389,7 @@ export default function DiscoverPanel({
                         </span>
                       </span>
 
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#2481CC]/12 text-[#9BD0FF]">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#2AABEE]/12 text-[#75CFF6]">
                         <MessageCircle size={16} />
                       </span>
                     </motion.button>
@@ -433,13 +433,13 @@ export default function DiscoverPanel({
                           opacity: 1,
                           y: 0,
                         }}
-                        className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 transition hover:border-[#2481CC]/25 hover:bg-[#2481CC]/10"
+                        className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 transition hover:border-[#2AABEE]/25 hover:bg-[#2AABEE]/10"
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           <FlexAvatar
                             src={user.avatar}
                             name={user.username}
-                            className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#2481CC] to-[#69B7F0] text-base font-bold text-white ring-1 ring-white/10"
+                            className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#2AABEE] to-[#75CFF6] text-base font-bold text-white ring-1 ring-white/10"
                           />
 
                           <div className="min-w-0">
@@ -475,7 +475,7 @@ export default function DiscoverPanel({
                             );
                           }}
                           disabled={isPending}
-                          className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full border border-[#2481CC]/25 bg-[#2481CC]/12 px-3 text-sm font-medium text-[#A7D8FF] transition hover:bg-[#2481CC]/22 disabled:cursor-wait disabled:opacity-60"
+                          className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full border border-[#2AABEE]/25 bg-[#2AABEE]/12 px-3 text-sm font-medium text-[#A7D8FF] transition hover:bg-[#2AABEE]/22 disabled:cursor-wait disabled:opacity-60"
                           aria-label={
                             hasDirectConversation
                               ? `Open conversation with ${user.username}`

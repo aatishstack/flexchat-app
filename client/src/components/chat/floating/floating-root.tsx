@@ -100,7 +100,7 @@ export default function FloatingRoot({
           aria-label="Notifications"
           className={
             notificationsOpen
-              ? "relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-sky-300/35 bg-gradient-to-br from-[#2481CC] to-[#2F8ED8] text-white shadow-2xl shadow-sky-700/25 backdrop-blur-2xl transition sm:h-14 sm:w-14"
+              ? "relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-sky-300/35 bg-gradient-to-br from-[#2AABEE] to-[#168ACD] text-white shadow-2xl shadow-sky-700/25 backdrop-blur-2xl transition sm:h-14 sm:w-14"
               : "relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white shadow-xl backdrop-blur-2xl transition hover:bg-white/[0.1] sm:h-14 sm:w-14"
           }
         >

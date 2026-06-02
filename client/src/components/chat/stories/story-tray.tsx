@@ -124,7 +124,7 @@ type StoryDraft = {
 const TEXT_STORY_MEDIA_URL = "flexchat://story/text";
 const MUTED_STORY_USERS_KEY = "flexchat:muted-story-users";
 const FALLBACK_STORY_TEXT_COLORS = ["#ffffff", "#dff3ff", "#8ecfff", "#f8a4c5", "#c7d2fe"];
-const FALLBACK_STORY_BACKGROUND_COLORS = ["#285ccc", "#2481cc", "#07111b", "#12385c", "#0b1724"];
+const FALLBACK_STORY_BACKGROUND_COLORS = ["#2aabee", "#2b5278", "#0e1621", "#17212b", "#232e3c"];
 const STORY_STICKERS = ["WOW", "YES", "LIVE", "MOOD", "FLEX"];
 const STORY_IMAGE_EXTENSIONS = ["avif", "gif", "heic", "heif", "jpg", "jpeg", "png", "webp"];
 const STORY_VIDEO_EXTENSIONS = ["mov", "mp4", "m4v", "3gp", "3gpp", "3g2", "3gpp2", "webm"];
@@ -2021,7 +2021,7 @@ export default function StoryTray() {
         {storiesQuery.isFetching ? (
           <Loader2
             size={14}
-            className="text-[#4BA3E3] motion-safe:animate-spin"
+            className="text-[#2AABEE] motion-safe:animate-spin"
           />
         ) : null}
       </div>
@@ -2041,7 +2041,7 @@ export default function StoryTray() {
       />
 
       <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="relative flex w-[66px] shrink-0 flex-col items-center gap-2 text-center text-[11px] text-zinc-400">
+        <div className="relative flex w-[66px] shrink-0 flex-col items-center gap-2 text-center text-[11px] text-[#6C7883]">
           <button
             type="button"
             onClick={() => {
@@ -2068,13 +2068,13 @@ export default function StoryTray() {
               className={`absolute inset-0 rounded-full ${
                 currentUserStoryGroup
                   ? "fc-story-ring-unseen"
-                  : "bg-white/10"
+                  : "bg-[#6C7883]"
               }`}
             />
             <FlexAvatar
               src={currentUser?.avatar}
               name={currentUser?.username}
-              className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0B1520] text-base font-bold text-white ring-2 ring-[#07111B]"
+              className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0E1621] text-base font-bold text-white ring-2 ring-[#0D1823]"
             />
             {createStoryMutation.isPending || myStoryLoading ? (
               <span className="absolute inset-2 flex items-center justify-center rounded-full bg-black/45">
@@ -2087,7 +2087,7 @@ export default function StoryTray() {
             type="button"
             onClick={openStoryComposer}
             disabled={createStoryMutation.isPending}
-            className="fc-telegram-touch absolute right-1 top-10 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#07111B] bg-[#2481CC] text-white shadow-md disabled:cursor-wait disabled:opacity-70"
+            className="fc-telegram-touch absolute right-1 top-10 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#0D1823] bg-[#2AABEE] text-white shadow-md disabled:cursor-wait disabled:opacity-70"
             aria-label="Create story"
           >
             <Plus size={14} />
@@ -2096,7 +2096,7 @@ export default function StoryTray() {
           {createStoryMutation.isPending ? (
             <span className="absolute left-2 right-2 top-[52px] h-1 overflow-hidden rounded-full bg-white/15">
               <span
-                className="block h-full rounded-full bg-[#4BA3E3] transition-[width]"
+                className="block h-full rounded-full bg-[#2AABEE] transition-[width]"
                 style={{
                   width: `${uploadProgress}%`,
                 }}
@@ -2139,19 +2139,19 @@ export default function StoryTray() {
               setViewerGroupSource("visible");
               setViewerGroupIndex(originalIndex);
             }}
-            className="fc-telegram-touch flex w-[66px] shrink-0 flex-col items-center gap-2 text-center text-[11px] text-zinc-400"
+            className="fc-telegram-touch flex w-[66px] shrink-0 flex-col items-center gap-2 text-center text-[11px] text-[#6C7883]"
           >
             <span
               className={`relative flex h-[60px] w-[60px] items-center justify-center rounded-full p-[2px] ${
                 group.hasUnseen
                   ? "fc-story-ring-unseen"
-                  : "bg-white/10"
+                  : "bg-[#6C7883]"
               }`}
             >
               <FlexAvatar
                 src={group.user.avatar}
                 name={group.user.username}
-                className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0B1520] text-base font-bold text-white ring-2 ring-[#07111B]"
+                className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0E1621] text-base font-bold text-white ring-2 ring-[#0D1823]"
               />
             </span>
             <span className="w-full truncate">
@@ -2170,7 +2170,7 @@ export default function StoryTray() {
             className="flex w-full items-center justify-between gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-white/[0.05]"
           >
             <span className="flex min-w-0 items-center gap-2">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2481CC]/12 text-[#8ECFFF]">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2AABEE]/12 text-[#75CFF6]">
                 <BellOff size={15} />
               </span>
               <span className="min-w-0">
@@ -2182,7 +2182,7 @@ export default function StoryTray() {
                 </span>
               </span>
             </span>
-            <span className="text-[11px] font-medium text-[#8ECFFF]">
+            <span className="text-[11px] font-medium text-[#75CFF6]">
               {mutedStoriesOpen ? "Hide" : "Show"}
             </span>
           </button>
@@ -2230,9 +2230,9 @@ export default function StoryTray() {
                         <FlexAvatar
                           src={group.user.avatar}
                           name={group.user.username}
-                          className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0B1520] text-sm font-bold text-white ring-2 ring-[#07111B]"
+                          className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0E1621] text-sm font-bold text-white ring-2 ring-[#0D1823]"
                         />
-                        <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-[#07111B] bg-[#0B1520] text-[#8ECFFF]">
+                        <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-[#0D1823] bg-[#0E1621] text-[#75CFF6]">
                           <Eye size={11} />
                         </span>
                       </button>
@@ -2242,7 +2242,7 @@ export default function StoryTray() {
                       <button
                         type="button"
                         onClick={() => unmuteStoryUser(group.userId)}
-                        className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-zinc-300 transition hover:bg-[#2481CC]/20 hover:text-[#A7D8FF]"
+                        className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-zinc-300 transition hover:bg-[#2AABEE]/20 hover:text-[#A7D8FF]"
                         aria-label={`Unmute stories from ${formatDisplayName(group.user.username)}`}
                       >
                         <RotateCcw size={13} />
@@ -2289,7 +2289,7 @@ export default function StoryTray() {
                 stiffness: 340,
                 damping: 34,
               }}
-              className="chat-safe-scroll max-h-[min(88dvh,640px)] w-full overflow-y-auto rounded-2xl border border-white/10 bg-[#07111B]/95 p-3 text-white shadow-lg shadow-black/25 sm:max-w-sm"
+              className="chat-safe-scroll max-h-[min(88dvh,640px)] w-full overflow-y-auto rounded-2xl border border-white/10 bg-[#0E1621]/95 p-3 text-white shadow-lg shadow-black/25 sm:max-w-sm"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-center justify-between px-2 py-2">
@@ -2310,7 +2310,7 @@ export default function StoryTray() {
                   onClick={chooseMediaStory}
                   className="fc-telegram-touch flex items-center gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-white/[0.07]"
                 >
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2481CC]/15 text-[#7CC5FF]">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2AABEE]/15 text-[#75CFF6]">
                     <ImageIcon size={19} />
                   </span>
                   <span className="min-w-0 flex-1">
@@ -2678,7 +2678,7 @@ export default function StoryTray() {
               aria-label="Draw"
               className={cn(
                 STORY_TOOL_BUTTON_CLASS,
-                storyDraft.drawingMode && "bg-[#2481CC]",
+                storyDraft.drawingMode && "bg-[#2AABEE]",
               )}
             >
               <PenLine size={21} />
@@ -2731,7 +2731,7 @@ export default function StoryTray() {
                         updateVideoTrimStart(Number(event.target.value))
                       }
                       className="w-full"
-                      style={{ accentColor: "#2481CC" }}
+                      style={{ accentColor: "#2AABEE" }}
                     />
                   </label>
                   <label className="grid grid-cols-[3.25rem_1fr] items-center gap-3 text-[11px] text-white/55">
@@ -2746,7 +2746,7 @@ export default function StoryTray() {
                         updateVideoTrimEnd(Number(event.target.value))
                       }
                       className="w-full"
-                      style={{ accentColor: "#2481CC" }}
+                      style={{ accentColor: "#2AABEE" }}
                     />
                   </label>
                 </div>
@@ -2770,7 +2770,7 @@ export default function StoryTray() {
                   !storyDraft.caption.trim() &&
                   !storyDraft.textOverlay?.text.trim())
               }
-              className="fc-telegram-touch flex h-[52px] w-full items-center justify-center rounded-2xl bg-[#2481CC] px-5 text-base font-semibold text-white transition hover:bg-[#2F8ED8] disabled:cursor-wait disabled:opacity-70"
+              className="fc-telegram-touch flex h-[52px] w-full items-center justify-center rounded-2xl bg-[#2AABEE] px-5 text-base font-semibold text-white transition hover:bg-[#3BB7F3] disabled:cursor-wait disabled:opacity-70"
             >
               {storyPreparing
                 ? "Preparing..."
@@ -2848,7 +2848,7 @@ export default function StoryTray() {
                         padding: "8px 12px",
                         background:
                           storyDraft.textOverlay?.fontFamily === font
-                            ? "#2481CC"
+                            ? "#2AABEE"
                             : "rgba(255,255,255,0.16)",
                         color: "#fff",
                       }}
@@ -2906,7 +2906,7 @@ export default function StoryTray() {
                           borderRadius: 10,
                           background:
                             storyDraft.textOverlay?.align === align
-                              ? "#2481CC"
+                              ? "#2AABEE"
                               : "rgba(255,255,255,0.16)",
                           color: "#fff",
                         }}
@@ -2930,7 +2930,7 @@ export default function StoryTray() {
                     }))
                   }
                   className="mt-4 w-full"
-                  style={{ accentColor: "#2481CC" }}
+                  style={{ accentColor: "#2AABEE" }}
                   aria-label="Font size"
                 />
               </div>

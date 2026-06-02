@@ -1689,10 +1689,12 @@ const ChatMessageRow = memo(function ChatMessageRow({
                 }
               : undefined
           }
-          className={`fc-message-bubble relative max-w-[86%] rounded-[17px] px-3.5 py-[7px] text-[15px] text-white sm:max-w-[68%] sm:px-4 sm:py-2 ${
+          className={`fc-message-bubble relative max-w-[86%] px-3.5 py-[7px] text-white sm:max-w-[68%] sm:px-4 sm:py-2 ${
             mine
-              ? "rounded-br-[6px]"
-              : "rounded-bl-[6px] border border-[var(--fc-app-border)]"
+              ? "fc-bubble-mine"
+              : "fc-bubble-peer border border-[var(--fc-app-border)]"
+          } ${!grouped ? "fc-bubble-tail" : ""} ${
+            grouped ? "fc-bubble-grouped" : ""
           } ${message.status === "failed" ? "ring-1 ring-red-400/35" : ""} ${
             isDeleted
               ? "border border-[var(--fc-app-border)] bg-[var(--fc-app-surface)] text-[var(--fc-text-muted)]"
@@ -1700,8 +1702,8 @@ const ChatMessageRow = memo(function ChatMessageRow({
           }`}
         >
           {message.replyTo ? (
-            <div className="mb-3 rounded-2xl border border-[var(--fc-app-border)] bg-[var(--fc-input-bg)] px-3 py-2 text-xs text-[var(--fc-text-muted)]">
-              <p className="font-medium text-[var(--fc-theme-text)]">Reply</p>
+            <div className="mb-3 rounded-lg border border-[#0D1823] border-l-2 border-l-[#2AABEE] bg-black/10 px-3 py-2 text-xs text-[#B9C2CA]">
+              <p className="font-medium text-white">Reply</p>
               <p className="mt-1 line-clamp-2">{message.replyTo.text}</p>
             </div>
           ) : null}
@@ -1794,7 +1796,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
               </div>
             </div>
           ) : !isDeleted && message.text && !media ? (
-            <p className="whitespace-pre-wrap break-words leading-[1.36]">
+            <p className="whitespace-pre-wrap break-words">
               {message.text}
             </p>
           ) : null}
@@ -1804,7 +1806,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
               {message.reactions.map((reaction) => (
                 <span
                   key={reaction.emoji}
-                  className="rounded-full border border-[var(--fc-app-border)] bg-[var(--fc-input-bg)] px-2 py-1 text-xs shadow-sm"
+                  className="rounded-full border border-[#0D1823] bg-[#232E3C]/90 px-2 py-1 text-xs text-white shadow-sm"
                 >
                   {reaction.emoji} {reaction.count}
                 </span>
@@ -1983,7 +1985,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
             ) : null}
           </AnimatePresence>
 
-          <div className="mt-0.5 flex items-center justify-end gap-1.5 text-[10px] font-medium leading-none text-white/62">
+          <div className="mt-0.5 flex items-center justify-end gap-1.5 text-xs font-medium leading-none text-[#6C7883]">
             {message.editedAt && !isDeleted ? <span>edited</span> : null}
             <span>{formatMessageTime(message.createdAt)}</span>
 
@@ -2513,7 +2515,7 @@ export default function ChatConversation() {
   }, []);
 
   const headerActionClass =
-    "fc-telegram-touch fc-hover flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)] disabled:cursor-not-allowed disabled:opacity-40";
+    "fc-telegram-touch fc-hover flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#6C7883] transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40";
   const headerIconSize = 18;
   const aiSuggestions = useMemo(
     () => [
@@ -3509,13 +3511,13 @@ export default function ChatConversation() {
       className="fc-chat-doodle relative flex h-full min-h-0 flex-col overflow-hidden text-[var(--fc-theme-text)]"
     >
       <div
-        className="relative z-10 flex shrink-0 items-center justify-between gap-2 border-b border-[var(--fc-app-border)] bg-[var(--fc-chat-header)] px-2.5 py-2.5 pt-[calc(0.45rem+env(safe-area-inset-top))] shadow-[0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-2xl sm:px-5 sm:py-3.5"
+        className="relative z-10 flex shrink-0 items-center justify-between gap-2 border-b border-[#0D1823] bg-[var(--fc-chat-header)] px-2.5 py-2 pt-[calc(0.45rem+env(safe-area-inset-top))] shadow-[0_1px_0_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:px-5 sm:py-3"
       >
         <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
           <button
             type="button"
             onClick={returnToConversationList}
-            className="fc-telegram-touch fc-hover flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--fc-theme-text)] transition lg:hidden"
+            className="fc-telegram-touch fc-hover flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white transition lg:hidden"
             aria-label="Back to conversations"
           >
             <ArrowLeft size={24} />
@@ -3538,13 +3540,13 @@ export default function ChatConversation() {
             <FlexAvatar
               src={activeConversationAvatar}
               name={activeConversation.name}
-              className="fc-avatar flex h-10 w-10 items-center justify-center overflow-hidden rounded-full text-sm font-bold sm:h-11 sm:w-11 sm:text-base"
+              className="fc-avatar flex h-11 w-11 items-center justify-center overflow-hidden rounded-full text-sm font-bold sm:text-base"
             />
           </button>
 
           <div className="min-w-0 flex-1">
             <h2
-              className="truncate text-[19px] font-semibold leading-tight text-[var(--fc-theme-text)]"
+              className="truncate text-[17px] font-semibold leading-tight text-white"
             >
               {activeConversationDisplayName}
             </h2>
@@ -3763,7 +3765,7 @@ export default function ChatConversation() {
       </div>
 
       <div
-        className="relative z-10 shrink-0 border-t border-[var(--fc-app-border)] bg-[var(--fc-chat-composer)] px-2.5 py-1.5 pb-[calc(0.45rem+env(safe-area-inset-bottom))] backdrop-blur-2xl sm:px-5 sm:py-2.5 sm:pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+        className="relative z-10 shrink-0 border-t border-[#0D1823] bg-[var(--fc-chat-composer)] px-2.5 py-2 pb-[calc(0.45rem+env(safe-area-inset-bottom))] backdrop-blur-2xl sm:px-5 sm:py-2.5 sm:pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
       >
         {replyingTo ? (
           <div className="fc-button-soft mb-2 flex items-center gap-3 rounded-2xl border p-3 text-sm">
@@ -3848,7 +3850,7 @@ export default function ChatConversation() {
           />
 
           <div
-            className={`fc-composer relative min-w-0 flex-1 rounded-[23px] border border-white/[0.035] bg-[#1d2b38]/95 px-2 py-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition-colors duration-200 ${
+            className={`fc-composer relative min-w-0 flex-1 rounded-lg border border-[#0D1823] bg-[#232E3C]/95 px-2 py-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition-colors duration-200 ${
               isConversationBlocked ? "opacity-75" : ""
             }`}
           >
@@ -3857,7 +3859,7 @@ export default function ChatConversation() {
                 type="button"
                 onClick={toggleEmojiPanel}
                 disabled={isConversationBlocked}
-                className={`fc-telegram-touch fc-hover flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition hover:text-[var(--fc-theme-text)] ${
+                className={`fc-telegram-touch fc-hover flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition hover:text-white ${
                   emojiOpen
                     ? "bg-[var(--fc-app-surface-active)] text-[var(--fc-accent-text)]"
                     : "text-[var(--fc-text-subtle)]"
@@ -3937,7 +3939,7 @@ export default function ChatConversation() {
                         : "Write a message..."
                     }
                     disabled={isConversationBlocked}
-                    className="max-h-32 min-h-[38px] w-full resize-none overflow-y-auto border-0 bg-transparent py-2.5 text-[16px] leading-5 text-[var(--fc-theme-text)] shadow-none outline-none ring-0 placeholder:text-[var(--fc-text-subtle)] focus:border-0 focus:outline-none focus:ring-0 focus-visible:shadow-none disabled:cursor-not-allowed sm:min-h-[40px] sm:py-2.5"
+                    className="max-h-32 min-h-[42px] w-full resize-none overflow-y-auto border-0 bg-transparent py-2.5 text-[16px] leading-5 text-white shadow-none outline-none ring-0 placeholder:text-[#6C7883] focus:border-0 focus:outline-none focus:ring-0 focus-visible:shadow-none disabled:cursor-not-allowed"
                   />
                 )}
               </div>
@@ -3946,7 +3948,7 @@ export default function ChatConversation() {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploadingAttachment || isConversationBlocked}
-                className="fc-telegram-touch fc-hover relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-[var(--fc-text-subtle)] transition hover:text-[var(--fc-theme-text)] disabled:cursor-wait disabled:opacity-70"
+                className="fc-telegram-touch fc-hover relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-[#6C7883] transition hover:text-white disabled:cursor-wait disabled:opacity-70"
                 aria-label="Upload attachment"
               >
                 <Paperclip
@@ -4040,7 +4042,7 @@ export default function ChatConversation() {
                   isConversationBlocked ||
                   (!!text.trim() && isRecordingVoice)
                 }
-                className={`fc-telegram-touch flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition-all hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-45 ${
+                className={`fc-telegram-touch flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white transition-all hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-45 ${
                   text.trim()
                     ? "fc-button-primary"
                   : isRecordingVoice

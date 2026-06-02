@@ -182,7 +182,7 @@ export default function GlobalSearch() {
                 }}
                 className="flex w-full items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.03] p-4 text-left transition-all hover:bg-white/[0.05]"
               >
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2481CC] to-[#2F8ED8] text-lg font-bold text-white">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2AABEE] to-[#168ACD] text-lg font-bold text-white">
                   {conversation.name?.charAt(
                     0
                   ) || "F"}

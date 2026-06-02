@@ -2,54 +2,54 @@
 
 :root {
   color-scheme: dark;
-  --flexchat-bg: #0f1c29;
-  --flexchat-panel: rgba(23, 33, 43, 0.94);
-  --flexchat-border: rgba(255, 255, 255, 0.1);
-  --fc-primary: #285ccc;
-  --fc-primary-rgb: 40 92 204;
-  --fc-primary-hover: #346ee6;
-  --fc-accent: #7cc5ff;
-  --fc-accent-rgb: 124 197 255;
-  --fc-accent-soft: rgba(40, 92, 204, 0.16);
-  --fc-accent-muted: rgba(40, 92, 204, 0.24);
-  --fc-accent-text: #8ecfff;
-  --fc-chat-bg: #0f1c29;
+  --flexchat-bg: #17212b;
+  --flexchat-panel: #17212b;
+  --flexchat-border: #0d1823;
+  --fc-primary: #2aabee;
+  --fc-primary-rgb: 42 171 238;
+  --fc-primary-hover: #3bb7f3;
+  --fc-accent: #2aabee;
+  --fc-accent-rgb: 42 171 238;
+  --fc-accent-soft: rgba(42, 171, 238, 0.14);
+  --fc-accent-muted: rgba(42, 171, 238, 0.22);
+  --fc-accent-text: #75cff6;
+  --fc-chat-bg: #0e1621;
   --fc-chat-header: rgba(23, 33, 43, 0.96);
-  --fc-chat-composer: rgba(23, 33, 43, 0.96);
-  --fc-own-bubble: linear-gradient(135deg, #2481cc 0%, #2f8ee2 52%, #55b7ff 100%);
+  --fc-chat-composer: rgba(23, 33, 43, 0.95);
+  --fc-own-bubble: #2b5278;
   --fc-own-bubble-text: #ffffff;
-  --fc-their-bubble: linear-gradient(145deg, rgba(23, 33, 43, 0.96), rgba(18, 30, 43, 0.94));
-  --fc-their-bubble-text: #f8fbff;
-  --fc-theme-accent: #285ccc;
-  --fc-theme-text: #f8fbff;
-  --fc-theme-muted: rgba(225, 232, 242, 0.72);
-  --fc-text: #f8fbff;
-  --fc-text-muted: rgba(225, 232, 242, 0.72);
-  --fc-text-subtle: rgba(225, 232, 242, 0.48);
-  --fc-app-bg: #0f1c29;
-  --fc-app-panel: rgba(23, 33, 43, 0.94);
-  --fc-app-panel-strong: rgba(23, 33, 43, 0.98);
-  --fc-app-surface: rgba(35, 49, 64, 0.76);
-  --fc-app-surface-hover: rgba(255, 255, 255, 0.07);
-  --fc-app-surface-active: rgba(40, 92, 204, 0.18);
-  --fc-app-elevated: rgba(25, 39, 56, 0.94);
-  --fc-app-border: rgba(255, 255, 255, 0.1);
-  --fc-app-border-strong: rgba(255, 255, 255, 0.16);
-  --fc-input-bg: rgba(255, 255, 255, 0.07);
-  --fc-input-focus: rgba(40, 92, 204, 0.14);
+  --fc-their-bubble: #182533;
+  --fc-their-bubble-text: #ffffff;
+  --fc-theme-accent: #2aabee;
+  --fc-theme-text: #ffffff;
+  --fc-theme-muted: #6c7883;
+  --fc-text: #ffffff;
+  --fc-text-muted: #6c7883;
+  --fc-text-subtle: rgba(108, 120, 131, 0.82);
+  --fc-app-bg: #17212b;
+  --fc-app-panel: #17212b;
+  --fc-app-panel-strong: #17212b;
+  --fc-app-surface: #232e3c;
+  --fc-app-surface-hover: #2b3a4d;
+  --fc-app-surface-active: #2b5278;
+  --fc-app-elevated: #232e3c;
+  --fc-app-border: #0d1823;
+  --fc-app-border-strong: rgba(42, 171, 238, 0.22);
+  --fc-input-bg: #232e3c;
+  --fc-input-focus: rgba(42, 171, 238, 0.12);
   --fc-overlay: rgba(0, 0, 0, 0.62);
   --fc-overlay-strong: rgba(0, 0, 0, 0.78);
-  --fc-modal: rgba(25, 39, 56, 0.97);
-  --fc-skeleton: rgba(255, 255, 255, 0.055);
-  --fc-selection: rgba(40, 92, 204, 0.38);
-  --fc-focus-ring: rgba(40, 92, 204, 0.34);
-  --fc-story-gradient: conic-gradient(from 210deg, #2481cc, #5ac8ff, #38bdf8, #f45d8f, #2481cc);
-  --fc-brand-gradient: linear-gradient(135deg, #1d5fa8 0%, #2481cc 52%, #5ac8ff 100%);
-  --fc-avatar-bg: rgba(40, 92, 204, 0.18);
+  --fc-modal: rgba(35, 46, 60, 0.98);
+  --fc-skeleton: rgba(255, 255, 255, 0.06);
+  --fc-selection: rgba(42, 171, 238, 0.35);
+  --fc-focus-ring: rgba(42, 171, 238, 0.32);
+  --fc-story-gradient: conic-gradient(from 210deg, #2aabee, #7b61ff, #d946ef, #2aabee);
+  --fc-brand-gradient: linear-gradient(135deg, #2aabee 0%, #168acd 100%);
+  --fc-avatar-bg: rgba(42, 171, 238, 0.16);
   --fc-shadow-color: rgba(0, 0, 0, 0.46);
-  --fc-scrollbar: rgba(255, 255, 255, 0.18);
-  --fc-divider: rgba(255, 255, 255, 0.1);
-  --fc-success: #4ba3e3;
+  --fc-scrollbar: rgba(108, 120, 131, 0.35);
+  --fc-divider: #0d1823;
+  --fc-success: #4dcd5e;
   --fc-warning: #f59e0b;
   --fc-danger: #ef4444;
   --fc-motion-fast: 120ms;
@@ -121,8 +121,8 @@ textarea,
 }
 
 .fc-active {
-  background: var(--fc-app-surface-active);
-  border-color: rgba(var(--fc-primary-rgb), 0.36);
+  background: #2b5278;
+  border-color: #2b5278;
 }
 
 .fc-muted {
@@ -166,8 +166,9 @@ textarea,
 }
 
 .fc-badge {
-  background: var(--fc-primary);
+  background: #ff3b30;
   color: white;
+  box-shadow: 0 0 0 1px rgba(13, 24, 35, 0.5);
 }
 
 .fc-brand-gradient {
@@ -194,8 +195,8 @@ textarea,
 }
 
 .fc-telegram-menu {
-  background: rgba(35, 49, 64, 0.98);
-  border-color: rgba(255, 255, 255, 0.055);
+  background: rgba(35, 46, 60, 0.98);
+  border-color: #0d1823;
   box-shadow:
     0 22px 54px rgba(0, 0, 0, 0.38),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -208,7 +209,7 @@ textarea,
 }
 
 .fc-composer:focus-within {
-  border-color: rgba(255, 255, 255, 0.075) !important;
+  border-color: rgba(var(--fc-primary-rgb), 0.32) !important;
 }
 
 .fc-chat-doodle {
@@ -220,9 +221,48 @@ textarea,
 }
 
 .fc-message-bubble {
+  border-radius: 12px;
+  font-size: 14.5px;
+  line-height: 1.4;
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.04) inset,
-    0 8px 22px rgba(0, 0, 0, 0.1);
+    0 1px 0 rgba(255, 255, 255, 0.035) inset,
+    0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.fc-bubble-mine {
+  border-radius: 12px 12px 2px 12px;
+}
+
+.fc-bubble-peer {
+  border-radius: 12px 12px 12px 2px;
+}
+
+.fc-bubble-mine.fc-bubble-grouped {
+  border-bottom-right-radius: 8px;
+}
+
+.fc-bubble-peer.fc-bubble-grouped {
+  border-bottom-left-radius: 8px;
+}
+
+.fc-bubble-tail::after {
+  position: absolute;
+  bottom: 0;
+  width: 9px;
+  height: 12px;
+  content: "";
+}
+
+.fc-bubble-mine.fc-bubble-tail::after {
+  right: -6px;
+  background: var(--fc-own-bubble);
+  clip-path: polygon(0 0, 100% 100%, 0 100%);
+}
+
+.fc-bubble-peer.fc-bubble-tail::after {
+  left: -6px;
+  background: var(--fc-their-bubble);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
 }
 
 .fc-emoji-panel {
@@ -302,6 +342,11 @@ body {
   background:
     var(--fc-app-bg);
   color: var(--fc-theme-text);
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 }
 
 ::-webkit-scrollbar {

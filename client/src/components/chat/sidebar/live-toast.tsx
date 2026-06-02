@@ -24,9 +24,9 @@ const variantStyles = {
   success: {
     icon: CheckCircle2,
     iconClass:
-      "border-[#7CC5FF]/20 bg-[#2481CC]/15 text-[#DDF2FF] shadow-[#2481CC]/10",
+      "border-[#75CFF6]/20 bg-[#2AABEE]/15 text-[#DDF2FF] shadow-[#2AABEE]/10",
     glowClass:
-      "from-[#2481CC]/[0.14] via-[#7CC5FF]/[0.06] to-transparent",
+      "from-[#2AABEE]/[0.14] via-[#75CFF6]/[0.06] to-transparent",
     borderClass:
       "border-sky-200/[0.16]",
   },
@@ -42,9 +42,9 @@ const variantStyles = {
   info: {
     icon: Info,
     iconClass:
-      "border-[#7CC5FF]/20 bg-[#2481CC]/[0.14] text-[#DDF2FF] shadow-[#2481CC]/10",
+      "border-[#75CFF6]/20 bg-[#2AABEE]/[0.14] text-[#DDF2FF] shadow-[#2AABEE]/10",
     glowClass:
-      "from-[#2481CC]/[0.16] via-[#7CC5FF]/[0.07] to-transparent",
+      "from-[#2AABEE]/[0.16] via-[#75CFF6]/[0.07] to-transparent",
     borderClass:
       "border-sky-200/[0.16]",
   },

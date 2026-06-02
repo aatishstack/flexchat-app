@@ -28,7 +28,7 @@ export default function MessageStatus({
   if (status === "sending") {
     if (reducedMotion) {
       return (
-        <div className="h-3.5 w-3.5 rounded-full border border-white/30 border-t-cyan-300" />
+        <div className="h-3.5 w-3.5 rounded-full border border-[#6C7883]/45 border-t-[#2AABEE]" />
       );
     }
 
@@ -42,7 +42,7 @@ export default function MessageStatus({
           repeat: Infinity,
           ease: "linear",
         }}
-        className="h-3.5 w-3.5 rounded-full border border-white/30 border-t-cyan-300"
+        className="h-3.5 w-3.5 rounded-full border border-[#6C7883]/45 border-t-[#2AABEE]"
       />
     );
   }
@@ -51,7 +51,7 @@ export default function MessageStatus({
     return (
       <Check
         size={14}
-        className="text-white/55"
+        className="text-[#6C7883]"
       />
     );
   }
@@ -60,7 +60,7 @@ export default function MessageStatus({
     return (
       <CheckCheck
         size={14}
-        className="text-white/70"
+        className="text-[#6C7883]"
       />
     );
   }
@@ -77,7 +77,7 @@ export default function MessageStatus({
   return (
     <CheckCheck
       size={14}
-      className="text-cyan-300"
+      className="text-[#2AABEE]"
     />
   );
 }

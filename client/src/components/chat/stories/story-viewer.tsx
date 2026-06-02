@@ -680,7 +680,7 @@ export default function StoryViewer({
               width: "min(100vw, calc(100dvh * 9 / 16), calc(100svh * 9 / 16))",
               height: "min(100dvh, 100svh, calc(100vw * 16 / 9))",
             }}
-            className="relative touch-pan-y overflow-hidden bg-[#07111B] will-change-transform"
+            className="relative touch-pan-y overflow-hidden bg-[#0E1621] will-change-transform"
           >
             <div className="absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/70 via-black/20 to-transparent px-4 pb-8 pt-[calc(0.75rem+env(safe-area-inset-top))]">
               <div className="flex gap-1">
@@ -788,7 +788,7 @@ export default function StoryViewer({
             />
 
             {currentStory.mediaType === "text" ? (
-              <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#17212B,#07111B)] p-7">
+              <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#17212B,#0E1621)] p-7">
                 <p className="whitespace-pre-wrap break-words text-center text-2xl font-semibold leading-snug text-white sm:text-3xl">
                   {currentStory.caption}
                 </p>
@@ -906,13 +906,13 @@ export default function StoryViewer({
                   onBlur={() => setReplyFocused(false)}
                   rows={1}
                   placeholder="Reply..."
-                  className="max-h-24 min-h-11 flex-1 resize-none rounded-2xl border border-white/10 bg-white/[0.10] px-4 py-3 text-sm leading-5 text-white outline-none backdrop-blur-xl placeholder:text-white/45 focus:border-[#2481CC]/55"
+                  className="max-h-24 min-h-11 flex-1 resize-none rounded-2xl border border-white/10 bg-white/[0.10] px-4 py-3 text-sm leading-5 text-white outline-none backdrop-blur-xl placeholder:text-white/45 focus:border-[#2AABEE]/55"
                 />
 
                 <button
                   type="submit"
                   disabled={!replyText.trim() || isSendingReply}
-                  className="fc-telegram-touch flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#2481CC] text-white transition hover:bg-[#2F8ED8] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="fc-telegram-touch flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#2AABEE] text-white transition hover:bg-[#3BB7F3] disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label="Send story reply"
                 >
                   {isSendingReply ? (
@@ -996,7 +996,7 @@ export default function StoryViewer({
 
                     <div className="chat-safe-scroll max-h-[calc(60dvh-5rem)] overflow-y-auto p-4">
                       {storyViewersQuery.isLoading ? (
-                        <div className="flex h-24 items-center justify-center text-[#7CC5FF]">
+                        <div className="flex h-24 items-center justify-center text-[#75CFF6]">
                           <Loader2
                             size={18}
                             className="motion-safe:animate-spin"

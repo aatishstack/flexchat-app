@@ -255,7 +255,7 @@ export default function ActiveNowPanel({
               <FlexAvatar
                 src={user.avatar}
                 name={user.username}
-                className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-[#2481CC] to-[#2F8ED8] text-lg font-bold text-white"
+                className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-[#2AABEE] to-[#168ACD] text-lg font-bold text-white"
               />
 
               <div className="absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-[#0B111C] bg-green-500 shadow-lg shadow-green-500/40" />
