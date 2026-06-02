@@ -2,6 +2,7 @@
 import { generateId } from "@/lib/uuid";
 
 import {
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -790,7 +791,7 @@ async function trimStoryVideoFile(
   }
 }
 
-export default function StoryTray() {
+function StoryTray() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const storyCanvasRef = useRef<HTMLDivElement | null>(null);
   const deleteZoneRef = useRef<HTMLDivElement | null>(null);
@@ -2959,3 +2960,5 @@ export default function StoryTray() {
     </section>
   );
 }
+
+export default memo(StoryTray);

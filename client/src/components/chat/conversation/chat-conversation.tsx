@@ -97,16 +97,20 @@ import {
   getChatTheme,
   getChatThemeStyle,
 } from "@/lib/chat-themes";
+import type { ChatTheme } from "@/lib/chat-themes";
 import { useConversationStore } from "@/stores/conversation.store";
 import {
   mergeMessageIntoQueryCache,
   removeMessagesFromQueryCache,
 } from "@/lib/message-query-cache";
 import type { MessageQueryCache } from "@/lib/message-query-cache";
+import type { Conversation } from "@/types/conversation";
 
 const EMPTY_MESSAGES: Message[] = [];
+const EMPTY_PROFILE_MEMBERS: NonNullable<Conversation["members"]> = [];
 const MESSAGE_ROW_ESTIMATE = 118;
 const MESSAGE_ROW_OVERSCAN = 12;
+const MARK_SEEN_FLUSH_DELAY_MS = 120;
 const QUICK_REACTIONS = ["❤️", "👍", "👎", "🔥", "🥰", "👏", "😁"];
 const MESSAGE_TIME_FORMATTER = new Intl.DateTimeFormat("en", {
   hour: "numeric",
@@ -134,18 +138,6 @@ const EmojiPicker = dynamic<PickerProps>(
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const LARGE_FILE_CARD_BYTES = 15 * 1024 * 1024;
-
-function hasOnlinePeer(
-  memberIds: string[] | undefined,
-  onlineUsers: ReadonlySet<string>,
-  currentUserId?: string,
-) {
-  return (
-    memberIds?.some(
-      (memberId) => memberId !== currentUserId && onlineUsers.has(memberId),
-    ) ?? false
-  );
-}
 
 function getConversationAvatar(
   conversation: {
@@ -791,7 +783,7 @@ type ChatMessageRowProps = {
   message: Message;
   previous?: Message;
   mine: boolean;
-  now: number;
+  dateDividerLabel: string | null;
   reducedMotion: boolean;
   onRetry: (messageId: string) => void;
   onEdit: (message: Message, text: string) => Promise<boolean>;
@@ -909,7 +901,7 @@ function ReactionPicker({
         top,
         width: pickerWidth,
       }}
-      className="fc-modal fixed z-[260] flex items-center justify-center gap-1 rounded-2xl border p-2 backdrop-blur-2xl"
+      className="fc-modal fixed z-[260] flex items-center justify-center gap-1 rounded-2xl border p-2 sm:backdrop-blur-2xl"
       role="menu"
       aria-label="Choose reaction"
     >
@@ -999,7 +991,7 @@ function MessageActionOverlay({
         exit={{
           opacity: 0,
         }}
-        className="fixed inset-0 z-[255] bg-black/18 backdrop-blur-[2px]"
+        className="fixed inset-0 z-[255] bg-black/18 sm:backdrop-blur-[2px]"
         onPointerDown={onClose}
       >
         <motion.div
@@ -1035,7 +1027,7 @@ function MessageActionOverlay({
           role="menu"
           aria-label="Message actions"
         >
-          <div className="fc-telegram-menu mb-2 flex h-14 items-center justify-between rounded-[21px] border px-2 backdrop-blur-2xl">
+          <div className="fc-telegram-menu mb-2 flex h-14 items-center justify-between rounded-[21px] border px-2 sm:backdrop-blur-2xl">
             {QUICK_REACTIONS.map((emoji, index) => (
               <motion.button
                 key={emoji}
@@ -1066,7 +1058,7 @@ function MessageActionOverlay({
             ))}
           </div>
 
-          <div className="fc-telegram-menu overflow-hidden rounded-[18px] border py-1 backdrop-blur-2xl">
+          <div className="fc-telegram-menu overflow-hidden rounded-[18px] border py-1 sm:backdrop-blur-2xl">
             {canReply ? (
               <button
                 type="button"
@@ -1258,7 +1250,7 @@ function MessageMediaAttachment({
       {viewerOpen && typeof document !== "undefined"
         ? createPortal(
             <div
-              className="fixed inset-0 z-[285] flex items-center justify-center bg-black/90 p-3 text-white backdrop-blur-xl"
+              className="fixed inset-0 z-[285] flex items-center justify-center bg-black/90 p-3 text-white sm:backdrop-blur-xl"
               onClick={() => {
                 setViewerOpen(false);
                 setViewerScale(1);
@@ -1534,7 +1526,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
   message,
   previous,
   mine,
-  now,
+  dateDividerLabel,
   reducedMotion,
   onRetry,
   onEdit,
@@ -1575,8 +1567,6 @@ const ChatMessageRow = memo(function ChatMessageRow({
   const grouped =
     previous?.senderId === message.senderId &&
     isSameMessageDay(previous?.createdAt, message.createdAt);
-  const showDateDivider =
-    !previous || !isSameMessageDay(previous.createdAt, message.createdAt);
   const isDeleted = !!message.deletedAt;
   const isSettled = !message.optimistic && message.status !== "sending";
   const canEdit =
@@ -1828,11 +1818,11 @@ const ChatMessageRow = memo(function ChatMessageRow({
 
   return (
     <Fragment>
-      {showDateDivider ? (
+      {dateDividerLabel !== null ? (
         <div className="my-2.5 flex items-center gap-3">
           <div className="h-px flex-1 bg-[var(--fc-divider)]" />
-          <span className="fc-surface rounded-full border px-3 py-0.5 text-[11px] font-medium text-[var(--fc-text-muted)] backdrop-blur-xl">
-            {formatDateDivider(message.createdAt, now)}
+          <span className="fc-surface rounded-full border px-3 py-0.5 text-[11px] font-medium text-[var(--fc-text-muted)] sm:backdrop-blur-xl">
+            {dateDividerLabel}
           </span>
           <div className="h-px flex-1 bg-[var(--fc-divider)]" />
         </div>
@@ -1840,15 +1830,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
 
       <motion.div
         ref={rowRef}
-        initial={
-          reducedMotion
-            ? false
-            : {
-                opacity: 0,
-                y: 10,
-                scale: 0.98,
-              }
-        }
+        initial={false}
         animate={{
           opacity: 1,
           y: 0,
@@ -2047,7 +2029,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
 
           {!isEditing && !actionsOpen ? (
             <div
-              className={`fc-modal absolute top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-[18px] border p-1 shadow-[0_14px_44px_rgba(0,0,0,0.34)] backdrop-blur-xl transition max-sm:bottom-full max-sm:left-auto max-sm:right-0 max-sm:top-auto max-sm:mb-2 max-sm:translate-y-0 ${
+              className={`fc-modal absolute top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-[18px] border p-1 shadow-[0_14px_44px_rgba(0,0,0,0.34)] transition sm:backdrop-blur-xl max-sm:bottom-full max-sm:left-auto max-sm:right-0 max-sm:top-auto max-sm:mb-2 max-sm:translate-y-0 ${
                 mine ? "right-full mr-2" : "left-full ml-2"
               } ${
                 actionsVisible
@@ -2246,6 +2228,196 @@ type FailedAttachmentUpload = {
   message: string;
 };
 
+type ForwardConversationItem = {
+  id: string;
+  avatar: string | null;
+  displayName: string;
+  latestMessage: string;
+  searchText: string;
+};
+
+type ProfileMemberItem = {
+  id: string;
+  avatar?: string | null;
+  displayName: string;
+};
+
+const ProfileMemberRow = memo(function ProfileMemberRow({
+  member,
+}: {
+  member: ProfileMemberItem;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl px-1 py-2">
+      <FlexAvatar
+        src={member.avatar}
+        name={member.displayName}
+        className="fc-avatar flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-bold"
+      />
+      <p className="truncate text-sm text-[var(--fc-theme-text)]">
+        {member.displayName}
+      </p>
+    </div>
+  );
+});
+
+const ForwardConversationRow = memo(function ForwardConversationRow({
+  conversation,
+  selected,
+  disabled,
+  onToggle,
+}: {
+  conversation: ForwardConversationItem;
+  selected: boolean;
+  disabled: boolean;
+  onToggle: (conversationId: string) => void;
+}) {
+  const handleClick = useCallback(() => {
+    onToggle(conversation.id);
+  }, [conversation.id, onToggle]);
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={disabled}
+      className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition ${
+        selected
+          ? "fc-active"
+          : "fc-surface hover:bg-[var(--fc-app-surface-hover)]"
+      } disabled:cursor-wait disabled:opacity-70`}
+    >
+      <FlexAvatar
+        src={conversation.avatar}
+        name={conversation.displayName}
+        className="fc-brand-gradient flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-sm font-bold text-white"
+      />
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-[var(--fc-theme-text)]">
+          {conversation.displayName}
+        </p>
+        <p className="fc-subtle truncate text-xs">
+          {conversation.latestMessage}
+        </p>
+      </div>
+
+      <span
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border ${
+          selected
+            ? "border-[rgba(var(--fc-primary-rgb),0.4)] bg-[var(--fc-primary)] text-white"
+            : "border-[var(--fc-app-border)] bg-[var(--fc-app-surface)] text-transparent"
+        }`}
+      >
+        <Check size={14} />
+      </span>
+    </button>
+  );
+});
+
+const ThemeOptionCard = memo(function ThemeOptionCard({
+  theme,
+  selected,
+  applyingForMe,
+  applyingForBoth,
+  disabled,
+  onApply,
+}: {
+  theme: ChatTheme;
+  selected: boolean;
+  applyingForMe: boolean;
+  applyingForBoth: boolean;
+  disabled: boolean;
+  onApply: (themeId: string, scope: "me" | "both") => void;
+}) {
+  const applyForMe = useCallback(() => {
+    onApply(theme.id, "me");
+  }, [onApply, theme.id]);
+
+  const applyForBoth = useCallback(() => {
+    onApply(theme.id, "both");
+  }, [onApply, theme.id]);
+
+  return (
+    <div
+      className={`overflow-hidden rounded-2xl border p-3 ${
+        selected ? "fc-active" : "fc-surface"
+      }`}
+    >
+      <div
+        className="h-20 rounded-xl border border-[var(--fc-app-border)]"
+        style={{
+          background: theme.background,
+        }}
+      >
+        <div className="flex h-full items-end gap-2 p-3">
+          <span
+            className="h-8 flex-1 rounded-2xl"
+            style={{
+              background: theme.theirBubble,
+            }}
+          />
+          <span
+            className="h-10 flex-1 rounded-2xl"
+            style={{
+              background: theme.ownBubble,
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <p className="truncate text-sm font-medium">{theme.name}</p>
+        <span className="fc-surface rounded-full border px-2 py-1 text-[10px] uppercase text-[var(--fc-text-muted)]">
+          {theme.mode}
+        </span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={applyForMe}
+          disabled={disabled}
+          className="fc-surface fc-hover flex h-10 items-center justify-center rounded-xl border text-xs font-medium text-[var(--fc-theme-text)] transition disabled:cursor-wait disabled:opacity-60"
+        >
+          {applyingForMe ? "Applying" : "Apply For Me"}
+        </button>
+
+        <button
+          type="button"
+          onClick={applyForBoth}
+          disabled={disabled}
+          className="flex h-10 items-center justify-center rounded-xl border border-[rgba(var(--fc-primary-rgb),0.22)] bg-[rgba(var(--fc-primary-rgb),0.10)] text-xs font-semibold text-[var(--fc-theme-text)] transition hover:bg-[rgba(var(--fc-primary-rgb),0.16)] disabled:cursor-wait disabled:opacity-60"
+        >
+          {applyingForBoth ? "Applying" : "Apply For Both"}
+        </button>
+      </div>
+    </div>
+  );
+});
+
+const AiSuggestionButton = memo(function AiSuggestionButton({
+  suggestion,
+  onSelect,
+}: {
+  suggestion: string;
+  onSelect: (suggestion: string) => void;
+}) {
+  const handleClick = useCallback(() => {
+    onSelect(suggestion);
+  }, [onSelect, suggestion]);
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="fc-surface fc-hover rounded-2xl border px-4 py-3 text-left text-sm text-[var(--fc-text-muted)] transition hover:border-[rgba(var(--fc-primary-rgb),0.25)] hover:text-[var(--fc-theme-text)]"
+    >
+      {suggestion}
+    </button>
+  );
+});
+
 export default function ChatConversation() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -2307,6 +2479,10 @@ export default function ChatConversation() {
   const scrollFrameRef = useRef<number | null>(null);
   const scrollMeasureFrameRef = useRef<number | null>(null);
   const seenMessageIdsRef = useRef<Set<string>>(new Set());
+  const pendingSeenMessageIdsRef = useRef<Set<string>>(new Set());
+  const pendingSeenConversationIdRef = useRef<string | null>(null);
+  const seenFlushTimerRef = useRef<number | null>(null);
+  const flushPendingSeenMessagesRef = useRef<(() => void) | null>(null);
   const mobileBackSwipeRef = useRef<{
     startX: number;
     startY: number;
@@ -2338,11 +2514,18 @@ export default function ChatConversation() {
       [activeConversationId],
     ),
   );
+  const conversationById = useMemo(() => {
+    const conversations = conversationsQuery.data ?? [];
+
+    return new Map(
+      conversations.map((conversation) => [conversation.id, conversation]),
+    );
+  }, [conversationsQuery.data]);
   const activeConversation = useMemo(() => {
     const conversation =
-      conversationsQuery.data?.find(
-        (item) => item.id === activeConversationId,
-      ) ?? null;
+      activeConversationId
+        ? (conversationById.get(activeConversationId) ?? null)
+        : null;
 
     if (!conversation) {
       return null;
@@ -2354,8 +2537,9 @@ export default function ChatConversation() {
           ...activeConversationPatch,
         }
       : conversation;
-  }, [activeConversationId, activeConversationPatch, conversationsQuery.data]);
+  }, [activeConversationId, activeConversationPatch, conversationById]);
   const conversationId = activeConversationId;
+  const currentUserId = user?.id;
   const messagesQuery = useMessagesQuery(conversationId);
   const { fetchNextPage, hasNextPage, isFetchingNextPage } = messagesQuery;
   const realtimeMessages = useSocketStore(
@@ -2371,13 +2555,20 @@ export default function ChatConversation() {
   const isConnected = useSocketStore((state) => state.isConnected);
   const isConnecting = useSocketStore((state) => state.isConnecting);
   const connectionError = useSocketStore((state) => state.connectionError);
-  const typingUsers = useSocketStore(
-    useShallow((state) => state.typingUsers),
+  const remoteTypingUsers = useSocketStore(
+    useShallow((state) =>
+      state.typingUsers.filter(
+        (typingUserId) => typingUserId !== currentUserId,
+      ),
+    ),
   );
-  const onlineUsers = useSocketStore(
-    useShallow((state) => state.onlineUsers),
+  const isOnline = useSocketStore(
+    (state) =>
+      activeConversation?.memberIds?.some(
+        (memberId) =>
+          memberId !== currentUserId && state.onlineUsers.includes(memberId),
+      ) ?? false,
   );
-  const onlineUserIds = useMemo(() => new Set(onlineUsers), [onlineUsers]);
   const joinConversation = useSocketStore((state) => state.joinConversation);
   const leaveConversation = useSocketStore((state) => state.leaveConversation);
   const sendSocketMessage = useSocketStore((state) => state.sendMessage);
@@ -2579,6 +2770,36 @@ export default function ChatConversation() {
     });
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
+  const flushPendingSeenMessages = useCallback(() => {
+    const targetConversationId = pendingSeenConversationIdRef.current;
+    const messageIds = Array.from(pendingSeenMessageIdsRef.current);
+
+    if (!targetConversationId || !messageIds.length) {
+      pendingSeenMessageIdsRef.current.clear();
+      pendingSeenConversationIdRef.current = null;
+      return;
+    }
+
+    if (!socket || !isConnected) {
+      return;
+    }
+
+    pendingSeenMessageIdsRef.current.clear();
+    pendingSeenConversationIdRef.current = null;
+    messageIds.forEach((messageId) => {
+      seenMessageIdsRef.current.add(messageId);
+    });
+
+    socket.emit(SOCKET_EVENTS.MARK_MESSAGES_SEEN, {
+      conversationId: targetConversationId,
+      messageIds,
+    });
+  }, [isConnected, socket]);
+
+  useEffect(() => {
+    flushPendingSeenMessagesRef.current = flushPendingSeenMessages;
+  }, [flushPendingSeenMessages]);
+
   const visibleMessages = useMemo(() => {
     if (!conversationId) {
       return [];
@@ -2637,37 +2858,65 @@ export default function ChatConversation() {
         .filter((message): message is Message => Boolean(message)),
     [virtualRows, visibleMessages],
   );
+  const unreadRemoteViewportMessageIds = useMemo(
+    () =>
+      messagesInViewport.reduce<string[]>((messageIds, message) => {
+        if (
+          message.senderId === currentUserId ||
+          message.senderId === "me" ||
+          message.status === "read" ||
+          seenMessageIdsRef.current.has(message.id) ||
+          pendingSeenMessageIdsRef.current.has(message.id)
+        ) {
+          return messageIds;
+        }
 
-  const remoteTypingUsers = useMemo(
-    () => typingUsers.filter((typingUserId) => typingUserId !== user?.id),
-    [typingUsers, user?.id],
+        messageIds.push(message.id);
+        return messageIds;
+      }, []),
+    [currentUserId, messagesInViewport],
   );
 
-  const isOnline = activeConversation
-    ? hasOnlinePeer(activeConversation.memberIds, onlineUserIds, user?.id)
-    : false;
   const activeUnreadCount = activeConversation?.unreadCount ?? 0;
   const showInitialMessageSkeleton =
     messagesQuery.isLoading && !visibleMessages.length;
-  const callTargetUserId = activeConversation?.memberIds?.find(
-    (memberId) => memberId !== user?.id,
+  const callTargetUserId = useMemo(
+    () =>
+      activeConversation?.memberIds?.find(
+        (memberId) => memberId !== currentUserId,
+      ),
+    [activeConversation?.memberIds, currentUserId],
   );
-  const activeConversationAvatar = activeConversation
-    ? getConversationAvatar(activeConversation, user?.id)
-    : null;
-  const activeConversationDisplayName = formatDisplayName(
-    activeConversation?.name ?? "FlexChat",
+  const activeConversationAvatar = useMemo(
+    () =>
+      activeConversation
+        ? getConversationAvatar(activeConversation, currentUserId)
+        : null,
+    [activeConversation, currentUserId],
+  );
+  const activeConversationDisplayName = useMemo(
+    () => formatDisplayName(activeConversation?.name ?? "FlexChat"),
+    [activeConversation?.name],
   );
   const isConversationBlocked =
     !!conversationId && blockedConversationIds.includes(conversationId);
   const blockEvent =
     conversationId ? blockEvents[conversationId] : undefined;
-  const profileMembers =
-    activeConversation?.members ?? [];
-  const remoteMember =
-    activeConversation?.members?.find(
-      (member) => member.id !== user?.id
-    ) ?? null;
+  const profileMembers = activeConversation?.members ?? EMPTY_PROFILE_MEMBERS;
+  const profileMemberItems = useMemo<ProfileMemberItem[]>(
+    () =>
+      profileMembers.map((member) => ({
+        id: member.id,
+        avatar: member.avatar,
+        displayName: formatDisplayName(member.username),
+      })),
+    [profileMembers],
+  );
+  const remoteMember = useMemo(
+    () =>
+      profileMembers.find((member) => member.id !== currentUserId) ?? null,
+    [currentUserId, profileMembers],
+  );
   const presenceLabel =
     isConversationBlocked
       ? "Profile hidden"
@@ -2927,21 +3176,34 @@ export default function ChatConversation() {
     ],
     [],
   );
+  const forwardConversationItems = useMemo<ForwardConversationItem[]>(
+    () =>
+      (conversationsQuery.data ?? []).map((conversation) => {
+        const displayName = formatDisplayName(conversation.name);
+
+        return {
+          id: conversation.id,
+          avatar: getConversationAvatar(conversation, currentUserId),
+          displayName,
+          latestMessage: conversation.latestMessage ?? "No messages yet",
+          searchText: displayName.toLowerCase(),
+        };
+      }),
+    [conversationsQuery.data, currentUserId],
+  );
   const forwardConversations = useMemo(() => {
     const normalizedSearch = forwardSearch.trim().toLowerCase();
 
-    return (conversationsQuery.data ?? [])
+    return forwardConversationItems
       .filter((conversation) => {
         if (!normalizedSearch) {
           return true;
         }
 
-        return (
-          conversation.name?.toLowerCase().includes(normalizedSearch) ?? false
-        );
+        return conversation.searchText.includes(normalizedSearch);
       })
       .slice(0, 60);
-  }, [conversationsQuery.data, forwardSearch]);
+  }, [forwardConversationItems, forwardSearch]);
 
   useEffect(() => {
     if (!conversationId) {
@@ -3052,6 +3314,18 @@ export default function ChatConversation() {
 
   useEffect(
     () => () => {
+      if (seenFlushTimerRef.current) {
+        window.clearTimeout(seenFlushTimerRef.current);
+        seenFlushTimerRef.current = null;
+      }
+
+      flushPendingSeenMessagesRef.current?.();
+    },
+    [],
+  );
+
+  useEffect(
+    () => () => {
       stopRecordingTimer();
       stopRecordingStream();
 
@@ -3071,46 +3345,14 @@ export default function ChatConversation() {
   }, [resizeComposer, text]);
 
   useEffect(() => {
-    if (!conversationId || !user?.id || !isConnected || !socket) {
-      return;
+    if (seenFlushTimerRef.current) {
+      window.clearTimeout(seenFlushTimerRef.current);
+      seenFlushTimerRef.current = null;
     }
 
-    const unreadRemoteMessageIds = messagesInViewport.reduce<string[]>(
-      (messageIds, message) => {
-        if (
-          message.senderId === user.id ||
-          message.senderId === "me" ||
-          message.status === "read" ||
-          seenMessageIdsRef.current.has(message.id)
-        ) {
-          return messageIds;
-        }
-
-        messageIds.push(message.id);
-        return messageIds;
-      },
-      [],
-    );
-
-    if (!unreadRemoteMessageIds.length) {
-      return;
-    }
-
-    unreadRemoteMessageIds.forEach((messageId) => {
-      if (seenMessageIdsRef.current.has(messageId)) {
-        return;
-      }
-
-      seenMessageIdsRef.current.add(messageId);
-    });
-
-    socket.emit(SOCKET_EVENTS.MARK_MESSAGES_SEEN, {
-      conversationId,
-      messageIds: unreadRemoteMessageIds,
-    });
-  }, [conversationId, isConnected, messagesInViewport, socket, user?.id]);
-
-  useEffect(() => {
+    flushPendingSeenMessagesRef.current?.();
+    pendingSeenMessageIdsRef.current.clear();
+    pendingSeenConversationIdRef.current = null;
     seenMessageIdsRef.current.clear();
     hasAnchoredInitialMessagesRef.current = false;
     setMessageSearchOpen(false);
@@ -3124,6 +3366,44 @@ export default function ChatConversation() {
       window.cancelAnimationFrame(frameId);
     };
   }, [conversationId]);
+
+  useEffect(() => {
+    if (!conversationId || !currentUserId || !isConnected || !socket) {
+      return;
+    }
+
+    if (!unreadRemoteViewportMessageIds.length) {
+      return;
+    }
+
+    if (
+      pendingSeenConversationIdRef.current &&
+      pendingSeenConversationIdRef.current !== conversationId
+    ) {
+      flushPendingSeenMessages();
+    }
+
+    pendingSeenConversationIdRef.current = conversationId;
+    unreadRemoteViewportMessageIds.forEach((messageId) => {
+      pendingSeenMessageIdsRef.current.add(messageId);
+    });
+
+    if (seenFlushTimerRef.current) {
+      return;
+    }
+
+    seenFlushTimerRef.current = window.setTimeout(() => {
+      seenFlushTimerRef.current = null;
+      flushPendingSeenMessages();
+    }, MARK_SEEN_FLUSH_DELAY_MS);
+  }, [
+    conversationId,
+    currentUserId,
+    flushPendingSeenMessages,
+    isConnected,
+    socket,
+    unreadRemoteViewportMessageIds,
+  ]);
 
   function handleScroll() {
     if (scrollMeasureFrameRef.current) {
@@ -3648,7 +3928,7 @@ export default function ChatConversation() {
     stopActiveTyping(conversationId);
   }
 
-  function handleAskAi() {
+  const handleAskAi = useCallback(() => {
     setAiResponse(
       buildLocalAiResponse({
         prompt: aiPrompt,
@@ -3656,7 +3936,21 @@ export default function ChatConversation() {
         conversationName: activeConversationDisplayName,
       }),
     );
-  }
+  }, [activeConversationDisplayName, aiPrompt, visibleMessages]);
+
+  const handleAiSuggestionSelect = useCallback(
+    (suggestion: string) => {
+      setAiPrompt(suggestion);
+      setAiResponse(
+        buildLocalAiResponse({
+          prompt: suggestion,
+          messages: visibleMessages,
+          conversationName: activeConversationDisplayName,
+        }),
+      );
+    },
+    [activeConversationDisplayName, visibleMessages],
+  );
 
   function handleToggleBlock() {
     if (!conversationId) {
@@ -3708,10 +4002,10 @@ export default function ChatConversation() {
     window.dispatchEvent(new CustomEvent("flexchat:open-mobile-sidebar"));
   }
 
-  async function handleApplyTheme(
+  const handleApplyTheme = useCallback(async (
     themeId: string | null,
     scope: "me" | "both",
-  ) {
+  ) => {
     if (!conversationId) {
       return;
     }
@@ -3790,7 +4084,12 @@ export default function ChatConversation() {
     } finally {
       setThemeApplying(null);
     }
-  }
+  }, [
+    activeTheme.id,
+    conversationId,
+    pushToast,
+    queryClient,
+  ]);
 
   function handleStartCall(kind: "voice" | "video") {
     if (!conversationId || !callTargetUserId) {
@@ -3820,7 +4119,7 @@ export default function ChatConversation() {
     setForwardSearch("");
   }
 
-  function toggleForwardTarget(conversationId: string) {
+  const toggleForwardTarget = useCallback((conversationId: string) => {
     setSelectedForwardConversationIds((current) => {
       const next = new Set(current);
 
@@ -3832,7 +4131,7 @@ export default function ChatConversation() {
 
       return next;
     });
-  }
+  }, []);
 
   function removeOptimisticForwardMessages(messageIds: string[]) {
     if (!messageIds.length) {
@@ -3985,7 +4284,7 @@ export default function ChatConversation() {
   if (!activeConversation) {
     return (
       <section className="flex h-full flex-col items-center justify-center bg-transparent px-6 text-center">
-        <div className="fc-surface-strong max-w-sm rounded-2xl border p-8 backdrop-blur-xl">
+        <div className="fc-surface-strong max-w-sm rounded-2xl border p-8 sm:backdrop-blur-xl">
           <h2 className="text-xl font-semibold text-[var(--fc-theme-text)]">
             Select a conversation
           </h2>
@@ -4012,7 +4311,7 @@ export default function ChatConversation() {
       onTouchCancel={handleConversationTouchEnd}
     >
       <div
-        className="relative z-10 flex shrink-0 items-center justify-between gap-2 border-b border-[#0D1823] bg-[var(--fc-chat-header)] px-2.5 py-2 pt-[calc(0.45rem+env(safe-area-inset-top))] shadow-[0_1px_0_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:px-5 sm:py-3"
+        className="relative z-10 flex shrink-0 items-center justify-between gap-2 border-b border-[#0D1823] bg-[var(--fc-chat-header)] px-2.5 py-2 pt-[calc(0.45rem+env(safe-area-inset-top))] shadow-[0_1px_0_rgba(0,0,0,0.24)] sm:px-5 sm:py-3 sm:backdrop-blur-2xl"
       >
         <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
           <button
@@ -4140,7 +4439,7 @@ export default function ChatConversation() {
             transition={{
               duration: reducedMotion ? 0 : 0.18,
             }}
-            className="relative z-10 overflow-hidden border-b border-[#0D1823] bg-[var(--fc-chat-header)] px-2.5 py-2 backdrop-blur-2xl sm:px-5"
+            className="relative z-10 overflow-hidden border-b border-[#0D1823] bg-[var(--fc-chat-header)] px-2.5 py-2 sm:px-5 sm:backdrop-blur-2xl"
           >
             <div className="flex items-center gap-2">
               <div className="fc-input flex h-11 min-w-0 flex-1 items-center gap-2 rounded-2xl border px-3">
@@ -4298,6 +4597,14 @@ export default function ChatConversation() {
                 const mine =
                   message.senderId === user?.id || message.senderId === "me";
                 const previous = visibleMessages[virtualRow.index - 1];
+                const dateDividerLabel =
+                  !previous ||
+                  !isSameMessageDay(
+                    previous.createdAt,
+                    message.createdAt,
+                  )
+                    ? formatDateDivider(message.createdAt, now)
+                    : null;
 
                 return (
                   <div
@@ -4315,7 +4622,7 @@ export default function ChatConversation() {
                       message={message}
                       previous={previous}
                       mine={mine}
-                      now={now}
+                      dateDividerLabel={dateDividerLabel}
                       reducedMotion={!!reducedMotion}
                       onRetry={handleRetryMessage}
                       onEdit={handleEditMessage}
@@ -4338,22 +4645,15 @@ export default function ChatConversation() {
                 <div className="rounded-[20px] rounded-bl-md border border-[var(--fc-app-border)] bg-[var(--fc-their-bubble)] px-4 py-3">
                   <div className="flex items-center gap-1">
                     {[0, 1, 2].map((dot) => (
-                      <motion.div
+                      <span
                         key={dot}
-                        animate={
-                          reducedMotion
-                            ? false
-                            : {
-                                y: [0, -5, 0],
-                                opacity: [0.4, 1, 0.4],
-                              }
-                        }
-                        transition={{
-                          duration: 0.72,
-                          repeat: Infinity,
-                          delay: dot * 0.13,
+                        style={{
+                          animationDelay: `${dot * 130}ms`,
+                          animationDuration: "720ms",
                         }}
-                        className="h-2 w-2 rounded-full bg-[var(--fc-accent-text)]"
+                        className={`h-2 w-2 rounded-full bg-[var(--fc-accent-text)] ${
+                          reducedMotion ? "" : "animate-bounce"
+                        }`}
                       />
                     ))}
                   </div>
@@ -4371,7 +4671,7 @@ export default function ChatConversation() {
           paddingBottom:
             "calc(0.45rem + env(safe-area-inset-bottom) + env(keyboard-inset-height, 0px))",
         }}
-        className="relative z-10 shrink-0 border-t border-[#0D1823] bg-[var(--fc-chat-composer)] px-2.5 py-2 backdrop-blur-2xl sm:px-5 sm:py-2.5"
+        className="relative z-10 shrink-0 border-t border-[#0D1823] bg-[var(--fc-chat-composer)] px-2.5 py-2 sm:px-5 sm:py-2.5 sm:backdrop-blur-2xl"
       >
         {replyingTo ? (
           <div className="fc-button-soft mb-2 flex items-center gap-3 rounded-2xl border p-3 text-sm">
@@ -4719,7 +5019,7 @@ export default function ChatConversation() {
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[268] flex items-end justify-center bg-[var(--fc-overlay)] p-3 backdrop-blur-xl sm:items-center sm:p-6"
+            className="fixed inset-0 z-[268] flex items-end justify-center bg-[var(--fc-overlay)] p-3 sm:items-center sm:p-6 sm:backdrop-blur-xl"
             onClick={() =>
               setChatSettingsOpen(false)
             }
@@ -4823,7 +5123,7 @@ export default function ChatConversation() {
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[269] flex items-end justify-center bg-[var(--fc-overlay)] p-3 backdrop-blur-xl sm:items-center sm:p-6"
+            className="fixed inset-0 z-[269] flex items-end justify-center bg-[var(--fc-overlay)] p-3 sm:items-center sm:p-6 sm:backdrop-blur-xl"
             onClick={() =>
               setThemeSheetOpen(false)
             }
@@ -4891,82 +5191,15 @@ export default function ChatConversation() {
                       themeApplying.scope === "both";
 
                     return (
-                      <div
+                      <ThemeOptionCard
                         key={theme.id}
-                        className={`overflow-hidden rounded-2xl border p-3 ${
-                          selected
-                            ? "fc-active"
-                            : "fc-surface"
-                        }`}
-                      >
-                        <div
-                          className="h-20 rounded-xl border border-[var(--fc-app-border)]"
-                          style={{
-                            background:
-                              theme.background,
-                          }}
-                        >
-                          <div className="flex h-full items-end gap-2 p-3">
-                            <span
-                              className="h-8 flex-1 rounded-2xl"
-                              style={{
-                                background:
-                                  theme.theirBubble,
-                              }}
-                            />
-                            <span
-                              className="h-10 flex-1 rounded-2xl"
-                              style={{
-                                background:
-                                  theme.ownBubble,
-                              }}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="mt-3 flex items-center justify-between gap-3">
-                          <p className="truncate text-sm font-medium">
-                            {theme.name}
-                          </p>
-                          <span className="fc-surface rounded-full border px-2 py-1 text-[10px] uppercase text-[var(--fc-text-muted)]">
-                            {theme.mode}
-                          </span>
-                        </div>
-
-                        <div className="mt-3 grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              void handleApplyTheme(
-                                theme.id,
-                                "me"
-                              );
-                            }}
-                            disabled={!!themeApplying}
-                            className="fc-surface fc-hover flex h-10 items-center justify-center rounded-xl border text-xs font-medium text-[var(--fc-theme-text)] transition disabled:cursor-wait disabled:opacity-60"
-                          >
-                            {applyingForMe
-                              ? "Applying"
-                              : "Apply For Me"}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              void handleApplyTheme(
-                                theme.id,
-                                "both"
-                              );
-                            }}
-                            disabled={!!themeApplying}
-                            className="flex h-10 items-center justify-center rounded-xl border border-[rgba(var(--fc-primary-rgb),0.22)] bg-[rgba(var(--fc-primary-rgb),0.10)] text-xs font-semibold text-[var(--fc-theme-text)] transition hover:bg-[rgba(var(--fc-primary-rgb),0.16)] disabled:cursor-wait disabled:opacity-60"
-                          >
-                            {applyingForBoth
-                              ? "Applying"
-                              : "Apply For Both"}
-                          </button>
-                        </div>
-                      </div>
+                        theme={theme}
+                        selected={selected}
+                        applyingForMe={applyingForMe}
+                        applyingForBoth={applyingForBoth}
+                        disabled={!!themeApplying}
+                        onApply={handleApplyTheme}
+                      />
                     );
                   })}
                 </div>
@@ -4988,7 +5221,7 @@ export default function ChatConversation() {
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[274] flex items-end justify-center bg-[var(--fc-overlay)] p-3 backdrop-blur-xl sm:items-center sm:p-6"
+            className="fixed inset-0 z-[274] flex items-end justify-center bg-[var(--fc-overlay)] p-3 sm:items-center sm:p-6 sm:backdrop-blur-xl"
             onClick={() => setProfileOpen(false)}
           >
             <motion.div
@@ -5019,7 +5252,7 @@ export default function ChatConversation() {
                 <button
                   type="button"
                   onClick={() => setProfileOpen(false)}
-                  className="fc-surface absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-2xl border backdrop-blur-xl"
+                  className="fc-surface absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-2xl border sm:backdrop-blur-xl"
                   aria-label="Close profile"
                 >
                   <X size={18} />
@@ -5059,31 +5292,19 @@ export default function ChatConversation() {
                     <p className="truncate text-sm font-medium text-[var(--fc-theme-text)]">
                       {activeConversation.type === "direct"
                         ? "Direct conversation"
-                        : `${profileMembers.length} members`}
+                        : `${profileMemberItems.length} members`}
                     </p>
                   </div>
                 </div>
 
-                {profileMembers.length ? (
+                {profileMemberItems.length ? (
                   <div className="fc-surface rounded-2xl border p-3">
                     <p className="fc-subtle mb-2 px-1 text-xs font-medium">
                       Members
                     </p>
                     <div className="space-y-2">
-                      {profileMembers.map((member) => (
-                        <div
-                          key={member.id}
-                          className="flex items-center gap-3 rounded-xl px-1 py-2"
-                        >
-                          <FlexAvatar
-                            src={member.avatar}
-                            name={member.username}
-                            className="fc-avatar flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-bold"
-                          />
-                          <p className="truncate text-sm text-[var(--fc-theme-text)]">
-                            {formatDisplayName(member.username)}
-                          </p>
-                        </div>
+                      {profileMemberItems.map((member) => (
+                        <ProfileMemberRow key={member.id} member={member} />
                       ))}
                     </div>
                   </div>
@@ -5106,7 +5327,7 @@ export default function ChatConversation() {
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[276] flex items-center justify-center bg-[var(--fc-overlay-strong)] p-5 backdrop-blur-xl"
+            className="fixed inset-0 z-[276] flex items-center justify-center bg-[var(--fc-overlay-strong)] p-5 sm:backdrop-blur-xl"
             onClick={() => setProfilePictureOpen(false)}
           >
             <button
@@ -5153,7 +5374,7 @@ export default function ChatConversation() {
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[272] flex items-end justify-center bg-[var(--fc-overlay)] p-3 backdrop-blur-xl sm:items-center sm:p-6"
+            className="fixed inset-0 z-[272] flex items-end justify-center bg-[var(--fc-overlay)] p-3 sm:items-center sm:p-6 sm:backdrop-blur-xl"
           >
             <motion.div
               initial={{
@@ -5218,49 +5439,15 @@ export default function ChatConversation() {
                     const selected = selectedForwardConversationIds.has(
                       conversation.id,
                     );
-                    const avatar = getConversationAvatar(
-                      conversation,
-                      user?.id,
-                    );
-                    const displayName = formatDisplayName(conversation.name);
 
                     return (
-                      <button
+                      <ForwardConversationRow
                         key={conversation.id}
-                        type="button"
-                        onClick={() => toggleForwardTarget(conversation.id)}
+                        conversation={conversation}
+                        selected={selected}
                         disabled={isForwarding}
-                        className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition ${
-                          selected
-                            ? "fc-active"
-                            : "fc-surface hover:bg-[var(--fc-app-surface-hover)]"
-                        } disabled:cursor-wait disabled:opacity-70`}
-                      >
-                        <FlexAvatar
-                          src={avatar}
-                          name={displayName}
-                          className="fc-brand-gradient flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-sm font-bold text-white"
-                        />
-
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-[var(--fc-theme-text)]">
-                            {displayName}
-                          </p>
-                          <p className="fc-subtle truncate text-xs">
-                            {conversation.latestMessage ?? "No messages yet"}
-                          </p>
-                        </div>
-
-                        <span
-                          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border ${
-                            selected
-                              ? "border-[rgba(var(--fc-primary-rgb),0.4)] bg-[var(--fc-primary)] text-white"
-                              : "border-[var(--fc-app-border)] bg-[var(--fc-app-surface)] text-transparent"
-                          }`}
-                        >
-                          <Check size={14} />
-                        </span>
-                      </button>
+                        onToggle={toggleForwardTarget}
+                      />
                     );
                   })
                 ) : (
@@ -5315,7 +5502,7 @@ export default function ChatConversation() {
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[275] flex items-end justify-center bg-[var(--fc-overlay)] p-3 backdrop-blur-xl sm:items-center sm:p-6"
+            className="fixed inset-0 z-[275] flex items-end justify-center bg-[var(--fc-overlay)] p-3 sm:items-center sm:p-6 sm:backdrop-blur-xl"
           >
             <motion.div
               initial={{
@@ -5395,7 +5582,7 @@ export default function ChatConversation() {
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[270] flex items-end justify-center bg-[var(--fc-overlay)] p-3 backdrop-blur-xl sm:items-center sm:p-6"
+            className="fixed inset-0 z-[270] flex items-end justify-center bg-[var(--fc-overlay)] p-3 sm:items-center sm:p-6 sm:backdrop-blur-xl"
           >
             <motion.div
               initial={{
@@ -5418,7 +5605,7 @@ export default function ChatConversation() {
                 stiffness: 320,
                 damping: 34,
               }}
-              className="fc-modal w-full max-w-md overflow-hidden rounded-[24px] border backdrop-blur-3xl"
+              className="fc-modal w-full max-w-md overflow-hidden rounded-[24px] border sm:backdrop-blur-3xl"
             >
               <div className="flex items-center justify-between border-b border-[var(--fc-app-border)] px-5 py-4">
                 <div className="flex items-center gap-3">
@@ -5450,23 +5637,11 @@ export default function ChatConversation() {
 
                 <div className="grid gap-2">
                   {aiSuggestions.map((suggestion) => (
-                    <button
+                    <AiSuggestionButton
                       key={suggestion}
-                      type="button"
-                      onClick={() => {
-                        setAiPrompt(suggestion);
-                        setAiResponse(
-                          buildLocalAiResponse({
-                            prompt: suggestion,
-                            messages: visibleMessages,
-                            conversationName: activeConversationDisplayName,
-                          }),
-                        );
-                      }}
-                      className="fc-surface fc-hover rounded-2xl border px-4 py-3 text-left text-sm text-[var(--fc-text-muted)] transition hover:border-[rgba(var(--fc-primary-rgb),0.25)] hover:text-[var(--fc-theme-text)]"
-                    >
-                      {suggestion}
-                    </button>
+                      suggestion={suggestion}
+                      onSelect={handleAiSuggestionSelect}
+                    />
                   ))}
                 </div>
 

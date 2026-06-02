@@ -28,6 +28,7 @@ import {
   motion,
 } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import type {
   PointerEvent as ReactPointerEvent,
   TouchEvent as ReactTouchEvent,
@@ -60,6 +61,9 @@ import { useToastStore } from "@/store/toast-store";
 import { useAuthStore } from "@/stores/auth.store";
 import { useConversationStore } from "@/stores/conversation.store";
 import { Conversation } from "@/types/conversation";
+
+const CONVERSATION_ROW_ESTIMATE = 76;
+const CONVERSATION_ROW_OVERSCAN = 8;
 
 function hasOnlinePeer(
   conversation: Conversation,
@@ -480,12 +484,6 @@ export default function ChatSidebar() {
     ]
   );
 
-  const activeConversation =
-    conversations.find(
-      (conversation) =>
-        conversation.id === activeConversationId
-    ) ?? null;
-
   const filteredConversations = useMemo(() => {
     const normalizedSearch =
       deferredSearch.trim().toLowerCase();
@@ -536,6 +534,18 @@ export default function ChatSidebar() {
     deferredSearch,
     activeFolder,
   ]);
+
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const conversationVirtualizer = useVirtualizer({
+    count: filteredConversations.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => CONVERSATION_ROW_ESTIMATE,
+    getItemKey: (index) =>
+      filteredConversations[index]?.id ?? index,
+    overscan: CONVERSATION_ROW_OVERSCAN,
+  });
+  const virtualConversationRows =
+    conversationVirtualizer.getVirtualItems();
 
   const handleSelectConversation =
     useCallback(
@@ -1010,7 +1020,7 @@ export default function ChatSidebar() {
           onTouchMove={handlePullMove}
           onTouchEnd={handlePullEnd}
           onTouchCancel={handlePullEnd}
-          className="chat-safe-scroll relative flex-1 space-y-1 overflow-y-auto px-2 py-2 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+          className="chat-safe-scroll relative flex-1 overflow-y-auto px-2 py-2 pb-[calc(1rem+env(safe-area-inset-bottom))]"
         >
           <div
             className="pointer-events-none sticky top-0 z-10 flex justify-center overflow-hidden transition-[height]"
@@ -1050,39 +1060,66 @@ export default function ChatSidebar() {
             </div>
           ) : null}
 
-          {filteredConversations.map(
-            (conversation) => {
-              const active =
-                activeConversation?.id ===
-                conversation.id;
-              const isOnline =
-                hasOnlinePeer(
-                  conversation,
-                  onlineUserIds,
-                  currentUserId
-                );
+          <div
+            className="relative w-full"
+            style={{
+              height: `${conversationVirtualizer.getTotalSize()}px`,
+            }}
+          >
+            {virtualConversationRows.map(
+              (virtualRow) => {
+                const conversation =
+                  filteredConversations[
+                    virtualRow.index
+                  ];
 
-              return (
-                <ConversationListButton
-                  key={conversation.id}
-                  conversation={conversation}
-                  active={active}
-                  isOnline={isOnline}
-                  currentUserId={currentUserId}
-                  muted={mutedConversationIds.has(
-                    conversation.id
-                  )}
-                  now={now}
-                  onSelect={
-                    handleSelectConversation
-                  }
-                  onContextOpen={
-                    setActionConversation
-                  }
-                />
-              );
-            }
-          )}
+                if (!conversation) {
+                  return null;
+                }
+
+                const active =
+                  activeConversationId ===
+                  conversation.id;
+                const isOnline =
+                  hasOnlinePeer(
+                    conversation,
+                    onlineUserIds,
+                    currentUserId
+                  );
+
+                return (
+                  <div
+                    key={virtualRow.key}
+                    ref={
+                      conversationVirtualizer.measureElement
+                    }
+                    data-index={virtualRow.index}
+                    className="absolute left-0 top-0 w-full pb-1"
+                    style={{
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    <ConversationListButton
+                      conversation={conversation}
+                      active={active}
+                      isOnline={isOnline}
+                      currentUserId={currentUserId}
+                      muted={mutedConversationIds.has(
+                        conversation.id
+                      )}
+                      now={now}
+                      onSelect={
+                        handleSelectConversation
+                      }
+                      onContextOpen={
+                        setActionConversation
+                      }
+                    />
+                  </div>
+                );
+              }
+            )}
+          </div>
 
           {conversationsQuery.hasNextPage ? (
             <button
