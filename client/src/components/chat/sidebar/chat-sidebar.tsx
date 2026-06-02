@@ -17,6 +17,7 @@ import {
   LogOut,
   MessageCircle,
   Pin,
+  RefreshCw,
   Search,
   Trash2,
   UserRound,
@@ -29,6 +30,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import type {
   PointerEvent as ReactPointerEvent,
+  TouchEvent as ReactTouchEvent,
 } from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
@@ -51,6 +53,7 @@ import { queryKeys } from "@/lib/query-keys";
 import {
   formatDisplayName,
 } from "@/lib/user-display";
+import { triggerHaptic } from "@/lib/haptics";
 import { useSocketStore } from "@/store/socket-store";
 import { useBlockStore } from "@/store/block-store";
 import { useToastStore } from "@/store/toast-store";
@@ -377,6 +380,17 @@ export default function ChatSidebar() {
   ] = useState<Set<string>>(
     () => new Set()
   );
+  const [pullDistance, setPullDistance] =
+    useState(0);
+  const [isPullRefreshing, setIsPullRefreshing] =
+    useState(false);
+  const listRef = useRef<HTMLDivElement | null>(
+    null
+  );
+  const pullGestureRef = useRef<{
+    startY: number;
+    active: boolean;
+  } | null>(null);
   const now = useServerNow();
   const deferredSearch =
     useDeferredValue(search);
@@ -526,6 +540,7 @@ export default function ChatSidebar() {
   const handleSelectConversation =
     useCallback(
       (conversation: Conversation) => {
+        triggerHaptic(10);
         setActiveConversation(conversation);
         window.dispatchEvent(
           new CustomEvent(
@@ -547,6 +562,7 @@ export default function ChatSidebar() {
         return;
       }
 
+      triggerHaptic(10);
       const conversationId =
         actionConversation.id;
 
@@ -630,12 +646,90 @@ export default function ChatSidebar() {
       queryClient,
     ]);
 
+  const handlePullStart = useCallback(
+    (event: ReactTouchEvent<HTMLDivElement>) => {
+      if (
+        activeConversationId ||
+        (listRef.current?.scrollTop ?? 0) > 2 ||
+        isPullRefreshing
+      ) {
+        pullGestureRef.current = null;
+        return;
+      }
+
+      const touch = event.touches[0];
+
+      if (!touch) {
+        return;
+      }
+
+      pullGestureRef.current = {
+        startY: touch.clientY,
+        active: true,
+      };
+    },
+    [activeConversationId, isPullRefreshing],
+  );
+
+  const handlePullMove = useCallback(
+    (event: ReactTouchEvent<HTMLDivElement>) => {
+      const gesture = pullGestureRef.current;
+      const touch = event.touches[0];
+
+      if (!gesture || !touch || !gesture.active) {
+        return;
+      }
+
+      const deltaY = touch.clientY - gesture.startY;
+
+      if (deltaY <= 0) {
+        setPullDistance(0);
+        return;
+      }
+
+      if (event.cancelable) {
+        event.preventDefault();
+      }
+
+      setPullDistance(Math.min(88, deltaY * 0.45));
+    },
+    [],
+  );
+
+  const handlePullEnd = useCallback(() => {
+    const shouldRefresh =
+      pullDistance >= 58 && !isPullRefreshing;
+
+    pullGestureRef.current = null;
+
+    if (!shouldRefresh) {
+      setPullDistance(0);
+      return;
+    }
+
+    triggerHaptic(10);
+    setIsPullRefreshing(true);
+    setPullDistance(58);
+
+    void conversationsQuery
+      .refetch()
+      .finally(() => {
+        setIsPullRefreshing(false);
+        setPullDistance(0);
+      });
+  }, [
+    conversationsQuery,
+    isPullRefreshing,
+    pullDistance,
+  ]);
+
   const handleToggleBlock =
     useCallback(() => {
       if (!actionConversation) {
         return;
       }
 
+      triggerHaptic(10);
       const wasBlocked =
         blockedConversationSet.has(
           actionConversation.id
@@ -683,6 +777,7 @@ export default function ChatSidebar() {
         return;
       }
 
+      triggerHaptic(10);
       setMutedConversationIds((current) => {
         const next = new Set(current);
 
@@ -757,6 +852,33 @@ export default function ChatSidebar() {
     setActiveConversation,
   ]);
 
+  useEffect(() => {
+    function handleSidebarEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      if (actionConversation) {
+        closeConversationActions();
+        return;
+      }
+
+      if (logoutConfirmOpen) {
+        setLogoutConfirmOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleSidebarEscape);
+
+    return () => {
+      window.removeEventListener("keydown", handleSidebarEscape);
+    };
+  }, [
+    actionConversation,
+    closeConversationActions,
+    logoutConfirmOpen,
+  ]);
+
   return (
     <aside className="fc-panel flex h-full w-full border-r border-[#0D1823] backdrop-blur-xl lg:w-[360px]">
       <div className="flex w-full flex-col">
@@ -779,9 +901,10 @@ export default function ChatSidebar() {
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() =>
-                  setSearchOpen((open) => !open)
-                }
+                onClick={() => {
+                  triggerHaptic(10);
+                  setSearchOpen((open) => !open);
+                }}
                 className="fc-hover flex h-10 w-10 items-center justify-center rounded-full text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
                 aria-label="Search conversations"
               >
@@ -790,7 +913,10 @@ export default function ChatSidebar() {
 
               <button
                 type="button"
-                onClick={() => setLogoutConfirmOpen(true)}
+                onClick={() => {
+                  triggerHaptic(10);
+                  setLogoutConfirmOpen(true);
+                }}
                 className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--fc-text-muted)] transition hover:bg-red-500/[0.12] hover:text-red-100"
                 aria-label="Logout"
               >
@@ -847,9 +973,10 @@ export default function ChatSidebar() {
               <button
                 key={folder}
                 type="button"
-                onClick={() =>
-                  setActiveFolder(folder)
-                }
+                onClick={() => {
+                  triggerHaptic(10);
+                  setActiveFolder(folder);
+                }}
                 className={`relative overflow-hidden rounded-lg px-4 py-2 text-sm font-medium capitalize transition-all ${
                   activeFolder === folder
                     ? "text-white"
@@ -877,7 +1004,33 @@ export default function ChatSidebar() {
           {deferredSearch.trim() ? null : <StoryTray />}
         </div>
 
-        <div className="chat-safe-scroll flex-1 space-y-1 overflow-y-auto px-2 py-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div
+          ref={listRef}
+          onTouchStart={handlePullStart}
+          onTouchMove={handlePullMove}
+          onTouchEnd={handlePullEnd}
+          onTouchCancel={handlePullEnd}
+          className="chat-safe-scroll relative flex-1 space-y-1 overflow-y-auto px-2 py-2 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+        >
+          <div
+            className="pointer-events-none sticky top-0 z-10 flex justify-center overflow-hidden transition-[height]"
+            style={{
+              height: `${pullDistance}px`,
+            }}
+          >
+            <div
+              className={`mt-2 flex h-10 min-w-10 items-center justify-center rounded-full border border-[rgba(var(--fc-primary-rgb),0.24)] bg-[var(--fc-app-elevated)] text-[var(--fc-accent-text)] shadow-lg ${
+                isPullRefreshing ? "animate-spin" : ""
+              }`}
+              style={{
+                opacity: pullDistance > 8 ? 1 : 0,
+                transform: `scale(${Math.min(1, 0.72 + pullDistance / 120)})`,
+              }}
+            >
+              <RefreshCw size={17} />
+            </div>
+          </div>
+
           {conversationsQuery.isLoading ? (
             <div className="space-y-3">
               {Array.from({

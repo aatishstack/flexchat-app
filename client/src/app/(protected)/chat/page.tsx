@@ -90,9 +90,11 @@ export default function ChatPage() {
       style={
         {
           "--fc-mobile-nav-height":
-            "calc(4.75rem + env(safe-area-inset-bottom))",
+            "calc(56px + env(safe-area-inset-bottom))",
+          "--fc-keyboard-inset":
+            "env(keyboard-inset-height, 0px)",
           "--chat-floating-safe-bottom":
-            "calc(5.75rem + env(safe-area-inset-bottom))",
+            "calc(4.5rem + env(safe-area-inset-bottom))",
         } as CSSProperties
       }
       className={cn(

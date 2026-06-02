@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { triggerHaptic } from "@/lib/haptics";
 import { useConversationStore } from "@/stores/conversation.store";
 
 type NavItem = {
@@ -115,8 +116,8 @@ function MobileNavigation({
   }
 
   return (
-    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-[190] px-3 pb-[calc(0.55rem+env(safe-area-inset-bottom))] pt-2 lg:hidden">
-      <div className="fc-panel pointer-events-auto mx-auto grid max-w-md grid-cols-5 gap-1 rounded-[26px] border px-1.5 py-1.5 shadow-[0_16px_44px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
+    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-[190] h-[calc(56px+env(safe-area-inset-bottom))] border-t border-[var(--fc-app-border)] bg-[var(--fc-app-panel)] pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_32px_rgba(0,0,0,0.22)] backdrop-blur-2xl lg:hidden">
+      <div className="pointer-events-auto mx-auto grid h-14 max-w-md grid-cols-5 gap-0.5 px-1">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = isActivePath(pathname, item.href);
@@ -125,9 +126,10 @@ function MobileNavigation({
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => triggerHaptic(10)}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "fc-telegram-touch relative flex h-[52px] flex-col items-center justify-center gap-0.5 rounded-[22px] text-[11px] font-medium text-[var(--fc-text-subtle)] transition",
+                "fc-telegram-touch relative flex h-14 flex-col items-center justify-center gap-0.5 rounded-2xl text-[10px] font-medium text-[var(--fc-text-subtle)] transition",
                 active &&
                   "bg-[var(--fc-app-surface-active)] text-[var(--fc-theme-text)]",
               )}

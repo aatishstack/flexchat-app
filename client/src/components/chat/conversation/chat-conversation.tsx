@@ -87,6 +87,7 @@ import { updateConversationInQueryCache } from "@/lib/conversation-query-cache";
 import type { ConversationQueryCache } from "@/lib/conversation-query-cache";
 import { queryKeys } from "@/lib/query-keys";
 import { getServerNow } from "@/lib/server-time";
+import { triggerHaptic } from "@/lib/haptics";
 import { generateId } from "@/lib/uuid";
 import { formatDisplayName } from "@/lib/user-display";
 import {
@@ -1650,6 +1651,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
   }
 
   async function submitReaction(emoji: string) {
+    triggerHaptic(10);
     setIsMutating(true);
     const ok = await onReact(message, emoji);
     setIsMutating(false);
@@ -1780,6 +1782,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
     setSwipeX(0);
 
     if (shouldReply) {
+      triggerHaptic(10);
       closeActions();
       onReply(message);
     }
@@ -2277,6 +2280,7 @@ export default function ChatConversation() {
   const [messageSearchOpen, setMessageSearchOpen] = useState(false);
   const [messageSearch, setMessageSearch] = useState("");
   const [activeSearchIndex, setActiveSearchIndex] = useState(0);
+  const [mobileBackSwipeX, setMobileBackSwipeX] = useState(0);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -2303,6 +2307,11 @@ export default function ChatConversation() {
   const scrollFrameRef = useRef<number | null>(null);
   const scrollMeasureFrameRef = useRef<number | null>(null);
   const seenMessageIdsRef = useRef<Set<string>>(new Set());
+  const mobileBackSwipeRef = useRef<{
+    startX: number;
+    startY: number;
+    active: boolean;
+  } | null>(null);
   const [virtualScrollMargin, setVirtualScrollMargin] = useState(0);
   const reducedMotion = useReducedMotion();
   const now = useServerNow();
@@ -2789,6 +2798,71 @@ export default function ChatConversation() {
   }, [messageSearchOpen]);
 
   useEffect(() => {
+    function handleConversationEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      if (profilePictureOpen) {
+        setProfilePictureOpen(false);
+        return;
+      }
+
+      if (profileOpen) {
+        setProfileOpen(false);
+        return;
+      }
+
+      if (themeSheetOpen) {
+        setThemeSheetOpen(false);
+        return;
+      }
+
+      if (chatSettingsOpen) {
+        setChatSettingsOpen(false);
+        return;
+      }
+
+      if (forwardingMessage && !isForwarding) {
+        setForwardingMessage(null);
+        setSelectedForwardConversationIds(new Set());
+        setForwardSearch("");
+        return;
+      }
+
+      if (largeVideoFile) {
+        setLargeVideoFile(null);
+        return;
+      }
+
+      if (aiOpen) {
+        setAiOpen(false);
+        return;
+      }
+
+      if (emojiOpen) {
+        setEmojiOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleConversationEscape);
+
+    return () => {
+      window.removeEventListener("keydown", handleConversationEscape);
+    };
+  }, [
+    aiOpen,
+    chatSettingsOpen,
+    emojiOpen,
+    forwardingMessage,
+    isForwarding,
+    largeVideoFile,
+    profileOpen,
+    profilePictureOpen,
+    themeSheetOpen,
+  ]);
+
+  useEffect(() => {
     applyGlobalChatTheme(activeTheme.id);
     window.dispatchEvent(
       new CustomEvent("flexchat:theme-changed", {
@@ -3068,6 +3142,70 @@ export default function ChatConversation() {
         element.scrollHeight - element.scrollTop - element.clientHeight < 180;
       scrollMeasureFrameRef.current = null;
     });
+  }
+
+  function handleConversationTouchStart(event: ReactTouchEvent<HTMLElement>) {
+    if (
+      typeof window === "undefined" ||
+      window.matchMedia("(min-width: 1024px)").matches
+    ) {
+      return;
+    }
+
+    const touch = event.touches[0];
+
+    if (!touch || touch.clientX > 28) {
+      mobileBackSwipeRef.current = null;
+      return;
+    }
+
+    mobileBackSwipeRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      active: false,
+    };
+  }
+
+  function handleConversationTouchMove(event: ReactTouchEvent<HTMLElement>) {
+    const gesture = mobileBackSwipeRef.current;
+    const touch = event.touches[0];
+
+    if (!gesture || !touch) {
+      return;
+    }
+
+    const deltaX = touch.clientX - gesture.startX;
+    const deltaY = touch.clientY - gesture.startY;
+
+    if (!gesture.active) {
+      if (Math.abs(deltaX) < 12 && Math.abs(deltaY) < 12) {
+        return;
+      }
+
+      gesture.active =
+        deltaX > 0 && Math.abs(deltaX) > Math.abs(deltaY) * 1.45;
+    }
+
+    if (!gesture.active) {
+      return;
+    }
+
+    if (event.cancelable) {
+      event.preventDefault();
+    }
+
+    setMobileBackSwipeX(clamp(deltaX, 0, 112));
+  }
+
+  function handleConversationTouchEnd() {
+    const shouldReturn = mobileBackSwipeX >= 72;
+
+    mobileBackSwipeRef.current = null;
+    setMobileBackSwipeX(0);
+
+    if (shouldReturn) {
+      returnToConversationList();
+    }
   }
 
   function goToPreviousSearchMatch() {
@@ -3420,6 +3558,7 @@ export default function ChatConversation() {
     setIsUploadingAttachment(true);
     setAttachmentUploadProgress(4);
     setFailedAttachmentUpload(null);
+    triggerHaptic(10);
 
     try {
       const attachmentUrl = await uploadImage(file, {
@@ -3491,6 +3630,7 @@ export default function ChatConversation() {
       return;
     }
 
+    triggerHaptic(10);
     sendSocketMessage({
       conversationId,
       text: nextText,
@@ -3557,6 +3697,7 @@ export default function ChatConversation() {
   }
 
   function returnToConversationList() {
+    triggerHaptic(10);
     closeForwardSheet();
     setEmojiOpen(false);
     setProfileOpen(false);
@@ -3661,6 +3802,7 @@ export default function ChatConversation() {
       return;
     }
 
+    triggerHaptic(10);
     void startCall({
       conversationId,
       targetUserId: callTargetUserId,
@@ -3857,8 +3999,17 @@ export default function ChatConversation() {
 
   return (
     <section
-      style={activeThemeStyle}
-      className="fc-chat-doodle relative flex h-full min-h-0 flex-col overflow-hidden text-[var(--fc-theme-text)]"
+      style={{
+        ...activeThemeStyle,
+        transform: mobileBackSwipeX
+          ? `translateX(${mobileBackSwipeX}px)`
+          : undefined,
+      }}
+      className="fc-chat-doodle relative flex h-full min-h-0 flex-col overflow-hidden text-[var(--fc-theme-text)] transition-transform duration-150"
+      onTouchStart={handleConversationTouchStart}
+      onTouchMove={handleConversationTouchMove}
+      onTouchEnd={handleConversationTouchEnd}
+      onTouchCancel={handleConversationTouchEnd}
     >
       <div
         className="relative z-10 flex shrink-0 items-center justify-between gap-2 border-b border-[#0D1823] bg-[var(--fc-chat-header)] px-2.5 py-2 pt-[calc(0.45rem+env(safe-area-inset-top))] shadow-[0_1px_0_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:px-5 sm:py-3"
@@ -4216,7 +4367,11 @@ export default function ChatConversation() {
       </div>
 
       <div
-        className="relative z-10 shrink-0 border-t border-[#0D1823] bg-[var(--fc-chat-composer)] px-2.5 py-2 pb-[calc(0.45rem+env(safe-area-inset-bottom))] backdrop-blur-2xl sm:px-5 sm:py-2.5 sm:pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+        style={{
+          paddingBottom:
+            "calc(0.45rem + env(safe-area-inset-bottom) + env(keyboard-inset-height, 0px))",
+        }}
+        className="relative z-10 shrink-0 border-t border-[#0D1823] bg-[var(--fc-chat-composer)] px-2.5 py-2 backdrop-blur-2xl sm:px-5 sm:py-2.5"
       >
         {replyingTo ? (
           <div className="fc-button-soft mb-2 flex items-center gap-3 rounded-2xl border p-3 text-sm">
