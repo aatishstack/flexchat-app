@@ -85,6 +85,9 @@ function buildSocket(): Socket {
     autoConnect: false,
     transports: ["websocket", "polling"],
     upgrade: true,
+    perMessageDeflate: {
+      threshold: 1024,
+    },
     forceNew: false,
     reconnection: true,
     reconnectionAttempts: Infinity,

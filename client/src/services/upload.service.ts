@@ -1,15 +1,26 @@
 import { isAxiosError, type AxiosProgressEvent } from "axios";
+import imageCompression from "browser-image-compression";
 
 import { api } from "./api";
 
 export const MEDIA_LIMITS = {
   image: 10 * 1024 * 1024,
+  imageInput: 25 * 1024 * 1024,
   video: 50 * 1024 * 1024,
   videoInput: 250 * 1024 * 1024,
   videoCompressionThreshold: 30 * 1024 * 1024,
   audio: 12 * 1024 * 1024,
   document: 8 * 1024 * 1024,
 } as const;
+
+const IMAGE_COMPRESSION_MAX_SIZE_MB = 4;
+const IMAGE_COMPRESSION_MAX_EDGE = 1920;
+const SKIP_IMAGE_COMPRESSION_TYPES = new Set([
+  "image/avif",
+  "image/gif",
+  "image/heic",
+  "image/heif",
+]);
 
 const allowedMediaTypes = new Map<
   string,
@@ -245,6 +256,40 @@ function getNormalizedUploadFile(file: File) {
         file.lastModified,
     }
   );
+}
+
+async function compressImageFile(file: File) {
+  const normalizedMimeType = normalizeMimeType(file.type);
+
+  if (
+    typeof window === "undefined" ||
+    !normalizedMimeType.startsWith("image/") ||
+    SKIP_IMAGE_COMPRESSION_TYPES.has(normalizedMimeType)
+  ) {
+    return file;
+  }
+
+  if (file.size <= 1.2 * 1024 * 1024) {
+    return file;
+  }
+
+  try {
+    const compressedFile = await imageCompression(file, {
+      maxSizeMB: IMAGE_COMPRESSION_MAX_SIZE_MB,
+      maxWidthOrHeight: IMAGE_COMPRESSION_MAX_EDGE,
+      useWebWorker: true,
+      initialQuality: 0.82,
+      alwaysKeepResolution: false,
+    });
+
+    if (compressedFile.size >= file.size) {
+      return file;
+    }
+
+    return getNormalizedUploadFile(compressedFile);
+  } catch {
+    return file;
+  }
 }
 
 function shouldTranscodeForVideoCompatibility(file: File) {
@@ -533,6 +578,16 @@ async function prepareUploadFile(
     getNormalizedUploadFile(file);
 
   if (
+    normalizeMimeType(normalizedFile.type).startsWith(
+      "image/"
+    )
+  ) {
+    return compressImageFile(
+      normalizedFile
+    );
+  }
+
+  if (
     normalizedFile.type.startsWith(
       "video/"
     ) &&
@@ -575,6 +630,8 @@ export function getUploadValidationError(file: File) {
   const maxBytes =
     mediaType.kind === "video"
       ? MEDIA_LIMITS.videoInput
+      : mediaType.kind === "image"
+        ? MEDIA_LIMITS.imageInput
       : mediaType.maxBytes;
 
   if (file.size > maxBytes) {

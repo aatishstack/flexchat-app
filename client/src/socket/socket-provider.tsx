@@ -1279,6 +1279,30 @@ export default function SocketProvider({
       });
     }
 
+    function onReconnectAttempt() {
+      useSocketStore.setState({
+        isConnected: false,
+        isConnecting: true,
+        connectionError: null,
+      });
+    }
+
+    function onReconnectError(error: Error) {
+      useSocketStore.setState({
+        isConnected: false,
+        isConnecting: true,
+        connectionError: error.message,
+      });
+    }
+
+    function onReconnectFailed() {
+      useSocketStore.setState({
+        isConnected: false,
+        isConnecting: false,
+        connectionError: "Unable to reconnect",
+      });
+    }
+
     const safeOnConnect = guardSocketHandler(
       SOCKET_EVENTS.CONNECT,
       onConnect,
@@ -1399,6 +1423,18 @@ export default function SocketProvider({
       SOCKET_EVENTS.CALL_ERROR,
       onCallError,
     );
+    const safeOnReconnectAttempt = guardSocketHandler(
+      "reconnect_attempt",
+      onReconnectAttempt,
+    );
+    const safeOnReconnectError = guardSocketHandler(
+      "reconnect_error",
+      onReconnectError,
+    );
+    const safeOnReconnectFailed = guardSocketHandler(
+      "reconnect_failed",
+      onReconnectFailed,
+    );
 
     socket.on(SOCKET_EVENTS.CONNECT, safeOnConnect);
     socket.on(SOCKET_EVENTS.DISCONNECT, safeOnDisconnect);
@@ -1444,6 +1480,9 @@ export default function SocketProvider({
     socket.on(SOCKET_EVENTS.CALL_ANSWER, safeOnCallAnswer);
     socket.on(SOCKET_EVENTS.CALL_ICE_CANDIDATE, safeOnCallIceCandidate);
     socket.on(SOCKET_EVENTS.CALL_ERROR, safeOnCallError);
+    socket.io.on("reconnect_attempt", safeOnReconnectAttempt);
+    socket.io.on("reconnect_error", safeOnReconnectError);
+    socket.io.on("reconnect_failed", safeOnReconnectFailed);
     window.addEventListener("offline", handleOffline);
 
     return () => {
@@ -1491,6 +1530,9 @@ export default function SocketProvider({
       socket.off(SOCKET_EVENTS.CALL_ANSWER, safeOnCallAnswer);
       socket.off(SOCKET_EVENTS.CALL_ICE_CANDIDATE, safeOnCallIceCandidate);
       socket.off(SOCKET_EVENTS.CALL_ERROR, safeOnCallError);
+      socket.io.off("reconnect_attempt", safeOnReconnectAttempt);
+      socket.io.off("reconnect_error", safeOnReconnectError);
+      socket.io.off("reconnect_failed", safeOnReconnectFailed);
       window.removeEventListener("offline", handleOffline);
     };
   }, [

@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
 } from "react";
+import dynamic from "next/dynamic";
 
 import {
   AlertCircle,
@@ -44,10 +45,12 @@ import {
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import EmojiPicker, {
+import { useVirtualizer } from "@tanstack/react-virtual";
+import {
   EmojiStyle,
   Theme,
   type EmojiClickData,
+  type PickerProps,
 } from "emoji-picker-react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -96,8 +99,9 @@ import {
 } from "@/lib/message-query-cache";
 import type { MessageQueryCache } from "@/lib/message-query-cache";
 
-const RENDER_WINDOW_SIZE = 360;
 const EMPTY_MESSAGES: Message[] = [];
+const MESSAGE_ROW_ESTIMATE = 118;
+const MESSAGE_ROW_OVERSCAN = 12;
 const QUICK_REACTIONS = ["❤️", "👍", "👎", "🔥", "🥰", "👏", "😁"];
 const MESSAGE_TIME_FORMATTER = new Intl.DateTimeFormat("en", {
   hour: "numeric",
@@ -112,6 +116,16 @@ const DATE_DIVIDER_WITH_YEAR_FORMATTER = new Intl.DateTimeFormat("en", {
   day: "numeric",
   year: "numeric",
 });
+
+const EmojiPicker = dynamic<PickerProps>(
+  () => import("emoji-picker-react").then((module) => module.default),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="fc-skeleton h-[min(316px,42dvh)] w-full animate-pulse rounded-[22px]" />
+    ),
+  },
+);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const LARGE_FILE_CARD_BYTES = 15 * 1024 * 1024;
@@ -2049,11 +2063,13 @@ export default function ChatConversation() {
   const typingActiveRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const virtualListOffsetRef = useRef<HTMLDivElement | null>(null);
   const isNearBottomRef = useRef(true);
   const hasAnchoredInitialMessagesRef = useRef(false);
   const scrollFrameRef = useRef<number | null>(null);
   const scrollMeasureFrameRef = useRef<number | null>(null);
   const seenMessageIdsRef = useRef<Set<string>>(new Set());
+  const [virtualScrollMargin, setVirtualScrollMargin] = useState(0);
   const reducedMotion = useReducedMotion();
   const now = useServerNow();
   const pushToast = useToastStore((state) => state.pushToast);
@@ -2110,6 +2126,8 @@ export default function ChatConversation() {
   );
   const socket = useSocketStore((state) => state.socket);
   const isConnected = useSocketStore((state) => state.isConnected);
+  const isConnecting = useSocketStore((state) => state.isConnecting);
+  const connectionError = useSocketStore((state) => state.connectionError);
   const typingUsers = useSocketStore(
     useShallow((state) => state.typingUsers),
   );
@@ -2325,10 +2343,26 @@ export default function ChatConversation() {
 
     const serverMessages = (messagesQuery.data ?? []) as Message[];
 
-    return mergeMessages(serverMessages, realtimeMessages).slice(
-      -RENDER_WINDOW_SIZE,
-    );
+    return mergeMessages(serverMessages, realtimeMessages);
   }, [conversationId, realtimeMessages, messagesQuery.data]);
+
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const messageVirtualizer = useVirtualizer({
+    count: visibleMessages.length,
+    getScrollElement: () => containerRef.current,
+    estimateSize: () => MESSAGE_ROW_ESTIMATE,
+    getItemKey: (index) => visibleMessages[index]?.id ?? index,
+    overscan: MESSAGE_ROW_OVERSCAN,
+    scrollMargin: virtualScrollMargin,
+  });
+  const virtualRows = messageVirtualizer.getVirtualItems();
+  const messagesInViewport = useMemo(
+    () =>
+      virtualRows
+        .map((virtualRow) => visibleMessages[virtualRow.index])
+        .filter((message): message is Message => Boolean(message)),
+    [virtualRows, visibleMessages],
+  );
 
   const remoteTypingUsers = useMemo(
     () => typingUsers.filter((typingUserId) => typingUserId !== user?.id),
@@ -2368,6 +2402,13 @@ export default function ChatConversation() {
         : isOnline
           ? "Online"
           : formatLastSeen(remoteMember?.lastSeenAt);
+  const connectionStatusLabel = isConnected
+    ? `Connected - ${presenceLabel}`
+    : isConnecting
+      ? "Connecting..."
+      : connectionError
+        ? "Offline"
+        : "Offline";
   const activeTheme = getChatTheme(
     activeConversation?.localThemeId ??
       activeConversation?.sharedThemeId ??
@@ -2375,6 +2416,47 @@ export default function ChatConversation() {
   );
   const activeThemeStyle =
     getChatThemeStyle(activeTheme);
+
+  useEffect(() => {
+    function updateVirtualScrollMargin() {
+      const nextMargin = virtualListOffsetRef.current?.offsetTop ?? 0;
+
+      setVirtualScrollMargin((currentMargin) =>
+        currentMargin === nextMargin ? currentMargin : nextMargin,
+      );
+    }
+
+    updateVirtualScrollMargin();
+
+    const frameId = window.requestAnimationFrame(updateVirtualScrollMargin);
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(updateVirtualScrollMargin);
+
+    if (containerRef.current) {
+      resizeObserver?.observe(containerRef.current);
+    }
+
+    window.addEventListener("resize", updateVirtualScrollMargin);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateVirtualScrollMargin);
+    };
+  }, [
+    activeConversation?.id,
+    activeUnreadCount,
+    blockEvent?.message,
+    hasNextPage,
+    messagesQuery.isError,
+    showInitialMessageSkeleton,
+  ]);
+
+  useEffect(() => {
+    messageVirtualizer.measure();
+  }, [messageVirtualizer, visibleMessages.length]);
 
   useEffect(() => {
     applyGlobalChatTheme(activeTheme.id);
@@ -2589,7 +2671,7 @@ export default function ChatConversation() {
       return;
     }
 
-    const unreadRemoteMessageIds = visibleMessages.reduce<string[]>(
+    const unreadRemoteMessageIds = messagesInViewport.reduce<string[]>(
       (messageIds, message) => {
         if (
           message.senderId === user.id ||
@@ -2622,7 +2704,7 @@ export default function ChatConversation() {
       conversationId,
       messageIds: unreadRemoteMessageIds,
     });
-  }, [conversationId, isConnected, socket, user?.id, visibleMessages]);
+  }, [conversationId, isConnected, messagesInViewport, socket, user?.id]);
 
   useEffect(() => {
     seenMessageIdsRef.current.clear();
@@ -3469,7 +3551,11 @@ export default function ChatConversation() {
 
             <p
               className={`truncate text-[13px] leading-tight ${
-                isConversationBlocked
+                !isConnected && isConnecting
+                  ? "text-cyan-300"
+                  : !isConnected
+                    ? "text-[var(--fc-text-subtle)]"
+                    : isConversationBlocked
                   ? "text-[var(--fc-text-subtle)]"
                   : remoteTypingUsers.length
                   ? "text-cyan-300"
@@ -3478,7 +3564,7 @@ export default function ChatConversation() {
                     : "text-[var(--fc-text-subtle)]"
               }`}
             >
-              {isConnected ? presenceLabel : "Reconnecting..."}
+              {connectionStatusLabel}
             </p>
           </div>
         </div>
@@ -3595,28 +3681,53 @@ export default function ChatConversation() {
               </div>
             ) : null}
 
-            {visibleMessages.map((message, index) => {
-              const mine =
-                message.senderId === user?.id || message.senderId === "me";
-              const previous = visibleMessages[index - 1];
+            <div
+              ref={virtualListOffsetRef}
+              className="relative w-full"
+              style={{
+                height: `${messageVirtualizer.getTotalSize()}px`,
+              }}
+            >
+              {virtualRows.map((virtualRow) => {
+                const message = visibleMessages[virtualRow.index];
 
-              return (
-                <ChatMessageRow
-                  key={message.id}
-                  message={message}
-                  previous={previous}
-                  mine={mine}
-                  now={now}
-                  reducedMotion={!!reducedMotion}
-                  onRetry={handleRetryMessage}
-                  onEdit={handleEditMessage}
-                  onDelete={handleDeleteMessage}
-                  onReact={handleReactMessage}
-                  onReply={handleReplyMessage}
-                  onShare={handleShareMessage}
-                />
-              );
-            })}
+                if (!message) {
+                  return null;
+                }
+
+                const mine =
+                  message.senderId === user?.id || message.senderId === "me";
+                const previous = visibleMessages[virtualRow.index - 1];
+
+                return (
+                  <div
+                    key={virtualRow.key}
+                    ref={messageVirtualizer.measureElement}
+                    data-index={virtualRow.index}
+                    className="absolute left-0 top-0 w-full"
+                    style={{
+                      transform: `translateY(${
+                        virtualRow.start - virtualScrollMargin
+                      }px)`,
+                    }}
+                  >
+                    <ChatMessageRow
+                      message={message}
+                      previous={previous}
+                      mine={mine}
+                      now={now}
+                      reducedMotion={!!reducedMotion}
+                      onRetry={handleRetryMessage}
+                      onEdit={handleEditMessage}
+                      onDelete={handleDeleteMessage}
+                      onReact={handleReactMessage}
+                      onReply={handleReplyMessage}
+                      onShare={handleShareMessage}
+                    />
+                  </div>
+                );
+              })}
+            </div>
 
             {remoteTypingUsers.length ? (
               <div className="mt-4 flex justify-start">
@@ -4323,7 +4434,7 @@ export default function ChatConversation() {
                   {activeConversationDisplayName}
                 </h2>
                 <p className="mt-1 text-sm text-white/80">
-                  {isConnected ? presenceLabel : "Reconnecting"}
+                  {connectionStatusLabel}
                 </p>
               </div>
 

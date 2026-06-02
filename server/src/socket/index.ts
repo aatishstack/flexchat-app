@@ -58,7 +58,7 @@ export function setupSocket(server: HttpServer) {
 
   const io = new Server(server, {
     path: "/socket.io/",
-    perMessageDeflate: false,
+    perMessageDeflate: true,
     cors: {
       origin: buildAllowedOrigins(),
       methods: ["GET", "POST"],
