@@ -82,13 +82,16 @@ export default function GlobalSearch() {
 
   const filtered =
     useMemo(() => {
+      const normalizedQuery =
+        query.toLowerCase();
+
       return conversations.filter(
         (conversation) =>
           !conversation.archivedAt &&
           conversation.name
             ?.toLowerCase()
             .includes(
-              query.toLowerCase()
+              normalizedQuery
             )
       );
     }, [
@@ -130,7 +133,7 @@ export default function GlobalSearch() {
   }
 
   return (
-    <div className="fixed inset-0 z-[220] flex items-start justify-center bg-black/70 px-3 pt-[calc(5rem+env(safe-area-inset-top))] backdrop-blur-xl">
+    <div className="fixed inset-0 z-[220] flex items-start justify-center bg-black/70 px-3 pt-[calc(5rem+env(safe-area-inset-top))] sm:backdrop-blur-xl">
       <div className="w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-[#111827] shadow-2xl">
         <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
           <Search

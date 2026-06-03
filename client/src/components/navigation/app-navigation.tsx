@@ -57,7 +57,7 @@ function isActivePath(pathname: string, href: string) {
 
 function DesktopNavigation({ pathname }: { pathname: string }) {
   return (
-    <aside className="fc-panel fixed inset-y-0 left-0 z-[190] hidden w-[72px] border-r px-2 py-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur-xl lg:flex lg:flex-col lg:items-center">
+    <aside className="fc-panel fixed inset-y-0 left-0 z-[190] hidden w-[72px] border-r px-2 py-[calc(0.75rem+env(safe-area-inset-top))] lg:flex lg:flex-col lg:items-center">
       <Link
         href="/chat"
         className="fc-button-primary mb-5 flex h-11 w-11 items-center justify-center rounded-2xl border border-[rgba(var(--fc-primary-rgb),0.28)]"
@@ -116,7 +116,7 @@ function MobileNavigation({
   }
 
   return (
-    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-[190] h-[calc(56px+env(safe-area-inset-bottom))] border-t border-[var(--fc-app-border)] bg-[var(--fc-app-panel)] pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_32px_rgba(0,0,0,0.22)] backdrop-blur-2xl lg:hidden">
+    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-[190] h-[calc(56px+env(safe-area-inset-bottom))] border-t border-[var(--fc-app-border)] bg-[var(--fc-app-panel)] pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_32px_rgba(0,0,0,0.22)] lg:hidden">
       <div className="pointer-events-auto mx-auto grid h-14 max-w-md grid-cols-5 gap-0.5 px-1">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;

@@ -205,11 +205,38 @@ const ConversationListButton = memo(
       );
     const longPressTriggeredRef =
       useRef(false);
-    const avatar =
-      getConversationAvatar(
+    const avatar = useMemo(
+      () =>
+        getConversationAvatar(
+          conversation,
+          currentUserId
+        ),
+      [
         conversation,
-        currentUserId
-      );
+        currentUserId,
+      ]
+    );
+    const displayName = useMemo(
+      () =>
+        formatDisplayName(
+          conversation.name ||
+            "Untitled"
+        ),
+      [conversation.name]
+    );
+    const lastActivityLabel = useMemo(
+      () =>
+        formatConversationTime(
+          conversation.lastActivityAt ??
+            conversation.createdAt,
+          now
+        ),
+      [
+        conversation.createdAt,
+        conversation.lastActivityAt,
+        now,
+      ]
+    );
 
     const clearLongPressTimer =
       useCallback(() => {
@@ -258,7 +285,7 @@ const ConversationListButton = memo(
     );
 
     return (
-      <motion.button
+      <button
         type="button"
         onClick={() => {
           if (longPressTriggeredRef.current) {
@@ -276,12 +303,6 @@ const ConversationListButton = memo(
           event.preventDefault();
           clearLongPressTimer();
           onContextOpen(conversation);
-        }}
-        whileTap={{
-          scale: 0.992,
-        }}
-        transition={{
-          duration: 0.12,
         }}
         className={`group fc-telegram-touch flex h-[72px] w-full items-center gap-3 rounded-lg border px-3 py-0 text-left transition-[background-color,border-color] duration-150 ease-out ${
           active
@@ -305,10 +326,7 @@ const ConversationListButton = memo(
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <h3 className="truncate text-[15px] font-semibold text-[var(--fc-theme-text)]">
-                {formatDisplayName(
-                  conversation.name ||
-                    "Untitled"
-                )}
+                {displayName}
               </h3>
 
               {conversation.pinned ? (
@@ -327,11 +345,7 @@ const ConversationListButton = memo(
             </div>
 
             <span className="shrink-0 text-xs text-[#6C7883]">
-              {formatConversationTime(
-                conversation.lastActivityAt ??
-                  conversation.createdAt,
-                now
-              )}
+              {lastActivityLabel}
             </span>
           </div>
 
@@ -348,7 +362,7 @@ const ConversationListButton = memo(
             ) : null}
           </div>
         </div>
-      </motion.button>
+      </button>
     );
   }
 );
@@ -395,6 +409,10 @@ export default function ChatSidebar() {
     startY: number;
     active: boolean;
   } | null>(null);
+  const pullDistanceFrameRef =
+    useRef<number | null>(null);
+  const pendingPullDistanceRef =
+    useRef(0);
   const now = useServerNow();
   const deferredSearch =
     useDeferredValue(search);
@@ -681,6 +699,50 @@ export default function ChatSidebar() {
     [activeConversationId, isPullRefreshing],
   );
 
+  const schedulePullDistance =
+    useCallback((distance: number) => {
+      pendingPullDistanceRef.current =
+        distance;
+
+      if (pullDistanceFrameRef.current !== null) {
+        return;
+      }
+
+      pullDistanceFrameRef.current =
+        window.requestAnimationFrame(() => {
+          pullDistanceFrameRef.current = null;
+          setPullDistance(
+            pendingPullDistanceRef.current
+          );
+        });
+    }, []);
+
+  const setPullDistanceNow =
+    useCallback((distance: number) => {
+      if (pullDistanceFrameRef.current !== null) {
+        window.cancelAnimationFrame(
+          pullDistanceFrameRef.current
+        );
+        pullDistanceFrameRef.current = null;
+      }
+
+      pendingPullDistanceRef.current =
+        distance;
+      setPullDistance(distance);
+    }, []);
+
+  useEffect(
+    () => () => {
+      if (pullDistanceFrameRef.current !== null) {
+        window.cancelAnimationFrame(
+          pullDistanceFrameRef.current
+        );
+        pullDistanceFrameRef.current = null;
+      }
+    },
+    []
+  );
+
   const handlePullMove = useCallback(
     (event: ReactTouchEvent<HTMLDivElement>) => {
       const gesture = pullGestureRef.current;
@@ -693,7 +755,7 @@ export default function ChatSidebar() {
       const deltaY = touch.clientY - gesture.startY;
 
       if (deltaY <= 0) {
-        setPullDistance(0);
+        schedulePullDistance(0);
         return;
       }
 
@@ -701,36 +763,39 @@ export default function ChatSidebar() {
         event.preventDefault();
       }
 
-      setPullDistance(Math.min(88, deltaY * 0.45));
+      schedulePullDistance(
+        Math.min(88, deltaY * 0.45)
+      );
     },
-    [],
+    [schedulePullDistance],
   );
 
   const handlePullEnd = useCallback(() => {
     const shouldRefresh =
-      pullDistance >= 58 && !isPullRefreshing;
+      pendingPullDistanceRef.current >= 58 &&
+      !isPullRefreshing;
 
     pullGestureRef.current = null;
 
     if (!shouldRefresh) {
-      setPullDistance(0);
+      setPullDistanceNow(0);
       return;
     }
 
     triggerHaptic(10);
     setIsPullRefreshing(true);
-    setPullDistance(58);
+    setPullDistanceNow(58);
 
     void conversationsQuery
       .refetch()
       .finally(() => {
         setIsPullRefreshing(false);
-        setPullDistance(0);
+        setPullDistanceNow(0);
       });
   }, [
     conversationsQuery,
     isPullRefreshing,
-    pullDistance,
+    setPullDistanceNow,
   ]);
 
   const handleToggleBlock =
@@ -890,7 +955,7 @@ export default function ChatSidebar() {
   ]);
 
   return (
-    <aside className="fc-panel flex h-full w-full border-r border-[#0D1823] backdrop-blur-xl lg:w-[360px]">
+    <aside className="fc-panel flex h-full w-full border-r border-[#0D1823] lg:w-[360px]">
       <div className="flex w-full flex-col">
         <div className="fc-panel-strong relative border-b border-[#0D1823] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <div className="flex items-center justify-between gap-3">
@@ -1152,7 +1217,7 @@ export default function ChatSidebar() {
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[270] flex items-end justify-center bg-[var(--fc-overlay)] p-3 backdrop-blur-xl sm:items-center"
+            className="fixed inset-0 z-[270] flex items-end justify-center bg-[var(--fc-overlay)] p-3 sm:items-center sm:backdrop-blur-xl"
             onClick={
               closeConversationActions
             }
@@ -1284,7 +1349,7 @@ export default function ChatSidebar() {
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[280] flex items-center justify-center bg-[var(--fc-overlay-strong)] p-4 backdrop-blur-xl"
+            className="fixed inset-0 z-[280] flex items-center justify-center bg-[var(--fc-overlay-strong)] p-4 sm:backdrop-blur-xl"
           >
             <motion.div
               initial={{
@@ -1307,7 +1372,7 @@ export default function ChatSidebar() {
                 stiffness: 260,
                 damping: 28,
               }}
-              className="fc-modal w-full max-w-sm rounded-2xl border p-5 backdrop-blur-3xl"
+              className="fc-modal w-full max-w-sm rounded-2xl border p-5 sm:backdrop-blur-3xl"
             >
               <div className="flex items-start gap-4">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/[0.15] text-red-100">

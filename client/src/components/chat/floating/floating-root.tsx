@@ -25,10 +25,13 @@ export default function FloatingRoot({
   const unreadCount =
     useNotificationStore(
       (state) =>
-        state.notifications.filter(
-          (notification) =>
-            !notification.read
-        ).length
+        state.notifications.reduce(
+          (count, notification) =>
+            notification.read
+              ? count
+              : count + 1,
+          0
+        )
     );
   const floatingOffset =
     notificationsOpen
@@ -75,7 +78,7 @@ export default function FloatingRoot({
               ? 30
               : 26,
         }}
-        className="pointer-events-auto flex max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-[24px] border border-white/10 bg-[#08111f]/[0.92] p-2 shadow-[0_20px_70px_rgba(0,0,0,0.45)] backdrop-blur-3xl sm:gap-3 sm:rounded-[28px]"
+        className="pointer-events-auto flex max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-[24px] border border-white/10 bg-[#08111f]/[0.92] p-2 shadow-[0_20px_70px_rgba(0,0,0,0.45)] sm:gap-3 sm:rounded-[28px] sm:backdrop-blur-3xl"
       >
         <motion.button
           whileHover={

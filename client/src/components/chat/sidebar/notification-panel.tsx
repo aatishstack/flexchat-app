@@ -85,10 +85,13 @@ export default function NotificationPanel({
       (state) => state.pushToast
     );
   const unreadCount =
-    notifications.filter(
-      (notification) =>
-        !notification.read
-    ).length;
+    notifications.reduce(
+      (count, notification) =>
+        notification.read
+          ? count
+          : count + 1,
+      0
+    );
 
   async function handleMarkAllRead() {
     try {

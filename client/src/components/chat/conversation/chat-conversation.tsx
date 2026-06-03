@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type CSSProperties,
   Fragment,
   memo,
   type MouseEvent as ReactMouseEvent,
@@ -112,6 +113,13 @@ const MESSAGE_ROW_ESTIMATE = 118;
 const MESSAGE_ROW_OVERSCAN = 12;
 const MARK_SEEN_FLUSH_DELAY_MS = 120;
 const QUICK_REACTIONS = ["❤️", "👍", "👎", "🔥", "🥰", "👏", "😁"];
+const INLINE_REACTIONS = ["\uD83D\uDC4D", "\u2764\uFE0F", "\uD83D\uDE02"];
+const LEGACY_INLINE_REACTIONS = [
+  "\uD83D\uDD25",
+  "\uD83D\uDC4F",
+  "\uD83D\uDE2E",
+  "\uD83D\uDE22",
+];
 const MESSAGE_TIME_FORMATTER = new Intl.DateTimeFormat("en", {
   hour: "numeric",
   minute: "2-digit",
@@ -1564,9 +1572,17 @@ const ChatMessageRow = memo(function ChatMessageRow({
     startY: number;
     mode: "pending" | "reply" | "scroll";
   } | null>(null);
-  const grouped =
-    previous?.senderId === message.senderId &&
-    isSameMessageDay(previous?.createdAt, message.createdAt);
+  const grouped = useMemo(
+    () =>
+      previous?.senderId === message.senderId &&
+      isSameMessageDay(previous?.createdAt, message.createdAt),
+    [
+      message.createdAt,
+      message.senderId,
+      previous?.createdAt,
+      previous?.senderId,
+    ],
+  );
   const isDeleted = !!message.deletedAt;
   const isSettled = !message.optimistic && message.status !== "sending";
   const canEdit =
@@ -1578,7 +1594,46 @@ const ChatMessageRow = memo(function ChatMessageRow({
     !!message.text;
   const canDelete = mine && isSettled && !isDeleted;
   const canReply = isSettled && !isDeleted;
-  const media = getMediaFromMessage(message);
+  const media = useMemo(
+    () => getMediaFromMessage(message),
+    [message],
+  );
+  const messageTime = useMemo(
+    () => formatMessageTime(message.createdAt),
+    [message.createdAt],
+  );
+  const highlightedReplyText = useMemo(
+    () => renderHighlightedText(message.replyTo?.text, searchTerm),
+    [message.replyTo?.text, searchTerm],
+  );
+  const highlightedMessageText = useMemo(
+    () => renderHighlightedText(message.text, searchTerm),
+    [message.text, searchTerm],
+  );
+  const rowStyle = useMemo<CSSProperties | undefined>(() => {
+    const transform =
+      swipeX || actionsOpen
+        ? `translate3d(${swipeX}px, 0, 0) scale(${actionsOpen ? 1.012 : 1})`
+        : undefined;
+    const transition =
+      swipingReply || reducedMotion
+        ? "none"
+        : undefined;
+
+    if (!transform && !transition) {
+      return undefined;
+    }
+
+    return {
+      transform,
+      transition,
+    };
+  }, [
+    actionsOpen,
+    reducedMotion,
+    swipeX,
+    swipingReply,
+  ]);
   const showLegacyInlineReactionPicker = false;
   const actionsVisible = !!reactionAnchorRect;
 
@@ -1828,33 +1883,9 @@ const ChatMessageRow = memo(function ChatMessageRow({
         </div>
       ) : null}
 
-      <motion.div
+      <div
         ref={rowRef}
-        initial={false}
-        animate={{
-          opacity: 1,
-          y: 0,
-          scale: actionsOpen ? 1.012 : 1,
-          x: swipeX,
-        }}
-        whileTap={
-          reducedMotion || isEditing || actionsOpen
-            ? undefined
-            : {
-                scale: 0.996,
-                transition: {
-                  duration: 0.08,
-                },
-              }
-        }
-        transition={
-          swipingReply
-            ? { duration: 0 }
-            : {
-                duration: reducedMotion ? 0 : 0.16,
-                ease: [0.22, 1, 0.36, 1],
-              }
-        }
+        style={rowStyle}
         className={`fc-telegram-touch flex ${grouped ? "mt-[3px]" : "mt-2"} ${
           mine ? "justify-end" : "justify-start"
         } group/message relative ${actionsOpen ? "z-[266]" : "z-0"} [transition:transform_0.2s_cubic-bezier(0.22,1,0.36,1)]`}
@@ -1920,7 +1951,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
             <div className="mb-3 rounded-lg border border-[#0D1823] border-l-2 border-l-[#2AABEE] bg-black/10 px-3 py-2 text-xs text-[#B9C2CA]">
               <p className="font-medium text-white">Reply</p>
               <p className="mt-1 line-clamp-2">
-                {renderHighlightedText(message.replyTo.text, searchTerm)}
+                {highlightedReplyText}
               </p>
             </div>
           ) : null}
@@ -2010,7 +2041,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
             </div>
           ) : !isDeleted && message.text && !media ? (
             <p className="whitespace-pre-wrap break-words">
-              {renderHighlightedText(message.text, searchTerm)}
+              {highlightedMessageText}
             </p>
           ) : null}
 
@@ -2039,7 +2070,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
             >
               {!isDeleted ? (
                 <>
-                  {["👍", "❤️", "😂"].map((emoji) => (
+                  {INLINE_REACTIONS.map((emoji) => (
                     <button
                       key={emoji}
                       type="button"
@@ -2168,7 +2199,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
           reactionAnchorRect &&
           !isDeleted ? (
             <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/10 pt-3">
-              {["🔥", "👏", "😮", "😢"].map((emoji) => (
+              {LEGACY_INLINE_REACTIONS.map((emoji) => (
                 <button
                   key={emoji}
                   type="button"
@@ -2200,7 +2231,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
 
           <div className="mt-0.5 flex items-center justify-end gap-1.5 text-xs font-medium leading-none text-[#6C7883]">
             {message.editedAt && !isDeleted ? <span>edited</span> : null}
-            <span>{formatMessageTime(message.createdAt)}</span>
+            <span>{messageTime}</span>
 
             {mine ? (
               message.status === "failed" ? (
@@ -2218,7 +2249,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
             ) : null}
           </div>
         </div>
-      </motion.div>
+      </div>
     </Fragment>
   );
 });
@@ -2488,6 +2519,10 @@ export default function ChatConversation() {
     startY: number;
     active: boolean;
   } | null>(null);
+  const mobileBackSwipeFrameRef =
+    useRef<number | null>(null);
+  const pendingMobileBackSwipeXRef =
+    useRef(0);
   const [virtualScrollMargin, setVirtualScrollMargin] = useState(0);
   const reducedMotion = useReducedMotion();
   const now = useServerNow();
@@ -3312,6 +3347,50 @@ export default function ChatConversation() {
     [],
   );
 
+  const scheduleMobileBackSwipeX =
+    useCallback((nextX: number) => {
+      pendingMobileBackSwipeXRef.current =
+        nextX;
+
+      if (mobileBackSwipeFrameRef.current !== null) {
+        return;
+      }
+
+      mobileBackSwipeFrameRef.current =
+        window.requestAnimationFrame(() => {
+          mobileBackSwipeFrameRef.current = null;
+          setMobileBackSwipeX(
+            pendingMobileBackSwipeXRef.current
+          );
+        });
+    }, []);
+
+  const setMobileBackSwipeXNow =
+    useCallback((nextX: number) => {
+      if (mobileBackSwipeFrameRef.current !== null) {
+        window.cancelAnimationFrame(
+          mobileBackSwipeFrameRef.current
+        );
+        mobileBackSwipeFrameRef.current = null;
+      }
+
+      pendingMobileBackSwipeXRef.current =
+        nextX;
+      setMobileBackSwipeX(nextX);
+    }, []);
+
+  useEffect(
+    () => () => {
+      if (mobileBackSwipeFrameRef.current !== null) {
+        window.cancelAnimationFrame(
+          mobileBackSwipeFrameRef.current
+        );
+        mobileBackSwipeFrameRef.current = null;
+      }
+    },
+    []
+  );
+
   useEffect(
     () => () => {
       if (seenFlushTimerRef.current) {
@@ -3474,14 +3553,15 @@ export default function ChatConversation() {
       event.preventDefault();
     }
 
-    setMobileBackSwipeX(clamp(deltaX, 0, 112));
+    scheduleMobileBackSwipeX(clamp(deltaX, 0, 112));
   }
 
   function handleConversationTouchEnd() {
-    const shouldReturn = mobileBackSwipeX >= 72;
+    const shouldReturn =
+      pendingMobileBackSwipeXRef.current >= 72;
 
     mobileBackSwipeRef.current = null;
-    setMobileBackSwipeX(0);
+    setMobileBackSwipeXNow(0);
 
     if (shouldReturn) {
       returnToConversationList();

@@ -279,8 +279,8 @@ export default function DiscoverPanel({
     <aside
       className={
         variant === "rail"
-          ? "hidden w-[320px] border-r border-[var(--fc-app-border)] bg-[var(--fc-app-panel)] shadow-2xl shadow-black/20 backdrop-blur-3xl xl:flex xl:flex-col"
-          : "flex h-full w-full flex-col bg-[var(--fc-app-panel)] backdrop-blur-3xl"
+          ? "hidden w-[320px] border-r border-[var(--fc-app-border)] bg-[var(--fc-app-panel)] shadow-2xl shadow-black/20 xl:flex xl:flex-col"
+          : "flex h-full w-full flex-col bg-[var(--fc-app-panel)]"
       }
     >
       <div className="border-b border-white/10 bg-white/[0.02] p-5">

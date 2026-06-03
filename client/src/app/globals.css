@@ -279,21 +279,15 @@ textarea,
   background-size: 160% 160%;
   animation: fc-story-ring-flow 2.9s linear infinite;
   transform: translateZ(0);
-  will-change: filter, background-position;
+  will-change: background-position;
 }
 
 @keyframes fc-story-ring-flow {
   0% {
-    filter: saturate(1.05);
     background-position: 0% 50%;
   }
 
-  50% {
-    filter: saturate(1.18);
-  }
-
   100% {
-    filter: saturate(1.08);
     background-position: 100% 50%;
   }
 }

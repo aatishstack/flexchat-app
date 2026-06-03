@@ -108,7 +108,7 @@ function ToastCard({
         damping: 34,
         mass: 0.8,
       }}
-      className={`pointer-events-auto relative w-[min(calc(100vw-1.5rem),310px)] overflow-hidden rounded-2xl border ${variant.borderClass} bg-[#17212B]/[0.94] p-3 text-left shadow-[0_14px_34px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-3xl`}
+      className={`pointer-events-auto relative w-[min(calc(100vw-1.5rem),310px)] overflow-hidden rounded-2xl border ${variant.borderClass} bg-[#17212B]/[0.94] p-3 text-left shadow-[0_14px_34px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)] sm:backdrop-blur-3xl`}
       role="status"
       aria-live="polite"
     >
