@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -126,6 +127,65 @@ function getStoryReplyPreview(story: Story) {
   return "Story";
 }
 
+const StoryMedia = memo(({
+  story,
+  onLoaded,
+  onError,
+  onVideoMetadata,
+  videoRef,
+}: {
+  story: Story;
+  onLoaded: (id: string) => void;
+  onError: () => void;
+  onVideoMetadata: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+}) => {
+  if (story.mediaType === "text") {
+    return (
+      <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#17212B,#0E1621)] p-7">
+        <p className="whitespace-pre-wrap break-words text-center text-2xl font-semibold leading-snug text-white sm:text-3xl">
+          {story.caption}
+        </p>
+      </div>
+    );
+  }
+
+  if (story.mediaType === "video") {
+    return (
+      <video
+        ref={videoRef}
+        key={story.id}
+        src={story.mediaUrl}
+        autoPlay
+        muted
+        playsInline
+        controls={false}
+        onLoadedMetadata={onVideoMetadata}
+        onLoadedData={() => onLoaded(story.id)}
+        onCanPlay={() => onLoaded(story.id)}
+        onEnded={onError}
+        onError={onError}
+        className="h-full w-full bg-black object-cover"
+      />
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      key={story.id}
+      src={story.mediaUrl}
+      alt=""
+      loading="eager"
+      onLoad={() => onLoaded(story.id)}
+      onError={onError}
+      className="h-full w-full bg-black object-cover"
+    />
+  );
+});
+
+StoryMedia.displayName = "StoryMedia";
+
 export default function StoryViewer({
   group,
   groups,
@@ -135,8 +195,6 @@ export default function StoryViewer({
   onClose,
 }: Props) {
   const [storyIndex, setStoryIndex] =
-    useState(0);
-  const [progress, setProgress] =
     useState(0);
   const [isPaused, setIsPaused] =
     useState(false);
@@ -173,6 +231,8 @@ export default function StoryViewer({
     useReducedMotion();
   const progressRef =
     useRef(0);
+  const progressBarRefs =
+    useRef<(HTMLDivElement | null)[]>([]);
   const videoRef =
     useRef<HTMLVideoElement | null>(null);
   const videoEndedRef =
@@ -477,9 +537,15 @@ export default function StoryViewer({
     progressRef.current = 0;
     videoEndedRef.current = false;
 
+    // Reset all progress bars
+    progressBarRefs.current.forEach((ref, idx) => {
+      if (ref) {
+        ref.style.transform = idx < effectiveStoryIndex ? "scaleX(1)" : "scaleX(0)";
+      }
+    });
+
     const frameId =
       requestAnimationFrame(() => {
-        setProgress(0);
         setIsPaused(false);
       });
 
@@ -488,12 +554,8 @@ export default function StoryViewer({
     };
   }, [
     currentStoryId,
-    currentStoryMediaType,
+    effectiveStoryIndex,
   ]);
-
-  useEffect(() => {
-    progressRef.current = progress;
-  }, [progress]);
 
   useEffect(() => {
     if (!currentStoryId || timerPaused) {
@@ -517,7 +579,12 @@ export default function StoryViewer({
 
       progressRef.current =
         nextProgress;
-      setProgress(nextProgress);
+
+      // Direct DOM update for high performance (60-120fps)
+      const activeBar = progressBarRefs.current[effectiveStoryIndex];
+      if (activeBar) {
+        activeBar.style.transform = `scaleX(${nextProgress})`;
+      }
 
       if (nextProgress >= 1) {
         if (!videoEndedRef.current) {
@@ -542,6 +609,7 @@ export default function StoryViewer({
     duration,
     timerPaused,
     goNext,
+    effectiveStoryIndex,
   ]);
 
   useEffect(() => {
@@ -594,22 +662,20 @@ export default function StoryViewer({
         className="h-0.5 flex-1 overflow-hidden rounded-full bg-white/22"
       >
         <div
-          style={{
-            width:
-              index < effectiveStoryIndex
-                ? "100%"
-                : index === effectiveStoryIndex
-                  ? `${Math.round(progress * 100)}%`
-                  : "0%",
+          ref={(el) => {
+            progressBarRefs.current[index] = el;
           }}
-          className="h-full rounded-full bg-white"
+          style={{
+            transform: index < effectiveStoryIndex ? "scaleX(1)" : "scaleX(0)",
+            transformOrigin: "left",
+          }}
+          className="h-full w-full rounded-full bg-white transition-transform duration-0"
         />
       </div>
     ));
   }, [
     group,
     effectiveStoryIndex,
-    progress,
   ]);
 
   return (
@@ -791,78 +857,21 @@ export default function StoryViewer({
               aria-label="Next story"
             />
 
-            {currentStory.mediaType === "text" ? (
-              <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#17212B,#0E1621)] p-7">
-                <p className="whitespace-pre-wrap break-words text-center text-2xl font-semibold leading-snug text-white sm:text-3xl">
-                  {currentStory.caption}
-                </p>
-              </div>
-            ) : currentStory.mediaType === "video" ? (
-              <video
-                ref={videoRef}
-                key={currentStory.id}
-                src={currentStory.mediaUrl}
-                autoPlay
-                muted
-                playsInline
-                controls={false}
-                onLoadedMetadata={(event) => {
-                  const durationSeconds =
-                    event.currentTarget.duration;
-
-                  if (
-                    Number.isFinite(
-                      durationSeconds
-                    ) &&
-                    durationSeconds > 0
-                  ) {
-                    setVideoDuration({
-                      storyId:
-                        currentStory.id,
-                      durationMs:
-                        Math.min(
-                          Math.max(
-                            durationSeconds * 1000,
-                            2500
-                          ),
-                          30000
-                        ),
-                    });
-                  }
-                }}
-                onLoadedData={() =>
-                  setLoadedMediaStoryId(
-                    currentStory.id
-                  )
+            <StoryMedia
+              story={currentStory}
+              videoRef={videoRef}
+              onLoaded={setLoadedMediaStoryId}
+              onError={goNext}
+              onVideoMetadata={(event) => {
+                const durationSeconds = event.currentTarget.duration;
+                if (Number.isFinite(durationSeconds) && durationSeconds > 0) {
+                  setVideoDuration({
+                    storyId: currentStory.id,
+                    durationMs: Math.min(Math.max(durationSeconds * 1000, 2500), 30000),
+                  });
                 }
-                onCanPlay={() =>
-                  setLoadedMediaStoryId(
-                    currentStory.id
-                  )
-                }
-                onEnded={() => {
-                  videoEndedRef.current = true;
-                  goNext();
-                }}
-                onError={goNext}
-                className="h-full w-full bg-black object-cover"
-              />
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={currentStory.id}
-                src={currentStory.mediaUrl}
-                alt=""
-                loading="eager"
-                onLoad={() =>
-                  setLoadedMediaStoryId(
-                    currentStory.id
-                  )
-                }
-                onError={goNext}
-                className="h-full w-full bg-black object-cover"
-              />
-            )}
+              }}
+            />
 
             {mediaLoading && (
               <div className="absolute inset-0 z-[15] flex items-center justify-center bg-black/60">

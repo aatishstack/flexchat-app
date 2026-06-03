@@ -24,3 +24,10 @@ export interface StoryViewer {
   avatar?: string | null;
   viewedAt: string;
 }
+
+export type StoryGroup = {
+  userId: string;
+  user: Story["user"];
+  stories: Story[];
+  hasUnseen: boolean;
+};
