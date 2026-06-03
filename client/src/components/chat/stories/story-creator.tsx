@@ -13,6 +13,8 @@ import {
   Trash2,
   Type,
   X,
+  SendHorizonal,
+  Loader2,
 } from "lucide-react";
 import {
   AnimatePresence,
@@ -68,10 +70,10 @@ type DraftElementKind = "text" | "sticker";
 const TEXT_STORY_MEDIA_URL = "flexchat://story/text";
 const STORY_STICKERS = ["WOW", "YES", "LIVE", "MOOD", "FLEX"];
 const STORY_TOOL_BUTTON_CLASS =
-  "fc-telegram-touch flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition hover:bg-black/60 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45";
+  "fc-telegram-touch flex h-10 w-10 items-center justify-center text-white drop-shadow-[0_1px_8px_rgba(0,0,0,0.6)] transition active:scale-90 disabled:cursor-not-allowed disabled:opacity-45";
 
 const DEFAULT_STORY_TEXT_OVERLAY: StoryTextOverlay = {
-  text: "Tap to edit",
+  text: "",
   x: 50,
   y: 50,
   scale: 1,
@@ -84,6 +86,87 @@ const DEFAULT_STORY_TEXT_OVERLAY: StoryTextOverlay = {
 };
 
 // --- Components ---
+
+const BackgroundMediaLayer = memo(({
+  children,
+  canvasRect,
+}: {
+  children: React.ReactNode;
+  canvasRect: DOMRect | null;
+}) => {
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const scale = useMotionValue(1);
+  const rotate = useMotionValue(0);
+
+  const pointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const lastDist = useRef<number | null>(null);
+  const lastAngle = useRef<number | null>(null);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!pointers.current.has(e.pointerId) || !canvasRect) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    const p = Array.from(pointers.current.values());
+
+    if (p.length === 1) {
+      x.set(x.get() + e.movementX);
+      y.set(y.get() + e.movementY);
+    } else if (p.length === 2) {
+      const p1 = p[0]!;
+      const p2 = p[1]!;
+      const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+      const angle = Math.atan2(p1.y - p2.y, p1.x - p2.x) * (180 / Math.PI);
+
+      if (lastDist.current !== null) {
+        const delta = dist / lastDist.current;
+        scale.set(Math.max(0.2, Math.min(6, scale.get() * delta)));
+      }
+      if (lastAngle.current !== null) {
+        const delta = angle - lastAngle.current;
+        rotate.set(rotate.get() + delta);
+      }
+      lastDist.current = dist;
+      lastAngle.current = angle;
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) {
+      lastDist.current = null;
+      lastAngle.current = null;
+    }
+  };
+
+  return (
+    <motion.div
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      style={{
+        x,
+        y,
+        scale,
+        rotate,
+        width: "100%",
+        height: "100%",
+        transformOrigin: "center",
+        touchAction: "none",
+      }}
+      className="absolute inset-0 cursor-grab active:cursor-grabbing"
+    >
+      {children}
+    </motion.div>
+  );
+});
+BackgroundMediaLayer.displayName = "BackgroundMediaLayer";
 
 type EditorLayerProps = {
   initialX: number;
@@ -344,6 +427,23 @@ export const StoryCreator = memo(({ isOpen, onClose, currentUser }: StoryCreator
     if (isOpen && !storyDraft) setStoryComposerOpen(true);
   }, [isOpen, storyDraft]);
 
+  const openImageTextTool = () => {
+    if (!storyDraft?.textOverlay) {
+      updateStoryTextOverlay((o) => ({ ...o, text: "" }));
+    }
+    setTextOverlayEditorOpen(true);
+  };
+
+  const closeTextEditor = () => {
+    setTextOverlayEditorOpen(false);
+    setStoryDraft(draft => {
+      if (draft?.textOverlay && !draft.textOverlay.text.trim()) {
+        return { ...draft, textOverlay: undefined };
+      }
+      return draft;
+    });
+  };
+
   // Clean up preview URLs on unmount or draft change
   useEffect(() => {
     return () => { if (storyDraft?.previewUrl) URL.revokeObjectURL(storyDraft.previewUrl); };
@@ -357,20 +457,27 @@ export const StoryCreator = memo(({ isOpen, onClose, currentUser }: StoryCreator
 
       <AnimatePresence>
         {storyComposerOpen ? (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[250] flex items-end bg-black/60 px-3 py-6 backdrop-blur-md sm:items-center sm:justify-center" onClick={onClose}>
-            <motion.div initial={{ y: 24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0E1621]/95 p-3 text-white" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between p-2">
-                <h3 className="text-sm font-semibold">Create story</h3>
-                <button type="button" onClick={onClose} className="p-2 text-zinc-400 hover:text-white"><X size={18} /></button>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[250] flex items-end bg-black/40 backdrop-blur-[2px]" onClick={onClose}>
+            <motion.div 
+              initial={{ y: "100%" }} 
+              animate={{ y: 0 }} 
+              exit={{ y: "100%" }} 
+              transition={{ type: "spring", damping: 32, stiffness: 320 }}
+              className="w-full rounded-t-3xl bg-[#1C242F] px-3 pb-[max(env(safe-area-inset-bottom),1.5rem)] pt-3 text-white shadow-2xl" 
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mx-auto mb-4 h-1 w-9 rounded-full bg-white/20" />
+              <div className="mb-2 px-3">
+                <h3 className="text-[17px] font-semibold tracking-wide">Story</h3>
               </div>
-              <div className="grid gap-2 p-1">
-                <button type="button" onClick={chooseMediaStory} className="flex items-center gap-3 rounded-2xl p-3 hover:bg-white/[0.07]">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2AABEE]/15 text-[#75CFF6]"><ImageIcon size={19} /></span>
-                  <span className="text-sm font-medium">Photo or video</span>
+              <div className="grid gap-1">
+                <button type="button" onClick={chooseMediaStory} className="fc-telegram-touch flex items-center gap-4 rounded-2xl p-3 transition hover:bg-white/[0.06] active:bg-white/[0.08]">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#2AABEE] text-white shadow-md shadow-[#2AABEE]/20"><ImageIcon size={18} strokeWidth={2.5} /></span>
+                  <span className="text-[16px] font-medium tracking-wide">Gallery</span>
                 </button>
-                <button type="button" onClick={openTextStoryDraft} className="flex items-center gap-3 rounded-2xl p-3 hover:bg-white/[0.07]">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#E1306C]/15 text-[#FF8FB5]"><Type size={19} /></span>
-                  <span className="text-sm font-medium">Text story</span>
+                <button type="button" onClick={openTextStoryDraft} className="fc-telegram-touch flex items-center gap-4 rounded-2xl p-3 transition hover:bg-white/[0.06] active:bg-white/[0.08]">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#E1306C] text-white shadow-md shadow-[#E1306C]/20"><Type size={18} strokeWidth={2.5} /></span>
+                  <span className="text-[16px] font-medium tracking-wide">Text</span>
                 </button>
               </div>
             </motion.div>
@@ -385,13 +492,17 @@ export const StoryCreator = memo(({ isOpen, onClose, currentUser }: StoryCreator
             className="relative touch-none overflow-hidden bg-black"
             style={{ aspectRatio: "9 / 16", width: "min(100vw, calc(100dvh * 9 / 16))", height: "min(100dvh, calc(100vw * 16 / 9))" }}
           >
-            {storyDraft.mediaType === "image" && storyDraft.previewUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={storyDraft.previewUrl} alt="" className="h-full w-full object-cover" />
-            ) : storyDraft.mediaType === "video" ? (
-              <video src={storyDraft.previewUrl} autoPlay muted loop playsInline className="h-full w-full object-cover" />
-            ) : (
+            {storyDraft.mediaType === "text" ? (
               <div className="h-full w-full" style={{ background: `linear-gradient(135deg, ${storyDraft.backgroundColor ?? storyBackgroundColors[0]}, #020617)` }} />
+            ) : (
+              <BackgroundMediaLayer canvasRect={storyCanvasRef.current?.getBoundingClientRect() ?? null}>
+                {storyDraft.mediaType === "image" && storyDraft.previewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={storyDraft.previewUrl} alt="" className="h-full w-full object-cover" draggable={false} />
+                ) : storyDraft.mediaType === "video" ? (
+                  <video src={storyDraft.previewUrl} autoPlay muted loop playsInline className="h-full w-full object-cover" />
+                ) : null}
+              </BackgroundMediaLayer>
             )}
 
             {storyDraft.textOverlay && !textOverlayEditorOpen ? (
@@ -447,18 +558,32 @@ export const StoryCreator = memo(({ isOpen, onClose, currentUser }: StoryCreator
             ) : null}
           </div>
 
-          <div className="absolute inset-x-0 top-0 z-[35] flex items-center justify-between bg-gradient-to-b from-black/60 to-transparent p-4 pt-[calc(1rem+env(safe-area-inset-top))]">
-            <button type="button" onClick={() => setStoryDraft(null)} className={STORY_TOOL_BUTTON_CLASS}><X size={22} /></button>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => updateStoryTextOverlay(o => o)} className={STORY_TOOL_BUTTON_CLASS}><Type size={21} /></button>
-              <button type="button" onClick={() => setStoryDraft(d => d ? { ...d, sticker: { label: STORY_STICKERS[0]!, x: 50, y: 50, scale: 1, rotate: 0 } } : d)} className={STORY_TOOL_BUTTON_CLASS}><Smile size={21} /></button>
+          <div className="absolute inset-x-0 top-0 z-[35] flex items-center justify-between bg-gradient-to-b from-black/40 to-transparent p-3 pt-[max(env(safe-area-inset-top),0.75rem)]">
+            <button type="button" onClick={() => setStoryDraft(null)} className={STORY_TOOL_BUTTON_CLASS}><X size={24} /></button>
+            <div className="flex gap-1">
+              <button type="button" onClick={openImageTextTool} className={STORY_TOOL_BUTTON_CLASS}><Type size={22} /></button>
+              <button type="button" onClick={() => setStoryDraft(d => d ? { ...d, sticker: { label: STORY_STICKERS[0]!, x: 50, y: 50, scale: 1, rotate: 0 } } : d)} className={STORY_TOOL_BUTTON_CLASS}><Smile size={22} /></button>
             </div>
           </div>
 
-          <div className="absolute inset-x-0 bottom-0 z-[35] p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-black/60 to-transparent">
-             <button type="button" onClick={confirmStoryDraftUpload} disabled={createStoryMutation.isPending} className="h-11 w-full rounded-full bg-[#2AABEE] text-[15px] font-medium tracking-wide text-white shadow-lg shadow-[#2AABEE]/20 active:scale-[0.98] transition-transform disabled:opacity-50">
-               {createStoryMutation.isPending ? "Sharing..." : "Share to Story"}
-             </button>
+          <div className="absolute inset-x-0 bottom-0 z-[35] flex items-end gap-2 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-[max(env(safe-area-inset-bottom),1rem)] pt-12">
+            <div className="flex min-h-[44px] flex-1 items-center rounded-full bg-black/30 px-4 backdrop-blur-xl shadow-lg shadow-black/20">
+               <input 
+                 type="text" 
+                 value={storyDraft.caption}
+                 onChange={(e) => setStoryDraft(d => d ? { ...d, caption: e.target.value.slice(0, 100) } : d)}
+                 placeholder="Add a caption..." 
+                 className="w-full bg-transparent text-[15px] tracking-wide text-white outline-none placeholder:text-white/60"
+               />
+            </div>
+            <button 
+               type="button" 
+               onClick={confirmStoryDraftUpload} 
+               disabled={createStoryMutation.isPending} 
+               className="fc-telegram-touch flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#2AABEE] text-white shadow-lg shadow-[#2AABEE]/20 transition active:scale-95 disabled:opacity-50"
+            >
+              {createStoryMutation.isPending ? <Loader2 size={20} className="motion-safe:animate-spin" /> : <SendHorizonal size={20} className="ml-0.5" />}
+            </button>
           </div>
 
           <AnimatePresence>
@@ -472,7 +597,7 @@ export const StoryCreator = memo(({ isOpen, onClose, currentUser }: StoryCreator
           {textOverlayEditorOpen && storyDraft.textOverlay && (
             <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-black/80 p-6 backdrop-blur-md">
               <textarea autoFocus value={storyDraft.textOverlay.text} onChange={(e) => updateStoryTextOverlay(o => ({ ...o, text: e.target.value }))} className="w-full resize-none border-0 bg-transparent text-center text-3xl font-bold text-white outline-none" />
-              <button type="button" onClick={() => setTextOverlayEditorOpen(false)} className="mt-8 rounded-full bg-[#2AABEE] px-6 py-2 font-bold">Done</button>
+              <button type="button" onClick={closeTextEditor} className="mt-8 rounded-full bg-[#2AABEE] px-6 py-2 font-bold">Done</button>
             </div>
           )}
         </div>
