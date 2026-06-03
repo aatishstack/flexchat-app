@@ -745,7 +745,7 @@ export default function StoryViewer({
             onPointerLeave={() => setIsPaused(false)}
             className="relative touch-none overflow-hidden bg-[#0E1621] shadow-[0_32px_64px_rgba(0,0,0,0.5)] will-change-transform"
           >
-            <div className="absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/70 via-black/20 to-transparent px-4 pb-8 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+            <div className="absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/50 to-transparent px-4 pb-10 pt-[calc(0.75rem+env(safe-area-inset-top))]">
               <div className="flex gap-1">
                 {progressBars}
               </div>
@@ -755,18 +755,18 @@ export default function StoryViewer({
                   <FlexAvatar
                     src={group.user.avatar}
                     name={group.user.username}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-sm font-bold"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#17212B] text-sm font-bold shadow-sm"
                   />
 
                   <div className="min-w-0">
-                    <h3 className="truncate text-sm font-semibold">
+                    <h3 className="truncate text-[15px] font-semibold tracking-wide shadow-black/20 drop-shadow-md">
                       {isOwnStory
                         ? "Your story"
                         : formatDisplayName(
                             group.user.username
                           )}
                     </h3>
-                    <p className="text-xs text-white/60">
+                    <p className="text-[13px] font-medium tracking-wide text-white/80 shadow-black/20 drop-shadow-md">
                       {formatStoryTime(
                         currentStory.createdAt,
                         now
@@ -782,7 +782,7 @@ export default function StoryViewer({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   {isOwnStory ? (
                     <>
                       <button
@@ -790,7 +790,7 @@ export default function StoryViewer({
                         onClick={() =>
                           setViewerListOpen(true)
                         }
-                        className="fc-telegram-touch flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white transition hover:bg-white/20"
+                        className="fc-telegram-touch flex h-9 w-9 items-center justify-center rounded-full bg-black/20 backdrop-blur-md text-white transition hover:bg-black/40"
                         aria-label="Show story viewers"
                       >
                         <Eye size={17} />
@@ -804,7 +804,7 @@ export default function StoryViewer({
                         disabled={
                           deleteStoryMutation.isPending
                         }
-                        className="fc-telegram-touch flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white transition hover:bg-red-500/30 disabled:cursor-wait disabled:opacity-60"
+                        className="fc-telegram-touch flex h-9 w-9 items-center justify-center rounded-full bg-black/20 backdrop-blur-md text-white transition hover:bg-red-500/40 disabled:cursor-wait disabled:opacity-60"
                         aria-label="Delete story"
                       >
                         <Trash2 size={17} />
@@ -818,7 +818,7 @@ export default function StoryViewer({
                           onMuteUser(currentStory.userId);
                         }
                       }}
-                      className="fc-telegram-touch flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white transition hover:bg-white/20"
+                      className="fc-telegram-touch flex h-9 w-9 items-center justify-center rounded-full bg-black/20 backdrop-blur-md text-white transition hover:bg-black/40"
                       aria-label="Mute story"
                     >
                       <BellOff size={17} />
@@ -828,10 +828,10 @@ export default function StoryViewer({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="fc-telegram-touch flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white transition hover:bg-white/20"
+                    className="fc-telegram-touch flex h-9 w-9 items-center justify-center rounded-full bg-black/20 backdrop-blur-md text-white transition hover:bg-black/40"
                     aria-label="Close stories"
                   >
-                    <X size={18} />
+                    <X size={19} />
                   </button>
                 </div>
               </div>

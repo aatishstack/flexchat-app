@@ -68,7 +68,7 @@ type DraftElementKind = "text" | "sticker";
 const TEXT_STORY_MEDIA_URL = "flexchat://story/text";
 const STORY_STICKERS = ["WOW", "YES", "LIVE", "MOOD", "FLEX"];
 const STORY_TOOL_BUTTON_CLASS =
-  "fc-telegram-touch flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/25 text-white backdrop-blur-xl transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-45";
+  "fc-telegram-touch flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition hover:bg-black/60 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45";
 
 const DEFAULT_STORY_TEXT_OVERLAY: StoryTextOverlay = {
   text: "Tap to edit",
@@ -455,8 +455,8 @@ export const StoryCreator = memo(({ isOpen, onClose, currentUser }: StoryCreator
             </div>
           </div>
 
-          <div className="absolute inset-x-0 bottom-0 z-[35] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-             <button type="button" onClick={confirmStoryDraftUpload} disabled={createStoryMutation.isPending} className="h-12 w-full rounded-2xl bg-[#2AABEE] font-semibold text-white active:scale-95 disabled:opacity-50">
+          <div className="absolute inset-x-0 bottom-0 z-[35] p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-black/60 to-transparent">
+             <button type="button" onClick={confirmStoryDraftUpload} disabled={createStoryMutation.isPending} className="h-11 w-full rounded-full bg-[#2AABEE] text-[15px] font-medium tracking-wide text-white shadow-lg shadow-[#2AABEE]/20 active:scale-[0.98] transition-transform disabled:opacity-50">
                {createStoryMutation.isPending ? "Sharing..." : "Share to Story"}
              </button>
           </div>

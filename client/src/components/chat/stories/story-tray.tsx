@@ -43,7 +43,7 @@ const StoryAvatar = memo(({
   const hasUnseen = group?.hasUnseen ?? false;
   
   return (
-    <div className="relative flex w-[66px] shrink-0 flex-col items-center gap-2 text-center text-[11px] text-[#6C7883]">
+    <div className="relative flex w-[66px] shrink-0 flex-col items-center gap-2 text-center text-[11px] font-medium tracking-wide text-zinc-400">
       <button
         type="button"
         onClick={(e) => onClick(e.currentTarget.getBoundingClientRect())}
@@ -51,22 +51,22 @@ const StoryAvatar = memo(({
         className="fc-telegram-touch relative flex h-[60px] w-[60px] items-center justify-center rounded-full p-[2px] transition-transform active:scale-[0.94] disabled:cursor-default disabled:opacity-70"
       >
         {/* Ring rendering: optimized with simple CSS gradients/colors */}
-        <span 
+        <span
           className={cn(
             "absolute inset-0 rounded-full transition-colors duration-300",
-            hasUnseen ? "fc-story-ring-unseen" : (group ? "bg-white/15" : "bg-[#6C7883]/40")
-          )} 
+            hasUnseen ? "fc-story-ring-unseen" : (group ? "bg-white/10" : "bg-white/5")
+          )}
         />
-        
-        <FlexAvatar 
-          src={isCurrentUser ? undefined : group?.user.avatar} 
-          name={isCurrentUser ? undefined : group?.user.username} 
-          className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0E1621] text-base font-bold text-white ring-2 ring-[#0D1823]" 
+
+        <FlexAvatar
+          src={isCurrentUser ? undefined : group?.user.avatar}
+          name={isCurrentUser ? undefined : group?.user.username}
+          className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0E1621] text-base font-bold text-white shadow-inner ring-2 ring-[#0E1621]"
         />
 
         {isLoading && (
-          <span className="absolute inset-2 flex items-center justify-center rounded-full bg-black/45">
-            <Loader2 size={17} className="motion-safe:animate-spin" />
+          <span className="absolute inset-2 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm">
+            <Loader2 size={17} className="text-white/70 motion-safe:animate-spin" />
           </span>
         )}
       </button>
@@ -76,7 +76,7 @@ const StoryAvatar = memo(({
       </span>
     </div>
   );
-});
+  });
 
 StoryAvatar.displayName = "StoryAvatar";
 
@@ -320,10 +320,10 @@ function StoryTray() {
           <button
             type="button"
             onClick={() => setIsCreatorOpen(true)}
-            className="fc-telegram-touch absolute right-0.5 top-10 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#0D1823] bg-[#2AABEE] text-white shadow-md transition hover:bg-[#3BB7F3] active:scale-90"
+            className="fc-telegram-touch absolute right-0.5 top-10 flex h-[22px] w-[22px] items-center justify-center rounded-full border-[2px] border-[#0E1621] bg-[#2AABEE] text-white shadow-sm transition hover:bg-[#3BB7F3] active:scale-90"
             aria-label="Create story"
           >
-            <Plus size={14} />
+            <Plus size={12} strokeWidth={3} />
           </button>
         </div>
 
@@ -344,7 +344,7 @@ function StoryTray() {
       </div>
 
       {mutedStoryGroups.length ? (
-        <div className="mt-2 rounded-2xl border border-white/10 bg-white/[0.035] p-2">
+        <div className="mt-2 rounded-2xl bg-white/[0.035] p-2">
           <button
             type="button"
             onClick={() => setMutedStoriesOpen((open) => !open)}
