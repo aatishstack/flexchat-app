@@ -276,7 +276,7 @@ const EditorLayer = memo(({
       drag
       dragMomentum={false}
       onDragStart={onDragStart}
-      onDrag={(e) => onDragMove(e.clientX, e.clientY)}
+      onDrag={(_, info) => onDragMove(info.point.x, info.point.y)}
       onDragEnd={() => {
         if (canvasRect) {
           const finalX = ((x.get() + canvasRect.width / 2) / canvasRect.width) * 100;

@@ -22,6 +22,7 @@ import { formatDisplayName } from "@/lib/user-display";
 import { useToastStore } from "@/store/toast-store";
 import { useAuthStore } from "@/stores/auth.store";
 import { getServerNow } from "@/lib/server-time";
+import { cn } from "@/lib/utils";
 import type { Story, StoryGroup } from "@/types/story";
 
 import StoryViewer from "./story-viewer";
@@ -80,7 +81,7 @@ const StoryAvatar = memo(({
 
 StoryAvatar.displayName = "StoryAvatar";
 
-function StoryTray() {
+function readMutedStoryUserIds() {
   if (typeof window === "undefined") {
     return new Set<string>();
   }
