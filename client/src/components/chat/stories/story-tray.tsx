@@ -104,6 +104,7 @@ function groupStories(stories: Story[], currentUserId: string | undefined, now: 
 
 function StoryTray() {
   const [viewerGroupIndex, setViewerGroupIndex] = useState<number | null>(null);
+  const [viewerSourceRect, setViewerSourceRect] = useState<DOMRect | null>(null);
   const [viewerGroupSource, setViewerGroupSource] =
     useState<"visible" | "muted">("visible");
   const [isCreatorOpen, setIsCreatorOpen] = useState(false);
@@ -254,8 +255,9 @@ function StoryTray() {
         <div className="relative flex w-[66px] shrink-0 flex-col items-center gap-2 text-center text-[11px] text-[#6C7883]">
           <button
             type="button"
-            onClick={() => {
+            onClick={(e) => {
               if (myStoryLoading || currentUserStoryGroupIndex < 0) return;
+              setViewerSourceRect(e.currentTarget.getBoundingClientRect());
               setViewerGroupSource("visible");
               setViewerGroupIndex(currentUserStoryGroupIndex);
             }}
@@ -291,7 +293,8 @@ function StoryTray() {
               initial={reducedMotion ? false : { opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               whileTap={reducedMotion ? undefined : { scale: 0.96 }}
-              onClick={() => {
+              onClick={(e) => {
+                setViewerSourceRect(e.currentTarget.getBoundingClientRect());
                 setViewerGroupSource("visible");
                 setViewerGroupIndex(originalIndex);
               }}
@@ -331,7 +334,11 @@ function StoryTray() {
                     <div key={group.userId} className="flex w-[78px] shrink-0 flex-col items-center gap-2 rounded-2xl px-2 py-2 text-center transition hover:bg-white/[0.04]">
                       <button
                         type="button"
-                        onClick={() => { setViewerGroupSource("muted"); setViewerGroupIndex(index); }}
+                        onClick={(e) => {
+                          setViewerSourceRect(e.currentTarget.getBoundingClientRect());
+                          setViewerGroupSource("muted");
+                          setViewerGroupIndex(index);
+                        }}
                         className="relative flex h-[54px] w-[54px] items-center justify-center rounded-full bg-white/10 p-[2px]"
                       >
                         <FlexAvatar src={group.user.avatar} name={group.user.username} className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0E1621] text-sm font-bold text-white ring-2 ring-[#0D1823]" />
@@ -354,9 +361,13 @@ function StoryTray() {
         group={viewerGroup}
         groups={viewerGroups}
         groupIndex={viewerGroupIndex}
+        sourceRect={viewerSourceRect}
         onGroupIndexChange={setViewerGroupIndex}
         onMuteUser={muteStoryUser}
-        onClose={() => setViewerGroupIndex(null)}
+        onClose={() => {
+          setViewerGroupIndex(null);
+          setViewerSourceRect(null);
+        }}
       />
     </section>
   );

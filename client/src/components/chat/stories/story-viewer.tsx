@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 
 import {
   AlertTriangle,
@@ -23,7 +24,9 @@ import {
 import {
   AnimatePresence,
   motion,
+  useMotionValue,
   useReducedMotion,
+  useTransform,
 } from "framer-motion";
 import {
   useMutation,
@@ -67,6 +70,7 @@ type Props = {
   ) => void;
   onMuteUser: (userId: string) => void;
   onClose: () => void;
+  sourceRect?: DOMRect | null;
 };
 
 const STORY_DURATION_MS = 5000;
@@ -88,25 +92,6 @@ function formatStoryTime(value?: string, now = Date.now()) {
   }
 
   return `${Math.round(diffMinutes / 60)}h`;
-}
-
-function formatStoryViewTimestamp(value?: string) {
-  if (!value) {
-    return "";
-  }
-
-  const viewedAt = new Date(value);
-
-  if (Number.isNaN(viewedAt.getTime())) {
-    return "";
-  }
-
-  return viewedAt.toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 function getStoryReplyPreview(story: Story) {
@@ -193,6 +178,7 @@ export default function StoryViewer({
   onGroupIndexChange,
   onMuteUser,
   onClose,
+  sourceRect,
 }: Props) {
   const [storyIndex, setStoryIndex] =
     useState(0);
@@ -255,6 +241,10 @@ export default function StoryViewer({
       (state) => state.user?.id
     );
 
+  const dragY = useMotionValue(0);
+  const dragScale = useTransform(dragY, [0, 400], [1, 0.82]);
+  const bgOpacity = useTransform(dragY, [0, 400], [1, 0]);
+
   const effectiveStoryIndex = group
     ? Math.min(
         storyIndex,
@@ -292,6 +282,31 @@ export default function StoryViewer({
     : (currentStory?.durationSeconds ?? 0) > 0
       ? (currentStory?.durationSeconds ?? 0) * 1000
       : STORY_DURATION_MS;
+
+  const initialTransition = useMemo(() => {
+    if (!sourceRect || typeof window === "undefined" || reducedMotion) {
+      return { opacity: 0, scale: 0.96, y: 12 };
+    }
+
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const viewerWidth = Math.min(viewportWidth, (viewportHeight * 9) / 16);
+    
+    const scale = sourceRect.width / viewerWidth;
+    const centerX = sourceRect.left + sourceRect.width / 2;
+    const centerY = sourceRect.top + sourceRect.height / 2;
+    
+    const x = centerX - viewportWidth / 2;
+    const y = centerY - viewportHeight / 2;
+
+    return {
+      x,
+      y,
+      scale,
+      opacity: 0.2,
+      borderRadius: "50%",
+    };
+  }, [sourceRect, reducedMotion]);
 
   const {
     mutate: markStoryAsViewed,
@@ -678,79 +693,57 @@ export default function StoryViewer({
     effectiveStoryIndex,
   ]);
 
-  return (
-    <AnimatePresence>
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <AnimatePresence mode="wait">
       {group && currentStory ? (
         <motion.div
-          initial={{
-            opacity: 0,
-          }}
-          animate={{
-            opacity: 1,
-          }}
-          exit={{
-            opacity: 0,
-          }}
+          key="viewer-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{ opacity: bgOpacity }}
           className="fixed inset-0 z-[260] flex items-center justify-center overscroll-none bg-black text-white"
         >
           <motion.div
-            initial={
-              reducedMotion
-                ? false
-                : {
-                    scale: 0.985,
-                    y: 10,
-                  }
-            }
+            initial={initialTransition}
             animate={{
               scale: 1,
+              x: 0,
               y: 0,
+              opacity: 1,
+              borderRadius: 0,
             }}
-            exit={
-              reducedMotion
-                ? undefined
-                : {
-                    scale: 0.985,
-                    y: 10,
-                  }
-            }
+            exit={initialTransition}
             transition={{
               type: "spring",
-              stiffness: 340,
-              damping: 34,
+              stiffness: 380,
+              damping: 38,
+              mass: 0.8,
             }}
-            drag="x"
-            dragConstraints={{
-              left: 0,
-              right: 0,
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 600 }}
+            dragElastic={0.15}
+            style={{
+              y: dragY,
+              scale: dragScale,
+              aspectRatio: "9 / 16",
+              width: "min(100vw, calc(100dvh * 9 / 16), calc(100svh * 9 / 16))",
+              height: "min(100dvh, 100svh, calc(100vw * 16 / 9))",
             }}
-            dragElastic={0.12}
             onDragEnd={(_, info) => {
-              if (
-                info.offset.x < -58 ||
-                info.velocity.x < -480
-              ) {
-                goNext();
-                return;
-              }
-
-              if (
-                info.offset.x > 58 ||
-                info.velocity.x > 480
-              ) {
-                goPrevious();
+              if (info.offset.y > 140 || info.velocity.y > 600) {
+                onClose();
+              } else {
+                dragY.set(0);
               }
             }}
             onPointerDown={() => setIsPaused(true)}
             onPointerUp={() => setIsPaused(false)}
             onPointerCancel={() => setIsPaused(false)}
             onPointerLeave={() => setIsPaused(false)}
-            style={{
-              aspectRatio: "9 / 16",
-              width: "min(100vw, calc(100dvh * 9 / 16), calc(100svh * 9 / 16))",
-              height: "min(100dvh, 100svh, calc(100vw * 16 / 9))",
-            }}
-            className="relative touch-pan-y overflow-hidden bg-[#0E1621] will-change-transform"
+            className="relative touch-none overflow-hidden bg-[#0E1621] shadow-[0_32px_64px_rgba(0,0,0,0.5)] will-change-transform"
           >
             <div className="absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/70 via-black/20 to-transparent px-4 pb-8 pt-[calc(0.75rem+env(safe-area-inset-top))]">
               <div className="flex gap-1">
@@ -884,7 +877,7 @@ export default function StoryViewer({
 
             {currentStory.caption && currentStory.mediaType !== "text" ? (
               <div className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/80 via-black/30 to-transparent px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-16">
-                <p className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm leading-relaxed backdrop-blur-xl">
+                <p className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm leading-relaxed backdrop-blur-xl text-center">
                   {currentStory.caption}
                 </p>
               </div>
@@ -937,44 +930,29 @@ export default function StoryViewer({
               </form>
             ) : null}
 
-            <div className="pointer-events-none absolute inset-y-0 left-3 z-20 hidden items-center sm:flex">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/30 backdrop-blur-xl">
-                <ChevronLeft size={19} />
-              </div>
+            <div className="pointer-events-none absolute inset-y-0 left-3 z-20 hidden items-center sm:flex text-white/40">
+              <ChevronLeft size={19} />
             </div>
-            <div className="pointer-events-none absolute inset-y-0 right-3 z-20 hidden items-center sm:flex">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/30 backdrop-blur-xl">
-                <ChevronRight size={19} />
-              </div>
+            <div className="pointer-events-none absolute inset-y-0 right-3 z-20 hidden items-center sm:flex text-white/40">
+              <ChevronRight size={19} />
             </div>
 
             <AnimatePresence>
               {viewerListOpen && isOwnStory ? (
                 <motion.div
-                  initial={{
-                    opacity: 0,
-                  }}
-                  animate={{
-                    opacity: 1,
-                  }}
-                  exit={{
-                    opacity: 0,
-                  }}
+                  key="viewer-list"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
                   className="absolute inset-0 z-40 flex items-end bg-black/45 backdrop-blur-md"
                   onClick={() =>
                     setViewerListOpen(false)
                   }
                 >
                   <motion.div
-                    initial={{
-                      y: "100%",
-                    }}
-                    animate={{
-                      y: 0,
-                    }}
-                    exit={{
-                      y: "100%",
-                    }}
+                    initial={{ y: "100%" }}
+                    animate={{ y: 0 }}
+                    exit={{ y: "100%" }}
                     transition={{
                       type: "spring",
                       stiffness: 340,
@@ -987,7 +965,7 @@ export default function StoryViewer({
                   >
                     <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
                       <div>
-                        <h3 className="text-sm font-semibold">
+                        <h3 className="text-sm font-semibold text-white">
                           Viewed by
                         </h3>
                         <p className="text-xs text-zinc-500">
@@ -1000,7 +978,7 @@ export default function StoryViewer({
                         onClick={() =>
                           setViewerListOpen(false)
                         }
-                        className="fc-telegram-touch flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/10"
+                        className="fc-telegram-touch flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white"
                         aria-label="Close viewers"
                       >
                         <X size={16} />
@@ -1009,7 +987,7 @@ export default function StoryViewer({
 
                     <div className="chat-safe-scroll max-h-[calc(60dvh-5rem)] overflow-y-auto p-4">
                       {storyViewersQuery.isLoading ? (
-                        <div className="flex h-24 items-center justify-center text-[#75CFF6]">
+                        <div className="flex h-24 items-center justify-center text-[#2AABEE]">
                           <Loader2
                             size={18}
                             className="motion-safe:animate-spin"
@@ -1037,16 +1015,11 @@ export default function StoryViewer({
                             />
 
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-medium">
+                              <p className="truncate text-sm font-medium text-white">
                                 {formatDisplayName(viewer.username)}
                               </p>
                               <p className="text-xs text-zinc-500">
                                 {formatStoryTime(viewer.viewedAt, now)} ago
-                                {formatStoryViewTimestamp(viewer.viewedAt)
-                                  ? ` - ${formatStoryViewTimestamp(
-                                      viewer.viewedAt,
-                                    )}`
-                                  : ""}
                               </p>
                             </div>
                           </div>
@@ -1061,15 +1034,10 @@ export default function StoryViewer({
             <AnimatePresence>
               {deleteConfirmOpen && currentStory ? (
                 <motion.div
-                  initial={{
-                    opacity: 0,
-                  }}
-                  animate={{
-                    opacity: 1,
-                  }}
-                  exit={{
-                    opacity: 0,
-                  }}
+                  key="delete-confirm"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
                   className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-5 backdrop-blur-xl"
                 >
                   <motion.div
@@ -1101,7 +1069,7 @@ export default function StoryViewer({
                       </div>
 
                       <div>
-                        <h3 className="text-lg font-semibold">
+                        <h3 className="text-lg font-semibold text-white">
                           Delete story?
                         </h3>
                         <p className="mt-1 text-sm leading-relaxed text-zinc-400">
@@ -1153,6 +1121,7 @@ export default function StoryViewer({
           </motion.div>
         </motion.div>
       ) : null}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
