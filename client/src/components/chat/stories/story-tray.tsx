@@ -29,7 +29,58 @@ import { StoryCreator } from "./story-creator";
 
 const MUTED_STORY_USERS_KEY = "flexchat:muted-story-users";
 
-function readMutedStoryUserIds() {
+const StoryAvatar = memo(({ 
+  group, 
+  onClick, 
+  isCurrentUser = false,
+  isLoading = false 
+}: { 
+  group: StoryGroup | null;
+  onClick: (rect: DOMRect) => void;
+  isCurrentUser?: boolean;
+  isLoading?: boolean;
+}) => {
+  const hasUnseen = group?.hasUnseen ?? false;
+  
+  return (
+    <div className="relative flex w-[66px] shrink-0 flex-col items-center gap-2 text-center text-[11px] text-[#6C7883]">
+      <button
+        type="button"
+        onClick={(e) => onClick(e.currentTarget.getBoundingClientRect())}
+        disabled={isLoading || (!isCurrentUser && !group)}
+        className="fc-telegram-touch relative flex h-[60px] w-[60px] items-center justify-center rounded-full p-[2px] transition-transform active:scale-[0.94] disabled:cursor-default disabled:opacity-70"
+      >
+        {/* Ring rendering: optimized with simple CSS gradients/colors */}
+        <span 
+          className={cn(
+            "absolute inset-0 rounded-full transition-colors duration-300",
+            hasUnseen ? "fc-story-ring-unseen" : (group ? "bg-white/15" : "bg-[#6C7883]/40")
+          )} 
+        />
+        
+        <FlexAvatar 
+          src={isCurrentUser ? undefined : group?.user.avatar} 
+          name={isCurrentUser ? undefined : group?.user.username} 
+          className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0E1621] text-base font-bold text-white ring-2 ring-[#0D1823]" 
+        />
+
+        {isLoading && (
+          <span className="absolute inset-2 flex items-center justify-center rounded-full bg-black/45">
+            <Loader2 size={17} className="motion-safe:animate-spin" />
+          </span>
+        )}
+      </button>
+
+      <span className="w-full truncate">
+        {isCurrentUser ? "My Story" : group ? formatDisplayName(group.user.username) : ""}
+      </span>
+    </div>
+  );
+});
+
+StoryAvatar.displayName = "StoryAvatar";
+
+function StoryTray() {
   if (typeof window === "undefined") {
     return new Set<string>();
   }
@@ -251,60 +302,43 @@ function StoryTray() {
         ) : null}
       </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="relative flex w-[66px] shrink-0 flex-col items-center gap-2 text-center text-[11px] text-[#6C7883]">
-          <button
-            type="button"
-            onClick={(e) => {
+      {/* Story Rail: Isolated scroll container with GPU-friendly CSS */}
+      <div className="flex gap-3 overflow-x-auto pb-2 overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="relative flex shrink-0">
+          <StoryAvatar 
+            isCurrentUser 
+            group={currentUserStoryGroup} 
+            isLoading={myStoryLoading}
+            onClick={(rect) => {
               if (myStoryLoading || currentUserStoryGroupIndex < 0) return;
-              setViewerSourceRect(e.currentTarget.getBoundingClientRect());
+              setViewerSourceRect(rect);
               setViewerGroupSource("visible");
               setViewerGroupIndex(currentUserStoryGroupIndex);
-            }}
-            disabled={myStoryLoading || currentUserStoryGroupIndex < 0}
-            className="fc-telegram-touch relative flex h-[60px] w-[60px] items-center justify-center rounded-full p-[2px] disabled:cursor-default disabled:opacity-70"
-          >
-            <span className={`absolute inset-0 rounded-full ${currentUserStoryGroup ? "fc-story-ring-unseen" : "bg-[#6C7883]"}`} />
-            <FlexAvatar src={currentUser?.avatar} name={currentUser?.username} className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0E1621] text-base font-bold text-white ring-2 ring-[#0D1823]" />
-            {myStoryLoading ? (
-              <span className="absolute inset-2 flex items-center justify-center rounded-full bg-black/45">
-                <Loader2 size={17} className="motion-safe:animate-spin" />
-              </span>
-            ) : null}
-          </button>
-
+            }} 
+          />
+          
           <button
             type="button"
             onClick={() => setIsCreatorOpen(true)}
-            className="fc-telegram-touch absolute right-1 top-10 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#0D1823] bg-[#2AABEE] text-white shadow-md transition hover:bg-[#3BB7F3]"
+            className="fc-telegram-touch absolute right-0.5 top-10 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#0D1823] bg-[#2AABEE] text-white shadow-md transition hover:bg-[#3BB7F3] active:scale-90"
             aria-label="Create story"
           >
             <Plus size={14} />
           </button>
-          <span className="w-full truncate">My Story</span>
         </div>
 
         {visibleStoryGroups.map((group) => {
           const originalIndex = storyGroups.findIndex((sg) => sg.userId === group.userId);
           return (
-            <motion.button
-              key={group.userId}
-              type="button"
-              initial={reducedMotion ? false : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              whileTap={reducedMotion ? undefined : { scale: 0.96 }}
-              onClick={(e) => {
-                setViewerSourceRect(e.currentTarget.getBoundingClientRect());
+            <StoryAvatar 
+              key={group.userId} 
+              group={group} 
+              onClick={(rect) => {
+                setViewerSourceRect(rect);
                 setViewerGroupSource("visible");
                 setViewerGroupIndex(originalIndex);
-              }}
-              className="fc-telegram-touch flex w-[66px] shrink-0 flex-col items-center gap-2 text-center text-[11px] text-[#6C7883]"
-            >
-              <span className={`relative flex h-[60px] w-[60px] items-center justify-center rounded-full p-[2px] ${group.hasUnseen ? "fc-story-ring-unseen" : "bg-[#6C7883]"}`}>
-                <FlexAvatar src={group.user.avatar} name={group.user.username} className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0E1621] text-base font-bold text-white ring-2 ring-[#0D1823]" />
-              </span>
-              <span className="w-full truncate">{formatDisplayName(group.user.username)}</span>
-            </motion.button>
+              }} 
+            />
           );
         })}
       </div>
