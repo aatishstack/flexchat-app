@@ -290,6 +290,10 @@ const ConversationListButton = memo(
       );
     const longPressTriggeredRef =
       useRef(false);
+    const pressStartRef =
+      useRef<{ x: number; y: number } | null>(
+        null
+      );
     const avatar = useMemo(
       () =>
         getConversationAvatar(
@@ -345,6 +349,10 @@ const ConversationListButton = memo(
             return;
           }
 
+          pressStartRef.current = {
+            x: event.clientX,
+            y: event.clientY,
+          };
           longPressTriggeredRef.current = false;
           clearLongPressTimer();
           const target = event.currentTarget;
@@ -352,18 +360,43 @@ const ConversationListButton = memo(
           longPressTimerRef.current =
             setTimeout(() => {
               longPressTriggeredRef.current = true;
-              navigator.vibrate?.(6);
+              navigator.vibrate?.(10);
               onContextOpen(
                 conversation,
                 target.getBoundingClientRect()
               );
-            }, 340);
+            }, 360);
         },
         [
           clearLongPressTimer,
           conversation,
           onContextOpen,
         ]
+      );
+
+    const handlePointerMove =
+      useCallback(
+        (
+          event: ReactPointerEvent<HTMLButtonElement>
+        ) => {
+          const pressStart =
+            pressStartRef.current;
+
+          if (!pressStart) {
+            return;
+          }
+
+          const dist = Math.hypot(
+            event.clientX - pressStart.x,
+            event.clientY - pressStart.y
+          );
+
+          if (dist > 6) {
+            pressStartRef.current = null;
+            clearLongPressTimer();
+          }
+        },
+        [clearLongPressTimer]
       );
 
     useEffect(
@@ -385,9 +418,19 @@ const ConversationListButton = memo(
           onSelect(conversation);
         }}
         onPointerDown={handlePointerDown}
-        onPointerUp={clearLongPressTimer}
-        onPointerCancel={clearLongPressTimer}
-        onPointerLeave={clearLongPressTimer}
+        onPointerMove={handlePointerMove}
+        onPointerUp={() => {
+          pressStartRef.current = null;
+          clearLongPressTimer();
+        }}
+        onPointerCancel={() => {
+          pressStartRef.current = null;
+          clearLongPressTimer();
+        }}
+        onPointerLeave={() => {
+          pressStartRef.current = null;
+          clearLongPressTimer();
+        }}
         onContextMenu={(event) => {
           event.preventDefault();
           clearLongPressTimer();
@@ -396,59 +439,59 @@ const ConversationListButton = memo(
             event.currentTarget.getBoundingClientRect()
           );
         }}
-        className={`group fc-telegram-touch flex h-[72px] w-full items-center gap-3 rounded-lg border px-3 py-0 text-left transition-[background-color,border-color] duration-150 ease-out ${
+        className={`group fc-telegram-touch flex h-[66px] w-full items-center gap-2.5 rounded-lg border px-3 py-0 text-left transition-[background-color,border-color] duration-150 ease-out ${
           active
             ? "fc-active"
             : "border-transparent hover:bg-[#2B3A4D]"
         }`}
       >
-        <div className="relative">
+        <div className="relative shrink-0">
           <FlexAvatar
             src={avatar}
             name={conversation.name}
-            className="fc-avatar flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-base font-bold"
+            className="fc-avatar flex h-11 w-11 items-center justify-center overflow-hidden rounded-full text-base font-bold"
           />
 
           {isOnline ? (
-            <div className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[var(--fc-app-panel)] bg-[var(--fc-success)]" />
+            <div className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[var(--fc-app-panel)] bg-[var(--fc-success)]" />
           ) : null}
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2">
-              <h3 className="truncate text-[15px] font-semibold text-[var(--fc-theme-text)]">
+          <div className="flex items-center justify-between gap-2.5">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <h3 className="truncate text-[15px] font-semibold leading-tight text-[var(--fc-theme-text)]">
                 {displayName}
               </h3>
 
               {conversation.pinned ? (
                 <Pin
-                  size={13}
+                  size={12}
                   className="shrink-0 text-[var(--fc-accent-text)]"
                 />
               ) : null}
 
               {conversation.muted ? (
                 <BellOff
-                  size={13}
+                  size={12}
                   className="shrink-0 text-[var(--fc-text-subtle)]"
                 />
               ) : null}
             </div>
 
-            <span className="shrink-0 text-xs text-[#6C7883]">
+            <span className="shrink-0 text-[11px] font-medium text-[#6C7883]">
               {lastActivityLabel}
             </span>
           </div>
 
-          <div className="mt-1 flex items-center justify-between gap-3">
-            <p className="truncate text-sm text-[#6C7883]">
+          <div className="mt-0.5 flex items-center justify-between gap-2.5">
+            <p className="truncate text-[13.5px] leading-snug text-[#6C7883]">
               {conversation.latestMessage ||
                 "No messages yet"}
             </p>
 
             {conversation.unreadCount ? (
-              <div className="fc-badge flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none">
+              <div className="fc-badge flex h-4.5 min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none">
                 {conversation.unreadCount}
               </div>
             ) : null}
@@ -914,16 +957,21 @@ export default function ChatSidebar() {
         event.preventDefault();
       }
 
-      schedulePullDistance(
-        Math.min(88, deltaY * 0.45)
-      );
+      // Non-linear resistance curve for Telegram-like tension
+      const tension = 220;
+      const maxPull = 100;
+      const easedDistance =
+        maxPull *
+        (1 - Math.exp(-deltaY / tension));
+
+      schedulePullDistance(easedDistance);
     },
     [schedulePullDistance],
   );
 
   const handlePullEnd = useCallback(() => {
     const shouldRefresh =
-      pendingPullDistanceRef.current >= 58 &&
+      pendingPullDistanceRef.current >= 62 &&
       !isPullRefreshing;
 
     pullGestureRef.current = null;
@@ -935,7 +983,7 @@ export default function ChatSidebar() {
 
     triggerHaptic(10);
     setIsPullRefreshing(true);
-    setPullDistanceNow(58);
+    setPullDistanceNow(62);
 
     void conversationsQuery
       .refetch()
@@ -1382,7 +1430,7 @@ export default function ChatSidebar() {
                       setSearch(event.target.value)
                     }
                     placeholder="Search conversations..."
-                    className="fc-input h-11 w-full rounded-lg border pl-11 pr-4 text-sm outline-none"
+                    className="fc-input h-10 w-full rounded-lg border pl-11 pr-4 text-sm outline-none"
                   />
                 </div>
               </motion.div>
@@ -1398,7 +1446,7 @@ export default function ChatSidebar() {
                   triggerHaptic(10);
                   setActiveFolder(folder.id);
                 }}
-                className={`relative shrink-0 overflow-hidden rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                className={`relative shrink-0 overflow-hidden rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all ${
                   activeFolder === folder.id
                     ? "text-white"
                     : "fc-surface text-[var(--fc-text-muted)] hover:bg-[var(--fc-app-surface-hover)]"

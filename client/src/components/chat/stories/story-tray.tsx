@@ -44,12 +44,12 @@ const StoryAvatar = memo(({
   const hasUnseen = group?.hasUnseen ?? false;
   
   return (
-    <div className="relative flex w-[66px] shrink-0 flex-col items-center gap-2 text-center text-[11px] font-medium tracking-wide text-zinc-400">
+    <div className="relative flex w-[60px] shrink-0 flex-col items-center gap-1.5 text-center text-[10.5px] font-medium tracking-tight text-zinc-400">
       <button
         type="button"
         onClick={(e) => onClick(e.currentTarget.getBoundingClientRect())}
         disabled={isLoading || (!isCurrentUser && !group)}
-        className="fc-telegram-touch relative flex h-[60px] w-[60px] items-center justify-center rounded-full p-[2px] transition-transform active:scale-[0.94] disabled:cursor-default disabled:opacity-70"
+        className="fc-telegram-touch relative flex h-[52px] w-[52px] items-center justify-center rounded-full p-[1.5px] transition-transform active:scale-[0.94] disabled:cursor-default disabled:opacity-70"
       >
         {/* Ring rendering: optimized with simple CSS gradients/colors */}
         <span
@@ -62,12 +62,12 @@ const StoryAvatar = memo(({
         <FlexAvatar
           src={isCurrentUser ? undefined : group?.user.avatar}
           name={isCurrentUser ? undefined : group?.user.username}
-          className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0E1621] text-base font-bold text-white shadow-inner ring-2 ring-[#0E1621]"
+          className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0E1621] text-sm font-bold text-white shadow-inner ring-2 ring-[#0E1621]"
         />
 
         {isLoading && (
           <span className="absolute inset-2 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm">
-            <Loader2 size={17} className="text-white/70 motion-safe:animate-spin" />
+            <Loader2 size={15} className="text-white/70 motion-safe:animate-spin" />
           </span>
         )}
       </button>
@@ -295,16 +295,9 @@ function StoryTray() {
     storiesQuery.isLoading && !storiesQuery.data;
 
   return (
-    <section className="mt-4">
-      <div className="mb-2 flex items-center justify-between px-1">
-        <h2 className="text-sm font-semibold text-white">Stories</h2>
-        {storiesQuery.isFetching ? (
-          <Loader2 size={14} className="text-[#2AABEE] motion-safe:animate-spin" />
-        ) : null}
-      </div>
-
+    <section className="mt-2.5">
       {/* Story Rail: Isolated scroll container with GPU-friendly CSS */}
-      <div className="flex gap-3 overflow-x-auto pb-2 overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex gap-2.5 overflow-x-auto pb-1 overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="relative flex shrink-0">
           <StoryAvatar 
             isCurrentUser 

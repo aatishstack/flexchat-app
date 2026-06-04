@@ -1027,7 +1027,7 @@ function MessageActionOverlay({
       : clamp(aboveTop, 12, viewportHeight - stackHeight - 12);
 
   const actionButtonClass =
-    "fc-telegram-touch flex h-12 w-full items-center gap-4 px-4 text-left text-[15px] font-medium text-white/92 transition hover:bg-white/[0.06] disabled:cursor-wait disabled:opacity-55";
+    "fc-telegram-touch flex h-11 w-full items-center gap-3.5 px-4 text-left text-[14.5px] font-medium text-white/92 transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-55";
 
   const content = (
     <AnimatePresence>
@@ -1043,31 +1043,29 @@ function MessageActionOverlay({
         exit={{
           opacity: 0,
         }}
-        className="fixed inset-0 z-[255] bg-black/18 sm:backdrop-blur-[2px]"
+        className="fixed inset-0 z-[255] bg-black/15 sm:backdrop-blur-[1px]"
         onPointerDown={onClose}
       >
         <motion.div
           ref={panelRef}
           initial={{
             opacity: 0,
-            y: 6,
-            scale: 0.97,
+            scale: 0.92,
+            transformOrigin: mine ? "top right" : "top left",
           }}
           animate={{
             opacity: 1,
-            y: 0,
             scale: 1,
           }}
           exit={{
             opacity: 0,
-            y: 5,
-            scale: 0.98,
+            scale: 0.94,
           }}
           transition={{
             type: "spring",
-            stiffness: 520,
-            damping: 38,
-            mass: 0.72,
+            stiffness: 420,
+            damping: 34,
+            mass: 0.8,
           }}
           style={{
             left: stackLeft,
@@ -1079,30 +1077,28 @@ function MessageActionOverlay({
           role="menu"
           aria-label="Message actions"
         >
-          <div className="fc-telegram-menu mb-2 flex h-14 items-center justify-between rounded-[21px] border px-2 sm:backdrop-blur-2xl">
+          <div className="fc-telegram-menu mb-2.5 flex h-[52px] items-center justify-between rounded-[22px] border bg-[#17212B]/94 px-1.5 shadow-xl sm:backdrop-blur-3xl">
             {QUICK_REACTIONS.map((emoji, index) => (
               <motion.button
                 key={emoji}
                 type="button"
                 initial={{
                   opacity: 0,
-                  y: 4,
-                  scale: 0.86,
+                  scale: 0.75,
                 }}
                 animate={{
                   opacity: 1,
-                  y: 0,
                   scale: 1,
                 }}
                 transition={{
                   type: "spring",
-                  stiffness: 520,
-                  damping: 30,
-                  delay: index * 0.012,
+                  stiffness: 500,
+                  damping: 28,
+                  delay: index * 0.015,
                 }}
                 onClick={() => onReact(emoji)}
                 disabled={disabled}
-                className="fc-telegram-touch flex h-10 w-9 items-center justify-center rounded-full text-[23px] transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-55"
+                className="fc-telegram-touch flex h-10 w-9 items-center justify-center rounded-full text-[22px] transition hover:bg-white/[0.1] active:scale-90 disabled:cursor-wait disabled:opacity-55"
                 aria-label={`React ${emoji}`}
               >
                 {emoji}
@@ -1113,21 +1109,24 @@ function MessageActionOverlay({
               type="button"
               onClick={onMoreReactions}
               disabled={disabled}
-              className="fc-telegram-touch flex h-10 w-9 items-center justify-center rounded-full text-white/80 transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-55"
+              className="fc-telegram-touch flex h-10 w-9 items-center justify-center rounded-full text-white/75 transition hover:bg-white/[0.1] active:scale-90 disabled:cursor-wait disabled:opacity-55"
               aria-label="More reactions"
             >
-              <SmilePlus size={21} />
+              <SmilePlus size={20} />
             </button>
           </div>
 
-          <div className="fc-telegram-menu overflow-hidden rounded-[18px] border py-1 sm:backdrop-blur-2xl">
+          <div className="fc-telegram-menu overflow-hidden rounded-[16px] border bg-[#17212B]/94 py-1 shadow-2xl sm:backdrop-blur-3xl">
             {canReply ? (
               <button
                 type="button"
                 onClick={onReply}
                 className={actionButtonClass}
               >
-                <Reply size={22} />
+                <Reply
+                  size={20}
+                  className="text-[#8ED4FF]"
+                />
                 Reply
               </button>
             ) : null}
@@ -1137,7 +1136,10 @@ function MessageActionOverlay({
               onClick={onShare}
               className={actionButtonClass}
             >
-              <Forward size={22} />
+              <Forward
+                size={20}
+                className="text-[#8ED4FF]"
+              />
               Forward
             </button>
 
@@ -1147,7 +1149,10 @@ function MessageActionOverlay({
                 onClick={onEdit}
                 className={actionButtonClass}
               >
-                <Pencil size={22} />
+                <Pencil
+                  size={20}
+                  className="text-[#8ED4FF]"
+                />
                 Edit
               </button>
             ) : null}
@@ -1158,7 +1163,10 @@ function MessageActionOverlay({
                 onClick={onCopy}
                 className={actionButtonClass}
               >
-                <Clipboard size={22} />
+                <Clipboard
+                  size={20}
+                  className="text-[#8ED4FF]"
+                />
                 Copy
               </button>
             ) : null}
@@ -1168,7 +1176,10 @@ function MessageActionOverlay({
               onClick={onToggleStar}
               className={actionButtonClass}
             >
-              <Star size={22} />
+              <Star
+                size={20}
+                className={starred ? "fill-[#FDE047] text-[#FDE047]" : "text-[#FDE047]"}
+              />
               {starred ? "Unstar" : "Star"}
             </button>
 
@@ -1177,9 +1188,9 @@ function MessageActionOverlay({
                 type="button"
                 onClick={onDelete}
                 disabled={disabled}
-                className={`${actionButtonClass} text-red-100 hover:bg-red-500/15`}
+                className={`${actionButtonClass} text-red-200 hover:bg-red-500/20`}
               >
-                <Trash2 size={22} />
+                <Trash2 size={20} />
                 Delete
               </button>
             ) : null}
