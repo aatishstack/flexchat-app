@@ -264,6 +264,8 @@ const ConversationListButton = memo(
     onSelect,
     onContextOpen,
   }: ConversationListButtonProps) {
+    const [isPressed, setIsPressed] =
+      useState(false);
     const longPressTimerRef =
       useRef<ReturnType<typeof setTimeout> | null>(
         null
@@ -309,6 +311,7 @@ const ConversationListButton = memo(
 
     const clearLongPressTimer =
       useCallback(() => {
+        setIsPressed(false);
         if (!longPressTimerRef.current) {
           return;
         }
@@ -335,6 +338,7 @@ const ConversationListButton = memo(
           };
           longPressTriggeredRef.current = false;
           clearLongPressTimer();
+          setIsPressed(true);
           const target = event.currentTarget;
 
           longPressTimerRef.current =
@@ -419,11 +423,11 @@ const ConversationListButton = memo(
             event.currentTarget.getBoundingClientRect()
           );
         }}
-        className={`group fc-telegram-touch flex h-[64px] w-full items-center gap-2.5 rounded-lg border px-3 py-0 text-left transition-[background-color,border-color] duration-150 ease-out ${
+        className={`group fc-telegram-touch flex h-[64px] w-full items-center gap-2.5 rounded-lg border px-3 py-0 text-left transition-[background-color,border-color,transform] duration-150 ease-out ${
           active
             ? "fc-active"
             : "border-transparent hover:bg-[#2B3A4D]"
-        }`}
+        } ${isPressed ? "bg-[#2B3A4D]/70 scale-[0.98] border-white/5" : ""}`}
       >
         <div className="relative shrink-0">
           <FlexAvatar
