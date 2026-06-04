@@ -1389,7 +1389,7 @@ export default function ChatSidebar() {
             ) : null}
           </AnimatePresence>
 
-          <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
+          <div className="fc-no-scrollbar mt-3 flex items-center gap-2 overflow-x-auto pb-1">
             {SIDEBAR_FILTERS.map((folder) => (
               <button
                 key={folder.id}
@@ -1398,7 +1398,7 @@ export default function ChatSidebar() {
                   triggerHaptic(10);
                   setActiveFolder(folder.id);
                 }}
-                className={`relative overflow-hidden rounded-lg px-4 py-2 text-sm font-medium capitalize transition-all ${
+                className={`relative shrink-0 overflow-hidden rounded-lg px-4 py-2 text-sm font-medium transition-all ${
                   activeFolder === folder.id
                     ? "text-white"
                     : "fc-surface text-[var(--fc-text-muted)] hover:bg-[var(--fc-app-surface-hover)]"

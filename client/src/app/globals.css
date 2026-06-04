@@ -415,6 +415,15 @@ textarea:focus-visible {
   scrollbar-color: var(--fc-scrollbar) transparent;
 }
 
+.fc-no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.fc-no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .modal-safe-scroll {
   overflow-y: auto;
   overscroll-behavior: contain;
