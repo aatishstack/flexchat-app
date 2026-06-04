@@ -265,10 +265,11 @@ function getLocalDayStart(time: number) {
   );
 }
 
-function formatDateDivider(createdAt?: string, now = Date.now()) {
+function formatDateDivider(createdAt?: string, now?: number) {
   if (!createdAt) {
     return "";
   }
+  const targetNow = now ?? (Date.now() + (typeof window !== "undefined" ? window.__serverTimeOffset ?? 0 : 0));
 
   const time = new Date(createdAt).getTime();
 
@@ -278,7 +279,7 @@ function formatDateDivider(createdAt?: string, now = Date.now()) {
 
   const date = new Date(time);
   const storyDay = getLocalDayStart(time).getTime();
-  const today = getLocalDayStart(now).getTime();
+  const today = getLocalDayStart(targetNow).getTime();
   const yesterday = today - DAY_MS;
 
   if (storyDay === today) {
@@ -290,7 +291,7 @@ function formatDateDivider(createdAt?: string, now = Date.now()) {
   }
 
   return (
-    date.getFullYear() === new Date(now).getFullYear()
+    date.getFullYear() === new Date(targetNow).getFullYear()
       ? DATE_DIVIDER_FORMATTER
       : DATE_DIVIDER_WITH_YEAR_FORMATTER
   ).format(date);
@@ -339,7 +340,7 @@ function formatLastSeen(serverUtcTimestamp?: number | string | null) {
     return "Last seen recently";
   }
 
-  const offset = window.__serverTimeOffset ?? 0;
+  const offset = typeof window !== "undefined" ? window.__serverTimeOffset ?? 0 : 0;
   const now = Date.now() + offset;
   const diff = now - timestamp;
 
@@ -1626,7 +1627,6 @@ const ChatMessageRow = memo(function ChatMessageRow({
 }: ChatMessageRowProps) {
   const rowRef = useRef<HTMLDivElement | null>(null);
   const bubbleRef = useRef<HTMLDivElement | null>(null);
-  const reactionButtonRef = useRef<HTMLButtonElement | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTapRef = useRef(0);
   const pressStartRef = useRef<{
@@ -1714,7 +1714,6 @@ const ChatMessageRow = memo(function ChatMessageRow({
     swipingReply,
   ]);
   const showLegacyInlineReactionPicker = false;
-  const actionsVisible = !!reactionAnchorRect;
 
   const clearLongPressTimer = useCallback(() => {
     if (!longPressTimerRef.current) {
@@ -1789,20 +1788,6 @@ const ChatMessageRow = memo(function ChatMessageRow({
     if (ok) {
       closeActions();
     }
-  }
-
-  function toggleReactionPicker() {
-    const anchor = reactionButtonRef.current;
-
-    if (!anchor || !isSettled || isDeleted) {
-      return;
-    }
-
-    setActionsOpen(false);
-    setActionAnchorRect(null);
-    setReactionAnchorRect((current) =>
-      current ? null : anchor.getBoundingClientRect(),
-    );
   }
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -2003,10 +1988,12 @@ const ChatMessageRow = memo(function ChatMessageRow({
         onPointerCancel={() => {
           pressStartRef.current = null;
           clearLongPressTimer();
+          if (lastTapRef.current) lastTapRef.current = 0;
         }}
         onPointerLeave={() => {
           pressStartRef.current = null;
           clearLongPressTimer();
+          if (lastTapRef.current) lastTapRef.current = 0;
         }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
@@ -2080,6 +2067,16 @@ const ChatMessageRow = memo(function ChatMessageRow({
             <p className="italic text-white/65">This message was deleted</p>
           ) : null}
 
+          {message.status === "failed" && mine && !isDeleted ? (
+            <button
+              type="button"
+              onClick={() => onRetry(message.id)}
+              className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-red-300 hover:text-red-200"
+            >
+              <RefreshCw size={12} />
+              Tap to retry
+            </button>
+          ) : null}
           {!isDeleted && media ? (
             media.type === "image" ? (
               <MessageMediaAttachment
