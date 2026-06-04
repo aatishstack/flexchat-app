@@ -1,6 +1,9 @@
 import { api } from "./api";
 
-import { Conversation } from "@/types/conversation";
+import {
+  Conversation,
+  ConversationFolder,
+} from "@/types/conversation";
 
 export interface GetConversationsOptions {
   limit?: number;
@@ -81,6 +84,43 @@ export async function deleteConversation(
       hiddenAt: string;
     }>(
       `/conversations/${conversationId}`
+    );
+
+  return response.data;
+}
+
+export async function updateConversationSettings(input: {
+  conversationId: string;
+  pinned?: boolean;
+  muted?: boolean;
+  folder?: ConversationFolder | null;
+}) {
+  const response =
+    await api.patch<Conversation>(
+      `/conversations/${input.conversationId}/settings`,
+      {
+        pinned:
+          input.pinned,
+        muted:
+          input.muted,
+        folder:
+          input.folder,
+      }
+    );
+
+  return response.data;
+}
+
+export async function setConversationRead(
+  conversationId: string,
+  read: boolean
+) {
+  const response =
+    await api.patch<Conversation>(
+      `/conversations/${conversationId}/read`,
+      {
+        read,
+      }
     );
 
   return response.data;

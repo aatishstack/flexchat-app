@@ -4,7 +4,7 @@ import {
   type FastifyRequest,
 } from "fastify";
 
-import { and, desc, eq, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 import { z } from "zod";
 
@@ -35,6 +35,7 @@ const editMessageBodySchema = z.object({
 
 const deleteMessageBodySchema = z.object({
   conversationId: z.string().trim().min(1).max(128),
+  scope: z.enum(["me", "everyone"]).default("everyone"),
 });
 
 const reactMessageBodySchema = z.object({
@@ -82,6 +83,18 @@ type ForwardSourceRow = {
   audio: string | null;
   senderName: string;
 };
+
+type MessageHistoryRow = MessageRow;
+
+type DeleteTargetRow = {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  deletedAt: Date | string | null;
+  createdAt: Date | string;
+};
+
+const DELETE_FOR_EVERYONE_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 function encodeMessageCursor(row: MessageCursorRow) {
   return `${encodeURIComponent(
@@ -454,27 +467,50 @@ export async function messageRoutes(app: FastifyInstance) {
       }
 
       const historyBoundary = cursor
-        ? or(
-            lt(messages.createdAt, cursor.createdAt),
-            and(
-              eq(messages.createdAt, cursor.createdAt),
-              lt(messages.id, cursor.id),
-            ),
-          )
+        ? sql`
+            and (
+              m.created_at,
+              m.id
+            ) < (
+              ${cursor.createdAt},
+              ${cursor.id}
+            )
+          `
         : before
-          ? lt(messages.createdAt, new Date(before))
-          : undefined;
+          ? sql`and m.created_at < ${new Date(before)}`
+          : sql``;
 
-      const whereClause = historyBoundary
-        ? and(eq(messages.conversationId, conversationId), historyBoundary)
-        : eq(messages.conversationId, conversationId);
-
-      const data = await db
-        .select()
-        .from(messages)
-        .where(whereClause)
-        .orderBy(desc(messages.createdAt), desc(messages.id))
-        .limit(limit + 1);
+      const data = await db.execute<MessageHistoryRow>(sql`
+        select
+          m.id,
+          m.conversation_id as "conversationId",
+          m.sender_id as "senderId",
+          m.text,
+          m.attachment,
+          m.audio,
+          m.forwarded_from_message_id as "forwardedFromMessageId",
+          m.forwarded_from_sender_id as "forwardedFromSenderId",
+          m.forwarded_from_sender_name as "forwardedFromSenderName",
+          m.reply_to_message_id as "replyToMessageId",
+          m.reply_to_text as "replyToText",
+          m.edited_at as "editedAt",
+          m.deleted_at as "deletedAt",
+          m.status,
+          m.created_at as "createdAt"
+        from messages m
+        where m.conversation_id = ${conversationId}
+          and not exists (
+            select 1
+            from message_user_hidden muh
+            where muh.message_id = m.id
+              and muh.user_id = ${userId}
+          )
+          ${historyBoundary}
+        order by
+          m.created_at desc,
+          m.id desc
+        limit ${limit + 1}
+      `);
 
       const pageRows = data.slice(0, limit);
       const nextRow = data[limit];
@@ -540,6 +576,7 @@ export async function messageRoutes(app: FastifyInstance) {
             and conversation_id = ${parsedBody.data.conversationId}
             and sender_id = ${userId}
             and deleted_at is null
+            and created_at >= now() - interval '48 hours'
           returning *
         `);
 
@@ -600,24 +637,103 @@ export async function messageRoutes(app: FastifyInstance) {
         });
       }
 
-      const deletedMessages = await db.execute<MessageRow>(sql`
-          update messages
-          set
-            text = '',
-            attachment = null,
-            audio = null,
-            deleted_at = coalesce(deleted_at, now())
-          where id = ${parsedParams.data.messageId}
-            and conversation_id = ${parsedBody.data.conversationId}
-            and sender_id = ${userId}
-          returning *
+      const targetRows = await db.execute<DeleteTargetRow>(sql`
+        select
+          id,
+          conversation_id as "conversationId",
+          sender_id as "senderId",
+          deleted_at as "deletedAt",
+          created_at as "createdAt"
+        from messages
+        where id = ${parsedParams.data.messageId}
+          and conversation_id = ${parsedBody.data.conversationId}
+        limit 1
+      `);
+
+      const targetMessage = targetRows[0];
+
+      if (!targetMessage) {
+        return reply.status(404).send({
+          message: "Message unavailable",
+        });
+      }
+
+      if (targetMessage.deletedAt) {
+        return reply.status(409).send({
+          message: "Message already deleted",
+        });
+      }
+
+      if (parsedBody.data.scope === "me") {
+        const hiddenAt = new Date().toISOString();
+
+        await db.execute(sql`
+          insert into message_user_hidden (
+            id,
+            message_id,
+            conversation_id,
+            user_id,
+            hidden_at
+          )
+          values (
+            ${generateId()},
+            ${targetMessage.id},
+            ${targetMessage.conversationId},
+            ${userId},
+            ${hiddenAt}
+          )
+          on conflict (message_id, user_id)
+          do update set
+            hidden_at = excluded.hidden_at
         `);
+
+        return {
+          mode: "me",
+          messageId: targetMessage.id,
+          conversationId: targetMessage.conversationId,
+          hiddenAt,
+        };
+      }
+
+      if (targetMessage.senderId !== userId) {
+        return reply.status(403).send({
+          message: "Only your own messages can be deleted for everyone",
+        });
+      }
+
+      const createdAt =
+        targetMessage.createdAt instanceof Date
+          ? targetMessage.createdAt
+          : new Date(targetMessage.createdAt);
+
+      if (
+        Number.isNaN(createdAt.getTime()) ||
+        Date.now() - createdAt.getTime() > DELETE_FOR_EVERYONE_WINDOW_MS
+      ) {
+        return reply.status(403).send({
+          message: "This message can no longer be deleted for everyone",
+        });
+      }
+
+      const deletedMessages = await db.execute<MessageRow>(sql`
+        update messages
+        set
+          text = '',
+          attachment = null,
+          audio = null,
+          deleted_at = now()
+        where id = ${targetMessage.id}
+          and conversation_id = ${targetMessage.conversationId}
+          and sender_id = ${userId}
+          and deleted_at is null
+        returning *
+      `);
 
       const deletedMessage = deletedMessages[0];
 
       if (!deletedMessage) {
-        return reply.status(404).send({
-          message: "Message unavailable or no longer deletable",
+        return reply.status(409).send({
+          message: "Message already deleted",
         });
       }
 
@@ -636,7 +752,10 @@ export async function messageRoutes(app: FastifyInstance) {
       await emitMessageMutation(SOCKET_EVENTS.MESSAGE_DELETED, message);
       await emitLatestConversationIfNeeded(message);
 
-      return message;
+      return {
+        mode: "everyone",
+        message,
+      };
     },
   );
 

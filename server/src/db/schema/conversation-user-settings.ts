@@ -21,6 +21,12 @@ export const conversationUserSettings = pgTable(
 
     localThemeId: text("local_theme_id"),
 
+    pinnedAt: timestamp("pinned_at"),
+
+    mutedAt: timestamp("muted_at"),
+
+    folder: text("folder"),
+
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .notNull(),

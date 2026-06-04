@@ -181,3 +181,48 @@ export const messageReactions =
       ),
     })
   );
+
+export const messageUserHidden =
+  pgTable(
+    "message_user_hidden",
+    {
+      id: text("id")
+        .primaryKey(),
+
+      messageId:
+        text(
+          "message_id"
+        ).notNull(),
+
+      conversationId:
+        text(
+          "conversation_id"
+        ).notNull(),
+
+      userId:
+        text(
+          "user_id"
+        ).notNull(),
+
+      hiddenAt:
+        timestamp(
+          "hidden_at"
+        )
+          .defaultNow()
+          .notNull(),
+    },
+    (table) => ({
+      messageUserUniqueIdx: uniqueIndex(
+        "message_user_hidden_message_user_unique_idx"
+      ).on(
+        table.messageId,
+        table.userId
+      ),
+      conversationUserIdx: index(
+        "message_user_hidden_conversation_user_idx"
+      ).on(
+        table.conversationId,
+        table.userId
+      ),
+    })
+  );

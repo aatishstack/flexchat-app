@@ -1,3 +1,8 @@
+export type ConversationFolder =
+  | "work"
+  | "friends"
+  | "groups";
+
 export interface Conversation {
   id: string;
 
@@ -32,12 +37,13 @@ export interface Conversation {
 
   pinned?: boolean;
 
-  folder?:
-    | "all"
-    | "work"
-    | "friends"
-    | "unread"
-    | "groups";
+  pinnedAt?: string | null;
+
+  muted?: boolean;
+
+  mutedAt?: string | null;
+
+  folder?: ConversationFolder | null;
 
   createdAt: string;
 }

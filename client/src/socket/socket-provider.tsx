@@ -81,6 +81,20 @@ type ConversationThemeUpdatedPayload = {
   updatedAt?: string;
 };
 
+type ConversationSettingsUpdatedPayload = {
+  conversationId?: string;
+  pinned?: boolean;
+  pinnedAt?: string | null;
+  muted?: boolean;
+  mutedAt?: string | null;
+  folder?: Conversation["folder"];
+};
+
+type ConversationReadUpdatedPayload = {
+  conversationId?: string;
+  unreadCount?: number;
+};
+
 type PresenceUpdatedPayload = {
   userId?: string;
   status?: "online" | "offline";
@@ -911,6 +925,92 @@ export default function SocketProvider({
       }));
     }
 
+    function onConversationSettingsUpdated(
+      payload: ConversationSettingsUpdatedPayload
+    ) {
+      if (!payload.conversationId) {
+        return;
+      }
+
+      queryClient.setQueryData<ConversationQueryCache>(
+        queryKeys.conversations.all,
+        (cache) =>
+          updateConversationInQueryCache(
+            cache,
+            payload.conversationId ?? "",
+            (conversation) => ({
+              ...conversation,
+              pinned:
+                payload.pinned ?? conversation.pinned,
+              pinnedAt:
+                payload.pinnedAt ?? null,
+              muted:
+                payload.muted ?? conversation.muted,
+              mutedAt:
+                payload.mutedAt ?? null,
+              folder:
+                payload.folder ?? null,
+            })
+          )
+      );
+
+      useConversationStore.setState((state) => ({
+        conversationPatches: {
+          ...state.conversationPatches,
+          [payload.conversationId ?? ""]: {
+            ...state.conversationPatches[
+              payload.conversationId ?? ""
+            ],
+            pinned:
+              payload.pinned,
+            pinnedAt:
+              payload.pinnedAt ?? null,
+            muted:
+              payload.muted,
+            mutedAt:
+              payload.mutedAt ?? null,
+            folder:
+              payload.folder ?? null,
+          },
+        },
+      }));
+    }
+
+    function onConversationReadUpdated(
+      payload: ConversationReadUpdatedPayload
+    ) {
+      if (!payload.conversationId) {
+        return;
+      }
+
+      queryClient.setQueryData<ConversationQueryCache>(
+        queryKeys.conversations.all,
+        (cache) =>
+          updateConversationInQueryCache(
+            cache,
+            payload.conversationId ?? "",
+            (conversation) => ({
+              ...conversation,
+              unreadCount:
+                payload.unreadCount ?? conversation.unreadCount,
+            })
+          )
+      );
+
+      useConversationStore.setState((state) => ({
+        conversationPatches: {
+          ...state.conversationPatches,
+          [payload.conversationId ?? ""]: {
+            ...state.conversationPatches[
+              payload.conversationId ?? ""
+            ],
+            unreadCount:
+              payload.unreadCount ?? 0,
+          },
+        },
+      }));
+    }
+
     function onStoryCreated(story: Story) {
       if (!story?.id) {
         return;
@@ -1393,6 +1493,14 @@ export default function SocketProvider({
       SOCKET_EVENTS.CONVERSATION_THEME_UPDATED,
       onConversationThemeUpdated,
     );
+    const safeOnConversationSettingsUpdated = guardSocketHandler(
+      SOCKET_EVENTS.CONVERSATION_SETTINGS_UPDATED,
+      onConversationSettingsUpdated,
+    );
+    const safeOnConversationReadUpdated = guardSocketHandler(
+      SOCKET_EVENTS.CONVERSATION_READ_UPDATED,
+      onConversationReadUpdated,
+    );
     const safeOnStoryCreated = guardSocketHandler(
       SOCKET_EVENTS.STORY_CREATED,
       onStoryCreated,
@@ -1500,6 +1608,14 @@ export default function SocketProvider({
       SOCKET_EVENTS.CONVERSATION_THEME_UPDATED,
       safeOnConversationThemeUpdated
     );
+    socket.on(
+      SOCKET_EVENTS.CONVERSATION_SETTINGS_UPDATED,
+      safeOnConversationSettingsUpdated
+    );
+    socket.on(
+      SOCKET_EVENTS.CONVERSATION_READ_UPDATED,
+      safeOnConversationReadUpdated
+    );
     socket.on(SOCKET_EVENTS.STORY_CREATED, safeOnStoryCreated);
     socket.on(SOCKET_EVENTS.STORY_NEW, safeOnStoryNew);
     socket.on(SOCKET_EVENTS.STORY_VIEWED, safeOnStoryViewed);
@@ -1551,6 +1667,14 @@ export default function SocketProvider({
       socket.off(
         SOCKET_EVENTS.CONVERSATION_THEME_UPDATED,
         safeOnConversationThemeUpdated
+      );
+      socket.off(
+        SOCKET_EVENTS.CONVERSATION_SETTINGS_UPDATED,
+        safeOnConversationSettingsUpdated
+      );
+      socket.off(
+        SOCKET_EVENTS.CONVERSATION_READ_UPDATED,
+        safeOnConversationReadUpdated
       );
       socket.off(SOCKET_EVENTS.STORY_CREATED, safeOnStoryCreated);
       socket.off(SOCKET_EVENTS.STORY_NEW, safeOnStoryNew);

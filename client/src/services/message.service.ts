@@ -68,6 +68,22 @@ export interface MessagePage {
   nextCursor?: string;
 }
 
+export type DeleteMessageScope =
+  | "me"
+  | "everyone";
+
+export type DeleteMessageResponse =
+  | {
+      mode: "me";
+      messageId: string;
+      conversationId: string;
+      hiddenAt: string;
+    }
+  | {
+      mode: "everyone";
+      message: Message;
+    };
+
 export async function getMessagePage(
   conversationId: string,
   options: GetMessagesOptions = {}
@@ -128,14 +144,17 @@ export async function editMessage(input: {
 export async function deleteMessage(input: {
   messageId: string;
   conversationId: string;
+  scope: DeleteMessageScope;
 }) {
   const response =
-    await api.delete<Message>(
+    await api.delete<DeleteMessageResponse>(
       `/messages/${input.messageId}`,
       {
         data: {
           conversationId:
             input.conversationId,
+          scope:
+            input.scope,
         },
       }
     );

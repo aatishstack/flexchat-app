@@ -38,6 +38,28 @@ const themeConversationBodySchema = z.object({
   scope: z.enum(["me", "both"]),
 });
 
+const conversationFolderSchema = z.enum(["work", "friends", "groups"]);
+
+const conversationSettingsBodySchema = z
+  .object({
+    pinned: z.boolean().optional(),
+    muted: z.boolean().optional(),
+    folder: conversationFolderSchema.nullable().optional(),
+  })
+  .refine(
+    (value) =>
+      value.pinned !== undefined ||
+      value.muted !== undefined ||
+      value.folder !== undefined,
+    {
+      message: "At least one setting is required",
+    },
+  );
+
+const conversationReadBodySchema = z.object({
+  read: z.boolean(),
+});
+
 type ConversationCursor = {
   lastActivityAt: Date;
   id: string;
@@ -63,6 +85,9 @@ type ConversationRow = Record<string, unknown> & {
   lastActivityAt: Date | string;
   archivedAt: Date | string | null;
   localThemeId: string | null;
+  pinnedAt: Date | string | null;
+  mutedAt: Date | string | null;
+  folder: string | null;
   sharedThemeId: string | null;
   themeUpdatedAt: Date | string | null;
 };
@@ -89,6 +114,11 @@ function serializeConversation(conversation: ConversationRow) {
     lastActivityAt: conversation.lastActivityAt,
     archivedAt: toIsoString(conversation.archivedAt),
     localThemeId: conversation.localThemeId ?? null,
+    pinnedAt: toIsoString(conversation.pinnedAt),
+    pinned: !!conversation.pinnedAt,
+    mutedAt: toIsoString(conversation.mutedAt),
+    muted: !!conversation.mutedAt,
+    folder: conversation.folder ?? null,
     sharedThemeId: conversation.sharedThemeId ?? null,
     themeUpdatedAt: toIsoString(conversation.themeUpdatedAt),
   };
@@ -137,6 +167,9 @@ async function getHydratedConversation(
           uc.theme_updated_at as "themeUpdatedAt",
           settings.archived_at as "archivedAt",
           settings.local_theme_id as "localThemeId",
+          settings.pinned_at as "pinnedAt",
+          settings.muted_at as "mutedAt",
+          settings.folder as folder,
           uc.created_at as "createdAt",
           coalesce(
             latest.created_at,
@@ -257,6 +290,9 @@ async function getHydratedConversation(
         "themeUpdatedAt",
         "archivedAt",
         "localThemeId",
+        "pinnedAt",
+        "mutedAt",
+        folder,
         "createdAt",
         last_activity_at as "lastActivityAt",
         "latestMessage",
@@ -385,6 +421,9 @@ export async function conversationRoutes(app: FastifyInstance) {
                 uc.theme_updated_at as "themeUpdatedAt",
                 settings.archived_at as "archivedAt",
                 settings.local_theme_id as "localThemeId",
+                settings.pinned_at as "pinnedAt",
+                settings.muted_at as "mutedAt",
+                settings.folder as folder,
                 uc.created_at as "createdAt",
                 coalesce(
                   latest.created_at,
@@ -505,6 +544,9 @@ export async function conversationRoutes(app: FastifyInstance) {
               "themeUpdatedAt",
               "archivedAt",
               "localThemeId",
+              "pinnedAt",
+              "mutedAt",
+              folder,
               "createdAt",
               last_activity_at as "lastActivityAt",
               "latestMessage",
@@ -613,6 +655,182 @@ export async function conversationRoutes(app: FastifyInstance) {
         .emit(SOCKET_EVENTS.CONVERSATION_ARCHIVE_UPDATED, {
           conversationId,
           archivedAt,
+        });
+
+      return conversation;
+    },
+  );
+
+  app.patch(
+    "/conversations/:conversationId/settings",
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const parsedParams = conversationParamsSchema.safeParse(request.params);
+      const parsedBody = conversationSettingsBodySchema.safeParse(
+        request.body,
+      );
+
+      if (!parsedParams.success || !parsedBody.success) {
+        return reply.status(400).send({
+          message: "Invalid conversation settings request",
+        });
+      }
+
+      const userId = (request.user as any)?.id;
+
+      if (!userId) {
+        return reply.status(401).send({
+          message: "Unauthorized",
+        });
+      }
+
+      const conversationId = parsedParams.data.conversationId;
+      const allowed = await isConversationMember(userId, conversationId);
+
+      if (!allowed) {
+        return reply.status(403).send({
+          message: "Conversation unavailable",
+        });
+      }
+
+      const updatedAt = new Date().toISOString();
+      const shouldUpdatePinned = parsedBody.data.pinned !== undefined;
+      const shouldUpdateMuted = parsedBody.data.muted !== undefined;
+      const shouldUpdateFolder = parsedBody.data.folder !== undefined;
+      const pinnedAt = parsedBody.data.pinned ? updatedAt : null;
+      const mutedAt = parsedBody.data.muted ? updatedAt : null;
+      const folder = parsedBody.data.folder ?? null;
+
+      await db.execute(sql`
+        insert into conversation_user_settings (
+          id,
+          conversation_id,
+          user_id,
+          pinned_at,
+          muted_at,
+          folder,
+          updated_at
+        )
+        values (
+          ${generateId()},
+          ${conversationId},
+          ${userId},
+          ${pinnedAt},
+          ${mutedAt},
+          ${folder},
+          ${updatedAt}
+        )
+        on conflict (conversation_id, user_id)
+        do update set
+          pinned_at = case
+            when ${shouldUpdatePinned} then excluded.pinned_at
+            else conversation_user_settings.pinned_at
+          end,
+          muted_at = case
+            when ${shouldUpdateMuted} then excluded.muted_at
+            else conversation_user_settings.muted_at
+          end,
+          folder = case
+            when ${shouldUpdateFolder} then excluded.folder
+            else conversation_user_settings.folder
+          end,
+          updated_at = ${updatedAt}
+      `);
+
+      const conversation = await getHydratedConversation(
+        db,
+        userId,
+        conversationId,
+      );
+
+      getSocketServer()
+        ?.to(`user:${userId}`)
+        .emit(SOCKET_EVENTS.CONVERSATION_SETTINGS_UPDATED, {
+          conversationId,
+          pinnedAt: conversation?.pinnedAt ?? null,
+          pinned: !!conversation?.pinned,
+          mutedAt: conversation?.mutedAt ?? null,
+          muted: !!conversation?.muted,
+          folder: conversation?.folder ?? null,
+        });
+
+      return conversation;
+    },
+  );
+
+  app.patch(
+    "/conversations/:conversationId/read",
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const parsedParams = conversationParamsSchema.safeParse(request.params);
+      const parsedBody = conversationReadBodySchema.safeParse(request.body);
+
+      if (!parsedParams.success || !parsedBody.success) {
+        return reply.status(400).send({
+          message: "Invalid conversation read request",
+        });
+      }
+
+      const userId = (request.user as any)?.id;
+
+      if (!userId) {
+        return reply.status(401).send({
+          message: "Unauthorized",
+        });
+      }
+
+      const conversationId = parsedParams.data.conversationId;
+      const allowed = await isConversationMember(userId, conversationId);
+
+      if (!allowed) {
+        return reply.status(403).send({
+          message: "Conversation unavailable",
+        });
+      }
+
+      if (parsedBody.data.read) {
+        await db.execute(sql`
+          update messages
+          set status = 'read'
+          where conversation_id = ${conversationId}
+            and sender_id <> ${userId}
+            and status <> 'read'
+        `);
+      } else {
+        await db.execute(sql`
+          with latest_remote_message as (
+            select id
+            from messages
+            where conversation_id = ${conversationId}
+              and sender_id <> ${userId}
+              and deleted_at is null
+            order by created_at desc, id desc
+            limit 1
+          )
+          update messages
+          set status = 'delivered'
+          where id in (
+            select id
+            from latest_remote_message
+          )
+        `);
+      }
+
+      const conversation = await getHydratedConversation(
+        db,
+        userId,
+        conversationId,
+      );
+
+      getSocketServer()
+        ?.to(`user:${userId}`)
+        .emit(SOCKET_EVENTS.CONVERSATION_READ_UPDATED, {
+          conversationId,
+          unreadCount: conversation?.unreadCount ?? 0,
         });
 
       return conversation;

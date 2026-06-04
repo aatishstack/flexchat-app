@@ -6,6 +6,7 @@ export { discoverDismissals } from "./schema/discover-dismissals.js";
 export {
   messages,
   messageReactions,
+  messageUserHidden,
 } from "./schema/messages.js";
 export {
   stories,

@@ -79,6 +79,31 @@ await db.execute(sql`
 `);
 
 await db.execute(sql`
+  alter table conversation_user_settings
+    add column if not exists pinned_at timestamp
+`);
+
+await db.execute(sql`
+  alter table conversation_user_settings
+    add column if not exists muted_at timestamp
+`);
+
+await db.execute(sql`
+  alter table conversation_user_settings
+    add column if not exists folder text
+`);
+
+await db.execute(sql`
+  create index if not exists conversation_user_settings_user_pinned_idx
+    on conversation_user_settings (user_id, pinned_at)
+`);
+
+await db.execute(sql`
+  create index if not exists conversation_user_settings_user_folder_idx
+    on conversation_user_settings (user_id, folder)
+`);
+
+await db.execute(sql`
   create table if not exists discover_dismissals (
     id text primary key not null,
     user_id text not null,
@@ -182,6 +207,26 @@ await db.execute(sql`
 await db.execute(sql`
   create index if not exists messages_reply_source_idx
     on messages (reply_to_message_id)
+`);
+
+await db.execute(sql`
+  create table if not exists message_user_hidden (
+    id text primary key not null,
+    message_id text not null,
+    conversation_id text not null,
+    user_id text not null,
+    hidden_at timestamp default now() not null
+  )
+`);
+
+await db.execute(sql`
+  create unique index if not exists message_user_hidden_message_user_unique_idx
+    on message_user_hidden (message_id, user_id)
+`);
+
+await db.execute(sql`
+  create index if not exists message_user_hidden_conversation_user_idx
+    on message_user_hidden (conversation_id, user_id)
 `);
 
 await closeDb();

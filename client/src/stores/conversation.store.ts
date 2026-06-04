@@ -12,6 +12,11 @@ type ConversationPatch = Pick<
   | "localThemeId"
   | "sharedThemeId"
   | "themeUpdatedAt"
+  | "pinned"
+  | "pinnedAt"
+  | "muted"
+  | "mutedAt"
+  | "folder"
 >;
 
 interface ConversationState {
