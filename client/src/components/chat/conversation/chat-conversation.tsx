@@ -1823,7 +1823,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
     longPressTimerRef.current = setTimeout(() => {
       openActions();
       longPressTimerRef.current = null;
-    }, 330);
+    }, 500);
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {

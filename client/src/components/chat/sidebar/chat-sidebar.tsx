@@ -345,7 +345,7 @@ const ConversationListButton = memo(
                 conversation,
                 target.getBoundingClientRect()
               );
-            }, 360);
+            }, 500);
         },
         [
           clearLongPressTimer,
@@ -1751,7 +1751,7 @@ export default function ChatSidebar() {
               opacity: 0,
             }}
             className="fixed inset-0 z-[275] flex items-end justify-center bg-black/40 p-3 sm:items-center sm:p-6 sm:backdrop-blur-xl"
-            onClick={() =>
+            onPointerDown={() =>
               setFolderSheetConversation(null)
             }
           >
@@ -1882,7 +1882,7 @@ export default function ChatSidebar() {
               opacity: 0,
             }}
             className="fixed inset-0 z-[276] flex items-center justify-center bg-[var(--fc-overlay-strong)] p-4 sm:backdrop-blur-xl"
-            onClick={() =>
+            onPointerDown={() =>
               setDeleteConfirmConversation(null)
             }
           >
@@ -1972,6 +1972,9 @@ export default function ChatSidebar() {
               opacity: 0,
             }}
             className="fixed inset-0 z-[280] flex items-center justify-center bg-[var(--fc-overlay-strong)] p-4 sm:backdrop-blur-xl"
+            onPointerDown={() =>
+              setLogoutConfirmOpen(false)
+            }
           >
             <motion.div
               initial={{
