@@ -408,13 +408,13 @@ export async function conversationRoutes(app: FastifyInstance) {
                 uc.id,
                 case
                   when uc.type = 'direct'
-                    then coalesce(uc.name, members.direct_name)
+                    then coalesce(uc.name, member_data.direct_name)
                   else uc.name
                 end as name,
                 uc.type,
                 case
                   when uc.type = 'direct'
-                    then coalesce(members.direct_avatar, uc.avatar)
+                    then coalesce(member_data.direct_avatar, uc.avatar)
                   else uc.avatar
                 end as avatar,
                 uc.shared_theme_id as "sharedThemeId",
@@ -449,11 +449,11 @@ export async function conversationRoutes(app: FastifyInstance) {
                   0
                 )::int as "unreadCount",
                 coalesce(
-                  members.member_ids,
+                  member_data.member_ids,
                   array[]::text[]
                 ) as "memberIds",
                 coalesce(
-                  members.members,
+                  member_data.members,
                   '[]'::jsonb
                 ) as members
               from user_conversations uc
@@ -530,7 +530,7 @@ export async function conversationRoutes(app: FastifyInstance) {
                 inner join users u
                   on u.id = cm.user_id
                 where cm.conversation_id = uc.id
-              ) members on true
+              ) member_data on true
               left join conversation_user_settings settings
                 on settings.conversation_id = uc.id
                 and settings.user_id = ${userId}
