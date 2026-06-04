@@ -130,83 +130,63 @@ function hasOnlinePeer(
   );
 }
 
-const RELATIVE_TIME_FORMATTER =
-  new Intl.RelativeTimeFormat("en", {
-    numeric: "auto",
-  });
+const TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
 
-function formatConversationTime(
-  value?: string,
-  now = Date.now()
-) {
-  if (!value) {
-    return "";
+const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+});
+
+const YEAR_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+
+function formatChatTimestamp(value?: string, now = Date.now()) {
+  if (!value) return "";
+
+  const time = new Date(value).getTime();
+  if (Number.isNaN(time)) return "";
+
+  const diffSeconds = Math.round((now - time) / 1000);
+  if (diffSeconds < 60) return "Just now";
+
+  const date = new Date(time);
+  const nowDate = new Date(now);
+
+  const isSameDay =
+    date.getDate() === nowDate.getDate() &&
+    date.getMonth() === nowDate.getMonth() &&
+    date.getFullYear() === nowDate.getFullYear();
+
+  if (isSameDay) {
+    return TIME_FORMATTER.format(date);
   }
 
-  const time =
-    new Date(value).getTime();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
 
-  if (Number.isNaN(time)) {
-    return "";
+  const isYesterday =
+    date.getDate() === yesterday.getDate() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getFullYear() === yesterday.getFullYear();
+
+  if (isYesterday) {
+    return "Yesterday";
   }
 
-  const diffSeconds =
-    Math.round(
-      (time - now) / 1000
-    );
-  const absoluteSeconds =
-    Math.abs(diffSeconds);
+  const isSameYear = date.getFullYear() === nowDate.getFullYear();
 
-  if (absoluteSeconds < 60) {
-    return "Now";
+  if (isSameYear) {
+    return DATE_FORMATTER.format(date);
   }
 
-  const units = [
-    [
-      "year",
-      60 * 60 * 24 * 365,
-    ],
-    [
-      "month",
-      60 * 60 * 24 * 30,
-    ],
-    [
-      "week",
-      60 * 60 * 24 * 7,
-    ],
-    [
-      "day",
-      60 * 60 * 24,
-    ],
-    [
-      "hour",
-      60 * 60,
-    ],
-    [
-      "minute",
-      60,
-    ],
-  ] as const;
-
-  const [
-    unit,
-    seconds,
-  ] =
-    units.find(
-      ([, unitSeconds]) =>
-        absoluteSeconds >=
-        unitSeconds
-    ) ?? [
-      "minute",
-      60,
-    ];
-
-  return RELATIVE_TIME_FORMATTER.format(
-    Math.round(
-      diffSeconds / seconds
-    ),
-    unit
-  );
+  return YEAR_FORMATTER.format(date);
 }
 
 function getConversationAvatar(
@@ -315,7 +295,7 @@ const ConversationListButton = memo(
     );
     const lastActivityLabel = useMemo(
       () =>
-        formatConversationTime(
+        formatChatTimestamp(
           conversation.lastActivityAt ??
             conversation.createdAt,
           now
