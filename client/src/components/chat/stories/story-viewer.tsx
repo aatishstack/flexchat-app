@@ -76,13 +76,14 @@ type Props = {
 const STORY_DURATION_MS = 5000;
 const VIDEO_FALLBACK_DURATION_MS = 12000;
 
-function formatStoryTime(value?: string, now = Date.now()) {
+function formatStoryTime(value?: string, now?: number) {
   if (!value) {
     return "";
   }
+  const targetNow = now ?? (Date.now() + (typeof window !== "undefined" ? window.__serverTimeOffset ?? 0 : 0));
 
   const diffMs =
-    now -
+    targetNow -
     new Date(value).getTime();
   const diffMinutes =
     Math.max(1, Math.round(diffMs / 60000));

@@ -74,7 +74,6 @@ import {
   ConversationFolder,
 } from "@/types/conversation";
 
-const CONVERSATION_ROW_ESTIMATE = 64;
 const CONVERSATION_ROW_OVERSCAN = 12;
 const CONVERSATION_ACTION_MENU_WIDTH = 248;
 const CONVERSATION_ACTION_MENU_HEIGHT = 286;
@@ -147,17 +146,18 @@ const YEAR_FORMATTER = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
-function formatChatTimestamp(value?: string, now = Date.now()) {
+function formatChatTimestamp(value?: string, now?: number) {
   if (!value) return "";
 
   const time = new Date(value).getTime();
   if (Number.isNaN(time)) return "";
 
-  const diffSeconds = Math.round((now - time) / 1000);
+  const targetNow = now ?? (Date.now() + (typeof window !== "undefined" ? window.__serverTimeOffset ?? 0 : 0));
+  const diffSeconds = Math.round((targetNow - time) / 1000);
   if (diffSeconds < 60) return "Just now";
 
   const date = new Date(time);
-  const nowDate = new Date(now);
+  const nowDate = new Date(targetNow);
 
   const isSameDay =
     date.getDate() === nowDate.getDate() &&
@@ -168,7 +168,7 @@ function formatChatTimestamp(value?: string, now = Date.now()) {
     return TIME_FORMATTER.format(date);
   }
 
-  const yesterday = new Date(now);
+  const yesterday = new Date(targetNow);
   yesterday.setDate(yesterday.getDate() - 1);
 
   const isYesterday =
@@ -410,10 +410,12 @@ const ConversationListButton = memo(
         onPointerCancel={() => {
           pressStartRef.current = null;
           clearLongPressTimer();
+          setIsPressed(false);
         }}
         onPointerLeave={() => {
           pressStartRef.current = null;
           clearLongPressTimer();
+          setIsPressed(false);
         }}
         onContextMenu={(event) => {
           event.preventDefault();
