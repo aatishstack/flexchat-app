@@ -13,14 +13,19 @@ import {
 import {
   AlertTriangle,
   Ban,
+  Bell,
   BellOff,
+  Check,
+  Folder,
   LogOut,
+  Mail,
+  MailOpen,
   MessageCircle,
   Pin,
+  Plus,
   RefreshCw,
   Search,
   Trash2,
-  UserRound,
   X,
 } from "lucide-react";
 import {
@@ -29,6 +34,7 @@ import {
 } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { createPortal } from "react-dom";
 import type {
   PointerEvent as ReactPointerEvent,
   TouchEvent as ReactTouchEvent,
@@ -43,9 +49,12 @@ import FlexAvatar from "@/components/chat/flex-avatar";
 import { clearClientSession } from "@/lib/session-cleanup";
 import {
   deleteConversation,
+  setConversationRead,
+  updateConversationSettings,
 } from "@/services/conversation.service";
 import {
   removeConversationFromQueryCache,
+  updateConversationInQueryCache,
 } from "@/lib/conversation-query-cache";
 import type {
   ConversationQueryCache,
@@ -60,10 +69,52 @@ import { useBlockStore } from "@/store/block-store";
 import { useToastStore } from "@/store/toast-store";
 import { useAuthStore } from "@/stores/auth.store";
 import { useConversationStore } from "@/stores/conversation.store";
-import { Conversation } from "@/types/conversation";
+import {
+  Conversation,
+  ConversationFolder,
+} from "@/types/conversation";
 
 const CONVERSATION_ROW_ESTIMATE = 76;
 const CONVERSATION_ROW_OVERSCAN = 8;
+const CONVERSATION_ACTION_MENU_WIDTH = 248;
+const CONVERSATION_ACTION_MENU_HEIGHT = 286;
+
+const CHAT_FOLDERS: {
+  id: ConversationFolder;
+  label: string;
+}[] = [
+  {
+    id: "work",
+    label: "Work",
+  },
+  {
+    id: "friends",
+    label: "Friends",
+  },
+  {
+    id: "groups",
+    label: "Groups",
+  },
+];
+
+const SIDEBAR_FILTERS = [
+  {
+    id: "all",
+    label: "All",
+  },
+  {
+    id: "unread",
+    label: "Unread",
+  },
+  {
+    id: "archive",
+    label: "Archive",
+  },
+  ...CHAT_FOLDERS.map((folder) => ({
+    id: folder.id,
+    label: folder.label,
+  })),
+];
 
 function hasOnlinePeer(
   conversation: Conversation,
@@ -173,18 +224,53 @@ function getConversationAvatar(
   );
 }
 
+function getConversationMenuPosition(
+  anchorRect: DOMRect
+) {
+  if (typeof window === "undefined") {
+    return {
+      left: 12,
+      top: 12,
+    };
+  }
+
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  return {
+    left: Math.min(
+      Math.max(
+        12,
+        anchorRect.left + 64
+      ),
+      viewportWidth -
+        CONVERSATION_ACTION_MENU_WIDTH -
+        12
+    ),
+    top: Math.min(
+      Math.max(
+        12,
+        anchorRect.top + 6
+      ),
+      viewportHeight -
+        CONVERSATION_ACTION_MENU_HEIGHT -
+        12
+    ),
+  };
+}
+
 type ConversationListButtonProps = {
   conversation: Conversation;
   active: boolean;
   isOnline: boolean;
   currentUserId?: string;
-  muted: boolean;
   now: number;
   onSelect: (
     conversation: Conversation
   ) => void;
   onContextOpen: (
-    conversation: Conversation
+    conversation: Conversation,
+    anchorRect: DOMRect
   ) => void;
 };
 
@@ -194,7 +280,6 @@ const ConversationListButton = memo(
     active,
     isOnline,
     currentUserId,
-    muted,
     now,
     onSelect,
     onContextOpen,
@@ -262,12 +347,16 @@ const ConversationListButton = memo(
 
           longPressTriggeredRef.current = false;
           clearLongPressTimer();
+          const target = event.currentTarget;
 
           longPressTimerRef.current =
             setTimeout(() => {
               longPressTriggeredRef.current = true;
               navigator.vibrate?.(6);
-              onContextOpen(conversation);
+              onContextOpen(
+                conversation,
+                target.getBoundingClientRect()
+              );
             }, 340);
         },
         [
@@ -302,7 +391,10 @@ const ConversationListButton = memo(
         onContextMenu={(event) => {
           event.preventDefault();
           clearLongPressTimer();
-          onContextOpen(conversation);
+          onContextOpen(
+            conversation,
+            event.currentTarget.getBoundingClientRect()
+          );
         }}
         className={`group fc-telegram-touch flex h-[72px] w-full items-center gap-3 rounded-lg border px-3 py-0 text-left transition-[background-color,border-color] duration-150 ease-out ${
           active
@@ -336,7 +428,7 @@ const ConversationListButton = memo(
                 />
               ) : null}
 
-              {muted ? (
+              {conversation.muted ? (
                 <BellOff
                   size={13}
                   className="shrink-0 text-[var(--fc-text-subtle)]"
@@ -383,18 +475,24 @@ export default function ChatSidebar() {
     setActionConversation,
   ] = useState<Conversation | null>(null);
   const [
+    actionAnchorRect,
+    setActionAnchorRect,
+  ] = useState<DOMRect | null>(null);
+  const [
+    folderSheetConversation,
+    setFolderSheetConversation,
+  ] = useState<Conversation | null>(null);
+  const [
+    deleteConfirmConversation,
+    setDeleteConfirmConversation,
+  ] = useState<Conversation | null>(null);
+  const [
     clearPendingConversationId,
     setClearPendingConversationId,
   ] = useState<string | null>(null);
   const [
     hiddenConversationIds,
     setHiddenConversationIds,
-  ] = useState<Set<string>>(
-    () => new Set()
-  );
-  const [
-    mutedConversationIds,
-    setMutedConversationIds,
   ] = useState<Set<string>>(
     () => new Set()
   );
@@ -582,17 +680,68 @@ export default function ChatSidebar() {
   const closeConversationActions =
     useCallback(() => {
       setActionConversation(null);
+      setActionAnchorRect(null);
     }, []);
+
+  const openConversationActions =
+    useCallback(
+      (
+        conversation: Conversation,
+        anchorRect: DOMRect
+      ) => {
+        setActionConversation(conversation);
+        setActionAnchorRect(anchorRect);
+      },
+      []
+    );
+
+  const patchConversation =
+    useCallback(
+      (
+        conversationId: string,
+        patch: Partial<Conversation>
+      ) => {
+        queryClient.setQueryData<ConversationQueryCache>(
+          queryKeys.conversations.all,
+          (cache) =>
+            updateConversationInQueryCache(
+              cache,
+              conversationId,
+              (conversation) => ({
+                ...conversation,
+                ...patch,
+              })
+            )
+        );
+
+        useConversationStore.setState((state) => ({
+          conversationPatches: {
+            ...state.conversationPatches,
+            [conversationId]: {
+              ...state.conversationPatches[
+                conversationId
+              ],
+              ...patch,
+            },
+          },
+        }));
+      },
+      [queryClient]
+    );
 
   const handleClearConversation =
     useCallback(async () => {
-      if (!actionConversation) {
+      const targetConversation =
+        deleteConfirmConversation ??
+        actionConversation;
+
+      if (!targetConversation) {
         return;
       }
 
       triggerHaptic(10);
       const conversationId =
-        actionConversation.id;
+        targetConversation.id;
 
       setClearPendingConversationId(
         conversationId
@@ -645,6 +794,7 @@ export default function ChatSidebar() {
         );
 
         closeConversationActions();
+        setDeleteConfirmConversation(null);
         void queryClient.invalidateQueries({
           queryKey:
             queryKeys.conversations.all,
@@ -658,7 +808,7 @@ export default function ChatSidebar() {
           return next;
         });
         pushToast({
-          title: "Could not clear chat",
+          title: "Could not delete chat",
           message:
             "Please try again in a moment.",
           variant: "error",
@@ -670,6 +820,7 @@ export default function ChatSidebar() {
       actionConversation,
       activeConversationId,
       closeConversationActions,
+      deleteConfirmConversation,
       pushToast,
       queryClient,
     ]);
@@ -846,56 +997,243 @@ export default function ChatSidebar() {
       unblockConversation,
     ]);
 
+  const handleTogglePin =
+    useCallback(async () => {
+      if (!actionConversation) {
+        return;
+      }
+
+      const conversationId =
+        actionConversation.id;
+      const nextPinned =
+        !actionConversation.pinned;
+      const pinnedAt =
+        nextPinned
+          ? new Date().toISOString()
+          : null;
+
+      triggerHaptic(10);
+      patchConversation(conversationId, {
+        pinned:
+          nextPinned,
+        pinnedAt,
+      });
+      closeConversationActions();
+
+      try {
+        const conversation =
+          await updateConversationSettings({
+            conversationId,
+            pinned:
+              nextPinned,
+          });
+
+        patchConversation(
+          conversationId,
+          conversation
+        );
+      } catch {
+        patchConversation(conversationId, {
+          pinned:
+            actionConversation.pinned,
+          pinnedAt:
+            actionConversation.pinnedAt ?? null,
+        });
+        pushToast({
+          title: "Pin failed",
+          message:
+            "That chat could not be updated right now.",
+          variant: "error",
+        });
+      }
+    }, [
+      actionConversation,
+      closeConversationActions,
+      patchConversation,
+      pushToast,
+    ]);
+
+  const handleToggleRead =
+    useCallback(async () => {
+      if (!actionConversation) {
+        return;
+      }
+
+      const conversationId =
+        actionConversation.id;
+      const shouldMarkRead =
+        !!actionConversation.unreadCount;
+      const optimisticUnreadCount =
+        shouldMarkRead ? 0 : 1;
+
+      triggerHaptic(10);
+      patchConversation(conversationId, {
+        unreadCount:
+          optimisticUnreadCount,
+      });
+      closeConversationActions();
+
+      try {
+        const conversation =
+          await setConversationRead(
+            conversationId,
+            shouldMarkRead
+          );
+
+        patchConversation(
+          conversationId,
+          conversation
+        );
+      } catch {
+        patchConversation(conversationId, {
+          unreadCount:
+            actionConversation.unreadCount ?? 0,
+        });
+        pushToast({
+          title: "Read state failed",
+          message:
+            "That chat could not be updated right now.",
+          variant: "error",
+        });
+      }
+    }, [
+      actionConversation,
+      closeConversationActions,
+      patchConversation,
+      pushToast,
+    ]);
+
   const handleToggleMute =
+    useCallback(async () => {
+      if (!actionConversation) {
+        return;
+      }
+
+      triggerHaptic(10);
+      const conversationId =
+        actionConversation.id;
+      const nextMuted =
+        !actionConversation.muted;
+      const mutedAt =
+        nextMuted
+          ? new Date().toISOString()
+          : null;
+
+      patchConversation(conversationId, {
+        muted:
+          nextMuted,
+        mutedAt,
+      });
+      closeConversationActions();
+
+      try {
+        const conversation =
+          await updateConversationSettings({
+            conversationId,
+            muted:
+              nextMuted,
+          });
+
+        patchConversation(
+          conversationId,
+          conversation
+        );
+      } catch {
+        patchConversation(conversationId, {
+          muted:
+            actionConversation.muted,
+          mutedAt:
+            actionConversation.mutedAt ?? null,
+        });
+        pushToast({
+          title: "Mute failed",
+          message:
+            "That chat could not be updated right now.",
+          variant: "error",
+        });
+      }
+    }, [
+      actionConversation,
+      closeConversationActions,
+      patchConversation,
+      pushToast,
+    ]);
+
+  const handleOpenFolderSheet =
     useCallback(() => {
       if (!actionConversation) {
         return;
       }
 
       triggerHaptic(10);
-      setMutedConversationIds((current) => {
-        const next = new Set(current);
-
-        if (next.has(actionConversation.id)) {
-          next.delete(actionConversation.id);
-        } else {
-          next.add(actionConversation.id);
-        }
-
-        return next;
-      });
-      closeConversationActions();
-    }, [
-      actionConversation,
-      closeConversationActions,
-    ]);
-
-  const handleSeeProfile =
-    useCallback(() => {
-      if (!actionConversation) {
-        return;
-      }
-
-      handleSelectConversation(
+      setFolderSheetConversation(
         actionConversation
       );
       closeConversationActions();
-      window.dispatchEvent(
-        new CustomEvent(
-          "flexchat:open-conversation-profile",
-          {
-            detail: {
-              conversationId:
-                actionConversation.id,
-            },
-          }
-        )
-      );
     }, [
       actionConversation,
       closeConversationActions,
-      handleSelectConversation,
     ]);
+
+  const handleAssignFolder =
+    useCallback(
+      async (
+        folder: ConversationFolder | null
+      ) => {
+        if (!folderSheetConversation) {
+          return;
+        }
+
+        const conversationId =
+          folderSheetConversation.id;
+
+        triggerHaptic(10);
+        patchConversation(conversationId, {
+          folder,
+        });
+
+        try {
+          const conversation =
+            await updateConversationSettings({
+              conversationId,
+              folder,
+            });
+
+          patchConversation(
+            conversationId,
+            conversation
+          );
+          setFolderSheetConversation(null);
+        } catch {
+          patchConversation(conversationId, {
+            folder:
+              folderSheetConversation.folder ?? null,
+          });
+          pushToast({
+            title: "Folder update failed",
+            message:
+              "That chat could not be moved right now.",
+            variant: "error",
+          });
+        }
+      },
+      [
+        folderSheetConversation,
+        patchConversation,
+        pushToast,
+      ]
+    );
+
+  const handleCreateFolder =
+    useCallback(() => {
+      triggerHaptic(10);
+      pushToast({
+        title: "Folder creation coming soon",
+        message:
+          "For now you can use Work, Friends, or Groups.",
+        variant: "info",
+      });
+    }, [pushToast]);
 
   const confirmLogout =
     useCallback(() => {
@@ -938,6 +1276,16 @@ export default function ChatSidebar() {
         return;
       }
 
+      if (folderSheetConversation) {
+        setFolderSheetConversation(null);
+        return;
+      }
+
+      if (deleteConfirmConversation) {
+        setDeleteConfirmConversation(null);
+        return;
+      }
+
       if (logoutConfirmOpen) {
         setLogoutConfirmOpen(false);
       }
@@ -951,6 +1299,8 @@ export default function ChatSidebar() {
   }, [
     actionConversation,
     closeConversationActions,
+    deleteConfirmConversation,
+    folderSheetConversation,
     logoutConfirmOpen,
   ]);
 
@@ -1040,25 +1390,21 @@ export default function ChatSidebar() {
           </AnimatePresence>
 
           <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
-            {[
-              "all",
-              "unread",
-              "archive",
-            ].map((folder) => (
+            {SIDEBAR_FILTERS.map((folder) => (
               <button
-                key={folder}
+                key={folder.id}
                 type="button"
                 onClick={() => {
                   triggerHaptic(10);
-                  setActiveFolder(folder);
+                  setActiveFolder(folder.id);
                 }}
                 className={`relative overflow-hidden rounded-lg px-4 py-2 text-sm font-medium capitalize transition-all ${
-                  activeFolder === folder
+                  activeFolder === folder.id
                     ? "text-white"
                     : "fc-surface text-[var(--fc-text-muted)] hover:bg-[var(--fc-app-surface-hover)]"
                 }`}
               >
-                {activeFolder === folder ? (
+                {activeFolder === folder.id ? (
                   <motion.span
                     layoutId="sidebar-folder-active"
                     className="absolute inset-0 rounded-lg bg-[var(--fc-primary)]"
@@ -1070,7 +1416,7 @@ export default function ChatSidebar() {
                   />
                 ) : null}
                 <span className="relative z-10">
-                  {folder}
+                  {folder.label}
                 </span>
               </button>
             ))}
@@ -1169,15 +1515,12 @@ export default function ChatSidebar() {
                       active={active}
                       isOnline={isOnline}
                       currentUserId={currentUserId}
-                      muted={mutedConversationIds.has(
-                        conversation.id
-                      )}
                       now={now}
                       onSelect={
                         handleSelectConversation
                       }
                       onContextOpen={
-                        setActionConversation
+                        openConversationActions
                       }
                     />
                   </div>
@@ -1206,8 +1549,170 @@ export default function ChatSidebar() {
       </div>
 
       <AnimatePresence>
-        {actionConversation ? (
+        {actionConversation &&
+        actionAnchorRect &&
+        typeof document !== "undefined"
+          ? createPortal(
+              <motion.div
+                key="conversation-action-menu"
+                initial={{
+                  opacity: 0,
+                }}
+                animate={{
+                  opacity: 1,
+                }}
+                exit={{
+                  opacity: 0,
+                }}
+                transition={{
+                  duration: 0.15,
+                }}
+                className="fixed inset-0 z-[270] touch-none bg-black/40"
+                onPointerDown={
+                  closeConversationActions
+                }
+              >
+                <motion.div
+                  initial={{
+                    opacity: 0,
+                    scale: 0.94,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    scale: 1,
+                  }}
+                  exit={{
+                    opacity: 0,
+                    scale: 0.94,
+                  }}
+                  transition={{
+                    duration: 0.15,
+                    ease: "easeOut",
+                  }}
+                  style={{
+                    ...getConversationMenuPosition(
+                      actionAnchorRect
+                    ),
+                    width:
+                      CONVERSATION_ACTION_MENU_WIDTH,
+                  }}
+                  className="fixed overflow-hidden rounded-[18px] border border-white/10 bg-[#17212B]/95 py-1.5 text-white shadow-[0_18px_54px_rgba(0,0,0,0.48)] backdrop-blur-2xl"
+                  onPointerDown={(event) =>
+                    event.stopPropagation()
+                  }
+                  role="menu"
+                  aria-label="Conversation actions"
+                >
+                  <button
+                    type="button"
+                    onClick={handleTogglePin}
+                    className="flex h-11 w-full items-center gap-3 px-4 text-left text-sm font-medium text-white/90 transition hover:bg-white/[0.07]"
+                  >
+                    <Pin
+                      size={18}
+                      className="text-[#8ED4FF]"
+                    />
+                    {actionConversation.pinned
+                      ? "Unpin"
+                      : "Pin"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleOpenFolderSheet}
+                    className="flex h-11 w-full items-center gap-3 px-4 text-left text-sm font-medium text-white/90 transition hover:bg-white/[0.07]"
+                  >
+                    <Folder
+                      size={18}
+                      className="text-[#8ED4FF]"
+                    />
+                    Add to Folder
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleToggleRead}
+                    className="flex h-11 w-full items-center gap-3 px-4 text-left text-sm font-medium text-white/90 transition hover:bg-white/[0.07]"
+                  >
+                    {actionConversation.unreadCount ? (
+                      <MailOpen
+                        size={18}
+                        className="text-[#8ED4FF]"
+                      />
+                    ) : (
+                      <Mail
+                        size={18}
+                        className="text-[#8ED4FF]"
+                      />
+                    )}
+                    {actionConversation.unreadCount
+                      ? "Mark as Read"
+                      : "Mark as Unread"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleteConfirmConversation(
+                        actionConversation
+                      );
+                      closeConversationActions();
+                    }}
+                    disabled={
+                      clearPendingConversationId ===
+                      actionConversation.id
+                    }
+                    className="flex h-11 w-full items-center gap-3 px-4 text-left text-sm font-medium text-red-100 transition hover:bg-red-500/15 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    <Trash2 size={18} />
+                    Delete Chat
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleToggleMute}
+                    className="flex h-11 w-full items-center gap-3 px-4 text-left text-sm font-medium text-white/90 transition hover:bg-white/[0.07]"
+                  >
+                    {actionConversation.muted ? (
+                      <Bell
+                        size={18}
+                        className="text-[#8ED4FF]"
+                      />
+                    ) : (
+                      <BellOff
+                        size={18}
+                        className="text-[#8ED4FF]"
+                      />
+                    )}
+                    {actionConversation.muted
+                      ? "Unmute"
+                      : "Mute"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleToggleBlock}
+                    className="flex h-11 w-full items-center gap-3 px-4 text-left text-sm font-medium text-white/90 transition hover:bg-white/[0.07]"
+                  >
+                    <Ban
+                      size={18}
+                      className="text-[#8ED4FF]"
+                    />
+                    {blockedConversationSet.has(
+                      actionConversation.id
+                    )
+                      ? "Unblock"
+                      : "Block"}
+                  </button>
+                </motion.div>
+              </motion.div>,
+              document.body
+            )
+          : null}
+
+        {folderSheetConversation ? (
           <motion.div
+            key="conversation-folder-sheet"
             initial={{
               opacity: 0,
             }}
@@ -1217,9 +1722,9 @@ export default function ChatSidebar() {
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[270] flex items-end justify-center bg-[var(--fc-overlay)] p-3 sm:items-center sm:backdrop-blur-xl"
-            onClick={
-              closeConversationActions
+            className="fixed inset-0 z-[275] flex items-end justify-center bg-black/40 p-3 sm:items-center sm:p-6 sm:backdrop-blur-xl"
+            onClick={() =>
+              setFolderSheetConversation(null)
             }
           >
             <motion.div
@@ -1240,7 +1745,7 @@ export default function ChatSidebar() {
               }}
               transition={{
                 type: "spring",
-                stiffness: 280,
+                stiffness: 320,
                 damping: 30,
               }}
               className="fc-modal w-full max-w-sm overflow-hidden rounded-2xl border"
@@ -1248,90 +1753,179 @@ export default function ChatSidebar() {
                 event.stopPropagation()
               }
             >
-              <div className="flex items-center justify-between border-b border-[var(--fc-app-border)] p-5">
+              <div className="flex items-center justify-between border-b border-[var(--fc-app-border)] px-5 py-4">
                 <div className="min-w-0">
-                  <h2 className="truncate font-semibold">
+                  <h2 className="font-semibold">
+                    Add to Folder
+                  </h2>
+                  <p className="fc-subtle truncate text-xs">
                     {formatDisplayName(
-                      actionConversation.name ??
+                      folderSheetConversation.name ??
                         "Untitled"
                     )}
-                  </h2>
-                  <p className="fc-subtle mt-1 truncate text-xs">
-                    {actionConversation.latestMessage ??
-                      "No messages yet"}
                   </p>
                 </div>
 
                 <button
                   type="button"
-                  onClick={
-                    closeConversationActions
+                  onClick={() =>
+                    setFolderSheetConversation(null)
                   }
-                  className="fc-surface fc-hover flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition"
-                  aria-label="Close conversation actions"
+                  className="fc-surface fc-hover flex h-10 w-10 items-center justify-center rounded-2xl border transition"
+                  aria-label="Close folder sheet"
                 >
                   <X size={17} />
                 </button>
               </div>
 
-              <div className="grid gap-2 p-3">
-                <button
-                  type="button"
-                  onClick={handleToggleBlock}
-                  className="fc-hover flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--fc-theme-text)] transition"
-                >
-                  <Ban
-                    size={18}
-                    className="text-[var(--fc-accent-text)]"
-                  />
-                  {blockedConversationSet.has(
-                    actionConversation.id
-                  )
-                    ? "Unblock"
-                    : "Block"}
-                </button>
+              <div className="grid gap-1 p-3">
+                {CHAT_FOLDERS.map((folder) => {
+                  const selected =
+                    folderSheetConversation.folder ===
+                    folder.id;
+
+                  return (
+                    <button
+                      key={folder.id}
+                      type="button"
+                      onClick={() => {
+                        void handleAssignFolder(
+                          folder.id
+                        );
+                      }}
+                      className="fc-hover flex h-12 items-center gap-3 rounded-2xl px-4 text-left text-sm font-medium text-[var(--fc-theme-text)] transition"
+                    >
+                      <Folder
+                        size={18}
+                        className="text-[var(--fc-accent-text)]"
+                      />
+                      <span className="flex-1">
+                        {folder.label}
+                      </span>
+                      {selected ? (
+                        <Check size={17} />
+                      ) : null}
+                    </button>
+                  );
+                })}
+
+                {folderSheetConversation.folder ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleAssignFolder(null);
+                    }}
+                    className="fc-hover flex h-12 items-center gap-3 rounded-2xl px-4 text-left text-sm font-medium text-[var(--fc-theme-text)] transition"
+                  >
+                    <X
+                      size={18}
+                      className="text-[var(--fc-accent-text)]"
+                    />
+                    Remove from Folder
+                  </button>
+                ) : null}
 
                 <button
                   type="button"
-                  onClick={
-                    handleClearConversation
+                  onClick={handleCreateFolder}
+                  className="fc-hover flex h-12 items-center gap-3 rounded-2xl px-4 text-left text-sm font-medium text-[var(--fc-theme-text)] transition"
+                >
+                  <Plus
+                    size={18}
+                    className="text-[var(--fc-accent-text)]"
+                  />
+                  Create Folder
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+
+        {deleteConfirmConversation ? (
+          <motion.div
+            key="conversation-delete-confirm"
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+            }}
+            className="fixed inset-0 z-[276] flex items-center justify-center bg-[var(--fc-overlay-strong)] p-4 sm:backdrop-blur-xl"
+            onClick={() =>
+              setDeleteConfirmConversation(null)
+            }
+          >
+            <motion.div
+              initial={{
+                opacity: 0,
+                y: 18,
+                scale: 0.96,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                scale: 1,
+              }}
+              exit={{
+                opacity: 0,
+                y: 18,
+                scale: 0.96,
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 260,
+                damping: 28,
+              }}
+              className="fc-modal w-full max-w-sm rounded-2xl border p-5"
+              onClick={(event) =>
+                event.stopPropagation()
+              }
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/[0.15] text-red-100">
+                  <Trash2 size={21} />
+                </div>
+
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold">
+                    Delete this chat?
+                  </h2>
+                  <p className="fc-muted mt-1 text-sm leading-relaxed">
+                    It will be removed from your chat list.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDeleteConfirmConversation(null)
                   }
                   disabled={
                     clearPendingConversationId ===
-                    actionConversation.id
+                    deleteConfirmConversation.id
                   }
-                  className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-red-100 transition hover:bg-red-500/15"
+                  className="fc-surface fc-hover h-12 rounded-2xl border text-sm font-medium text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)] disabled:cursor-wait disabled:opacity-60"
                 >
-                  <Trash2 size={18} />
-                  Clear Chat
+                  Cancel
                 </button>
 
                 <button
                   type="button"
-                  onClick={handleToggleMute}
-                  className="fc-hover flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--fc-theme-text)] transition"
+                  onClick={() => {
+                    void handleClearConversation();
+                  }}
+                  disabled={
+                    clearPendingConversationId ===
+                    deleteConfirmConversation.id
+                  }
+                  className="h-12 rounded-2xl bg-red-500 text-sm font-semibold text-white shadow-xl shadow-red-500/25 transition hover:bg-red-400 disabled:cursor-wait disabled:opacity-60"
                 >
-                  <BellOff
-                    size={18}
-                    className="text-[var(--fc-accent-text)]"
-                  />
-                  {mutedConversationIds.has(
-                    actionConversation.id
-                  )
-                    ? "Unmute"
-                    : "Mute"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSeeProfile}
-                  className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-zinc-100 transition hover:bg-white/[0.07]"
-                >
-                  <UserRound
-                    size={18}
-                    className="text-[#9BD0FF]"
-                  />
-                  See Profile
+                  Delete
                 </button>
               </div>
             </motion.div>

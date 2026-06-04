@@ -23,6 +23,7 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Clipboard,
   Download,
   FileText,
   Forward,
@@ -41,6 +42,7 @@ import {
   SendHorizonal,
   SmilePlus,
   Sparkles,
+  Star,
   Trash2,
   UserRound,
   Video,
@@ -83,6 +85,7 @@ import { SOCKET_EVENTS } from "@/socket/socket-events";
 import { Message, useSocketStore } from "@/store/socket-store";
 import { useCallStore } from "@/store/call-store";
 import { useBlockStore } from "@/store/block-store";
+import { useBookmarkStore } from "@/store/bookmark-store";
 import { useToastStore } from "@/store/toast-store";
 import { updateConversationInQueryCache } from "@/lib/conversation-query-cache";
 import type { ConversationQueryCache } from "@/lib/conversation-query-cache";
@@ -112,6 +115,7 @@ const EMPTY_PROFILE_MEMBERS: NonNullable<Conversation["members"]> = [];
 const MESSAGE_ROW_ESTIMATE = 118;
 const MESSAGE_ROW_OVERSCAN = 12;
 const MARK_SEEN_FLUSH_DELAY_MS = 120;
+const MESSAGE_EVERYONE_ACTION_WINDOW_MS = 48 * 60 * 60 * 1000;
 const QUICK_REACTIONS = ["❤️", "👍", "👎", "🔥", "🥰", "👏", "😁"];
 const INLINE_REACTIONS = ["\uD83D\uDC4D", "\u2764\uFE0F", "\uD83D\uDE02"];
 const LEGACY_INLINE_REACTIONS = [
@@ -627,6 +631,28 @@ function shouldUseLongPressActions() {
   return window.matchMedia("(hover: none), (pointer: coarse)").matches;
 }
 
+function canMutateForEveryone(
+  message: Message,
+  currentUserId?: string | null,
+) {
+  if (
+    message.deletedAt ||
+    message.optimistic ||
+    message.status === "sending" ||
+    (message.senderId !== currentUserId && message.senderId !== "me") ||
+    !message.createdAt
+  ) {
+    return false;
+  }
+
+  const createdAt = new Date(message.createdAt).getTime();
+
+  return (
+    Number.isFinite(createdAt) &&
+    Date.now() - createdAt <= MESSAGE_EVERYONE_ACTION_WINDOW_MS
+  );
+}
+
 function isInteractiveMessageTarget(target: EventTarget | null) {
   if (typeof HTMLElement === "undefined" || !(target instanceof HTMLElement)) {
     return false;
@@ -791,14 +817,18 @@ type ChatMessageRowProps = {
   message: Message;
   previous?: Message;
   mine: boolean;
+  currentUserId?: string;
+  starred: boolean;
   dateDividerLabel: string | null;
   reducedMotion: boolean;
   onRetry: (messageId: string) => void;
   onEdit: (message: Message, text: string) => Promise<boolean>;
-  onDelete: (message: Message) => Promise<boolean>;
+  onDeleteRequest: (message: Message) => void;
   onReact: (message: Message, emoji: string) => Promise<boolean>;
   onReply: (message: Message) => void;
   onShare: (message: Message) => void;
+  onCopy: (message: Message) => Promise<boolean>;
+  onToggleStar: (message: Message) => void;
   searchTerm?: string;
   activeSearchMatch?: boolean;
 };
@@ -817,11 +847,16 @@ type MessageActionOverlayProps = {
   canReply: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  canCopy: boolean;
+  starred: boolean;
   onClose: () => void;
   onReact: (emoji: string) => void;
+  onMoreReactions: () => void;
   onReply: () => void;
   onShare: () => void;
   onEdit: () => void;
+  onCopy: () => void;
+  onToggleStar: () => void;
   onDelete: () => void;
 };
 
@@ -937,11 +972,16 @@ function MessageActionOverlay({
   canReply,
   canEdit,
   canDelete,
+  canCopy,
+  starred,
   onClose,
   onReact,
+  onMoreReactions,
   onReply,
   onShare,
   onEdit,
+  onCopy,
+  onToggleStar,
   onDelete,
 }: MessageActionOverlayProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -968,7 +1008,11 @@ function MessageActionOverlay({
   const viewportHeight = window.innerHeight;
   const stackWidth = Math.min(286, viewportWidth - 24);
   const actionCount =
-    2 + (canReply ? 1 : 0) + (canEdit ? 1 : 0) + (canDelete ? 1 : 0);
+    2 +
+    (canReply ? 1 : 0) +
+    (canEdit ? 1 : 0) +
+    (canCopy ? 1 : 0) +
+    (canDelete ? 1 : 0);
   const stackHeight = 56 + 8 + actionCount * 48 + 10;
   const stackLeft = clamp(
     mine ? anchorRect.right - stackWidth : anchorRect.left,
@@ -1064,6 +1108,16 @@ function MessageActionOverlay({
                 {emoji}
               </motion.button>
             ))}
+
+            <button
+              type="button"
+              onClick={onMoreReactions}
+              disabled={disabled}
+              className="fc-telegram-touch flex h-10 w-9 items-center justify-center rounded-full text-white/80 transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-55"
+              aria-label="More reactions"
+            >
+              <SmilePlus size={21} />
+            </button>
           </div>
 
           <div className="fc-telegram-menu overflow-hidden rounded-[18px] border py-1 sm:backdrop-blur-2xl">
@@ -1098,13 +1152,24 @@ function MessageActionOverlay({
               </button>
             ) : null}
 
+            {canCopy ? (
+              <button
+                type="button"
+                onClick={onCopy}
+                className={actionButtonClass}
+              >
+                <Clipboard size={22} />
+                Copy
+              </button>
+            ) : null}
+
             <button
               type="button"
-              onClick={onClose}
+              onClick={onToggleStar}
               className={actionButtonClass}
             >
-              <X size={22} />
-              Cancel
+              <Star size={22} />
+              {starred ? "Unstar" : "Star"}
             </button>
 
             {canDelete ? (
@@ -1534,14 +1599,18 @@ const ChatMessageRow = memo(function ChatMessageRow({
   message,
   previous,
   mine,
+  currentUserId,
+  starred,
   dateDividerLabel,
   reducedMotion,
   onRetry,
   onEdit,
-  onDelete,
+  onDeleteRequest,
   onReact,
   onReply,
   onShare,
+  onCopy,
+  onToggleStar,
   searchTerm = "",
   activeSearchMatch = false,
 }: ChatMessageRowProps) {
@@ -1549,6 +1618,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
   const bubbleRef = useRef<HTMLDivElement | null>(null);
   const reactionButtonRef = useRef<HTMLButtonElement | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTapRef = useRef(0);
   const pressStartRef = useRef<{
     x: number;
     y: number;
@@ -1586,13 +1656,12 @@ const ChatMessageRow = memo(function ChatMessageRow({
   const isDeleted = !!message.deletedAt;
   const isSettled = !message.optimistic && message.status !== "sending";
   const canEdit =
-    mine &&
-    isSettled &&
-    !isDeleted &&
+    canMutateForEveryone(message, currentUserId) &&
     !message.attachment &&
     !message.audio &&
     !!message.text;
-  const canDelete = mine && isSettled && !isDeleted;
+  const canDelete = isSettled && !isDeleted;
+  const canCopy = isSettled && !isDeleted && !!message.text?.trim();
   const canReply = isSettled && !isDeleted;
   const media = useMemo(
     () => getMediaFromMessage(message),
@@ -1685,9 +1754,15 @@ const ChatMessageRow = memo(function ChatMessageRow({
     }
   }
 
-  async function submitDelete() {
+  function submitDelete() {
+    triggerHaptic(10);
+    closeActions();
+    onDeleteRequest(message);
+  }
+
+  async function submitCopy() {
     setIsMutating(true);
-    const ok = await onDelete(message);
+    const ok = await onCopy(message);
     setIsMutating(false);
 
     if (ok) {
@@ -1761,6 +1836,26 @@ const ChatMessageRow = memo(function ChatMessageRow({
     event.preventDefault();
     clearLongPressTimer();
     openActions();
+  }
+
+  function handleClick(event: ReactMouseEvent<HTMLDivElement>) {
+    if (
+      isDeleted ||
+      isEditing ||
+      isInteractiveMessageTarget(event.target)
+    ) {
+      return;
+    }
+
+    const now = Date.now();
+
+    if (now - lastTapRef.current <= 280) {
+      lastTapRef.current = 0;
+      void submitReaction("\u2764\uFE0F");
+      return;
+    }
+
+    lastTapRef.current = now;
   }
 
   function handleTouchStart(event: ReactTouchEvent<HTMLDivElement>) {
@@ -1903,6 +1998,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
           pressStartRef.current = null;
           clearLongPressTimer();
         }}
+        onClick={handleClick}
         onContextMenu={handleContextMenu}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -1971,7 +2067,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
           ) : null}
 
           {isDeleted ? (
-            <p className="italic text-white/65">Message deleted</p>
+            <p className="italic text-white/65">This message was deleted</p>
           ) : null}
 
           {!isDeleted && media ? (
@@ -2152,7 +2248,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
                   type="button"
                   onClick={() => {
                     setActionsOpen(false);
-                    void submitDelete();
+                    submitDelete();
                   }}
                   disabled={isMutating}
                   className="flex h-8 w-8 items-center justify-center rounded-xl text-red-200 transition hover:bg-red-500/20 disabled:cursor-wait disabled:opacity-60"
@@ -2172,9 +2268,15 @@ const ChatMessageRow = memo(function ChatMessageRow({
               canReply={canReply}
               canEdit={canEdit}
               canDelete={canDelete}
+              canCopy={canCopy}
+              starred={starred}
               onClose={closeActions}
               onReact={(emoji) => {
                 void submitReaction(emoji);
+              }}
+              onMoreReactions={() => {
+                setActionsOpen(false);
+                setReactionAnchorRect(actionAnchorRect);
               }}
               onReply={() => {
                 closeActions();
@@ -2189,8 +2291,16 @@ const ChatMessageRow = memo(function ChatMessageRow({
                 setIsEditing(true);
                 closeActions();
               }}
+              onCopy={() => {
+                void submitCopy();
+              }}
+              onToggleStar={() => {
+                triggerHaptic(10);
+                onToggleStar(message);
+                closeActions();
+              }}
               onDelete={() => {
-                void submitDelete();
+                submitDelete();
               }}
             />
           ) : null}
@@ -2457,6 +2567,11 @@ export default function ChatConversation() {
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(
     null,
   );
+  const [deleteTargetMessage, setDeleteTargetMessage] =
+    useState<Message | null>(null);
+  const [deleteForEveryone, setDeleteForEveryone] = useState(false);
+  const [deleteForMe, setDeleteForMe] = useState(true);
+  const [isDeletingMessage, setIsDeletingMessage] = useState(false);
   const [forwardSearch, setForwardSearch] = useState("");
   const [selectedForwardConversationIds, setSelectedForwardConversationIds] =
     useState<Set<string>>(() => new Set());
@@ -2527,6 +2642,9 @@ export default function ChatConversation() {
   const reducedMotion = useReducedMotion();
   const now = useServerNow();
   const pushToast = useToastStore((state) => state.pushToast);
+  const bookmarks = useBookmarkStore((state) => state.bookmarks);
+  const addBookmark = useBookmarkStore((state) => state.addBookmark);
+  const removeBookmark = useBookmarkStore((state) => state.removeBookmark);
   const blockedConversationIds = useBlockStore(
     (state) => state.blockedConversationIds,
   );
@@ -2668,32 +2786,131 @@ export default function ChatConversation() {
     [mergeMutatedMessage, pushToast],
   );
 
-  const handleDeleteMessage = useCallback(
-    async (message: Message) => {
-      try {
-        const deletedMessage = await deleteMessage({
-          messageId: message.id,
-          conversationId: message.conversationId,
-        });
+  const handleDeleteMessageRequest = useCallback(
+    (message: Message) => {
+      const canDeleteEverywhere =
+        canMutateForEveryone(message, currentUserId);
 
-        mergeMutatedMessage(deletedMessage as Message);
+      setDeleteTargetMessage(message);
+      setDeleteForEveryone(canDeleteEverywhere);
+      setDeleteForMe(true);
+    },
+    [currentUserId],
+  );
+
+  async function handleConfirmDeleteMessage() {
+    if (
+      !deleteTargetMessage ||
+      isDeletingMessage ||
+      (!deleteForMe && !deleteForEveryone)
+    ) {
+      return;
+    }
+
+    const scope =
+      deleteForEveryone ? "everyone" : "me";
+
+    setIsDeletingMessage(true);
+
+    try {
+      const response = await deleteMessage({
+        messageId: deleteTargetMessage.id,
+        conversationId: deleteTargetMessage.conversationId,
+        scope,
+      });
+
+      if (response.mode === "everyone") {
+        mergeMutatedMessage(response.message as Message);
+      } else {
+        removeLocalMessages([response.messageId]);
+      }
+
+      pushToast({
+        title: "Message deleted",
+        variant: "success",
+      });
+      setDeleteTargetMessage(null);
+      setDeleteForEveryone(false);
+      setDeleteForMe(true);
+    } catch (error) {
+      const message =
+        error instanceof Error &&
+        error.message.toLowerCase().includes("already")
+          ? "Message already deleted"
+          : "That message could not be deleted right now.";
+
+      pushToast({
+        title:
+          message === "Message already deleted"
+            ? "Message already deleted"
+            : "Delete failed",
+        message:
+          message === "Message already deleted"
+            ? undefined
+            : message,
+        variant: "error",
+      });
+    } finally {
+      setIsDeletingMessage(false);
+    }
+  }
+
+  const handleCopyMessage = useCallback(
+    async (message: Message) => {
+      const value = message.text?.trim();
+
+      if (!value) {
+        return false;
+      }
+
+      try {
+        await navigator.clipboard.writeText(value);
         pushToast({
-          title: "Message deleted",
+          title: "Copied",
           variant: "success",
         });
 
         return true;
       } catch {
         pushToast({
-          title: "Delete failed",
-          message: "That message could not be deleted right now.",
+          title: "Copy failed",
+          message:
+            "Clipboard access is not available in this browser.",
           variant: "error",
         });
 
         return false;
       }
     },
-    [mergeMutatedMessage, pushToast],
+    [pushToast],
+  );
+
+  const handleToggleStarMessage = useCallback(
+    (message: Message) => {
+      if (bookmarks.some((bookmark) => bookmark.id === message.id)) {
+        removeBookmark(message.id);
+        pushToast({
+          title: "Message unstarred",
+          variant: "info",
+        });
+        return;
+      }
+
+      addBookmark({
+        id: message.id,
+        text: getMessagePreviewText(message),
+      });
+      pushToast({
+        title: "Message starred",
+        variant: "success",
+      });
+    },
+    [
+      addBookmark,
+      bookmarks,
+      pushToast,
+      removeBookmark,
+    ],
   );
 
   const handleReactMessage = useCallback(
@@ -2844,6 +3061,13 @@ export default function ChatConversation() {
 
     return mergeMessages(serverMessages, realtimeMessages);
   }, [conversationId, realtimeMessages, messagesQuery.data]);
+  const starredMessageIds = useMemo(
+    () =>
+      new Set(
+        bookmarks.map((bookmark) => bookmark.id),
+      ),
+    [bookmarks],
+  );
   const normalizedMessageSearch = messageSearch.trim().toLowerCase();
   const messageSearchMatches = useMemo(() => {
     if (!normalizedMessageSearch) {
@@ -2967,6 +3191,13 @@ export default function ChatConversation() {
       : connectionError
         ? "Offline"
         : "Offline";
+  const deleteTargetCanDeleteForEveryone =
+    deleteTargetMessage
+      ? canMutateForEveryone(
+          deleteTargetMessage,
+          currentUserId,
+        )
+      : false;
   const activeTheme = getChatTheme(
     activeConversation?.localThemeId ??
       activeConversation?.sharedThemeId ??
@@ -4213,7 +4444,7 @@ export default function ChatConversation() {
     });
   }, []);
 
-  function removeOptimisticForwardMessages(messageIds: string[]) {
+  function removeLocalMessages(messageIds: string[]) {
     if (!messageIds.length) {
       return;
     }
@@ -4322,7 +4553,7 @@ export default function ChatConversation() {
         targetConversationIds,
       });
 
-      removeOptimisticForwardMessages(optimisticIds);
+      removeLocalMessages(optimisticIds);
 
       forwardedMessages.forEach((message) => {
         mergeMutatedMessage(message as Message);
@@ -4344,7 +4575,7 @@ export default function ChatConversation() {
         queryKey: queryKeys.conversations.all,
       });
     } catch (error) {
-      removeOptimisticForwardMessages(optimisticIds);
+      removeLocalMessages(optimisticIds);
       pushToast({
         title: "Forward failed",
         message:
@@ -4702,14 +4933,18 @@ export default function ChatConversation() {
                       message={message}
                       previous={previous}
                       mine={mine}
+                      currentUserId={currentUserId}
+                      starred={starredMessageIds.has(message.id)}
                       dateDividerLabel={dateDividerLabel}
                       reducedMotion={!!reducedMotion}
                       onRetry={handleRetryMessage}
                       onEdit={handleEditMessage}
-                      onDelete={handleDeleteMessage}
+                      onDeleteRequest={handleDeleteMessageRequest}
                       onReact={handleReactMessage}
                       onReply={handleReplyMessage}
                       onShare={handleShareMessage}
+                      onCopy={handleCopyMessage}
+                      onToggleStar={handleToggleStarMessage}
                       searchTerm={messageSearch}
                       activeSearchMatch={
                         activeMessageSearchMatch?.messageId === message.id
@@ -5563,6 +5798,122 @@ export default function ChatConversation() {
                     <Forward size={16} />
                   )}
                   Forward
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {deleteTargetMessage ? (
+          <motion.div
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+            }}
+            className="fixed inset-0 z-[273] flex items-center justify-center bg-[var(--fc-overlay-strong)] p-4 sm:backdrop-blur-xl"
+            onClick={() => {
+              if (!isDeletingMessage) {
+                setDeleteTargetMessage(null);
+              }
+            }}
+          >
+            <motion.div
+              initial={{
+                opacity: 0,
+                y: 18,
+                scale: 0.96,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                scale: 1,
+              }}
+              exit={{
+                opacity: 0,
+                y: 18,
+                scale: 0.96,
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 30,
+              }}
+              className="fc-modal w-full max-w-sm rounded-2xl border p-5"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <h2 className="text-lg font-semibold">
+                Delete Message?
+              </h2>
+
+              <div className="mt-5 space-y-3">
+                {deleteTargetCanDeleteForEveryone ? (
+                  <label className="flex min-h-10 cursor-pointer items-center gap-3 rounded-xl px-1 text-sm text-[var(--fc-theme-text)]">
+                    <input
+                      type="checkbox"
+                      checked={deleteForEveryone}
+                      onChange={(event) => {
+                        setDeleteForEveryone(
+                          event.target.checked,
+                        );
+                        if (event.target.checked) {
+                          setDeleteForMe(true);
+                        }
+                      }}
+                      disabled={isDeletingMessage}
+                      className="h-4 w-4 accent-red-500"
+                    />
+                    <span className="min-w-0 flex-1 truncate">
+                      Delete for {activeConversationDisplayName}
+                    </span>
+                  </label>
+                ) : null}
+
+                <label className="flex min-h-10 cursor-pointer items-center gap-3 rounded-xl px-1 text-sm text-[var(--fc-theme-text)]">
+                  <input
+                    type="checkbox"
+                    checked={deleteForMe}
+                    onChange={(event) =>
+                      setDeleteForMe(event.target.checked)
+                    }
+                    disabled={
+                      isDeletingMessage ||
+                      deleteForEveryone
+                    }
+                    className="h-4 w-4 accent-red-500"
+                  />
+                  <span>Delete for me</span>
+                </label>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteTargetMessage(null)}
+                  disabled={isDeletingMessage}
+                  className="fc-surface fc-hover h-11 rounded-2xl border px-5 text-sm font-medium text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)] disabled:cursor-wait disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleConfirmDeleteMessage();
+                  }}
+                  disabled={
+                    isDeletingMessage ||
+                    (!deleteForMe && !deleteForEveryone)
+                  }
+                  className="h-11 rounded-2xl bg-red-500 px-5 text-sm font-semibold text-white shadow-xl shadow-red-500/25 transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Delete
                 </button>
               </div>
             </motion.div>
