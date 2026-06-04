@@ -375,7 +375,7 @@ const ConversationListButton = memo(
             event.clientY - pressStart.y
           );
 
-          if (dist > 6) {
+          if (dist > 15) {
             pressStartRef.current = null;
             clearLongPressTimer();
           }
@@ -463,7 +463,7 @@ const ConversationListButton = memo(
               ) : null}
             </div>
 
-            <span className="shrink-0 mt-0.5 text-[10.5px] font-medium text-[#6C7883]">
+            <span suppressHydrationWarning className="shrink-0 mt-0.5 text-[10.5px] font-medium text-[#6C7883]">
               {lastActivityLabel}
             </span>
           </div>
@@ -585,34 +585,46 @@ export default function ChatSidebar() {
     [blockedConversationIds]
   );
 
-  const patchedConversations = useMemo(
-    () =>
-      (conversationsQuery.data ?? [])
-        .filter(
-          (conversation) =>
-            !hiddenConversationIds.has(
-              conversation.id
-            )
-        )
-        .map((conversation) => {
-          const patch =
-            conversationPatches[
-              conversation.id
-            ];
+  const prevPatchedRef = useRef<Record<string, Conversation>>({});
 
-          return patch
-            ? {
-                ...conversation,
-                ...patch,
-              }
-            : conversation;
-        }),
-    [
-      conversationsQuery.data,
-      conversationPatches,
-      hiddenConversationIds,
-    ]
-  );
+  const patchedConversations = useMemo(() => {
+    const prev = prevPatchedRef.current;
+    const next: Record<string, Conversation> = {};
+
+    const result = (conversationsQuery.data ?? [])
+      .filter(
+        (conversation) =>
+          !hiddenConversationIds.has(conversation.id)
+      )
+      .map((conversation) => {
+        const patch = conversationPatches[conversation.id];
+
+        if (!patch) {
+          return conversation;
+        }
+
+        const existing = prev[conversation.id];
+        if (existing && (existing as Conversation & { __patch?: unknown }).__patch === patch) {
+          next[conversation.id] = existing;
+          return existing;
+        }
+
+        const updated = { ...conversation, ...patch };
+        Object.defineProperty(updated, "__patch", {
+          value: patch,
+          enumerable: false,
+        });
+        next[conversation.id] = updated;
+        return updated;
+      });
+
+    prevPatchedRef.current = next;
+    return result;
+  }, [
+    conversationsQuery.data,
+    conversationPatches,
+    hiddenConversationIds,
+  ]);
 
   const conversations = useMemo(
     () =>
@@ -935,10 +947,6 @@ export default function ChatSidebar() {
       if (deltaY <= 0) {
         schedulePullDistance(0);
         return;
-      }
-
-      if (event.cancelable) {
-        event.preventDefault();
       }
 
       // Non-linear resistance curve for Telegram-like tension

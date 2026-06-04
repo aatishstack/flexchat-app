@@ -1835,7 +1835,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
 
     if (
       Math.hypot(event.clientX - pressStart.x, event.clientY - pressStart.y) >
-      10
+      15
     ) {
       pressStartRef.current = null;
       clearLongPressTimer();
@@ -2152,7 +2152,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
               </p>
               <div className={`absolute bottom-[-4px] right-[-2px] flex items-center gap-1 text-[10px] font-medium leading-none ${mine ? "text-white/65" : "text-[var(--fc-text-muted)]"}`}>
                 {message.editedAt && !isDeleted ? <span>edited</span> : null}
-                <span>{messageTime}</span>
+                <span suppressHydrationWarning>{messageTime}</span>
                 {mine ? (
                   <MessageStatus status={message.status} size={11} className="shrink-0" />
                 ) : null}
@@ -2163,7 +2163,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
               {/* Media rendering happened above */}
               <div className="absolute bottom-1 right-1 flex items-center gap-1 rounded-full bg-black/40 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white backdrop-blur-md">
                 {message.editedAt && !isDeleted ? <span>edited</span> : null}
-                <span>{messageTime}</span>
+                <span suppressHydrationWarning>{messageTime}</span>
                 {mine ? (
                   <MessageStatus status={message.status} size={11} className="shrink-0" />
                 ) : null}

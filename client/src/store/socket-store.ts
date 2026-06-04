@@ -743,15 +743,20 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
     prunePendingMessages(get().updateMessageStatus);
 
-    set((state) => ({
-      messages: trimEphemeralMessages(
-        sortMessages([...state.messages, optimisticMessage]),
-      ),
-      messagesByConversation: normalizeMessageBuckets(
-        state.messagesByConversation,
-        optimisticMessage,
-      ),
-    }));
+    set((state) => {
+      const conversationMessages = state.messagesByConversation[data.conversationId] ?? [];
+      
+      return {
+        messages: trimEphemeralMessages([...state.messages, optimisticMessage]),
+        messagesByConversation: {
+          ...state.messagesByConversation,
+          [data.conversationId]: trimEphemeralMessages([
+            ...conversationMessages,
+            optimisticMessage,
+          ]),
+        },
+      };
+    });
 
     setCachedConversationMessage(data.conversationId, optimisticMessage);
 
