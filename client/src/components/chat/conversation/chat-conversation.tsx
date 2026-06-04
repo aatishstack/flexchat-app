@@ -117,7 +117,6 @@ const MESSAGE_ROW_OVERSCAN = 12;
 const MARK_SEEN_FLUSH_DELAY_MS = 120;
 const MESSAGE_EVERYONE_ACTION_WINDOW_MS = 48 * 60 * 60 * 1000;
 const QUICK_REACTIONS = ["❤️", "👍", "👎", "🔥", "🥰", "👏", "😁"];
-const INLINE_REACTIONS = ["\uD83D\uDC4D", "\u2764\uFE0F", "\uD83D\uDE02"];
 const LEGACY_INLINE_REACTIONS = [
   "\uD83D\uDD25",
   "\uD83D\uDC4F",
@@ -1992,7 +1991,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
       <div
         ref={rowRef}
         style={rowStyle}
-        className={`fc-telegram-touch flex ${grouped ? "mt-[3px]" : "mt-2"} ${
+        className={`fc-telegram-touch flex ${grouped ? "mt-0.5" : "mt-2"} ${
           mine ? "justify-end" : "justify-start"
         } group/message relative ${actionsOpen ? "z-[266]" : "z-0"} [transition:transform_0.2s_cubic-bezier(0.22,1,0.36,1)]`}
         onPointerDown={handlePointerDown}
@@ -2018,11 +2017,11 @@ const ChatMessageRow = memo(function ChatMessageRow({
       >
         {canReply ? (
           <div
-            className={`fc-button-soft pointer-events-none absolute top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border transition-opacity ${
-              mine ? "right-[calc(100%-2.25rem)]" : "left-0"
+            className={`fc-button-soft pointer-events-none absolute top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border transition-opacity ${
+              mine ? "right-[calc(100%-2rem)]" : "left-0"
             } ${swipeX >= 40 ? "opacity-100" : "opacity-0"}`}
           >
-            <Reply size={15} />
+            <Reply size={14} />
           </div>
         ) : null}
 
@@ -2040,7 +2039,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
                 }
               : undefined
           }
-          className={`fc-message-bubble relative max-w-[86%] px-3.5 py-[7px] text-white sm:max-w-[68%] sm:px-4 sm:py-2 ${
+          className={`fc-message-bubble relative max-w-[88%] px-3 py-1.5 text-white sm:max-w-[72%] sm:px-3.5 sm:py-2 ${
             mine
               ? "fc-bubble-mine"
               : "fc-bubble-peer border border-[var(--fc-app-border)]"
@@ -2147,127 +2146,41 @@ const ChatMessageRow = memo(function ChatMessageRow({
               </div>
             </div>
           ) : !isDeleted && message.text && !media ? (
-            <p className="whitespace-pre-wrap break-words">
-              {highlightedMessageText}
-            </p>
+            <div className="relative pb-0.5">
+              <p className="whitespace-pre-wrap break-words pr-11">
+                {highlightedMessageText}
+              </p>
+              <div className={`absolute bottom-[-4px] right-[-2px] flex items-center gap-1 text-[10px] font-medium leading-none ${mine ? "text-white/65" : "text-[var(--fc-text-muted)]"}`}>
+                {message.editedAt && !isDeleted ? <span>edited</span> : null}
+                <span>{messageTime}</span>
+                {mine ? (
+                  <MessageStatus status={message.status} size={11} className="shrink-0" />
+                ) : null}
+              </div>
+            </div>
+          ) : !isDeleted && (media || message.audio) ? (
+            <div className="relative">
+              {/* Media rendering happened above */}
+              <div className="absolute bottom-1 right-1 flex items-center gap-1 rounded-full bg-black/40 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white backdrop-blur-md">
+                {message.editedAt && !isDeleted ? <span>edited</span> : null}
+                <span>{messageTime}</span>
+                {mine ? (
+                  <MessageStatus status={message.status} size={11} className="shrink-0" />
+                ) : null}
+              </div>
+            </div>
           ) : null}
 
           {!isDeleted && message.reactions?.length ? (
-            <div className="mt-2 flex flex-wrap justify-end gap-1.5">
+            <div className="mt-1.5 flex flex-wrap justify-end gap-1.5">
               {message.reactions.map((reaction) => (
                 <span
                   key={reaction.emoji}
-                  className="rounded-full border border-[#0D1823] bg-[#232E3C]/90 px-2 py-1 text-xs text-white shadow-sm"
+                  className="rounded-full border border-[#0D1823] bg-[#232E3C]/90 px-2 py-1 text-[11px] text-white shadow-sm"
                 >
                   {reaction.emoji} {reaction.count}
                 </span>
               ))}
-            </div>
-          ) : null}
-
-          {!isEditing && !actionsOpen ? (
-            <div
-              className={`fc-modal absolute top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-[18px] border p-1 shadow-[0_14px_44px_rgba(0,0,0,0.34)] transition sm:backdrop-blur-xl max-sm:bottom-full max-sm:left-auto max-sm:right-0 max-sm:top-auto max-sm:mb-2 max-sm:translate-y-0 ${
-                mine ? "right-full mr-2" : "left-full ml-2"
-              } ${
-                actionsVisible
-                  ? "pointer-events-auto opacity-100"
-                  : "pointer-events-none opacity-0 [@media(hover:hover)]:group-hover/message:pointer-events-auto [@media(hover:hover)]:group-hover/message:opacity-100 [@media(hover:hover)]:group-focus-within/message:pointer-events-auto [@media(hover:hover)]:group-focus-within/message:opacity-100"
-              }`}
-            >
-              {!isDeleted ? (
-                <>
-                  {INLINE_REACTIONS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => {
-                        void submitReaction(emoji);
-                      }}
-                      disabled={isMutating || !isSettled}
-                      className="hidden h-8 w-8 items-center justify-center rounded-xl text-base transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-60"
-                      aria-label={`React ${emoji}`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-
-                  <button
-                    ref={reactionButtonRef}
-                    type="button"
-                    onPointerDown={(event) => {
-                      event.stopPropagation();
-                    }}
-                    onClick={toggleReactionPicker}
-                    disabled={isMutating || !isSettled}
-                    className={`flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 active:scale-95 disabled:cursor-wait disabled:opacity-60 ${
-                    reactionAnchorRect ? "bg-white/10 text-[#9BD0FF]" : ""
-                    }`}
-                    aria-expanded={!!reactionAnchorRect}
-                    aria-label="Add reaction"
-                  >
-                    <SmilePlus size={15} />
-                  </button>
-                </>
-              ) : null}
-
-              {canReply ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActionsOpen(false);
-                    setReactionAnchorRect(null);
-                    onReply(message);
-                  }}
-                  className="flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10"
-                  aria-label="Reply to message"
-                >
-                  <Reply size={15} />
-                </button>
-              ) : null}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setActionsOpen(false);
-                  onShare(message);
-                }}
-                className="flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10"
-                aria-label="Forward message"
-              >
-                <Forward size={15} />
-              </button>
-
-              {canEdit ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDraftText(message.text ?? "");
-                    setIsEditing(true);
-                    setReactionAnchorRect(null);
-                    setActionsOpen(false);
-                  }}
-                  className="flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10"
-                  aria-label="Edit message"
-                >
-                  <Pencil size={15} />
-                </button>
-              ) : null}
-
-              {canDelete ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActionsOpen(false);
-                    submitDelete();
-                  }}
-                  disabled={isMutating}
-                  className="flex h-8 w-8 items-center justify-center rounded-xl text-red-200 transition hover:bg-red-500/20 disabled:cursor-wait disabled:opacity-60"
-                  aria-label="Delete message"
-                >
-                  <Trash2 size={15} />
-                </button>
-              ) : null}
             </div>
           ) : null}
 
@@ -2349,26 +2262,6 @@ const ChatMessageRow = memo(function ChatMessageRow({
               />
             ) : null}
           </AnimatePresence>
-
-          <div className="mt-0.5 flex items-center justify-end gap-1.5 text-xs font-medium leading-none text-[#6C7883]">
-            {message.editedAt && !isDeleted ? <span>edited</span> : null}
-            <span>{messageTime}</span>
-
-            {mine ? (
-              message.status === "failed" ? (
-                <button
-                  type="button"
-                  onClick={() => onRetry(message.id)}
-                  className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-[10px] font-medium text-white transition hover:bg-white/20"
-                >
-                  <RefreshCw size={11} />
-                  Retry
-                </button>
-              ) : (
-                <MessageStatus status={message.status} />
-              )
-            ) : null}
-          </div>
         </div>
       </div>
     </Fragment>

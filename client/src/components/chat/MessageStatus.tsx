@@ -11,6 +11,8 @@ import {
   useReducedMotion,
 } from "framer-motion";
 
+import { cn } from "@/lib/utils";
+
 type Props = {
   status:
     | "sending"
@@ -18,17 +20,25 @@ type Props = {
     | "delivered"
     | "read"
     | "failed";
+  size?: number;
+  className?: string;
 };
 
 export default function MessageStatus({
   status,
+  size = 14,
+  className,
 }: Props) {
   const reducedMotion = useReducedMotion();
+  const iconSize = size;
 
   if (status === "sending") {
     if (reducedMotion) {
       return (
-        <div className="h-3.5 w-3.5 rounded-full border border-[#6C7883]/45 border-t-[#2AABEE]" />
+        <div 
+          className={cn("rounded-full border border-[#6C7883]/45 border-t-[#2AABEE]", className)}
+          style={{ width: iconSize, height: iconSize }}
+        />
       );
     }
 
@@ -42,7 +52,8 @@ export default function MessageStatus({
           repeat: Infinity,
           ease: "linear",
         }}
-        className="h-3.5 w-3.5 rounded-full border border-[#6C7883]/45 border-t-[#2AABEE]"
+        className={cn("rounded-full border border-[#6C7883]/45 border-t-[#2AABEE]", className)}
+        style={{ width: iconSize, height: iconSize }}
       />
     );
   }
@@ -50,8 +61,8 @@ export default function MessageStatus({
   if (status === "sent") {
     return (
       <Check
-        size={14}
-        className="text-[#6C7883]"
+        size={iconSize}
+        className={cn("text-[#6C7883]", className)}
       />
     );
   }
@@ -59,8 +70,8 @@ export default function MessageStatus({
   if (status === "delivered") {
     return (
       <CheckCheck
-        size={14}
-        className="text-[#6C7883]"
+        size={iconSize}
+        className={cn("text-[#6C7883]", className)}
       />
     );
   }
@@ -68,16 +79,16 @@ export default function MessageStatus({
   if (status === "failed") {
     return (
       <AlertCircle
-        size={14}
-        className="text-red-200"
+        size={iconSize}
+        className={cn("text-red-200", className)}
       />
     );
   }
 
   return (
     <CheckCheck
-      size={14}
-      className="text-[#2AABEE]"
+      size={iconSize}
+      className={cn("text-[#2AABEE]", className)}
     />
   );
 }

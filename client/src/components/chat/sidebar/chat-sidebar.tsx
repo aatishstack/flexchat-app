@@ -74,8 +74,8 @@ import {
   ConversationFolder,
 } from "@/types/conversation";
 
-const CONVERSATION_ROW_ESTIMATE = 76;
-const CONVERSATION_ROW_OVERSCAN = 8;
+const CONVERSATION_ROW_ESTIMATE = 64;
+const CONVERSATION_ROW_OVERSCAN = 12;
 const CONVERSATION_ACTION_MENU_WIDTH = 248;
 const CONVERSATION_ACTION_MENU_HEIGHT = 286;
 
@@ -439,7 +439,7 @@ const ConversationListButton = memo(
             event.currentTarget.getBoundingClientRect()
           );
         }}
-        className={`group fc-telegram-touch flex h-[66px] w-full items-center gap-2.5 rounded-lg border px-3 py-0 text-left transition-[background-color,border-color] duration-150 ease-out ${
+        className={`group fc-telegram-touch flex h-[64px] w-full items-center gap-2.5 rounded-lg border px-3 py-0 text-left transition-[background-color,border-color] duration-150 ease-out ${
           active
             ? "fc-active"
             : "border-transparent hover:bg-[#2B3A4D]"
@@ -449,7 +449,7 @@ const ConversationListButton = memo(
           <FlexAvatar
             src={avatar}
             name={conversation.name}
-            className="fc-avatar flex h-11 w-11 items-center justify-center overflow-hidden rounded-full text-base font-bold"
+            className="fc-avatar flex h-[46px] w-[46px] items-center justify-center overflow-hidden rounded-full text-base font-bold"
           />
 
           {isOnline ? (
@@ -458,7 +458,7 @@ const ConversationListButton = memo(
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2.5">
+          <div className="flex items-start justify-between gap-2">
             <div className="flex min-w-0 items-center gap-1.5">
               <h3 className="truncate text-[15px] font-semibold leading-tight text-[var(--fc-theme-text)]">
                 {displayName}
@@ -479,7 +479,7 @@ const ConversationListButton = memo(
               ) : null}
             </div>
 
-            <span className="shrink-0 text-[11px] font-medium text-[#6C7883]">
+            <span className="shrink-0 mt-0.5 text-[10.5px] font-medium text-[#6C7883]">
               {lastActivityLabel}
             </span>
           </div>
@@ -491,7 +491,7 @@ const ConversationListButton = memo(
             </p>
 
             {conversation.unreadCount ? (
-              <div className="fc-badge flex h-4.5 min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none">
+              <div className="fc-badge flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none">
                 {conversation.unreadCount}
               </div>
             ) : null}
@@ -698,7 +698,7 @@ export default function ChatSidebar() {
   const conversationVirtualizer = useVirtualizer({
     count: filteredConversations.length,
     getScrollElement: () => listRef.current,
-    estimateSize: () => CONVERSATION_ROW_ESTIMATE,
+    estimateSize: () => 64,
     getItemKey: (index) =>
       filteredConversations[index]?.id ?? index,
     overscan: CONVERSATION_ROW_OVERSCAN,
@@ -1355,12 +1355,12 @@ export default function ChatSidebar() {
   return (
     <aside className="fc-panel flex h-full w-full border-r border-[#0D1823] lg:w-[360px]">
       <div className="flex w-full flex-col">
-        <div className="fc-panel-strong relative border-b border-[#0D1823] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+        <div className="fc-panel-strong relative border-b border-[#0D1823] px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))]">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="fc-button-primary flex h-10 w-10 items-center justify-center rounded-lg">
+              <div className="fc-button-primary flex h-9 w-9 items-center justify-center rounded-lg">
                 <MessageCircle
-                  size={20}
+                  size={19}
                 />
               </div>
 
@@ -1378,10 +1378,10 @@ export default function ChatSidebar() {
                   triggerHaptic(10);
                   setSearchOpen((open) => !open);
                 }}
-                className="fc-hover flex h-10 w-10 items-center justify-center rounded-full text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
+                className="fc-hover flex h-9 w-9 items-center justify-center rounded-full text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
                 aria-label="Search conversations"
               >
-                <Search size={19} />
+                <Search size={18} />
               </button>
 
               <button
@@ -1390,10 +1390,10 @@ export default function ChatSidebar() {
                   triggerHaptic(10);
                   setLogoutConfirmOpen(true);
                 }}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--fc-text-muted)] transition hover:bg-red-500/[0.12] hover:text-red-100"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--fc-text-muted)] transition hover:bg-red-500/[0.12] hover:text-red-100"
                 aria-label="Logout"
               >
-                <LogOut size={18} />
+                <LogOut size={17} />
               </button>
             </div>
           </div>
@@ -1418,10 +1418,10 @@ export default function ChatSidebar() {
                 }}
                 className="overflow-hidden"
               >
-                <div className="relative mt-3">
+                <div className="relative mt-2">
                   <Search
-                    size={17}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
+                    size={16}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500"
                   />
 
                   <input
@@ -1429,15 +1429,15 @@ export default function ChatSidebar() {
                     onChange={(event) =>
                       setSearch(event.target.value)
                     }
-                    placeholder="Search conversations..."
-                    className="fc-input h-10 w-full rounded-lg border pl-11 pr-4 text-sm outline-none"
+                    placeholder="Search"
+                    className="fc-input h-9 w-full rounded-lg border pl-10 pr-3 text-sm outline-none"
                   />
                 </div>
               </motion.div>
             ) : null}
           </AnimatePresence>
 
-          <div className="fc-no-scrollbar mt-3 flex items-center gap-2 overflow-x-auto pb-1">
+          <div className="fc-no-scrollbar mt-2 flex items-center gap-1.5 overflow-x-auto pb-0.5">
             {SIDEBAR_FILTERS.map((folder) => (
               <button
                 key={folder.id}
@@ -1446,7 +1446,7 @@ export default function ChatSidebar() {
                   triggerHaptic(10);
                   setActiveFolder(folder.id);
                 }}
-                className={`relative shrink-0 overflow-hidden rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all ${
+                className={`relative shrink-0 overflow-hidden rounded-lg px-3 py-1 text-sm font-medium transition-all ${
                   activeFolder === folder.id
                     ? "text-white"
                     : "fc-surface text-[var(--fc-text-muted)] hover:bg-[var(--fc-app-surface-hover)]"
@@ -1479,7 +1479,7 @@ export default function ChatSidebar() {
           onTouchMove={handlePullMove}
           onTouchEnd={handlePullEnd}
           onTouchCancel={handlePullEnd}
-          className="chat-safe-scroll relative flex-1 overflow-y-auto px-2 py-2 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+          className="chat-safe-scroll relative flex-1 overflow-y-auto px-1.5 py-1 pb-[calc(1rem+env(safe-area-inset-bottom))]"
         >
           <div
             className="pointer-events-none sticky top-0 z-10 flex justify-center overflow-hidden transition-[height]"
@@ -1488,7 +1488,7 @@ export default function ChatSidebar() {
             }}
           >
             <div
-              className={`mt-2 flex h-10 min-w-10 items-center justify-center rounded-full border border-[rgba(var(--fc-primary-rgb),0.24)] bg-[var(--fc-app-elevated)] text-[var(--fc-accent-text)] shadow-lg ${
+              className={`mt-1.5 flex h-9 min-w-9 items-center justify-center rounded-full border border-[rgba(var(--fc-primary-rgb),0.24)] bg-[var(--fc-app-elevated)] text-[var(--fc-accent-text)] shadow-lg ${
                 isPullRefreshing ? "animate-spin" : ""
               }`}
               style={{
@@ -1496,25 +1496,25 @@ export default function ChatSidebar() {
                 transform: `scale(${Math.min(1, 0.72 + pullDistance / 120)})`,
               }}
             >
-              <RefreshCw size={17} />
+              <RefreshCw size={16} />
             </div>
           </div>
 
           {conversationsQuery.isLoading ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {Array.from({
-                length: 6,
+                length: 8,
               }).map((_, index) => (
                 <div
                   key={index}
-                  className="fc-skeleton h-[88px] animate-pulse rounded-2xl"
+                  className="fc-skeleton h-[64px] animate-pulse rounded-xl"
                 />
               ))}
             </div>
           ) : null}
 
           {conversationsQuery.isError ? (
-            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
               Unable to load conversations
             </div>
           ) : null}
@@ -1553,7 +1553,7 @@ export default function ChatSidebar() {
                       conversationVirtualizer.measureElement
                     }
                     data-index={virtualRow.index}
-                    className="absolute left-0 top-0 w-full pb-1"
+                    className="absolute left-0 top-0 w-full"
                     style={{
                       transform: `translateY(${virtualRow.start}px)`,
                     }}
@@ -1586,7 +1586,7 @@ export default function ChatSidebar() {
               disabled={
                 conversationsQuery.isFetchingNextPage
               }
-              className="fc-surface fc-hover mt-3 w-full rounded-2xl border px-4 py-3 text-sm font-medium text-[var(--fc-text-muted)] transition hover:border-[rgba(var(--fc-primary-rgb),0.35)] hover:text-[var(--fc-theme-text)] disabled:cursor-wait disabled:opacity-60"
+              className="fc-surface fc-hover mt-3 w-full rounded-xl border px-4 py-2 text-sm font-medium text-[var(--fc-text-muted)] transition hover:border-[rgba(var(--fc-primary-rgb),0.35)] hover:text-[var(--fc-theme-text)] disabled:cursor-wait disabled:opacity-60"
             >
               {conversationsQuery.isFetchingNextPage
                 ? "Loading..."
@@ -1927,7 +1927,7 @@ export default function ChatSidebar() {
                 stiffness: 260,
                 damping: 28,
               }}
-              className="fc-modal w-full max-w-sm rounded-2xl border p-5"
+              className="fc-modal w-full max-sm:max-w-none rounded-2xl border p-5"
               onClick={(event) =>
                 event.stopPropagation()
               }
