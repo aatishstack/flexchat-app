@@ -403,7 +403,7 @@ export default function SocketProvider({
 
     useSocketStore.setState((state) => {
       const users = new Set(state.onlineUsers);
-      updates.forEach(([userId, update]) => {
+      updates.forEach(([userId, update]: [string, { status: string }]) => {
         if (update.status === "online") {
           users.add(userId);
         } else {
@@ -423,12 +423,12 @@ export default function SocketProvider({
         const updateMembers = (conversation: Conversation): Conversation => {
           let changed = false;
           const nextMembers = conversation.members?.map((member) => {
-            const update = updates.find(([id]) => id === member.id);
-            if (update && update[1].lastSeenAt) {
+            const updateEntry = updates.find(([id]) => id === member.id);
+            if (updateEntry && updateEntry[1].lastSeenAt) {
               changed = true;
               return {
                 ...member,
-                lastSeenAt: update[1].lastSeenAt,
+                lastSeenAt: updateEntry[1].lastSeenAt,
               };
             }
             return member;
@@ -1692,6 +1692,17 @@ export default function SocketProvider({
     socket.io.on("reconnect_error", safeOnReconnectError);
     socket.io.on("reconnect_failed", safeOnReconnectFailed);
     window.addEventListener("offline", handleOffline);
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        const latestToken = tokenStorage.get();
+        if (latestToken && !socket.connected && socket.active) {
+          console.info("[SOCKET] app returned to foreground, forcing reconnect");
+          socket.connect();
+        }
+      }
+    }
+    window.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       socket.off(SOCKET_EVENTS.CONNECT, safeOnConnect);

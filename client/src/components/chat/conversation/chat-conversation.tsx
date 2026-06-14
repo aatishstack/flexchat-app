@@ -4813,7 +4813,26 @@ export default function ChatConversation() {
               </div>
             ) : null}
 
-            {!messagesQuery.isLoading &&
+            {messagesQuery.isLoading && !visibleMessages.length ? (
+            <div className="flex-1 space-y-6 overflow-hidden px-4 py-8">
+              {[false, true, false, false, true].map((mine, idx) => (
+                <div
+                  key={idx}
+                  className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                >
+                  <div className={`flex max-w-[80%] gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}>
+                    {!mine && <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-white/5" />}
+                    <div className="space-y-2">
+                      <div className={`h-12 w-48 animate-pulse rounded-2xl bg-white/5 ${mine ? "rounded-tr-none" : "rounded-tl-none"}`} />
+                      <div className={`h-3 w-12 animate-pulse rounded-full bg-white/5 ${mine ? "ml-auto" : ""}`} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {!messagesQuery.isLoading &&
             !messagesQuery.isError &&
             !visibleMessages.length ? (
               <div className="flex min-h-[45vh] items-center justify-center px-6 text-center">
@@ -4924,7 +4943,7 @@ export default function ChatConversation() {
           paddingBottom:
             "calc(0.45rem + env(safe-area-inset-bottom) + env(keyboard-inset-height, 0px))",
         }}
-        className="relative z-10 shrink-0 border-t border-[#0D1823] bg-[var(--fc-chat-composer)] px-2.5 py-2 sm:px-5 sm:py-2.5 sm:backdrop-blur-2xl"
+        className="relative z-10 shrink-0 border-t border-[#0D1823] bg-[var(--fc-chat-composer)] px-2.5 pt-2 sm:px-5 sm:py-2.5 sm:backdrop-blur-2xl"
       >
         {replyingTo ? (
           <div className="fc-button-soft mb-2 flex items-center gap-3 rounded-2xl border p-3 text-sm">

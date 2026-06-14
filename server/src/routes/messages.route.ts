@@ -463,6 +463,25 @@ async function handleMessageReactionRequest(
       userId,
       emoji: parsedBody.data.emoji,
     });
+
+    // Notify message sender about reaction
+    if (targetMessage.senderId !== userId) {
+      void (async () => {
+        const reactorName = await getUsername(userId);
+        await createNotification({
+          userId: targetMessage.senderId,
+          actorId: userId,
+          type: "message_reaction",
+          entityId: targetMessage.id,
+          metadata: {
+            emoji: parsedBody.data.emoji,
+            conversationId: targetMessage.conversationId,
+          },
+          title: "Message reaction",
+          body: `${reactorName} reacted with ${parsedBody.data.emoji} to your message`,
+        });
+      })();
+    }
   }
 
   const message = await getSerializedMessage(targetMessage.id);

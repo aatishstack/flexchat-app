@@ -115,6 +115,20 @@ function clearUserDisconnectTimers(userId: string) {
   });
 }
 
+import { createNotification } from "../../utils/notification-sender.js";
+import { users } from "../../db/schema/users.js";
+import { eq } from "drizzle-orm";
+import { db } from "../../db/index.js";
+
+async function getUsername(userId: string) {
+  const result = await db
+    .select({ username: users.username })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return result[0]?.username || "Someone";
+}
+
 function closeCall(io: Server, callId: string, reason: string) {
   const call = calls.get(callId);
 
@@ -131,6 +145,21 @@ function closeCall(io: Server, callId: string, reason: string) {
   if (expiryTimer) {
     clearTimeout(expiryTimer);
     callExpiryTimers.delete(callId);
+  }
+
+  // Persist missed call notification
+  if (reason === "missed" || reason === "unreachable") {
+    void (async () => {
+      const callerName = await getUsername(call.callerId);
+      await createNotification({
+        userId: call.calleeId,
+        actorId: call.callerId,
+        type: "missed_call",
+        entityId: call.id,
+        title: "Missed call",
+        body: `You missed a call from ${callerName}`,
+      });
+    })();
   }
 
   participantIds(call).forEach((userId) => {

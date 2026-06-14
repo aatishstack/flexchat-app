@@ -1,10 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { db } from "../db/index.js";
 import { fcmTokens } from "../db/schema/fcm-tokens.js";
+import { notifications } from "../db/schema/notifications.js";
 import { generateId } from "../lib/uuid.js";
 
 const notificationParamsSchema = z.object({
@@ -108,9 +109,18 @@ export async function notificationRoutes(
       preHandler:
         authMiddleware,
     },
-    async () => {
+    async (request) => {
+      const userId = (request.user as any).id;
+
+      const results = await db
+        .select()
+        .from(notifications)
+        .where(eq(notifications.userId, userId))
+        .orderBy(desc(notifications.createdAt))
+        .limit(50);
+
       return {
-        notifications: [],
+        notifications: results,
       };
     }
   );
@@ -121,7 +131,14 @@ export async function notificationRoutes(
       preHandler:
         authMiddleware,
     },
-    async () => {
+    async (request) => {
+      const userId = (request.user as any).id;
+
+      await db
+        .update(notifications)
+        .set({ isRead: true })
+        .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
+
       return {
         ok: true,
       };
@@ -149,9 +166,18 @@ export async function notificationRoutes(
         !parsedBody.success
       ) {
         return reply.status(400).send({
-          message: "Invalid notification request",
+          message: "Invalid notification read request",
         });
       }
+
+      const { notificationId } = parsedParams.data;
+      const { read } = parsedBody.data;
+      const userId = (request.user as any).id;
+
+      await db
+        .update(notifications)
+        .set({ isRead: read })
+        .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
 
       return {
         ok: true,
@@ -173,9 +199,16 @@ export async function notificationRoutes(
 
       if (!parsedParams.success) {
         return reply.status(400).send({
-          message: "Invalid notification request",
+          message: "Invalid notification deletion request",
         });
       }
+
+      const { notificationId } = parsedParams.data;
+      const userId = (request.user as any).id;
+
+      await db
+        .delete(notifications)
+        .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
 
       return {
         ok: true,
@@ -189,7 +222,13 @@ export async function notificationRoutes(
       preHandler:
         authMiddleware,
     },
-    async () => {
+    async (request) => {
+      const userId = (request.user as any).id;
+
+      await db
+        .delete(notifications)
+        .where(eq(notifications.userId, userId));
+
       return {
         ok: true,
       };

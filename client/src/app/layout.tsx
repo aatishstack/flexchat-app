@@ -19,9 +19,16 @@ import GlobalErrorBoundary from "@/components/shared/GlobalErrorBoundary";
 
 export const metadata: Metadata = {
   title: "FlexChat",
-
-  description:
-    "Premium realtime messaging platform",
+  description: "Premium realtime messaging platform",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "FlexChat",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export const viewport: Viewport = {
@@ -37,7 +44,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta name="theme-color" content="#17212b" />
+      </head>
       <body className="fc-theme-transition bg-[var(--fc-app-bg)] text-[var(--fc-theme-text)] antialiased">
         <GlobalErrorBoundary>
           <QueryProvider>

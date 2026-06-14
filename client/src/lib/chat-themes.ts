@@ -452,6 +452,14 @@ export function getChatThemeStyle(theme: ChatTheme) {
   } as CSSProperties;
 }
 
+function syncStatusBar(color: string) {
+  if (typeof document === "undefined") return;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) {
+    meta.setAttribute("content", color);
+  }
+}
+
 export function applyGlobalChatTheme(themeId?: string | null) {
   if (typeof document === "undefined") {
     return getChatTheme(themeId);
@@ -467,6 +475,9 @@ export function applyGlobalChatTheme(themeId?: string | null) {
   root.dataset.flexchatTheme = theme.id;
   root.dataset.flexchatThemeMode = theme.mode;
   root.style.colorScheme = theme.mode;
+
+  // Sync status bar color with theme background
+  syncStatusBar(theme.id === DEFAULT_CHAT_THEME_ID ? "#17212b" : theme.background);
 
   try {
     window.localStorage.setItem(APP_THEME_STORAGE_KEY, theme.id);

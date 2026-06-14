@@ -1499,17 +1499,21 @@ export default function ChatSidebar() {
           </div>
 
           {conversationsQuery.isLoading ? (
-            <div className="space-y-2">
+            <div className="space-y-3 px-3">
               {Array.from({
-                length: 8,
+                length: 12,
               }).map((_, index) => (
-                <div
-                  key={index}
-                  className="fc-skeleton h-[64px] animate-pulse rounded-xl"
-                />
+                <div key={index} className="flex items-center gap-3 py-2">
+                  <div className="h-14 w-14 animate-pulse rounded-2xl bg-white/5" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-1/3 animate-pulse rounded-full bg-white/5" />
+                    <div className="h-3 w-3/4 animate-pulse rounded-full bg-white/5" />
+                  </div>
+                </div>
               ))}
             </div>
           ) : null}
+
 
           {conversationsQuery.isError ? (
             <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
