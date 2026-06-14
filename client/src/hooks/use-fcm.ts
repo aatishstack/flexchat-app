@@ -33,7 +33,11 @@ export const useFcm = () => {
 
   useEffect(() => {
     if (user) {
-      initializeFcm();
+      // Small jitter to prevent simultaneous heavy operations on mount/focus
+      const timer = setTimeout(() => {
+        initializeFcm();
+      }, 1500 + Math.random() * 1000);
+      return () => clearTimeout(timer);
     }
   }, [user, initializeFcm]);
 

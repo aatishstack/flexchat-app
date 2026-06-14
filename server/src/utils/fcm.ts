@@ -52,3 +52,17 @@ export async function verifyFcmToken(token: string) {
     return false;
   }
 }
+
+export async function verifyFirebaseConnection() {
+  const firebase = getFirebaseAdmin();
+  if (!firebase) {
+    return {
+      ok: false,
+      message: "Firebase Admin SDK initialization failed",
+    };
+  }
+
+  return {
+    ok: true,
+  };
+}

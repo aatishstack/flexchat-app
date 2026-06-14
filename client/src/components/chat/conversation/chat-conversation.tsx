@@ -2544,30 +2544,42 @@ export default function ChatConversation() {
   const reducedMotion = useReducedMotion();
   const now = useServerNow();
   const pushToast = useToastStore((state) => state.pushToast);
-  const bookmarks = useBookmarkStore((state) => state.bookmarks);
-  const addBookmark = useBookmarkStore((state) => state.addBookmark);
-  const removeBookmark = useBookmarkStore((state) => state.removeBookmark);
-  const blockedConversationIds = useBlockStore(
-    (state) => state.blockedConversationIds,
+  const {
+    bookmarks,
+    addBookmark,
+    removeBookmark,
+  } = useBookmarkStore(
+    useShallow((state) => ({
+      bookmarks: state.bookmarks,
+      addBookmark: state.addBookmark,
+      removeBookmark: state.removeBookmark,
+    }))
   );
-  const blockEvents = useBlockStore((state) => state.blockEvents);
-  const blockConversation = useBlockStore((state) => state.blockConversation);
-  const unblockConversation = useBlockStore(
-    (state) => state.unblockConversation,
+
+  const {
+    blockedConversationIds,
+    blockEvents,
+    blockConversation,
+    unblockConversation,
+  } = useBlockStore(
+    useShallow((state) => ({
+      blockedConversationIds: state.blockedConversationIds,
+      blockEvents: state.blockEvents,
+      blockConversation: state.blockConversation,
+      unblockConversation: state.unblockConversation,
+    }))
   );
 
   const conversationsQuery = useConversationsQuery();
-  const activeConversationId = useConversationStore(
-    (state) => state.activeConversationId,
-  );
-  const activeConversationPatch = useConversationStore(
-    useCallback(
-      (state) =>
-        activeConversationId
-          ? state.conversationPatches[activeConversationId]
-          : undefined,
-      [activeConversationId],
-    ),
+  const {
+    activeConversationId,
+    activeConversationPatch,
+  } = useConversationStore(
+    useShallow((state) => ({
+      activeConversationId: state.activeConversationId,
+      activeConversationPatch:
+        state.activeConversationId ? state.conversationPatches[state.activeConversationId] : undefined,
+    }))
   );
   const conversationById = useMemo(() => {
     const conversations = conversationsQuery.data ?? [];
@@ -2597,41 +2609,46 @@ export default function ChatConversation() {
   const currentUserId = user?.id;
   const messagesQuery = useMessagesQuery(conversationId);
   const { fetchNextPage, hasNextPage, isFetchingNextPage } = messagesQuery;
-  const realtimeMessages = useSocketStore(
-    useCallback(
-      (state) =>
-        conversationId
-          ? (state.messagesByConversation[conversationId] ?? EMPTY_MESSAGES)
-          : EMPTY_MESSAGES,
-      [conversationId],
-    ),
-  );
-  const socket = useSocketStore((state) => state.socket);
-  const isConnected = useSocketStore((state) => state.isConnected);
-  const isConnecting = useSocketStore((state) => state.isConnecting);
-  const connectionError = useSocketStore((state) => state.connectionError);
-  const remoteTypingUsers = useSocketStore(
-    useShallow((state) =>
-      state.typingUsers.filter(
-        (typingUserId) => typingUserId !== currentUserId,
+  const {
+    realtimeMessages,
+    socket,
+    isConnected,
+    isConnecting,
+    connectionError,
+    remoteTypingUsers,
+    isOnline,
+    joinConversation,
+    leaveConversation,
+    sendSocketMessage,
+    startTyping,
+    stopTyping,
+    retryMessage,
+    setConnectionError,
+  } = useSocketStore(
+    useShallow((state) => ({
+      realtimeMessages: conversationId
+        ? (state.messagesByConversation[conversationId] ?? EMPTY_MESSAGES)
+        : EMPTY_MESSAGES,
+      socket: state.socket,
+      isConnected: state.isConnected,
+      isConnecting: state.isConnecting,
+      connectionError: state.connectionError,
+      remoteTypingUsers: state.typingUsers.filter(
+        (typingUserId: string) => typingUserId !== currentUserId,
       ),
-    ),
-  );
-  const isOnline = useSocketStore(
-    (state) =>
-      activeConversation?.memberIds?.some(
-        (memberId) =>
-          memberId !== currentUserId && state.onlineUsers.includes(memberId),
-      ) ?? false,
-  );
-  const joinConversation = useSocketStore((state) => state.joinConversation);
-  const leaveConversation = useSocketStore((state) => state.leaveConversation);
-  const sendSocketMessage = useSocketStore((state) => state.sendMessage);
-  const startTyping = useSocketStore((state) => state.startTyping);
-  const stopTyping = useSocketStore((state) => state.stopTyping);
-  const retryMessage = useSocketStore((state) => state.retryMessage);
-  const setConnectionError = useSocketStore(
-    (state) => state.setConnectionError,
+      isOnline:
+        activeConversation?.memberIds?.some(
+          (memberId: string) =>
+            memberId !== currentUserId && state.onlineUsers.includes(memberId),
+        ) ?? false,
+      joinConversation: state.joinConversation,
+      leaveConversation: state.leaveConversation,
+      sendSocketMessage: state.sendMessage,
+      startTyping: state.startTyping,
+      stopTyping: state.stopTyping,
+      retryMessage: state.retryMessage,
+      setConnectionError: state.setConnectionError,
+    }))
   );
   const markConversationRead = useConversationStore(
     (state) => state.markConversationRead,
@@ -3044,10 +3061,11 @@ export default function ChatConversation() {
   const callTargetUserId = useMemo(
     () =>
       activeConversation?.memberIds?.find(
-        (memberId) => memberId !== currentUserId,
+        (memberId: string) => memberId !== currentUserId,
       ),
     [activeConversation?.memberIds, currentUserId],
   );
+
   const activeConversationAvatar = useMemo(
     () =>
       activeConversation
@@ -4534,7 +4552,7 @@ export default function ChatConversation() {
           ? `translateX(${mobileBackSwipeX}px)`
           : undefined,
       }}
-      className="fc-chat-doodle relative flex h-full min-h-0 flex-col overflow-hidden text-[var(--fc-theme-text)] transition-transform duration-150"
+      className="fc-chat-doodle fc-gpu-accelerated relative flex h-full min-h-0 flex-col overflow-hidden text-[var(--fc-theme-text)] transition-transform duration-150"
       onTouchStart={handleConversationTouchStart}
       onTouchMove={handleConversationTouchMove}
       onTouchEnd={handleConversationTouchEnd}

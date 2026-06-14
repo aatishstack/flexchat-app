@@ -6,6 +6,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const messages =
   pgTable(
@@ -119,12 +120,6 @@ export const messages =
           .notNull(),
     },
     (table) => ({
-      conversationCreatedAtIdx: index(
-        "messages_conversation_created_at_idx"
-      ).on(
-        table.conversationId,
-        table.createdAt
-      ),
       conversationCreatedAtIdIdx: index(
         "messages_conversation_created_at_id_idx"
       ).on(
@@ -161,6 +156,12 @@ export const messages =
       ).on(
         table.replyToMessageId
       ),
+      unreadPartialIdx: index(
+        "messages_unread_partial_idx"
+      ).on(
+        table.conversationId,
+        table.senderId
+      ).where(sql`status <> 'read'`),
     })
   );
 

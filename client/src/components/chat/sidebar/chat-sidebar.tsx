@@ -552,17 +552,18 @@ export default function ChatSidebar() {
     useToastStore(
       (state) => state.pushToast
     );
-  const conversationPatches =
-    useConversationStore(
-      (state) => state.conversationPatches
-    );
-  const activeConversationId =
-    useConversationStore(
-      (state) => state.activeConversationId
-    );
-  const setActiveConversation = useConversationStore(
-    (state) => state.setActiveConversation
+  const {
+    conversationPatches,
+    activeConversationId,
+    setActiveConversation,
+  } = useConversationStore(
+    useShallow((state) => ({
+      conversationPatches: state.conversationPatches,
+      activeConversationId: state.activeConversationId,
+      setActiveConversation: state.setActiveConversation,
+    }))
   );
+
   const onlineUsers = useSocketStore(
     useShallow((state) => state.onlineUsers)
   );
@@ -573,14 +574,17 @@ export default function ChatSidebar() {
   const currentUserId = useAuthStore(
     (state) => state.user?.id
   );
-  const blockedConversationIds = useBlockStore(
-    (state) => state.blockedConversationIds
-  );
-  const blockConversation = useBlockStore(
-    (state) => state.blockConversation
-  );
-  const unblockConversation = useBlockStore(
-    (state) => state.unblockConversation
+
+  const {
+    blockedConversationIds,
+    blockConversation,
+    unblockConversation,
+  } = useBlockStore(
+    useShallow((state) => ({
+      blockedConversationIds: state.blockedConversationIds,
+      blockConversation: state.blockConversation,
+      unblockConversation: state.unblockConversation,
+    }))
   );
   const blockedConversationSet = useMemo(
     () => new Set(blockedConversationIds),
@@ -1347,7 +1351,7 @@ export default function ChatSidebar() {
   ]);
 
   return (
-    <aside className="fc-panel flex h-full w-full border-r border-[#0D1823] lg:w-[360px]">
+    <aside className="fc-panel fc-gpu-accelerated flex h-full w-full border-r border-[#0D1823] lg:w-[360px]">
       <div className="flex w-full flex-col">
         <div className="fc-panel-strong relative border-b border-[#0D1823] px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))]">
           <div className="flex items-center justify-between gap-3">

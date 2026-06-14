@@ -33,6 +33,7 @@ export function useMessagesQuery(
       8 * 1000,
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
+    gcTime: 5 * 60 * 1000,
   });
 
   const queryData = query.data;

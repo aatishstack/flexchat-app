@@ -9,6 +9,7 @@ import { env } from "./config/env.js";
 import { db } from "./db/index.js";
 import { getRequestPath } from "./lib/request-path.js";
 import { verifyCloudinaryConnection } from "./lib/cloudinary.js";
+import { verifyFirebaseConnection } from "./utils/fcm.js";
 import { authRoutes } from "./routes/auth.route.js";
 import { conversationRoutes } from "./routes/conversation.route.js";
 import { messageRoutes } from "./routes/messages.route.js";
@@ -242,29 +243,40 @@ export async function buildApp() {
 
   app.get("/ready", async (request, reply) => {
     try {
-      const [dbCheck, cloudinaryCheck] = await Promise.allSettled([
+      const [dbCheck, cloudinaryCheck, firebaseCheck] = await Promise.allSettled([
         checkDatabaseReady(),
         verifyCloudinaryConnection(),
+        verifyFirebaseConnection(),
       ]);
 
       const dbOk = dbCheck.status === "fulfilled";
       const cloudinaryOk =
         cloudinaryCheck.status === "fulfilled" &&
         cloudinaryCheck.value.ok;
+      const firebaseOk =
+        firebaseCheck.status === "fulfilled" &&
+        firebaseCheck.value.ok;
+
+      const isReady = dbOk && cloudinaryOk && firebaseOk;
 
       const response = {
-        status: dbOk && cloudinaryOk ? "ok" : "degraded",
+        status: isReady ? "ok" : "degraded",
         db: dbOk ? "ok" : "unreachable",
         cloudinary: cloudinaryOk
           ? "ok"
           : cloudinaryCheck.status === "fulfilled"
             ? cloudinaryCheck.value.message
             : "timeout",
+        firebase: firebaseOk
+          ? "ok"
+          : firebaseCheck.status === "fulfilled"
+            ? firebaseCheck.value.message
+            : "failed",
         sentry: env.SENTRY_DSN ? "enabled" : "disabled",
         ts: Date.now(),
       };
 
-      if (!dbOk) {
+      if (!isReady) {
         reply.status(503);
       }
 

@@ -163,6 +163,7 @@ const StoryMedia = memo(({
       src={story.mediaUrl}
       alt=""
       loading="eager"
+      decoding="async"
       onLoad={() => onLoaded(story.id)}
       onError={onError}
       className="h-full w-full bg-black object-cover"

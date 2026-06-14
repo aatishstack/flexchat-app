@@ -537,6 +537,8 @@ export default function SettingsPage() {
                       <img
                         src={user.avatar}
                         alt=""
+                        loading="lazy"
+                        decoding="async"
                         className="h-full w-full object-cover"
                       />
                     ) : (

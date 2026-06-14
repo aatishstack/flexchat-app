@@ -534,7 +534,7 @@ export const StoryCreator = memo(({ isOpen, onClose, currentUser }: StoryCreator
               <BackgroundMediaLayer canvasRect={storyCanvasRef.current?.getBoundingClientRect() ?? null}>
                 {storyDraft.mediaType === "image" && storyDraft.previewUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={storyDraft.previewUrl} alt="" className="h-full w-full object-cover" draggable={false} />
+                  <img src={storyDraft.previewUrl} alt="" decoding="async" className="h-full w-full object-cover" draggable={false} />
                 ) : storyDraft.mediaType === "video" ? (
                   <video src={storyDraft.previewUrl} autoPlay muted loop playsInline className="h-full w-full object-cover" />
                 ) : null}

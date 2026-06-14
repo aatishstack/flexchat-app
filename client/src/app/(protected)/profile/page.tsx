@@ -458,6 +458,8 @@ export default function ProfilePage() {
                 <img
                   src={avatar}
                   alt=""
+                  loading="lazy"
+                  decoding="async"
                   className="h-full w-full object-cover"
                 />
               ) : (
@@ -619,6 +621,8 @@ export default function ProfilePage() {
                 <img
                   src={avatar}
                   alt=""
+                  loading="lazy"
+                  decoding="async"
                   className="h-full w-full object-cover"
                 />
               ) : (
@@ -696,6 +700,8 @@ export default function ProfilePage() {
                       <img
                         src={draft.avatar}
                         alt=""
+                        loading="lazy"
+                        decoding="async"
                         className="h-full w-full object-cover"
                       />
                     ) : (
