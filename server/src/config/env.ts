@@ -59,6 +59,8 @@ const envSchema = z.object({
     z.string().url().trim().optional(),
   SENTRY_ENVIRONMENT:
     z.string().trim().default("development"),
+  TURNSTILE_SECRET_KEY:
+    z.string().trim().optional(),
   RATE_LIMIT_MAX:
     z.coerce.number().default(120),
   RATE_LIMIT_WINDOW:
@@ -167,6 +169,18 @@ const envSchema = z.object({
       path: ["CLOUDINARY_CLOUD_NAME"],
       message:
         "Cloudinary credentials are required in production",
+    });
+  }
+
+  if (
+    env.NODE_ENV === "production" &&
+    !env.TURNSTILE_SECRET_KEY
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["TURNSTILE_SECRET_KEY"],
+      message:
+        "Turnstile secret key is required in production",
     });
   }
 });

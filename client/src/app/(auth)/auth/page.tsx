@@ -13,7 +13,7 @@ import {
   Video,
 } from "lucide-react";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   usePathname,
@@ -41,6 +41,11 @@ import {
 } from "@/services/auth.service";
 
 import AuthBackground from "@/components/auth/auth-background";
+
+import {
+  TurnstileWidget,
+  type TurnstileWidgetRef,
+} from "@/components/auth/TurnstileWidget";
 
 import PremiumInput from "@/components/ui/premium-input";
 
@@ -181,6 +186,10 @@ export default function AuthPage() {
 
   const [error, setError] = useState("");
 
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRef = useRef<TurnstileWidgetRef>(null);
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
   useEffect(() => {
     if (!isHydrated) return;
 
@@ -260,11 +269,13 @@ export default function AuthPage() {
         ? await login({
             email,
             password,
+            turnstileToken,
           })
         : await register({
             username,
             email,
             password,
+            turnstileToken,
           });
 
       completeAuthSession(response, isLogin ? "login" : "register");
@@ -283,6 +294,8 @@ export default function AuthPage() {
             : "Unknown sign-in failure",
       });
       setError(getAuthenticationErrorMessage(error));
+      setTurnstileToken("");
+      turnstileRef.current?.reset();
     } finally {
       setLoading(false);
     }
@@ -437,7 +450,8 @@ export default function AuthPage() {
   const canSubmit = Boolean(
     email.trim() &&
     password.trim() &&
-    (isLogin || (username.trim() && acceptedTerms)),
+    (isLogin || (username.trim() && acceptedTerms)) &&
+    (!turnstileSiteKey || turnstileToken),
   );
 
   const featureItems = [
@@ -693,6 +707,16 @@ export default function AuthPage() {
                     </button>
                   </div>
                 </div>
+
+                <TurnstileWidget
+                  ref={turnstileRef}
+                  onVerify={setTurnstileToken}
+                  onExpire={() => setTurnstileToken("")}
+                  onError={() => {
+                    setError("Bot protection failed to load. Please refresh.");
+                    setTurnstileToken("");
+                  }}
+                />
 
                 {error && (
                   <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">

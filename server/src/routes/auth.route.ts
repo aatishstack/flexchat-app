@@ -23,6 +23,7 @@ import { users } from "../db/schema/users.js";
 import { generateId } from "../lib/uuid.js";
 import { signToken } from "../lib/jwt.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
+import { verifyTurnstileToken } from "../utils/turnstile.js";
 
 const blockedDomains = new Set([
   "tempmail.com",
@@ -45,11 +46,13 @@ const registerBodySchema = z.object({
     .min(8)
     .max(128)
     .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/),
+  turnstileToken: z.string().optional(),
 });
 
 const loginBodySchema = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   password: z.string().min(1).max(128),
+  turnstileToken: z.string().optional(),
 });
 
 const googleStartQuerySchema = z.object({
@@ -447,7 +450,20 @@ export async function authRoutes(app: FastifyInstance) {
         });
       }
 
-      const { username, email, password } = parsedBody.data;
+      const { username, email, password, turnstileToken } = parsedBody.data;
+
+      if (env.TURNSTILE_SECRET_KEY) {
+        const isHuman = await verifyTurnstileToken(
+          turnstileToken ?? "",
+          request.ip
+        );
+
+        if (!isHuman) {
+          return reply.status(403).send({
+            message: "Bot protection verification failed",
+          });
+        }
+      }
 
       const domain = email.split("@")[1];
 
@@ -953,7 +969,20 @@ export async function authRoutes(app: FastifyInstance) {
         });
       }
 
-      const { email, password } = parsedBody.data;
+      const { email, password, turnstileToken } = parsedBody.data;
+
+      if (env.TURNSTILE_SECRET_KEY) {
+        const isHuman = await verifyTurnstileToken(
+          turnstileToken ?? "",
+          request.ip
+        );
+
+        if (!isHuman) {
+          return reply.status(403).send({
+            message: "Bot protection verification failed",
+          });
+        }
+      }
 
       const foundUser = await db
         .select()

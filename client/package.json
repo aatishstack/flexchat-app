@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "@marsidev/react-turnstile": "^1.5.3",
     "@sentry/nextjs": "^10.57.0",
     "@tanstack/react-query": "^5.100.10",
     "@tanstack/react-virtual": "^3.14.2",
