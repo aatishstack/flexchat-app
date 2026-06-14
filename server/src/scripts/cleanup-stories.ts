@@ -1,86 +1,44 @@
 import "dotenv/config";
 
-import fs from "fs/promises";
-import path from "path";
-
 import { sql } from "drizzle-orm";
 
-import { env } from "../config/env.js";
 import {
   closeDb,
   db,
 } from "../db/index.js";
-
-function getUploadedFilePath(url: string | null) {
-  if (!url) {
-    return null;
-  }
-
-  try {
-    const parsedUrl = new URL(url);
-    const publicApiUrl = new URL(env.PUBLIC_API_URL);
-
-    if (
-      parsedUrl.origin !== publicApiUrl.origin ||
-      !parsedUrl.pathname.startsWith("/uploads/")
-    ) {
-      return null;
-    }
-
-    const relativeUploadPath =
-      decodeURIComponent(parsedUrl.pathname.replace(/^\/uploads\//, ""));
-
-    if (!relativeUploadPath || relativeUploadPath === "uploads") {
-      return null;
-    }
-
-    const uploadsDir = path.resolve(process.cwd(), "uploads");
-    const filepath = path.resolve(uploadsDir, relativeUploadPath);
-
-    if (!filepath.startsWith(`${uploadsDir}${path.sep}`)) {
-      return null;
-    }
-
-    return filepath;
-  } catch {
-    return null;
-  }
-}
+import { deleteMediaAsset } from "../services/media.service.js";
 
 try {
   const stories = await db.execute<{
     id: string;
-    mediaUrl: string | null;
+    mediaPublicId: string | null;
+    mediaResourceType: string | null;
   }>(sql`
     select
       id,
-      media_url as "mediaUrl"
+      media_public_id as "mediaPublicId",
+      media_resource_type as "mediaResourceType"
     from stories
   `);
-
-  const mediaFiles = Array.from(
-    new Set(
-      stories
-        .map((story) => getUploadedFilePath(story.mediaUrl))
-        .filter((filepath): filepath is string => Boolean(filepath)),
-    ),
-  );
 
   await db.execute(sql`delete from story_views`);
   await db.execute(sql`delete from stories`);
 
-  let removedFiles = 0;
-
-  for (const filepath of mediaFiles) {
-    await fs.unlink(filepath)
-      .then(() => {
-        removedFiles += 1;
-      })
-      .catch(() => undefined);
-  }
+  const deletionResults = await Promise.allSettled(
+    stories.map((story) =>
+      deleteMediaAsset(
+        story.mediaPublicId,
+        story.mediaResourceType,
+      ),
+    ),
+  );
+  const removedAssets = deletionResults.filter(
+    (result) => result.status === "fulfilled",
+  ).length;
+  const failedAssets = deletionResults.length - removedAssets;
 
   console.log(
-    `Deleted ${stories.length} stories, cleared story views, removed ${removedFiles} media files.`,
+    `Deleted ${stories.length} stories and cleared story views. Removed ${removedAssets} media assets; ${failedAssets} remain queued for retry.`,
   );
 } finally {
   await closeDb();

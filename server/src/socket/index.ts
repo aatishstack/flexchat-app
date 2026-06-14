@@ -1,13 +1,12 @@
 import type { Server as HttpServer } from "http";
 
-import fs from "fs/promises";
-import path from "path";
 import { Server } from "socket.io";
 import { sql } from "drizzle-orm";
 
 import { env } from "../config/env.js";
 import { db } from "../db/index.js";
 import { debugLog } from "../lib/debug-log.js";
+import { deleteMediaAsset } from "../services/media.service.js";
 import { authenticateSocket } from "./socket-auth.js";
 import { SOCKET_EVENTS } from "./socket-events.js";
 import {
@@ -27,6 +26,11 @@ type ServerListener = ReturnType<HttpServer["listeners"]>[number];
 const STORY_EXPIRATION_SWEEP_MS = 5 * 60 * 1000;
 
 function buildAllowedOrigins() {
+  const developmentOrigins =
+    env.NODE_ENV === "production"
+      ? []
+      : ["http://localhost:3000"];
+
   return Array.from(
     new Set([
       env.FRONTEND_URL,
@@ -35,7 +39,7 @@ function buildAllowedOrigins() {
         .split(",")
         .map((origin) => origin.trim())
         .filter(Boolean),
-      "http://localhost:3000",
+      ...developmentOrigins,
     ].filter((origin): origin is string => Boolean(origin))),
   );
 }
@@ -55,43 +59,13 @@ function prioritizeNewListeners(
   });
 }
 
-function getUploadedFilePath(url: string | null) {
-  if (!url) {
-    return null;
-  }
-
-  try {
-    const parsedUrl = new URL(url);
-    const publicApiUrl = new URL(env.PUBLIC_API_URL);
-
-    if (
-      parsedUrl.origin !== publicApiUrl.origin ||
-      !parsedUrl.pathname.startsWith("/uploads/")
-    ) {
-      return null;
-    }
-
-    const relativeUploadPath =
-      decodeURIComponent(parsedUrl.pathname.replace(/^\/uploads\//, ""));
-    const uploadsDir = path.resolve(process.cwd(), "uploads");
-    const filepath = path.resolve(uploadsDir, relativeUploadPath);
-
-    if (!filepath.startsWith(`${uploadsDir}${path.sep}`)) {
-      return null;
-    }
-
-    return filepath;
-  } catch {
-    return null;
-  }
-}
-
 function startExpiredStoryCleanup(io: Server) {
   const sweepExpiredStories = async () => {
     const expiredAt = new Date().toISOString();
     const expiredStories = await db.execute<{
       id: string;
-      mediaUrl: string | null;
+      mediaPublicId: string | null;
+      mediaResourceType: string | null;
     }>(sql`
       update stories
       set deleted_at = now()
@@ -99,7 +73,8 @@ function startExpiredStoryCleanup(io: Server) {
         and expires_at <= now()
       returning
         id,
-        media_url as "mediaUrl"
+        media_public_id as "mediaPublicId",
+        media_resource_type as "mediaResourceType"
     `);
 
     if (!expiredStories.length) {
@@ -120,11 +95,13 @@ function startExpiredStoryCleanup(io: Server) {
       });
     });
 
-    await Promise.all(
-      expiredStories
-        .map((story) => getUploadedFilePath(story.mediaUrl))
-        .filter((filepath): filepath is string => Boolean(filepath))
-        .map((filepath) => fs.unlink(filepath).catch(() => undefined)),
+    await Promise.allSettled(
+      expiredStories.map((story) =>
+        deleteMediaAsset(
+          story.mediaPublicId,
+          story.mediaResourceType,
+        ),
+      ),
     );
   };
 
@@ -160,7 +137,7 @@ export function setupSocket(server: HttpServer) {
     connectTimeout: env.SOCKET_CONNECT_TIMEOUT_MS,
     transports: ["websocket", "polling"],
     allowUpgrades: true,
-    allowEIO3: true,
+    maxHttpBufferSize: 256 * 1024,
     connectionStateRecovery: {
       maxDisconnectionDuration: 3 * 60 * 1000,
       skipMiddlewares: false,

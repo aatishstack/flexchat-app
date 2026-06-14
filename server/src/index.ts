@@ -2,10 +2,22 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import * as Sentry from "@sentry/node";
+
+import { env } from "./config/env.js";
 import { buildApp } from "./app.js";
 import { closeDb } from "./db/index.js";
 import { debugLog } from "./lib/debug-log.js";
+import { startMediaCleanup } from "./services/media.service.js";
 import { setupSocket } from "./socket/index.js";
+
+if (env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: env.SENTRY_DSN,
+    environment: env.SENTRY_ENVIRONMENT,
+    tracesSampleRate: 1.0,
+  });
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,6 +25,7 @@ const DEFAULT_PORT = 8080;
 const HOST = "0.0.0.0";
 let app: Awaited<ReturnType<typeof buildApp>> | undefined;
 let io: ReturnType<typeof setupSocket> | undefined;
+let mediaCleanupTimer: ReturnType<typeof setInterval> | undefined;
 let shuttingDown = false;
 
 process.on(
@@ -22,6 +35,8 @@ process.on(
       "Unhandled promise rejection",
       reason,
     );
+
+    void shutdown("unhandledRejection");
   }
 );
 
@@ -87,6 +102,7 @@ serverApp.server.keepAliveTimeout = 120_000;
 serverApp.server.headersTimeout = 125_000;
 
 io = setupSocket(serverApp.server);
+mediaCleanupTimer = startMediaCleanup();
 
 async function shutdown(signal: string) {
   if (shuttingDown) {
@@ -96,6 +112,17 @@ async function shutdown(signal: string) {
   shuttingDown = true;
 
   const logger = app?.log ?? console;
+  const forceExitTimer = setTimeout(() => {
+    logger.error(
+      {
+        signal,
+      },
+      "FlexChat shutdown timed out",
+    );
+    process.exit(1);
+  }, 10_000);
+
+  forceExitTimer.unref?.();
 
   logger.info(
     {
@@ -111,11 +138,17 @@ async function shutdown(signal: string) {
       });
     }
 
+    if (mediaCleanupTimer) {
+      clearInterval(mediaCleanupTimer);
+    }
+
     if (app) {
       await app.close();
     }
 
     await closeDb();
+
+    clearTimeout(forceExitTimer);
 
     logger.info(
       "FlexChat shutdown completed"
@@ -123,6 +156,8 @@ async function shutdown(signal: string) {
 
     process.exit(0);
   } catch (error) {
+    clearTimeout(forceExitTimer);
+
     logger.error(
       {
         err: error,

@@ -62,7 +62,6 @@ function attachSocketAuth(instance: Socket, reason: string) {
   const latestToken = tokenStorage.get();
 
   instance.auth = latestToken ? { token: latestToken } : {};
-  instance.io.opts.query = latestToken ? { token: latestToken } : {};
 
   console.info("[SOCKET] socket auth token attached", {
     reason,
@@ -97,7 +96,6 @@ function buildSocket(): Socket {
     timeout: 20_000,
     withCredentials: false,
     auth: token ? { token } : {},
-    query: token ? { token } : {},
   });
 
   instance.io.on("reconnect_attempt", (attempt) => {

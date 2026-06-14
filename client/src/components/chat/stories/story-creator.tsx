@@ -26,7 +26,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { createStory } from "@/services/story.service";
-import { uploadImage } from "@/services/upload.service";
+import { uploadMedia } from "@/services/upload.service";
 import { useToastStore } from "@/store/toast-store";
 import type { Story } from "@/types/story";
 
@@ -349,19 +349,43 @@ export const StoryCreator = memo(({ isOpen, onClose, currentUser }: StoryCreator
       if (mediaType === "text" && !caption.trim()) throw new Error("Write something first.");
       if (mediaType !== "text" && !file) throw new Error("Select a photo or video.");
 
-      const mediaUrl = mediaType === "text" 
-        ? TEXT_STORY_MEDIA_URL 
-        : await uploadImage(file!, { onProgress: () => {} });
+      const uploadedMedia =
+        mediaType === "text"
+          ? null
+          : await uploadMedia(file!, {
+              onProgress: () => {},
+              purpose: "story",
+            });
 
-      return createStory({ mediaUrl, mediaType: mediaType as "image" | "video" | "text", caption: caption.trim() || undefined });
+      return createStory({
+        mediaUrl:
+          uploadedMedia?.url ??
+          TEXT_STORY_MEDIA_URL,
+        mediaPublicId:
+          uploadedMedia?.publicId,
+        mediaType:
+          mediaType as
+            | "image"
+            | "video"
+            | "text",
+        caption:
+          caption.trim() || undefined,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.stories.all });
       pushToast({ title: "Story published", variant: "success" });
+      setStoryDraft(null);
+      setStoryComposerOpen(false);
+      setTextOverlayEditorOpen(false);
+      setSelectedDraftElement(null);
       onClose();
     },
     onError: (error: Error) => {
       pushToast({ title: "Could not share story", message: error.message, variant: "error" });
+    },
+    onSettled: () => {
+      setStoryPreparing(false);
     },
   });
 
@@ -424,7 +448,19 @@ export const StoryCreator = memo(({ isOpen, onClose, currentUser }: StoryCreator
   };
 
   useEffect(() => {
-    if (isOpen && !storyDraft) setStoryComposerOpen(true);
+    if (!isOpen) {
+      setStoryComposerOpen(false);
+      setStoryDraft(null);
+      setTextOverlayEditorOpen(false);
+      setSelectedDraftElement(null);
+      setDragDeleteState(null);
+      setStoryPreparing(false);
+      return;
+    }
+
+    if (!storyDraft) {
+      setStoryComposerOpen(true);
+    }
   }, [isOpen, storyDraft]);
 
   const openImageTextTool = () => {

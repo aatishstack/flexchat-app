@@ -1033,7 +1033,7 @@ export const useCallStore =
         get().currentCall;
 
       if (
-        currentCall &&
+        !currentCall ||
         currentCall.id !== call.id
       ) {
         return;

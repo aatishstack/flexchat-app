@@ -36,6 +36,21 @@ export const users =
           "avatar"
         ),
 
+      avatarPublicId:
+        text(
+          "avatar_public_id"
+        ),
+
+      avatarSecureUrl:
+        text(
+          "avatar_secure_url"
+        ),
+
+      avatarResourceType:
+        text(
+          "avatar_resource_type"
+        ),
+
       phoneNumber:
         text(
           "phone_number"

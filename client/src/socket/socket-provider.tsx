@@ -153,6 +153,7 @@ type CallErrorPayload = {
 
 const CONVERSATION_UPDATE_DEDUPE_TTL_MS =
   2 * 60 * 1000;
+const STORY_EVENT_DEDUPE_TTL_MS = 10_000;
 const PENDING_NOTIFICATION_CONVERSATION_KEY =
   "flexchat:pending-conversation";
 
@@ -160,6 +161,7 @@ const recentConversationUpdates = new Map<
   string,
   number
 >();
+const recentStoryEvents = new Map<string, number>();
 
 function getConversationNameFromCache(
   cache: ConversationQueryCache,
@@ -240,6 +242,24 @@ function hasSeenConversationUpdate(
   return false;
 }
 
+function hasSeenStoryEvent(storyId: string) {
+  const now = Date.now();
+
+  recentStoryEvents.forEach((expiresAt, key) => {
+    if (expiresAt <= now) {
+      recentStoryEvents.delete(key);
+    }
+  });
+
+  if (recentStoryEvents.has(storyId)) {
+    return true;
+  }
+
+  recentStoryEvents.set(storyId, now + STORY_EVENT_DEDUPE_TTL_MS);
+
+  return false;
+}
+
 function getMessagePreview(message: Message) {
   const body =
     message.deletedAt
@@ -293,13 +313,10 @@ async function showIncomingMessageNotification(input: {
     return;
   }
 
-  let permission = Notification.permission;
-
-  if (permission === "default") {
-    permission = await Notification.requestPermission().catch(() => "denied");
-  }
-
-  if (permission !== "granted") {
+  if (
+    (document.visibilityState === "visible" && document.hasFocus()) ||
+    Notification.permission !== "granted"
+  ) {
     return;
   }
 
@@ -1012,7 +1029,7 @@ export default function SocketProvider({
     }
 
     function onStoryCreated(story: Story) {
-      if (!story?.id) {
+      if (!story?.id || hasSeenStoryEvent(story.id)) {
         return;
       }
 

@@ -79,7 +79,7 @@ import {
 import {
   MEDIA_LIMITS,
   getUploadValidationError,
-  uploadImage,
+  uploadMedia,
 } from "@/services/upload.service";
 import { SOCKET_EVENTS } from "@/socket/socket-events";
 import { Message, useSocketStore } from "@/store/socket-store";
@@ -465,6 +465,7 @@ function getMediaFromMessage(message: Message) {
   const typedMediaId = message.mediaId?.trim();
 
   if (
+    !message.attachment &&
     (message.type === "image" ||
       message.type === "video" ||
       message.type === "file") &&
@@ -3830,7 +3831,8 @@ export default function ChatConversation() {
     setAttachmentUploadProgress(4);
 
     try {
-      const audioUrl = await uploadImage(file, {
+      const uploadedAudio = await uploadMedia(file, {
+        purpose: "voice",
         onProgress: (progress) => {
           setAttachmentUploadProgress(Math.min(96, Math.max(6, progress)));
         },
@@ -3839,7 +3841,11 @@ export default function ChatConversation() {
       sendSocketMessage({
         conversationId,
         text: "",
-        audio: audioUrl,
+        audio: uploadedAudio.url,
+        mediaId: uploadedAudio.publicId,
+        fileName: uploadedAudio.fileName,
+        fileSize: uploadedAudio.size,
+        mimeType: uploadedAudio.mimeType,
         replyTo: replyingTo
           ? {
               id: replyingTo.id,
@@ -4053,7 +4059,8 @@ export default function ChatConversation() {
     triggerHaptic(10);
 
     try {
-      const attachmentUrl = await uploadImage(file, {
+      const uploadedAttachment = await uploadMedia(file, {
+        purpose: "attachment",
         onProgress: (progress) => {
           setAttachmentUploadProgress(Math.min(96, Math.max(6, progress)));
         },
@@ -4063,7 +4070,18 @@ export default function ChatConversation() {
       sendSocketMessage({
         conversationId,
         text: caption,
-        attachment: attachmentUrl,
+        type:
+          uploadedAttachment.kind === "document"
+            ? "file"
+            : uploadedAttachment.kind === "image" ||
+                uploadedAttachment.kind === "video"
+              ? uploadedAttachment.kind
+              : "file",
+        attachment: uploadedAttachment.url,
+        mediaId: uploadedAttachment.publicId,
+        fileName: uploadedAttachment.fileName,
+        fileSize: uploadedAttachment.size,
+        mimeType: uploadedAttachment.mimeType,
         replyTo: replyingTo
           ? {
               id: replyingTo.id,

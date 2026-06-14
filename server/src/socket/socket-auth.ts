@@ -14,10 +14,6 @@ export async function authenticateSocket(socket: Socket): Promise<boolean> {
     token = socket.handshake.headers.authorization.replace(/^Bearer\s+/i, "");
   }
 
-  if (!token && typeof socket.handshake.query.token === "string") {
-    token = socket.handshake.query.token;
-  }
-
   if (!token) {
     console.warn("[SOCKET] connection rejected reason", {
       socketId: socket.id,

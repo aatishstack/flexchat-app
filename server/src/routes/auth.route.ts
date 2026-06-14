@@ -32,12 +32,19 @@ const blockedDomains = new Set([
   "fakeinbox.com",
 ]);
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 const registerBodySchema = z.object({
-  username: z.string().trim().min(1).max(32),
+  username: z
+    .string()
+    .trim()
+    .min(3)
+    .max(32)
+    .regex(/^[a-zA-Z0-9_ .-]+$/),
   email: z.string().trim().toLowerCase().email().max(254),
-  password: z.string().min(8).max(128),
+  password: z
+    .string()
+    .min(8)
+    .max(128)
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/),
 });
 
 const loginBodySchema = z.object({
@@ -83,6 +90,7 @@ const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo";
 const GOOGLE_OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+const GOOGLE_REQUEST_TIMEOUT_MS = 12_000;
 
 function publicUser(user: {
   id: string;
@@ -321,6 +329,36 @@ function isGoogleEmailVerified(value: boolean | string | undefined) {
   return value === true || value === "true";
 }
 
+function getUniqueUserField(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return null;
+  }
+
+  const candidate = error as {
+    code?: unknown;
+    constraint?: unknown;
+    message?: unknown;
+  };
+
+  if (candidate.code !== "23505") {
+    return null;
+  }
+
+  const detail = `${String(candidate.constraint ?? "")} ${String(
+    candidate.message ?? "",
+  )}`.toLowerCase();
+
+  if (detail.includes("email")) {
+    return "email";
+  }
+
+  if (detail.includes("username")) {
+    return "username";
+  }
+
+  return "unknown";
+}
+
 async function findOrCreateGoogleUser(profile: z.infer<typeof googleUserInfoSchema>) {
   const email = profile.email.trim().toLowerCase();
   const existingUsers = await db
@@ -392,7 +430,14 @@ export async function authRoutes(app: FastifyInstance) {
   // REGISTER
   app.post(
     "/auth/register",
-
+    {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: "10 minutes",
+        },
+      },
+    },
     async (request, reply) => {
       const parsedBody = registerBodySchema.safeParse(request.body);
 
@@ -404,23 +449,11 @@ export async function authRoutes(app: FastifyInstance) {
 
       const { username, email, password } = parsedBody.data;
 
-      if (!emailRegex.test(email)) {
-        return reply.status(400).send({
-          message: "Invalid email address",
-        });
-      }
-
       const domain = email.split("@")[1];
 
       if (blockedDomains.has(domain)) {
         return reply.status(400).send({
           message: "Temporary emails are not allowed",
-        });
-      }
-
-      if (password.length < 8) {
-        return reply.status(400).send({
-          message: "Password must be at least 8 characters",
         });
       }
 
@@ -458,28 +491,47 @@ export async function authRoutes(app: FastifyInstance) {
         password: hashedPassword,
       };
 
-      const insertedUsers = await db.execute<UserRow>(sql`
-        insert into users (
-          id,
-          username,
-          email,
-          password
-        )
-        values (
-          ${newUser.id},
-          ${newUser.username},
-          ${newUser.email},
-          ${newUser.password}
-        )
-        returning
-          id,
-          username,
-          email,
-          password,
-          avatar,
-          phone_number as "phoneNumber",
-          created_at as "createdAt"
-      `);
+      let insertedUsers: UserRow[];
+
+      try {
+        insertedUsers = await db.execute<UserRow>(sql`
+          insert into users (
+            id,
+            username,
+            email,
+            password
+          )
+          values (
+            ${newUser.id},
+            ${newUser.username},
+            ${newUser.email},
+            ${newUser.password}
+          )
+          returning
+            id,
+            username,
+            email,
+            password,
+            avatar,
+            phone_number as "phoneNumber",
+            created_at as "createdAt"
+        `);
+      } catch (error) {
+        const uniqueField = getUniqueUserField(error);
+
+        if (uniqueField) {
+          return reply.status(409).send({
+            message:
+              uniqueField === "email"
+                ? "Email already exists"
+                : uniqueField === "username"
+                  ? "Username already taken"
+                  : "Account already exists",
+          });
+        }
+
+        throw error;
+      }
       const createdUser = insertedUsers[0] ?? newUser;
 
       const token = signToken({
@@ -494,7 +546,17 @@ export async function authRoutes(app: FastifyInstance) {
     },
   );
 
-  app.get("/auth/google/start", async (request, reply) => {
+  app.get(
+    "/auth/google/start",
+    {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: "10 minutes",
+        },
+      },
+    },
+    async (request, reply) => {
     const parsedQuery = googleStartQuerySchema.safeParse(request.query);
 
     if (!parsedQuery.success) {
@@ -564,9 +626,20 @@ export async function authRoutes(app: FastifyInstance) {
     );
 
     return reply.redirect(authUrl.toString());
-  });
+    },
+  );
 
-  app.get("/auth/google/callback", async (request, reply) => {
+  app.get(
+    "/auth/google/callback",
+    {
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: "10 minutes",
+        },
+      },
+    },
+    async (request, reply) => {
     const parsedQuery = googleCallbackQuerySchema.safeParse(request.query);
 
     if (!parsedQuery.success) {
@@ -705,6 +778,7 @@ export async function authRoutes(app: FastifyInstance) {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
+        signal: AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS),
         body: new URLSearchParams({
           code: parsedQuery.data.code,
           client_id: oauthConfig.clientId,
@@ -753,6 +827,7 @@ export async function authRoutes(app: FastifyInstance) {
         headers: {
           Authorization: `Bearer ${parsedToken.data.access_token}`,
         },
+        signal: AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS),
       });
       const userInfoJson = await userInfoResponse.json();
       const parsedUserInfo = googleUserInfoSchema.safeParse(userInfoJson);
@@ -855,12 +930,20 @@ export async function authRoutes(app: FastifyInstance) {
         state.frontendOrigin,
       );
     }
-  });
+    },
+  );
 
   // LOGIN
   app.post(
     "/auth/login",
-
+    {
+      config: {
+        rateLimit: {
+          max: 15,
+          timeWindow: "10 minutes",
+        },
+      },
+    },
     async (request, reply) => {
       const parsedBody = loginBodySchema.safeParse(request.body);
 
@@ -909,6 +992,12 @@ export async function authRoutes(app: FastifyInstance) {
     "/auth/refresh",
     {
       preHandler: authMiddleware,
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: "10 minutes",
+        },
+      },
     },
     async (request, reply) => {
       const userId = (request.user as any)?.id;

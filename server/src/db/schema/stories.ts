@@ -16,6 +16,12 @@ export const stories = pgTable(
 
     mediaUrl: text("media_url").notNull(),
 
+    mediaPublicId: text("media_public_id"),
+
+    mediaSecureUrl: text("media_secure_url"),
+
+    mediaResourceType: text("media_resource_type"),
+
     mediaType: text("media_type").notNull(),
 
     durationSeconds:

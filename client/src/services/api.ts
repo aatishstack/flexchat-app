@@ -36,6 +36,14 @@ function isLocalApiUrl(value: string | undefined) {
   }
 }
 
+function getLoggableUrl(value: string) {
+  try {
+    return new URL(value, "https://flexchat.local").pathname;
+  } catch {
+    return value.split("?")[0] ?? value;
+  }
+}
+
 export function getApiBaseUrl() {
   const configuredUrl = getConfiguredApiUrl();
 
@@ -99,7 +107,7 @@ api.interceptors.request.use((config) => {
 
   console.info("[FlexChat API] request", {
     method: config.method?.toUpperCase() ?? "GET",
-    url: api.getUri(config),
+    url: getLoggableUrl(api.getUri(config)),
     hasToken: Boolean(token),
   });
 
@@ -114,7 +122,7 @@ api.interceptors.response.use(
       error.config?.method?.toUpperCase() ??
       "UNKNOWN";
     const url = error.config
-      ? api.getUri(error.config)
+      ? getLoggableUrl(api.getUri(error.config))
       : "unknown";
 
     console.error("[FlexChat API] response failed", {

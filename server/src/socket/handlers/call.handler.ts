@@ -45,14 +45,26 @@ const callEndSchema = z.object({
   reason: z.string().trim().max(64).optional(),
 });
 
+const rtcDescriptionSchema = z.object({
+  type: z.enum(["offer", "answer", "pranswer", "rollback"]),
+  sdp: z.string().max(128_000).optional(),
+});
+
 const callDescriptionSchema = z.object({
   callId: z.string().trim().min(1).max(128),
-  description: z.unknown(),
+  description: rtcDescriptionSchema,
+});
+
+const rtcCandidateSchema = z.object({
+  candidate: z.string().max(8_192),
+  sdpMid: z.string().max(256).nullable().optional(),
+  sdpMLineIndex: z.number().int().min(0).max(65_535).nullable().optional(),
+  usernameFragment: z.string().max(256).nullable().optional(),
 });
 
 const callCandidateSchema = z.object({
   callId: z.string().trim().min(1).max(128),
-  candidate: z.unknown(),
+  candidate: rtcCandidateSchema,
 });
 
 const calls = new Map<string, CallSession>();
@@ -244,12 +256,7 @@ export function registerCallHandlers(io: Server, socket: Socket) {
     if (activeCall?.calleeId === userId && activeCall.status !== "active") {
       socket.emit(SOCKET_EVENTS.CALL_INCOMING, activeCall);
     } else if (activeCall?.status === "active") {
-      participantIds(activeCall).forEach((participantId) => {
-        io.to(`user:${participantId}`).emit(
-          SOCKET_EVENTS.CALL_ACCEPTED,
-          activeCall,
-        );
-      });
+      socket.emit(SOCKET_EVENTS.CALL_ACCEPTED, activeCall);
     }
   }
 
@@ -380,8 +387,11 @@ export function registerCallHandlers(io: Server, socket: Socket) {
       callExpiryTimers.delete(call.id);
     }
 
-    participantIds(call).forEach((participantId) => {
-      io.to(`user:${participantId}`).emit(SOCKET_EVENTS.CALL_ACCEPTED, call);
+    io.to(`user:${call.callerId}`).emit(SOCKET_EVENTS.CALL_ACCEPTED, call);
+    socket.emit(SOCKET_EVENTS.CALL_ACCEPTED, call);
+    socket.to(`user:${call.calleeId}`).emit(SOCKET_EVENTS.CALL_ENDED, {
+      callId: call.id,
+      reason: "answered_elsewhere",
     });
 
     acknowledge(ack, {
@@ -525,22 +535,42 @@ export function registerCallHandlers(io: Server, socket: Socket) {
       return;
     }
 
-    const timerKey = userCallTimerKey(callId, userId);
+    void io
+      .in(`user:${userId}`)
+      .allSockets()
+      .then((activeSocketIds) => {
+        if (
+          activeSocketIds.size ||
+          activeCallByUser.get(userId) !== callId ||
+          !calls.has(callId)
+        ) {
+          return;
+        }
 
-    if (disconnectTimers.has(timerKey)) {
-      return;
-    }
+        const timerKey = userCallTimerKey(callId, userId);
 
-    const timer = setTimeout(() => {
-      console.warn("[FlexChat Call] participant reconnect grace expired", {
-        callId,
-        userId,
+        if (disconnectTimers.has(timerKey)) {
+          return;
+        }
+
+        const timer = setTimeout(() => {
+          console.warn("[FlexChat Call] participant reconnect grace expired", {
+            callId,
+            userId,
+          });
+
+          closeCall(io, callId, "participant_disconnected");
+        }, CALL_RECONNECT_GRACE_MS);
+
+        timer.unref?.();
+        disconnectTimers.set(timerKey, timer);
+      })
+      .catch((error) => {
+        console.error("[FlexChat Call] failed to inspect active sockets", {
+          callId,
+          userId,
+          error,
+        });
       });
-
-      closeCall(io, callId, "participant_disconnected");
-    }, CALL_RECONNECT_GRACE_MS);
-
-    timer.unref?.();
-    disconnectTimers.set(timerKey, timer);
   });
 }

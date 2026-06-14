@@ -10,6 +10,7 @@ import {
   Video,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useShallow } from "zustand/react/shallow";
 
 import FlexAvatar from "@/components/chat/flex-avatar";
 import { useConversationsQuery } from "@/hooks/queries/use-conversations-query";
@@ -138,7 +139,13 @@ export default function CallsPage() {
   const currentUserId = useAuthStore((state) => state.user?.id);
   const conversationsQuery = useConversationsQuery();
   const notifications = useNotificationStore((state) => state.notifications);
-  const { currentCall, phase, startCall } = useCallStore();
+  const { currentCall, phase, startCall } = useCallStore(
+    useShallow((state) => ({
+      currentCall: state.currentCall,
+      phase: state.phase,
+      startCall: state.startCall,
+    })),
+  );
 
   const conversations = (conversationsQuery.data ?? []).slice(0, 32);
   const activeConversation = currentCall

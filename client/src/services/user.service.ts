@@ -62,6 +62,7 @@ export async function updateCurrentUser(
   data: {
     username?: string;
     avatar?: string | null;
+    avatarPublicId?: string;
     phoneNumber?: string | null;
   }
 ) {

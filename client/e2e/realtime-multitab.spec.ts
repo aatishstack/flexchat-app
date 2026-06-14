@@ -99,9 +99,10 @@ async function openAuthedChat(
 
   await page.goto("/chat");
   const conversationSearch = page
-    .locator(
-      'input[placeholder="Search conversations..."]:visible'
-    )
+    .getByRole("textbox", {
+      name: "Search",
+      exact: true,
+    })
     .first();
 
   await expect(conversationSearch).toBeVisible({

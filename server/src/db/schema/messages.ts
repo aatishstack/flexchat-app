@@ -1,5 +1,6 @@
 import {
   index,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -32,6 +33,41 @@ export const messages =
 
       audio:
         text("audio"),
+
+      mediaPublicId:
+        text(
+          "media_public_id"
+        ),
+
+      mediaSecureUrl:
+        text(
+          "media_secure_url"
+        ),
+
+      mediaResourceType:
+        text(
+          "media_resource_type"
+        ),
+
+      mediaKind:
+        text(
+          "media_kind"
+        ),
+
+      mediaMimeType:
+        text(
+          "media_mime_type"
+        ),
+
+      mediaFileName:
+        text(
+          "media_file_name"
+        ),
+
+      mediaBytes:
+        integer(
+          "media_bytes"
+        ),
 
       forwardedFromMessageId:
         text(

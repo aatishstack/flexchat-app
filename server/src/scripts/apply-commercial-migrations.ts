@@ -31,6 +31,13 @@ await db.execute(sql`
 `);
 
 await db.execute(sql`
+  alter table users
+    add column if not exists avatar_public_id text,
+    add column if not exists avatar_secure_url text,
+    add column if not exists avatar_resource_type text
+`);
+
+await db.execute(sql`
   create unique index if not exists users_phone_number_normalized_unique_idx
     on users (phone_number_normalized)
     where phone_number_normalized is not null
@@ -54,6 +61,13 @@ await db.execute(sql`
 await db.execute(sql`
   alter table conversations
     add column if not exists theme_updated_at timestamp
+`);
+
+await db.execute(sql`
+  alter table conversations
+    add column if not exists avatar_public_id text,
+    add column if not exists avatar_secure_url text,
+    add column if not exists avatar_resource_type text
 `);
 
 await db.execute(sql`
@@ -156,6 +170,13 @@ await db.execute(sql`
 `);
 
 await db.execute(sql`
+  alter table stories
+    add column if not exists media_public_id text,
+    add column if not exists media_secure_url text,
+    add column if not exists media_resource_type text
+`);
+
+await db.execute(sql`
   create table if not exists story_views (
     id text primary key not null,
     story_id text not null,
@@ -205,6 +226,17 @@ await db.execute(sql`
 `);
 
 await db.execute(sql`
+  alter table messages
+    add column if not exists media_public_id text,
+    add column if not exists media_secure_url text,
+    add column if not exists media_resource_type text,
+    add column if not exists media_kind text,
+    add column if not exists media_mime_type text,
+    add column if not exists media_file_name text,
+    add column if not exists media_bytes integer
+`);
+
+await db.execute(sql`
   create index if not exists messages_reply_source_idx
     on messages (reply_to_message_id)
 `);
@@ -227,6 +259,53 @@ await db.execute(sql`
 await db.execute(sql`
   create index if not exists message_user_hidden_conversation_user_idx
     on message_user_hidden (conversation_id, user_id)
+`);
+
+await db.execute(sql`
+  create table if not exists media_assets (
+    public_id text primary key not null,
+    owner_user_id text not null,
+    client_upload_id text,
+    purpose text not null,
+    secure_url text not null,
+    delivery_url text not null,
+    resource_type text not null,
+    kind text not null,
+    mime_type text not null,
+    file_name text not null,
+    bytes integer not null,
+    format text,
+    created_at timestamp default now() not null,
+    attached_at timestamp,
+    delete_requested_at timestamp,
+    deleted_at timestamp
+  )
+`);
+
+await db.execute(sql`
+  create index if not exists media_assets_owner_created_at_idx
+    on media_assets (owner_user_id, created_at)
+`);
+
+await db.execute(sql`
+  alter table media_assets
+    add column if not exists client_upload_id text
+`);
+
+await db.execute(sql`
+  create unique index if not exists media_assets_owner_client_upload_idx
+    on media_assets (owner_user_id, client_upload_id)
+    where client_upload_id is not null
+`);
+
+await db.execute(sql`
+  create index if not exists media_assets_cleanup_idx
+    on media_assets (
+      deleted_at,
+      delete_requested_at,
+      attached_at,
+      created_at
+    )
 `);
 
 await closeDb();

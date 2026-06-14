@@ -10,6 +10,10 @@ import {
   isConversationMember,
 } from "../../lib/conversation-access.js";
 import { debugLog } from "../../lib/debug-log.js";
+import {
+  claimOwnedMediaAsset,
+  releaseClaimedMediaAsset,
+} from "../../services/media.service.js";
 import { SOCKET_EVENTS } from "../socket-events.js";
 
 type ConversationPayload = {
@@ -21,6 +25,10 @@ type SendMessagePayload = ConversationPayload & {
   text?: string;
   attachment?: string | null;
   audio?: string | null;
+  mediaId?: string | null;
+  fileName?: string | null;
+  fileSize?: number | null;
+  mimeType?: string | null;
   replyTo?: {
     id: string;
     text: string;
@@ -32,6 +40,13 @@ type SocketMessage = {
   text: string;
   attachment: string | null;
   audio: string | null;
+  type?: "image" | "video" | "file";
+  mediaId: string | null;
+  fileName: string | null;
+  fileSize: number | null;
+  mimeType: string | null;
+  mediaResourceType: string | null;
+  mediaSecureUrl: string | null;
   senderId: string;
   conversationId: string;
   status: "sent";
@@ -75,14 +90,35 @@ const replyToPayloadSchema = z.object({
   text: z.string().max(500),
 });
 
-const sendMessagePayloadSchema = z.object({
-  conversationId: conversationIdSchema,
-  tempId: z.string().max(128).optional(),
-  text: z.string().max(4000).optional(),
-  attachment: z.string().url().nullable().optional(),
-  audio: z.string().url().nullable().optional(),
-  replyTo: replyToPayloadSchema.optional(),
-});
+const sendMessagePayloadSchema = z
+  .object({
+    conversationId: conversationIdSchema,
+    tempId: z.string().max(128).optional(),
+    text: z.string().max(4000).optional(),
+    attachment: z.string().url().nullable().optional(),
+    audio: z.string().url().nullable().optional(),
+    mediaId: z.string().trim().min(1).max(512).nullable().optional(),
+    fileName: z.string().trim().max(255).nullable().optional(),
+    fileSize: z.number().int().min(0).max(50 * 1024 * 1024).nullable().optional(),
+    mimeType: z.string().trim().max(128).nullable().optional(),
+    replyTo: replyToPayloadSchema.optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.attachment && value.audio) {
+      context.addIssue({
+        code: "custom",
+        message: "A message cannot contain two media attachments",
+      });
+    }
+
+    if ((value.attachment || value.audio) && !value.mediaId) {
+      context.addIssue({
+        code: "custom",
+        path: ["mediaId"],
+        message: "Media ownership is required",
+      });
+    }
+  });
 
 const receiptPayloadSchema = z.object({
   conversationId: conversationIdSchema,
@@ -355,54 +391,114 @@ async function persistSocketMessage(
   text: string,
 ) {
   const createdAt = new Date().toISOString();
-  const replyTo = await getReplyTargetPreview(
-    messageData.conversationId,
-    messageData.replyTo,
-  );
-  const message = {
-    id: generateId(),
-    text,
-    attachment: messageData.attachment ?? null,
-    audio: messageData.audio ?? null,
-    senderId: userId,
-    conversationId: messageData.conversationId,
-    status: "sent" as const,
-    createdAt,
-  };
+  const claimedAsset = messageData.mediaId
+    ? await claimOwnedMediaAsset(
+        userId,
+        messageData.mediaId,
+        ["chat", "voice", "attachment"],
+      )
+    : undefined;
 
-  await db.execute(sql`
-    insert into messages (
-      id,
-      conversation_id,
-      sender_id,
+  try {
+    if (
+      messageData.audio &&
+      claimedAsset?.kind !== "audio"
+    ) {
+      throw new Error("Voice messages require an audio upload");
+    }
+
+    const replyTo = await getReplyTargetPreview(
+      messageData.conversationId,
+      messageData.replyTo,
+    );
+    const message = {
+      id: generateId(),
       text,
-      attachment,
-      audio,
-      status,
-      created_at,
-      reply_to_message_id,
-      reply_to_text
-    )
-    values (
-      ${message.id},
-      ${message.conversationId},
-      ${message.senderId},
-      ${message.text},
-      ${message.attachment},
-      ${message.audio},
-      ${message.status},
-      ${message.createdAt},
-      ${replyTo?.id ?? null},
-      ${replyTo?.text ?? null}
-    )
-  `);
+      attachment:
+        messageData.attachment && claimedAsset
+          ? claimedAsset.deliveryUrl
+          : null,
+      audio:
+        messageData.audio && claimedAsset
+          ? claimedAsset.deliveryUrl
+          : null,
+      type:
+        claimedAsset?.kind === "document"
+          ? ("file" as const)
+          : claimedAsset?.kind === "image" ||
+              claimedAsset?.kind === "video"
+            ? claimedAsset.kind
+            : undefined,
+      mediaId: claimedAsset?.publicId ?? null,
+      fileName: claimedAsset?.fileName ?? null,
+      fileSize: claimedAsset?.bytes ?? null,
+      mimeType: claimedAsset?.mimeType ?? null,
+      mediaResourceType:
+        claimedAsset?.resourceType ?? null,
+      mediaSecureUrl:
+        claimedAsset?.secureUrl ?? null,
+      senderId: userId,
+      conversationId: messageData.conversationId,
+      status: "sent" as const,
+      createdAt,
+    };
 
-  return {
-    ...message,
-    createdAt,
-    tempId: messageData.tempId,
-    replyTo: replyTo ?? undefined,
-  } satisfies SocketMessage;
+    await db.execute(sql`
+      insert into messages (
+        id,
+        conversation_id,
+        sender_id,
+        text,
+        attachment,
+        audio,
+        media_public_id,
+        media_secure_url,
+        media_resource_type,
+        media_kind,
+        media_mime_type,
+        media_file_name,
+        media_bytes,
+        status,
+        created_at,
+        reply_to_message_id,
+        reply_to_text
+      )
+      values (
+        ${message.id},
+        ${message.conversationId},
+        ${message.senderId},
+        ${message.text},
+        ${message.attachment},
+        ${message.audio},
+        ${message.mediaId},
+        ${message.mediaSecureUrl},
+        ${message.mediaResourceType},
+        ${claimedAsset?.kind ?? null},
+        ${message.mimeType},
+        ${message.fileName},
+        ${message.fileSize},
+        ${message.status},
+        ${message.createdAt},
+        ${replyTo?.id ?? null},
+        ${replyTo?.text ?? null}
+      )
+    `);
+
+    return {
+      ...message,
+      createdAt,
+      tempId: messageData.tempId,
+      replyTo: replyTo ?? undefined,
+    } satisfies SocketMessage;
+  } catch (error) {
+    if (claimedAsset) {
+      await releaseClaimedMediaAsset(
+        claimedAsset.publicId,
+      );
+    }
+
+    throw error;
+  }
 }
 
 function acknowledgeSentMessage(

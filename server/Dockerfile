@@ -27,8 +27,6 @@ RUN npm ci
 
 COPY --from=builder /app/dist ./dist
 
-RUN mkdir -p uploads
-
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

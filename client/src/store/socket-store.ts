@@ -369,7 +369,6 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     if (!nextToken) {
       socket.disconnect();
       socket.auth = {};
-      socket.io.opts.query = {};
 
       set({
         token: null,
@@ -406,9 +405,6 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     };
 
     socket.io.opts.transports = ["websocket", "polling"];
-    socket.io.opts.query = {
-      token: nextToken,
-    };
     socket.io.opts.withCredentials = false;
 
     console.info("[SOCKET] connecting", {
@@ -433,7 +429,6 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     });
     socket.disconnect();
     socket.auth = {};
-    socket.io.opts.query = {};
     pendingMessages.clear();
     retryTimers.forEach((timer) => clearTimeout(timer));
     retryTimers.clear();

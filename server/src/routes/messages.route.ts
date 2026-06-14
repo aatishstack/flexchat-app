@@ -17,6 +17,7 @@ import {
 } from "../lib/conversation-access.js";
 import { generateId } from "../lib/uuid.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
+import { deleteMediaAsset } from "../services/media.service.js";
 import { getSocketServer } from "../socket/socket-hub.js";
 import { SOCKET_EVENTS } from "../socket/socket-events.js";
 
@@ -81,6 +82,13 @@ type ForwardSourceRow = {
   text: string;
   attachment: string | null;
   audio: string | null;
+  mediaPublicId: string | null;
+  mediaSecureUrl: string | null;
+  mediaResourceType: string | null;
+  mediaKind: string | null;
+  mediaMimeType: string | null;
+  mediaFileName: string | null;
+  mediaBytes: number | null;
   senderName: string;
 };
 
@@ -92,6 +100,8 @@ type DeleteTargetRow = {
   senderId: string;
   deletedAt: Date | string | null;
   createdAt: Date | string;
+  mediaPublicId: string | null;
+  mediaResourceType: string | null;
 };
 
 const DELETE_FOR_EVERYONE_WINDOW_MS = 48 * 60 * 60 * 1000;
@@ -190,6 +200,32 @@ function serializeMessage(
     text: message.deletedAt ? "" : message.text,
     attachment: message.deletedAt ? null : (message.attachment ?? null),
     audio: message.deletedAt ? null : (message.audio ?? null),
+    type:
+      !message.deletedAt && message.mediaKind
+        ? message.mediaKind === "document"
+          ? "file"
+          : message.mediaKind === "audio"
+            ? undefined
+            : message.mediaKind
+        : undefined,
+    mediaId: message.deletedAt
+      ? null
+      : (message.mediaPublicId ?? null),
+    fileName: message.deletedAt
+      ? null
+      : (message.mediaFileName ?? null),
+    fileSize: message.deletedAt
+      ? null
+      : (message.mediaBytes ?? null),
+    mimeType: message.deletedAt
+      ? null
+      : (message.mediaMimeType ?? null),
+    mediaResourceType: message.deletedAt
+      ? null
+      : (message.mediaResourceType ?? null),
+    mediaSecureUrl: message.deletedAt
+      ? null
+      : (message.mediaSecureUrl ?? null),
     status: message.status,
     createdAt: toIsoString(message.createdAt) ?? new Date().toISOString(),
     editedAt: toIsoString(message.editedAt),
@@ -259,6 +295,30 @@ async function getSerializedMessage(messageId: string) {
   const reactionMap = await getReactionMap([message.id]);
 
   return serializeMessage(message, reactionMap.get(message.id));
+}
+
+async function deleteMessageMediaIfUnreferenced(
+  publicId?: string | null,
+  resourceType?: string | null,
+) {
+  if (!publicId) {
+    return;
+  }
+
+  const references = await db.execute<{
+    count: number | string;
+  }>(sql`
+    select count(*)::int as count
+    from messages
+    where media_public_id = ${publicId}
+      and deleted_at is null
+  `);
+
+  if (Number(references[0]?.count ?? 0) > 0) {
+    return;
+  }
+
+  await deleteMediaAsset(publicId, resourceType);
 }
 
 async function emitMessageMutation(
@@ -488,6 +548,13 @@ export async function messageRoutes(app: FastifyInstance) {
           m.text,
           m.attachment,
           m.audio,
+          m.media_public_id as "mediaPublicId",
+          m.media_secure_url as "mediaSecureUrl",
+          m.media_resource_type as "mediaResourceType",
+          m.media_kind as "mediaKind",
+          m.media_mime_type as "mediaMimeType",
+          m.media_file_name as "mediaFileName",
+          m.media_bytes as "mediaBytes",
           m.forwarded_from_message_id as "forwardedFromMessageId",
           m.forwarded_from_sender_id as "forwardedFromSenderId",
           m.forwarded_from_sender_name as "forwardedFromSenderName",
@@ -643,7 +710,9 @@ export async function messageRoutes(app: FastifyInstance) {
           conversation_id as "conversationId",
           sender_id as "senderId",
           deleted_at as "deletedAt",
-          created_at as "createdAt"
+          created_at as "createdAt",
+          media_public_id as "mediaPublicId",
+          media_resource_type as "mediaResourceType"
         from messages
         where id = ${parsedParams.data.messageId}
           and conversation_id = ${parsedBody.data.conversationId}
@@ -721,6 +790,13 @@ export async function messageRoutes(app: FastifyInstance) {
           text = '',
           attachment = null,
           audio = null,
+          media_public_id = null,
+          media_secure_url = null,
+          media_resource_type = null,
+          media_kind = null,
+          media_mime_type = null,
+          media_file_name = null,
+          media_bytes = null,
           deleted_at = now()
         where id = ${targetMessage.id}
           and conversation_id = ${targetMessage.conversationId}
@@ -751,6 +827,19 @@ export async function messageRoutes(app: FastifyInstance) {
 
       await emitMessageMutation(SOCKET_EVENTS.MESSAGE_DELETED, message);
       await emitLatestConversationIfNeeded(message);
+      await deleteMessageMediaIfUnreferenced(
+        targetMessage.mediaPublicId,
+        targetMessage.mediaResourceType,
+      ).catch((error) => {
+        request.log.error(
+          {
+            err: error,
+            messageId: targetMessage.id,
+            publicId: targetMessage.mediaPublicId,
+          },
+          "Message media deletion queued for retry",
+        );
+      });
 
       return {
         mode: "everyone",
@@ -790,6 +879,13 @@ export async function messageRoutes(app: FastifyInstance) {
             m.text,
             m.attachment,
             m.audio,
+            m.media_public_id as "mediaPublicId",
+            m.media_secure_url as "mediaSecureUrl",
+            m.media_resource_type as "mediaResourceType",
+            m.media_kind as "mediaKind",
+            m.media_mime_type as "mediaMimeType",
+            m.media_file_name as "mediaFileName",
+            m.media_bytes as "mediaBytes",
             case
               when u.is_deleted then 'Deleted User'
               else u.username
@@ -866,6 +962,13 @@ export async function messageRoutes(app: FastifyInstance) {
                   text,
                   attachment,
                   audio,
+                  media_public_id,
+                  media_secure_url,
+                  media_resource_type,
+                  media_kind,
+                  media_mime_type,
+                  media_file_name,
+                  media_bytes,
                   status,
                   forwarded_from_message_id,
                   forwarded_from_sender_id,
@@ -878,6 +981,13 @@ export async function messageRoutes(app: FastifyInstance) {
                   ${sourceMessage.text},
                   ${sourceMessage.attachment},
                   ${sourceMessage.audio},
+                  ${sourceMessage.mediaPublicId},
+                  ${sourceMessage.mediaSecureUrl},
+                  ${sourceMessage.mediaResourceType},
+                  ${sourceMessage.mediaKind},
+                  ${sourceMessage.mediaMimeType},
+                  ${sourceMessage.mediaFileName},
+                  ${sourceMessage.mediaBytes},
                   'sent',
                   ${sourceMessage.id},
                   ${sourceMessage.senderId},

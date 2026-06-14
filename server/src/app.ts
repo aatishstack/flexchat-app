@@ -1,15 +1,14 @@
-import path from "path";
-import fs from "fs";
-
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
 import Fastify from "fastify";
-import FastifyStatic from "@fastify/static";
 import { sql } from "drizzle-orm";
+import * as Sentry from "@sentry/node";
 
 import { env } from "./config/env.js";
 import { db } from "./db/index.js";
+import { getRequestPath } from "./lib/request-path.js";
+import { verifyCloudinaryConnection } from "./lib/cloudinary.js";
 import { authRoutes } from "./routes/auth.route.js";
 import { conversationRoutes } from "./routes/conversation.route.js";
 import { messageRoutes } from "./routes/messages.route.js";
@@ -42,7 +41,23 @@ async function checkDatabaseReady() {
 
   try {
     await Promise.race([
-      db.execute(sql`select 1`),
+      Promise.all([
+        db.execute(sql`select 1`),
+        db.execute(sql`
+          select
+            media_assets.client_upload_id,
+            users.avatar_public_id,
+            conversations.avatar_public_id,
+            stories.media_public_id,
+            messages.media_public_id
+          from media_assets
+          cross join users
+          cross join conversations
+          cross join stories
+          cross join messages
+          limit 0
+        `),
+      ]),
       new Promise<never>((_, reject) => {
         timeout = setTimeout(() => {
           reject(new Error("Database readiness check timed out"));
@@ -57,12 +72,6 @@ async function checkDatabaseReady() {
 }
 
 export async function buildApp() {
-  const uploadsDir = path.resolve(process.cwd(), "uploads");
-
-  await fs.promises.mkdir(uploadsDir, {
-    recursive: true,
-  });
-
   const app = Fastify({
     logger:
       env.NODE_ENV === "production"
@@ -88,13 +97,18 @@ export async function buildApp() {
     async (_request, reply) => {
       return reply
         .code(200)
-        .type("text/plain")
-        .send("ok");
+        .type("application/json")
+        .send({
+          status: "ok",
+          sentry: env.SENTRY_DSN ? "enabled" : "disabled",
+        });
     },
   );
 
   app.addHook("onRequest", async (request) => {
-    if (request.url === "/health") {
+    const requestPath = getRequestPath(request.url);
+
+    if (requestPath === "/health") {
       return;
     }
 
@@ -103,7 +117,7 @@ export async function buildApp() {
     request.log.info(
       {
         method: request.method,
-        url: request.url,
+        path: requestPath,
         origin,
         hasAuthorization: Boolean(request.headers.authorization),
       },
@@ -119,7 +133,7 @@ export async function buildApp() {
       request.log.warn(
         {
           method: request.method,
-          url: request.url,
+          path: requestPath,
           origin,
         },
         "CORS origin not allowed",
@@ -128,7 +142,9 @@ export async function buildApp() {
   });
 
   app.addHook("onResponse", async (request, reply) => {
-    if (request.url === "/health") {
+    const requestPath = getRequestPath(request.url);
+
+    if (requestPath === "/health") {
       return;
     }
 
@@ -139,7 +155,7 @@ export async function buildApp() {
     request.log.warn(
       {
         method: request.method,
-        url: request.url,
+        path: requestPath,
         statusCode: reply.statusCode,
         responseTimeMs: reply.elapsedTime,
         origin: request.headers.origin,
@@ -150,20 +166,46 @@ export async function buildApp() {
   });
 
   app.addHook("onError", async (request, _reply, error) => {
-    if (request.url === "/health") {
+    const requestPath = getRequestPath(request.url);
+
+    if (requestPath === "/health") {
       return;
+    }
+
+    if (env.SENTRY_DSN) {
+      Sentry.withScope((scope) => {
+        scope.setTag("path", requestPath);
+        scope.setTag("method", request.method);
+        scope.setUser({
+          id: (request.user as any)?.id || "anonymous",
+        });
+        Sentry.captureException(error);
+      });
     }
 
     request.log.error(
       {
         err: error,
         method: request.method,
-        url: request.url,
+        path: requestPath,
         origin: request.headers.origin,
         hasAuthorization: Boolean(request.headers.authorization),
       },
       "API request failed unexpectedly",
     );
+  });
+
+  app.addHook("onSend", async (request, reply, payload) => {
+    const requestPath = getRequestPath(request.url);
+
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("Referrer-Policy", "no-referrer");
+
+    if (requestPath.startsWith("/auth/")) {
+      reply.header("Cache-Control", "no-store");
+    }
+
+    return payload;
   });
 
   await app.register(cors, {
@@ -184,11 +226,6 @@ export async function buildApp() {
     },
   });
 
-  await app.register(FastifyStatic, {
-    root: uploadsDir,
-    prefix: "/uploads/",
-  });
-
   await app.register(authRoutes);
   await app.register(userRoutes);
   await app.register(messageRoutes);
@@ -205,25 +242,45 @@ export async function buildApp() {
 
   app.get("/ready", async (request, reply) => {
     try {
-      await checkDatabaseReady();
+      const [dbCheck, cloudinaryCheck] = await Promise.allSettled([
+        checkDatabaseReady(),
+        verifyCloudinaryConnection(),
+      ]);
 
-      return {
-        status: "ok",
-        db: "ok",
+      const dbOk = dbCheck.status === "fulfilled";
+      const cloudinaryOk =
+        cloudinaryCheck.status === "fulfilled" &&
+        cloudinaryCheck.value.ok;
+
+      const response = {
+        status: dbOk && cloudinaryOk ? "ok" : "degraded",
+        db: dbOk ? "ok" : "unreachable",
+        cloudinary: cloudinaryOk
+          ? "ok"
+          : cloudinaryCheck.status === "fulfilled"
+            ? cloudinaryCheck.value.message
+            : "timeout",
+        sentry: env.SENTRY_DSN ? "enabled" : "disabled",
         ts: Date.now(),
       };
+
+      if (!dbOk) {
+        reply.status(503);
+      }
+
+      return response;
     } catch (error) {
       request.log.error(
         {
           err: error,
         },
-        "Database readiness check failed",
+        "Readiness check failed",
       );
       reply.status(503);
 
       return {
         status: "error",
-        db: "unreachable",
+        message: "Internal readiness check failed",
         ts: Date.now(),
       };
     }

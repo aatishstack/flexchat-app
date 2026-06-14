@@ -13,11 +13,13 @@ import { users } from "../db/schema/users.js";
 import {
   verifyToken,
 } from "../lib/jwt.js";
+import { getRequestPath } from "../lib/request-path.js";
 
 export async function authMiddleware(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
+  const requestPath = getRequestPath(request.url);
   const authHeader = request.headers.authorization;
 
   if (
@@ -27,7 +29,7 @@ export async function authMiddleware(
     request.log.warn(
       {
         method: request.method,
-        url: request.url,
+        path: requestPath,
         hasAuthorization: Boolean(authHeader),
       },
       "Auth rejected: missing bearer token",
@@ -49,7 +51,7 @@ export async function authMiddleware(
     request.log.warn(
       {
         method: request.method,
-        url: request.url,
+        path: requestPath,
       },
       "Auth rejected: empty bearer token",
     );
@@ -77,7 +79,7 @@ export async function authMiddleware(
               }
             : "Unknown token verification error",
         method: request.method,
-        url: request.url,
+        path: requestPath,
       },
       "Auth rejected: token verification failed",
     );
@@ -109,7 +111,7 @@ export async function authMiddleware(
       request.log.warn(
         {
           method: request.method,
-          url: request.url,
+          path: requestPath,
           userId: decoded.id,
         },
         "Auth rejected: token user is unavailable",
@@ -129,7 +131,7 @@ export async function authMiddleware(
       {
         err: error,
         method: request.method,
-        url: request.url,
+        path: requestPath,
         userId: decoded.id,
       },
       "Auth service unavailable during user lookup",

@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useShallow } from "zustand/react/shallow";
 
 import FlexAvatar from "@/components/chat/flex-avatar";
 import { useUsersByIdsQuery } from "@/hooks/queries/use-users-query";
@@ -338,7 +339,23 @@ function CallScreen({
     switchCamera,
     endCall,
     cancelOutgoingCall,
-  } = useCallStore();
+  } = useCallStore(
+    useShallow((state) => ({
+      currentCall: state.currentCall,
+      phase: state.phase,
+      localStream: state.localStream,
+      remoteStream: state.remoteStream,
+      answerKind: state.answerKind,
+      isMuted: state.isMuted,
+      isVideoEnabled: state.isVideoEnabled,
+      networkState: state.networkState,
+      toggleMute: state.toggleMute,
+      toggleVideo: state.toggleVideo,
+      switchCamera: state.switchCamera,
+      endCall: state.endCall,
+      cancelOutgoingCall: state.cancelOutgoingCall,
+    })),
+  );
   const [selfPosition, setSelfPosition] = useState<{
     x: number;
     y: number;
@@ -595,7 +612,14 @@ export default function CallLayer() {
     phase,
     acceptIncomingCall,
     rejectIncomingCall,
-  } = useCallStore();
+  } = useCallStore(
+    useShallow((state) => ({
+      currentCall: state.currentCall,
+      phase: state.phase,
+      acceptIncomingCall: state.acceptIncomingCall,
+      rejectIncomingCall: state.rejectIncomingCall,
+    })),
+  );
   const callActive = phase !== "idle" && !!currentCall;
 
   const remoteUserId = useMemo(() => {

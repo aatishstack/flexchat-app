@@ -15,6 +15,7 @@ export async function getStories() {
 
 export async function createStory(input: {
   mediaUrl: string;
+  mediaPublicId?: string;
   mediaType: StoryMediaType;
   caption?: string;
 }) {

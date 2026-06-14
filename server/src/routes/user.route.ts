@@ -1,6 +1,4 @@
 import { FastifyInstance } from "fastify";
-import fs from "fs/promises";
-import path from "path";
 
 import bcrypt from "bcrypt";
 
@@ -11,10 +9,15 @@ import { db } from "../db/index.js";
 
 import { users } from "../db/schema/users.js";
 
-import { env } from "../config/env.js";
 import { clearConversationAccessCacheForUser } from "../lib/conversation-access.js";
 import { generateId } from "../lib/uuid.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
+import {
+  claimOwnedMediaAsset,
+  deleteMediaAsset,
+  MediaServiceError,
+  releaseClaimedMediaAsset,
+} from "../services/media.service.js";
 import { getSocketServer } from "../socket/socket-hub.js";
 import { SOCKET_EVENTS } from "../socket/socket-events.js";
 
@@ -40,6 +43,7 @@ const updateMeBodySchema = z.object({
     .regex(/^[a-zA-Z0-9_ .-]+$/)
     .optional(),
   avatar: z.string().url().max(2048).nullable().optional(),
+  avatarPublicId: z.string().trim().min(1).max(512).optional(),
   phoneNumber: z.string().trim().max(32).nullable().optional(),
 });
 
@@ -141,42 +145,6 @@ function deletedEmail(userId: string) {
   )}@deleted.flexchat.local`;
 }
 
-async function removeUploadedAsset(url?: string | null) {
-  if (!url) {
-    return;
-  }
-
-  try {
-    const parsedUrl = new URL(url);
-    const publicApiUrl = new URL(env.PUBLIC_API_URL);
-
-    if (parsedUrl.origin !== publicApiUrl.origin) {
-      return;
-    }
-
-    if (!parsedUrl.pathname.startsWith("/uploads/")) {
-      return;
-    }
-
-    const filename = path.basename(parsedUrl.pathname);
-
-    if (!filename || filename === "uploads") {
-      return;
-    }
-
-    const uploadsDir = path.resolve(process.cwd(), "uploads");
-    const filepath = path.resolve(uploadsDir, filename);
-
-    if (!filepath.startsWith(`${uploadsDir}${path.sep}`)) {
-      return;
-    }
-
-    await fs.unlink(filepath).catch(() => undefined);
-  } catch {
-    return;
-  }
-}
-
 export async function userRoutes(app: FastifyInstance) {
   app.get(
     "/me",
@@ -266,7 +234,7 @@ export async function userRoutes(app: FastifyInstance) {
       }
 
       const nextUsername = parsedBody.data.username ?? currentUser.username;
-      const nextAvatar =
+      const requestedAvatar =
         parsedBody.data.avatar !== undefined
           ? parsedBody.data.avatar
           : (currentUser.avatar ?? null);
@@ -318,12 +286,68 @@ export async function userRoutes(app: FastifyInstance) {
 
       if (
         nextUsername === currentUser.username &&
-        nextAvatar === (currentUser.avatar ?? null) &&
+        requestedAvatar === (currentUser.avatar ?? null) &&
         nextPhone.phoneNumber === (currentUser.phoneNumber ?? null) &&
         nextPhone.phoneNumberNormalized ===
           (currentUser.phoneNumberNormalized ?? null)
       ) {
         return publicUser(currentUser);
+      }
+
+      let claimedAvatar:
+        | Awaited<ReturnType<typeof claimOwnedMediaAsset>>
+        | undefined;
+      let nextAvatar = requestedAvatar;
+      let nextAvatarPublicId = currentUser.avatarPublicId ?? null;
+      let nextAvatarSecureUrl = currentUser.avatarSecureUrl ?? null;
+      let nextAvatarResourceType =
+        currentUser.avatarResourceType ?? null;
+
+      if (parsedBody.data.avatar !== undefined) {
+        if (parsedBody.data.avatar === null) {
+          nextAvatarPublicId = null;
+          nextAvatarSecureUrl = null;
+          nextAvatarResourceType = null;
+        } else if (
+          parsedBody.data.avatar !== (currentUser.avatar ?? null)
+        ) {
+          if (!parsedBody.data.avatarPublicId) {
+            return reply.status(400).send({
+              message: "Avatar media ownership is required",
+            });
+          }
+
+          try {
+            claimedAvatar = await claimOwnedMediaAsset(
+              userId,
+              parsedBody.data.avatarPublicId,
+              ["avatar"],
+            );
+          } catch (error) {
+            if (error instanceof MediaServiceError) {
+              return reply.status(error.statusCode).send({
+                message: error.message,
+              });
+            }
+
+            throw error;
+          }
+
+          if (claimedAvatar.kind !== "image") {
+            await releaseClaimedMediaAsset(
+              claimedAvatar.publicId,
+            );
+
+            return reply.status(400).send({
+              message: "Avatar must be an image",
+            });
+          }
+
+          nextAvatar = claimedAvatar.deliveryUrl;
+          nextAvatarPublicId = claimedAvatar.publicId;
+          nextAvatarSecureUrl = claimedAvatar.secureUrl;
+          nextAvatarResourceType = claimedAvatar.resourceType;
+        }
       }
 
       let updatedUsers: {
@@ -346,6 +370,9 @@ export async function userRoutes(app: FastifyInstance) {
               set
                 username = ${nextUsername},
                 avatar = ${nextAvatar},
+                avatar_public_id = ${nextAvatarPublicId},
+                avatar_secure_url = ${nextAvatarSecureUrl},
+                avatar_resource_type = ${nextAvatarResourceType},
                 phone_number = ${nextPhone.phoneNumber},
                 phone_number_normalized = ${nextPhone.phoneNumberNormalized}
               where id = ${userId}
@@ -358,6 +385,12 @@ export async function userRoutes(app: FastifyInstance) {
                 phone_number as "phoneNumber"
             `);
       } catch (error) {
+        if (claimedAvatar) {
+          await releaseClaimedMediaAsset(
+            claimedAvatar.publicId,
+          );
+        }
+
         if (isPhoneNumberUniqueViolation(error)) {
           return reply.status(409).send({
             message: PHONE_NUMBER_IN_USE_MESSAGE,
@@ -370,6 +403,12 @@ export async function userRoutes(app: FastifyInstance) {
       const user = updatedUsers[0];
 
       if (!user) {
+        if (claimedAvatar) {
+          await releaseClaimedMediaAsset(
+            claimedAvatar.publicId,
+          );
+        }
+
         return reply.status(404).send({
           message: "User not found",
         });
@@ -380,6 +419,25 @@ export async function userRoutes(app: FastifyInstance) {
       getSocketServer()?.emit(SOCKET_EVENTS.USER_UPDATED, {
         user: serializedUser,
       });
+
+      if (
+        currentUser.avatarPublicId &&
+        currentUser.avatarPublicId !== nextAvatarPublicId
+      ) {
+        await deleteMediaAsset(
+          currentUser.avatarPublicId,
+          currentUser.avatarResourceType,
+        ).catch((error) => {
+          request.log.error(
+            {
+              err: error,
+              userId,
+              publicId: currentUser.avatarPublicId,
+            },
+            "Previous avatar deletion queued for retry",
+          );
+        });
+      }
 
       return serializedUser;
     },
@@ -417,12 +475,14 @@ export async function userRoutes(app: FastifyInstance) {
       const deletionResult = await db.transaction(async (tx) => {
         const currentUsers = await tx.execute<{
           id: string;
-          avatar: string | null;
+          avatarPublicId: string | null;
+          avatarResourceType: string | null;
           isDeleted: boolean;
         }>(sql`
               select
                 id,
-                avatar,
+                avatar_public_id as "avatarPublicId",
+                avatar_resource_type as "avatarResourceType",
                 is_deleted as "isDeleted"
               from users
               where id = ${userId}
@@ -437,11 +497,13 @@ export async function userRoutes(app: FastifyInstance) {
 
         const activeStories = await tx.execute<{
           id: string;
-          mediaUrl: string;
+          mediaPublicId: string | null;
+          mediaResourceType: string | null;
         }>(sql`
               select
                 id,
-                media_url as "mediaUrl"
+                media_public_id as "mediaPublicId",
+                media_resource_type as "mediaResourceType"
               from stories
               where user_id = ${userId}
                 and deleted_at is null
@@ -466,6 +528,9 @@ export async function userRoutes(app: FastifyInstance) {
               email = ${deletedEmail(userId)},
               password = ${disabledPassword},
               avatar = null,
+              avatar_public_id = null,
+              avatar_secure_url = null,
+              avatar_resource_type = null,
               phone_number = null,
               phone_number_normalized = null,
               is_deleted = true,
@@ -475,7 +540,8 @@ export async function userRoutes(app: FastifyInstance) {
           `);
 
         return {
-          avatar: currentUser.avatar,
+          avatarPublicId: currentUser.avatarPublicId,
+          avatarResourceType: currentUser.avatarResourceType,
           stories: activeStories,
         };
       });
@@ -508,12 +574,30 @@ export async function userRoutes(app: FastifyInstance) {
         io.in(`user:${userId}`).disconnectSockets(true);
       }
 
-      await Promise.all([
-        removeUploadedAsset(deletionResult.avatar),
+      const mediaDeletionResults = await Promise.allSettled([
+        deleteMediaAsset(
+          deletionResult.avatarPublicId,
+          deletionResult.avatarResourceType,
+        ),
         ...deletionResult.stories.map((story) =>
-          removeUploadedAsset(story.mediaUrl),
+          deleteMediaAsset(
+            story.mediaPublicId,
+            story.mediaResourceType,
+          ),
         ),
       ]);
+
+      mediaDeletionResults.forEach((result) => {
+        if (result.status === "rejected") {
+          request.log.error(
+            {
+              err: result.reason,
+              userId,
+            },
+            "Account media deletion queued for retry",
+          );
+        }
+      });
 
       return {
         ok: true,

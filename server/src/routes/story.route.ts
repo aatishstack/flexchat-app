@@ -3,48 +3,29 @@ import type {
   FastifyRequest,
 } from "fastify";
 import { generateId } from "../lib/uuid.js";
-import {
-  createWriteStream,
-} from "fs";
-import fs from "fs/promises";
-import path from "path";
-import {
-  pipeline,
-} from "stream/promises";
 
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { env } from "../config/env.js";
 import { db } from "../db/index.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
+import {
+  claimOwnedMediaAsset,
+  deleteMediaAsset,
+  MediaServiceError,
+  releaseClaimedMediaAsset,
+  uploadRequestMedia,
+} from "../services/media.service.js";
 import { SOCKET_EVENTS } from "../socket/socket-events.js";
 import { getSocketServer } from "../socket/socket-hub.js";
 
 const TEXT_STORY_MEDIA_URL = "flexchat://story/text";
 const STORY_LIFETIME_MS = 24 * 60 * 60 * 1000;
-const STORY_UPLOAD_LIMIT_BYTES = 50 * 1024 * 1024;
-
-const storyUploadMediaTypes = new Map<
-  string,
-  {
-    extension: string;
-    mediaType: "image" | "video";
-  }
->([
-  ["image/avif", { extension: ".avif", mediaType: "image" }],
-  ["image/gif", { extension: ".gif", mediaType: "image" }],
-  ["image/jpeg", { extension: ".jpg", mediaType: "image" }],
-  ["image/png", { extension: ".png", mediaType: "image" }],
-  ["image/webp", { extension: ".webp", mediaType: "image" }],
-  ["video/mp4", { extension: ".mp4", mediaType: "video" }],
-  ["video/quicktime", { extension: ".mov", mediaType: "video" }],
-  ["video/webm", { extension: ".webm", mediaType: "video" }],
-]);
 
 const storyBodySchema = z
   .object({
     mediaUrl: z.string().trim().max(2048),
+    mediaPublicId: z.string().trim().min(1).max(512).optional(),
     mediaType: z.enum(["image", "video", "text"]),
     caption: z.string().trim().max(220).optional(),
   })
@@ -67,6 +48,14 @@ const storyBodySchema = z
       }
 
       return;
+    }
+
+    if (!value.mediaPublicId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["mediaPublicId"],
+        message: "Story media ownership is required",
+      });
     }
 
     try {
@@ -157,21 +146,6 @@ function serializeStory(story: StoryRow) {
   };
 }
 
-function readMultipartField(
-  fields: Record<string, unknown>,
-  key: string,
-) {
-  const field = fields[key];
-
-  if (!field || typeof field !== "object" || !("value" in field)) {
-    return undefined;
-  }
-
-  const value = (field as { value?: unknown }).value;
-
-  return typeof value === "string" ? value : undefined;
-}
-
 function getAuthenticatedUserId(request: FastifyRequest) {
   const user = request.user;
 
@@ -193,102 +167,6 @@ function serializeStoryViewer(viewer: StoryViewerRow) {
     username: viewer.username,
     avatar: viewer.avatar,
     viewedAt: serializeTimestamp(viewer.viewedAt),
-  };
-}
-
-async function removeUploadedAsset(url?: string | null) {
-  if (!url) {
-    return;
-  }
-
-  try {
-    const parsedUrl = new URL(url);
-    const publicApiUrl = new URL(env.PUBLIC_API_URL);
-
-    if (
-      parsedUrl.origin !== publicApiUrl.origin ||
-      !parsedUrl.pathname.startsWith("/uploads/")
-    ) {
-      return;
-    }
-
-    const uploadsDir = path.resolve(process.cwd(), "uploads");
-    const relativeUploadPath =
-      decodeURIComponent(parsedUrl.pathname.replace(/^\/uploads\//, ""));
-    const filepath = path.resolve(uploadsDir, relativeUploadPath);
-
-    if (!filepath.startsWith(`${uploadsDir}${path.sep}`)) {
-      return;
-    }
-
-    await fs.unlink(filepath).catch(() => undefined);
-  } catch {
-    return;
-  }
-}
-
-async function saveMultipartStoryUpload(request: FastifyRequest) {
-  const data = await request.file({
-    limits: {
-      fileSize: STORY_UPLOAD_LIMIT_BYTES,
-      files: 1,
-    },
-  });
-
-  if (!data) {
-    throw new Error("No story media uploaded");
-  }
-
-  const uploadMediaType = storyUploadMediaTypes.get(
-    data.mimetype.toLowerCase(),
-  );
-
-  if (!uploadMediaType) {
-    data.file.destroy();
-    throw new Error("Choose an image or video story.");
-  }
-
-  const extension = uploadMediaType.extension;
-  const uploadsDir = path.resolve(process.cwd(), "uploads");
-  const storyUploadsDir = path.resolve(uploadsDir, "stories");
-
-  await fs.mkdir(storyUploadsDir, {
-    recursive: true,
-  });
-
-  const filename = `${generateId()}${extension}`;
-  const filepath = path.resolve(storyUploadsDir, filename);
-
-  if (!filepath.startsWith(`${storyUploadsDir}${path.sep}`)) {
-    data.file.destroy();
-    throw new Error("Invalid story upload path");
-  }
-
-  await pipeline(
-    data.file,
-    createWriteStream(filepath, {
-      flags: "wx",
-    }),
-  );
-
-  if (
-    "truncated" in data.file &&
-    data.file.truncated
-  ) {
-    await fs.unlink(filepath).catch(() => undefined);
-    throw new Error("Story media must be 50 MB or smaller.");
-  }
-
-  return {
-    mediaUrl: `${env.PUBLIC_API_URL}/uploads/stories/${filename}`,
-    mediaType: uploadMediaType.mediaType,
-    caption:
-      readMultipartField(
-        data.fields as Record<string, unknown>,
-        "caption",
-      )
-        ?.trim()
-        .slice(0, 220) || undefined,
   };
 }
 
@@ -368,6 +246,9 @@ async function getStoryById(storyId: string, viewerId: string) {
 async function createStoryRecord(input: {
   userId: string;
   mediaUrl: string;
+  mediaPublicId?: string | null;
+  mediaSecureUrl?: string | null;
+  mediaResourceType?: string | null;
   mediaType: "image" | "video" | "text";
   caption?: string;
 }) {
@@ -381,6 +262,9 @@ async function createStoryRecord(input: {
       id,
       user_id,
       media_url,
+      media_public_id,
+      media_secure_url,
+      media_resource_type,
       media_type,
       caption,
       expires_at
@@ -389,6 +273,9 @@ async function createStoryRecord(input: {
       ${storyId},
       ${input.userId},
       ${input.mediaUrl},
+      ${input.mediaPublicId ?? null},
+      ${input.mediaSecureUrl ?? null},
+      ${input.mediaResourceType ?? null},
       ${input.mediaType},
       ${input.caption ?? null},
       ${expiresAt}
@@ -595,31 +482,79 @@ export async function storyRoutes(app: FastifyInstance) {
       }
 
       if (request.isMultipart()) {
+        let upload:
+          | Awaited<ReturnType<typeof uploadRequestMedia>>
+          | undefined;
+
         try {
-          const upload = await saveMultipartStoryUpload(request);
+          upload = await uploadRequestMedia(
+            request,
+            userId,
+            "story",
+          );
+          const asset = await claimOwnedMediaAsset(
+            userId,
+            upload.publicId,
+            ["story"],
+          );
           const story = await createStoryRecord({
             userId,
-            ...upload,
+            mediaUrl: asset.deliveryUrl,
+            mediaPublicId: asset.publicId,
+            mediaSecureUrl: asset.secureUrl,
+            mediaResourceType: asset.resourceType,
+            mediaType:
+              asset.kind === "video" ? "video" : "image",
+            caption:
+              upload.fields.caption?.trim().slice(0, 220) ||
+              undefined,
           });
 
           if (!story) {
-            return reply.status(500).send({
-              message: "Failed to publish story",
-            });
+            throw new Error("Failed to publish story");
           }
 
           const serializedStory = serializeStory(story);
 
-          await emitStoryCreated(serializedStory);
+          void emitStoryCreated(serializedStory).catch((error) => {
+            request.log.error(
+              {
+                err: error,
+                storyId: serializedStory.id,
+              },
+              "Failed to broadcast story creation",
+            );
+          });
 
           return reply.status(201).send(serializedStory);
         } catch (error) {
-          return reply.status(400).send({
+          if (upload) {
+            await deleteMediaAsset(
+              upload.publicId,
+              upload.resourceType,
+            ).catch((cleanupError) => {
+              request.log.error(
+                {
+                  err: cleanupError,
+                  publicId: upload?.publicId,
+                },
+                "Failed to clean rejected story upload",
+              );
+            });
+          }
+
+          return reply
+            .status(
+              error instanceof MediaServiceError
+                ? error.statusCode
+                : 503,
+            )
+            .send({
             message:
               error instanceof Error
                 ? error.message
                 : "Invalid story upload request",
-          });
+            });
         }
       }
 
@@ -631,14 +566,70 @@ export async function storyRoutes(app: FastifyInstance) {
         });
       }
 
-      const story = await createStoryRecord({
-        userId,
-        mediaUrl: parsedBody.data.mediaUrl,
-        mediaType: parsedBody.data.mediaType,
-        caption: parsedBody.data.caption,
-      });
+      let claimedAsset:
+        | Awaited<ReturnType<typeof claimOwnedMediaAsset>>
+        | undefined;
+      let story: Awaited<ReturnType<typeof createStoryRecord>>;
+
+      try {
+        if (parsedBody.data.mediaType !== "text") {
+          claimedAsset = await claimOwnedMediaAsset(
+            userId,
+            parsedBody.data.mediaPublicId!,
+            ["story"],
+          );
+
+          if (claimedAsset.kind !== parsedBody.data.mediaType) {
+            throw new MediaServiceError(
+              "Uploaded story media type does not match the request",
+              400,
+            );
+          }
+        }
+
+        story = await createStoryRecord({
+          userId,
+          mediaUrl:
+            claimedAsset?.deliveryUrl ??
+            TEXT_STORY_MEDIA_URL,
+          mediaPublicId: claimedAsset?.publicId,
+          mediaSecureUrl: claimedAsset?.secureUrl,
+          mediaResourceType: claimedAsset?.resourceType,
+          mediaType: parsedBody.data.mediaType,
+          caption: parsedBody.data.caption,
+        });
+      } catch (error) {
+        if (claimedAsset) {
+          await deleteMediaAsset(
+            claimedAsset.publicId,
+            claimedAsset.resourceType,
+          ).catch((cleanupError) => {
+            request.log.error(
+              {
+                err: cleanupError,
+                publicId: claimedAsset?.publicId,
+              },
+              "Failed to clean unpublished story upload",
+            );
+          });
+        }
+
+        if (error instanceof MediaServiceError) {
+          return reply.status(error.statusCode).send({
+            message: error.message,
+          });
+        }
+
+        throw error;
+      }
 
       if (!story) {
+        if (claimedAsset) {
+          await releaseClaimedMediaAsset(
+            claimedAsset.publicId,
+          );
+        }
+
         return reply.status(500).send({
           message: "Failed to publish story",
         });
@@ -646,7 +637,15 @@ export async function storyRoutes(app: FastifyInstance) {
 
       const serializedStory = serializeStory(story);
 
-      await emitStoryCreated(serializedStory);
+      void emitStoryCreated(serializedStory).catch((error) => {
+        request.log.error(
+          {
+            err: error,
+            storyId: serializedStory.id,
+          },
+          "Failed to broadcast story creation",
+        );
+      });
 
       return reply.status(201).send(serializedStory);
     },
@@ -798,7 +797,8 @@ export async function storyRoutes(app: FastifyInstance) {
 
       const deletedStories = await db.execute<{
         id: string;
-        mediaUrl: string;
+        mediaPublicId: string | null;
+        mediaResourceType: string | null;
       }>(sql`
         update stories
         set deleted_at = now()
@@ -807,7 +807,8 @@ export async function storyRoutes(app: FastifyInstance) {
           and deleted_at is null
         returning
           id,
-          media_url as "mediaUrl"
+          media_public_id as "mediaPublicId",
+          media_resource_type as "mediaResourceType"
       `);
 
       if (!deletedStories.length) {
@@ -829,7 +830,18 @@ export async function storyRoutes(app: FastifyInstance) {
         });
       }
 
-      await removeUploadedAsset(deletedStories[0].mediaUrl);
+      await deleteMediaAsset(
+        deletedStories[0].mediaPublicId,
+        deletedStories[0].mediaResourceType,
+      ).catch((error) => {
+        request.log.error(
+          {
+            err: error,
+            storyId: deletedStories[0].id,
+          },
+          "Story media deletion queued for retry",
+        );
+      });
 
       return {
         ok: true,

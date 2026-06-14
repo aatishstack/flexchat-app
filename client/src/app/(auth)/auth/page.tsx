@@ -154,7 +154,9 @@ export default function AuthPage() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const { connectSocket } = useSocketStore();
+  const connectSocket = useSocketStore(
+    (state) => state.connectSocket,
+  );
 
   const { isAuthenticated, isHydrated } = useAuth();
 

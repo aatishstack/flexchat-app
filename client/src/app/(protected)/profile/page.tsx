@@ -34,7 +34,7 @@ import {
   formatHandle,
   getAvatarInitial,
 } from "@/lib/user-display";
-import { uploadImage } from "@/services/upload.service";
+import { uploadMedia } from "@/services/upload.service";
 import { updateCurrentUser } from "@/services/user.service";
 import { useSocketStore } from "@/store/socket-store";
 import { useToastStore } from "@/store/toast-store";
@@ -230,10 +230,23 @@ export default function ProfilePage() {
           draft.avatar !== undefined
             ? draft.avatar
             : user.avatar ?? null;
+        let avatarPublicId:
+          | string
+          | undefined;
 
         if (avatarFile) {
+          const uploadedAvatar =
+            await uploadMedia(
+              avatarFile,
+              {
+                purpose: "avatar",
+              }
+            );
+
           avatarUrl =
-            await uploadImage(avatarFile);
+            uploadedAvatar.url;
+          avatarPublicId =
+            uploadedAvatar.publicId;
         }
 
         const shouldUpdateServer =
@@ -247,6 +260,7 @@ export default function ProfilePage() {
             ? await updateCurrentUser({
                 username: displayName,
                 avatar: avatarUrl,
+                avatarPublicId,
                 ...(!user.phoneNumber &&
                 draft.phone.trim()
                   ? {

@@ -69,13 +69,21 @@ async function proxyBackendRequest(
     hasAuthorization: request.headers.has("authorization"),
   });
 
-  const response = await fetch(targetUrl, {
+  const fetchOptions: RequestInit & {
+    duplex?: "half";
+  } = {
     method,
     headers: buildForwardHeaders(request),
-    body: hasBody ? await request.arrayBuffer() : undefined,
+    body: hasBody ? request.body : undefined,
     cache: "no-store",
     redirect: "manual",
-  });
+  };
+
+  if (hasBody) {
+    fetchOptions.duplex = "half";
+  }
+
+  const response = await fetch(targetUrl, fetchOptions);
   const responseHeaders = new Headers();
 
   response.headers.forEach((value, key) => {

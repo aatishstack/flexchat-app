@@ -13,6 +13,26 @@ export const MEDIA_LIMITS = {
   document: 8 * 1024 * 1024,
 } as const;
 
+export type MediaPurpose =
+  | "avatar"
+  | "group_avatar"
+  | "story"
+  | "chat"
+  | "voice"
+  | "attachment";
+
+export type UploadedMedia = {
+  url: string;
+  secureUrl: string;
+  publicId: string;
+  resourceType: "image" | "video" | "raw";
+  kind: "image" | "video" | "audio" | "document";
+  mimeType: string;
+  fileName: string;
+  size: number;
+  format: string | null;
+};
+
 const IMAGE_COMPRESSION_MAX_SIZE_MB = 4;
 const IMAGE_COMPRESSION_MAX_EDGE = 1920;
 const SKIP_IMAGE_COMPRESSION_TYPES = new Set([
@@ -342,18 +362,28 @@ async function getLoadedVideoElement(file: File) {
   video.preload = "auto";
   video.src = url;
 
-  await new Promise<void>(
-    (resolve, reject) => {
-      video.onloadedmetadata = () =>
-        resolve();
-      video.onerror = () =>
-        reject(
-          new Error(
-            "Video metadata unavailable"
-          )
-        );
-    }
-  );
+  try {
+    await new Promise<void>(
+      (resolve, reject) => {
+        video.onloadedmetadata = () =>
+          resolve();
+        video.onerror = () =>
+          reject(
+            new Error(
+              "Video metadata unavailable"
+            )
+          );
+      }
+    );
+  } catch (error) {
+    video.removeAttribute("src");
+    video.load();
+    URL.revokeObjectURL(url);
+    throw error;
+  } finally {
+    video.onloadedmetadata = null;
+    video.onerror = null;
+  }
 
   return {
     video,
@@ -387,6 +417,9 @@ async function compressVideoFile(
 
   const { video, url } =
     await getLoadedVideoElement(file);
+  let canvasStream: MediaStream | null = null;
+  let recorder: MediaRecorder | null = null;
+  let frameId: number | null = null;
 
   try {
     const duration =
@@ -427,8 +460,9 @@ async function compressVideoFile(
 
     const canvasContext = context;
 
-    const canvasStream =
+    const activeCanvasStream =
       canvas.captureStream(24);
+    canvasStream = activeCanvasStream;
     const mediaElementStream =
       (
         video as HTMLVideoElement & {
@@ -445,12 +479,12 @@ async function compressVideoFile(
     mediaElementStream
       ?.getAudioTracks()
       .forEach((track) => {
-        canvasStream.addTrack(track);
+        activeCanvasStream.addTrack(track);
       });
 
-    const recorder =
+    const activeRecorder =
       new MediaRecorder(
-        canvasStream,
+        activeCanvasStream,
         {
           mimeType,
           videoBitsPerSecond:
@@ -459,9 +493,8 @@ async function compressVideoFile(
             96_000,
         }
       );
+    recorder = activeRecorder;
     const chunks: BlobPart[] = [];
-    let frameId = 0;
-
     function drawFrame() {
       canvasContext.drawImage(
         video,
@@ -490,49 +523,46 @@ async function compressVideoFile(
     const compressedBlob =
       await new Promise<Blob>(
         (resolve, reject) => {
-          recorder.ondataavailable = (
+          activeRecorder.ondataavailable = (
             event
           ) => {
             if (event.data.size) {
               chunks.push(event.data);
             }
           };
-          recorder.onerror = () =>
+          activeRecorder.onerror = () =>
             reject(
               new Error(
                 "Video compression failed."
               )
             );
-          recorder.onstop = () =>
+          activeRecorder.onstop = () =>
             resolve(
               new Blob(chunks, {
                 type: "video/webm",
               })
             );
           video.onended = () => {
-            cancelAnimationFrame(frameId);
+            if (frameId !== null) {
+              cancelAnimationFrame(frameId);
+              frameId = null;
+            }
 
             if (
-              recorder.state !==
+              activeRecorder.state !==
               "inactive"
             ) {
-              recorder.stop();
+              activeRecorder.stop();
             }
           };
 
-          recorder.start(1000);
+          activeRecorder.start(1000);
           frameId =
             requestAnimationFrame(drawFrame);
           void video
             .play()
             .catch(reject);
         }
-      );
-
-    canvasStream
-      .getTracks()
-      .forEach((track) =>
-        track.stop()
       );
 
     if (
@@ -566,6 +596,27 @@ async function compressVideoFile(
       }
     );
   } finally {
+    if (frameId !== null) {
+      cancelAnimationFrame(frameId);
+    }
+
+    if (recorder?.state !== "inactive") {
+      try {
+        recorder?.stop();
+      } catch {
+        // The recorder may already be stopping after playback ended.
+      }
+    }
+
+    canvasStream
+      ?.getTracks()
+      .forEach((track) =>
+        track.stop()
+      );
+    video.pause();
+    video.onended = null;
+    video.removeAttribute("src");
+    video.load();
     URL.revokeObjectURL(url);
   }
 }
@@ -647,11 +698,12 @@ export function getUploadValidationError(file: File) {
   return null;
 }
 
-export async function uploadImage(
+export async function uploadMedia(
   file: File,
   options?: {
     onProgress?: (progress: number) => void;
     retries?: number;
+    purpose?: MediaPurpose;
   }
 ) {
   const preparedFile =
@@ -692,7 +744,17 @@ export async function uploadImage(
 
   const formData =
     new FormData();
+  const uploadId =
+    crypto.randomUUID();
 
+  formData.append(
+    "uploadId",
+    uploadId
+  );
+  formData.append(
+    "purpose",
+    options?.purpose ?? "chat"
+  );
   formData.append(
     "file",
     preparedFile
@@ -705,9 +767,7 @@ export async function uploadImage(
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
       const response =
-        await api.post<{
-          url: string;
-        }>(
+        await api.post<UploadedMedia>(
           "/upload",
           formData,
           {
@@ -736,7 +796,7 @@ export async function uploadImage(
           }
         );
 
-      return response.data.url;
+      return response.data;
     } catch (error) {
       lastError = error;
 

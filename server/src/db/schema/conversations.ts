@@ -22,6 +22,21 @@ export const conversations =
       avatar:
         text("avatar"),
 
+      avatarPublicId:
+        text(
+          "avatar_public_id"
+        ),
+
+      avatarSecureUrl:
+        text(
+          "avatar_secure_url"
+        ),
+
+      avatarResourceType:
+        text(
+          "avatar_resource_type"
+        ),
+
       sharedThemeId:
         text(
           "shared_theme_id"

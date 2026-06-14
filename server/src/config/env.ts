@@ -49,6 +49,16 @@ const envSchema = z.object({
       .string()
       .url()
       .optional(),
+  CLOUDINARY_CLOUD_NAME:
+    z.string().trim().optional(),
+  CLOUDINARY_API_KEY:
+    z.string().trim().optional(),
+  CLOUDINARY_API_SECRET:
+    z.string().trim().optional(),
+  SENTRY_DSN:
+    z.string().url().trim().optional(),
+  SENTRY_ENVIRONMENT:
+    z.string().trim().default("development"),
   RATE_LIMIT_MAX:
     z.coerce.number().default(120),
   RATE_LIMIT_WINDOW:
@@ -125,6 +135,38 @@ const envSchema = z.object({
       code: "custom",
       message:
         "Production OAuth/API/client URLs must use HTTPS",
+    });
+  }
+
+  const cloudinaryValues = [
+    env.CLOUDINARY_CLOUD_NAME,
+    env.CLOUDINARY_API_KEY,
+    env.CLOUDINARY_API_SECRET,
+  ];
+  const configuredCloudinaryValues =
+    cloudinaryValues.filter(Boolean).length;
+
+  if (
+    configuredCloudinaryValues > 0 &&
+    configuredCloudinaryValues < cloudinaryValues.length
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["CLOUDINARY_CLOUD_NAME"],
+      message:
+        "Cloudinary cloud name, API key, and API secret must be configured together",
+    });
+  }
+
+  if (
+    env.NODE_ENV === "production" &&
+    configuredCloudinaryValues !== cloudinaryValues.length
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["CLOUDINARY_CLOUD_NAME"],
+      message:
+        "Cloudinary credentials are required in production",
     });
   }
 });
