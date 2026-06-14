@@ -14,6 +14,10 @@ import {
   claimOwnedMediaAsset,
   releaseClaimedMediaAsset,
 } from "../../services/media.service.js";
+import { FcmService } from "../../services/fcm.service.js";
+import { getOnlineUserIds } from "../socket-store.js";
+import { users } from "../../db/schema/users.js";
+import { eq } from "drizzle-orm";
 import { SOCKET_EVENTS } from "../socket-events.js";
 
 type ConversationPayload = {
@@ -571,6 +575,48 @@ function getMessagePreview(message: {
   return "New message";
 }
 
+async function sendPushToOfflineMembers(
+  senderId: string,
+  conversationId: string,
+  message: SocketMessage
+) {
+  try {
+    const members = await getConversationMembers([conversationId]);
+    const onlineUserIds = new Set(getOnlineUserIds());
+    
+    // Fetch sender info for better notification
+    const senderRows = await db
+      .select({ username: users.username })
+      .from(users)
+      .where(eq(users.id, senderId))
+      .limit(1);
+    
+    const senderName = senderRows[0]?.username || "Someone";
+    
+    const offlineUserIds = members
+      .map(m => m.userId)
+      .filter(id => id !== senderId && !onlineUserIds.has(id));
+
+    if (offlineUserIds.length === 0) return;
+
+    const pushPayload = {
+      title: senderName,
+      body: message.text || (message.attachment ? "Sent an attachment" : "New message"),
+      data: {
+        conversationId,
+        messageId: message.id,
+        type: "new_message"
+      }
+    };
+
+    await Promise.all(
+      offlineUserIds.map(userId => FcmService.sendToUser(userId, pushPayload))
+    );
+  } catch (error) {
+    console.error("[FCM] Failed to send offline push notifications:", error);
+  }
+}
+
 export function registerMessageHandlers(io: Server, socket: Socket) {
   const userId = socket.data.user.id as string;
 
@@ -752,6 +798,9 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
           SOCKET_EVENTS.RECEIVE_MESSAGE,
           socketMessage,
         );
+
+        // Trigger offline push notifications
+        void sendPushToOfflineMembers(userId, messageData.conversationId, socketMessage);
 
         socket
           .to(messageData.conversationId)

@@ -38,3 +38,14 @@ export async function deleteNotificationRequest(
 export async function clearNotificationsRequest() {
   await api.delete("/notifications");
 }
+
+export async function registerFcmToken(token: string) {
+  await api.post("/notifications/fcm-token", {
+    token,
+    deviceType: "web",
+  });
+}
+
+export async function deleteFcmToken(token: string) {
+  await api.delete(`/notifications/fcm-token/${token}`);
+}

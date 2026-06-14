@@ -61,6 +61,10 @@ const envSchema = z.object({
     z.string().trim().default("development"),
   TURNSTILE_SECRET_KEY:
     z.string().trim().optional(),
+  FIREBASE_PROJECT_ID:
+    z.string().trim().optional(),
+  FIREBASE_SERVICE_ACCOUNT_JSON:
+    z.string().trim().optional(),
   RATE_LIMIT_MAX:
     z.coerce.number().default(120),
   RATE_LIMIT_WINDOW:
@@ -181,6 +185,18 @@ const envSchema = z.object({
       path: ["TURNSTILE_SECRET_KEY"],
       message:
         "Turnstile secret key is required in production",
+    });
+  }
+
+  if (
+    env.NODE_ENV === "production" &&
+    (!env.FIREBASE_PROJECT_ID || !env.FIREBASE_SERVICE_ACCOUNT_JSON)
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["FIREBASE_PROJECT_ID"],
+      message:
+        "Firebase project ID and service account JSON are required in production",
     });
   }
 });

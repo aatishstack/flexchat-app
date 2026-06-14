@@ -14,6 +14,7 @@ import ServerTimeProvider from "@/providers/server-time-provider";
 
 import SocketProvider from "@/socket/socket-provider";
 import GlobalThemeProvider from "@/components/theme/global-theme-provider";
+import NotificationProvider from "@/providers/notification-provider";
 
 export const metadata: Metadata = {
   title: "FlexChat",
@@ -41,12 +42,14 @@ export default function RootLayout({
           <ServerTimeProvider>
             <SocketProvider>
               <AuthProvider>
-                <GlobalThemeProvider>
-                  <AuthRouteGate>
-                    <HttpsBanner />
-                    {children}
-                  </AuthRouteGate>
-                </GlobalThemeProvider>
+                <NotificationProvider>
+                  <GlobalThemeProvider>
+                    <AuthRouteGate>
+                      <HttpsBanner />
+                      {children}
+                    </AuthRouteGate>
+                  </GlobalThemeProvider>
+                </NotificationProvider>
                 <LiveToast />
               </AuthProvider>
             </SocketProvider>
