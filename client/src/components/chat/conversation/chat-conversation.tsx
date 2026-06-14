@@ -1395,6 +1395,7 @@ function MessageMediaAttachment({
                   <img
                     src={url}
                     alt=""
+                    decoding="async"
                     className="max-h-[92dvh] max-w-[96vw] select-none object-contain"
                     style={{
                       transform: `scale(${viewerScale})`,

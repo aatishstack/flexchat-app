@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useCallback, useRef } from "react";
 
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -392,6 +392,80 @@ export default function SocketProvider({
     (state) => state.updateConversationMessage
   );
 
+  const presenceUpdateBuffer = useRef<Map<string, { status: "online" | "offline"; lastSeenAt?: string | number }>>(new Map());
+  const presenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushPresence = useCallback(() => {
+    if (presenceUpdateBuffer.current.size === 0) return;
+
+    const updates = Array.from(presenceUpdateBuffer.current.entries());
+    presenceUpdateBuffer.current.clear();
+
+    useSocketStore.setState((state) => {
+      const users = new Set(state.onlineUsers);
+      updates.forEach(([userId, update]) => {
+        if (update.status === "online") {
+          users.add(userId);
+        } else {
+          users.delete(userId);
+        }
+      });
+      return {
+        onlineUsers: Array.from(users).filter(Boolean).sort(),
+      };
+    });
+
+    queryClient.setQueryData<ConversationQueryCache>(
+      queryKeys.conversations.all,
+      (cache) => {
+        if (!cache) return cache;
+
+        const updateMembers = (conversation: Conversation): Conversation => {
+          let changed = false;
+          const nextMembers = conversation.members?.map((member) => {
+            const update = updates.find(([id]) => id === member.id);
+            if (update && update[1].lastSeenAt) {
+              changed = true;
+              return {
+                ...member,
+                lastSeenAt: update[1].lastSeenAt,
+              };
+            }
+            return member;
+          }) ?? conversation.members;
+
+          return changed ? { ...conversation, members: nextMembers } : conversation;
+        };
+
+        if (Array.isArray(cache)) {
+          return cache.map(updateMembers);
+        }
+
+        if ("pages" in cache) {
+          return {
+            ...cache,
+            pages: cache.pages.map((page) => ({
+              ...page,
+              conversations: page.conversations.map(updateMembers),
+            })),
+          };
+        }
+
+        return cache;
+      }
+    );
+  }, [queryClient]);
+
+  const typingUpdateBuffer = useRef<string[]>([]);
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushTyping = useCallback(() => {
+    if (typingUpdateBuffer.current.length === 0) return;
+    const users = [...typingUpdateBuffer.current];
+    typingUpdateBuffer.current = [];
+    setTypingUsers(users);
+  }, [setTypingUsers]);
+
   useEffect(() => {
     function onConnect() {
       const latestToken = refreshSocketAuth("connect");
@@ -509,69 +583,22 @@ export default function SocketProvider({
     function onPresenceUpdated(
       payload: PresenceUpdatedPayload
     ) {
-      if (!payload.userId) {
+      if (!payload.userId || !payload.status) {
         return;
       }
 
-      useSocketStore.setState((state) => {
-        const users = new Set(state.onlineUsers);
-
-        if (payload.status === "online") {
-          users.add(payload.userId ?? "");
-        } else if (payload.status === "offline") {
-          users.delete(payload.userId ?? "");
-        }
-
-        return {
-          onlineUsers: Array.from(users)
-            .filter(Boolean)
-            .sort(),
-        };
+      presenceUpdateBuffer.current.set(payload.userId, {
+        status: payload.status,
+        lastSeenAt: payload.lastSeenAt,
       });
 
-      queryClient.setQueryData<ConversationQueryCache>(
-        queryKeys.conversations.all,
-        (cache) => {
-          if (!cache || !payload.lastSeenAt) {
-            return cache;
-          }
+      if (presenceTimer.current) {
+        clearTimeout(presenceTimer.current);
+      }
 
-          const updateMembers = (conversation: Conversation): Conversation => ({
-            ...conversation,
-            members:
-              conversation.members?.map((member) =>
-                member.id === payload.userId
-                  ? {
-                      ...member,
-                      lastSeenAt:
-                        payload.lastSeenAt ?? member.lastSeenAt,
-                    }
-                  : member
-              ) ?? conversation.members,
-          });
-
-          if (Array.isArray(cache)) {
-            return cache.map((conversation) =>
-              updateMembers(conversation)
-            );
-          }
-
-          if ("pages" in cache) {
-            return {
-              ...cache,
-              pages: cache.pages.map((page) => ({
-                ...page,
-                conversations:
-                  page.conversations.map((conversation) =>
-                    updateMembers(conversation)
-                  ),
-              })),
-            };
-          }
-
-          return cache;
-        }
-      );
+      presenceTimer.current = setTimeout(() => {
+        flushPresence();
+      }, 350);
     }
 
     function onReceiveMessage(message: Message) {
@@ -738,22 +765,30 @@ export default function SocketProvider({
     }
 
     function onTypingUsers(payload: TypingUsersPayload) {
-      if (Array.isArray(payload)) {
-        setTypingUsers(payload);
-        return;
-      }
-
       const activeConversationId =
         useSocketStore.getState().activeConversationId;
 
-      if (
+      let users: string[] = [];
+      if (Array.isArray(payload)) {
+        users = payload;
+      } else if (
         payload.conversationId &&
-        payload.conversationId !== activeConversationId
+        payload.conversationId === activeConversationId
       ) {
+        users = payload.users ?? [];
+      } else {
         return;
       }
 
-      setTypingUsers(payload.users ?? []);
+      typingUpdateBuffer.current = users;
+
+      if (typingTimer.current) {
+        clearTimeout(typingTimer.current);
+      }
+
+      typingTimer.current = setTimeout(() => {
+        flushTyping();
+      }, 150);
     }
 
     function onMessageDelivered(receipt: MessageReceipt) {

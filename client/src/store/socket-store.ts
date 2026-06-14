@@ -128,8 +128,10 @@ const MAX_RETRY_ATTEMPTS = 3;
 const MAX_EPHEMERAL_MESSAGES_PER_CONVERSATION = 160;
 const MAX_PENDING_MESSAGES = 80;
 const PENDING_MESSAGE_TTL_MS = 5 * 60 * 1000;
+const TYPING_THROTTLE_MS = 3500;
 
 const pendingMessages = new Map<string, PendingMessage>();
+const lastTypingSentAt = new Map<string, number>();
 
 const retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -763,6 +765,15 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       return;
     }
 
+    const now = Date.now();
+    const lastSent = lastTypingSentAt.get(conversationId) ?? 0;
+
+    if (now - lastSent < TYPING_THROTTLE_MS) {
+      return;
+    }
+
+    lastTypingSentAt.set(conversationId, now);
+
     socket.emit(SOCKET_EVENTS.START_TYPING, {
       conversationId,
     });
@@ -772,6 +783,8 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     if (!socket.connected) {
       return;
     }
+
+    lastTypingSentAt.delete(conversationId);
 
     socket.emit(SOCKET_EVENTS.STOP_TYPING, {
       conversationId,
