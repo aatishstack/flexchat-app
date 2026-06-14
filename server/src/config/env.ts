@@ -65,6 +65,10 @@ const envSchema = z.object({
     z.string().trim().optional(),
   FIREBASE_SERVICE_ACCOUNT_JSON:
     z.string().trim().optional(),
+  TURN_SERVER_URLS:
+    z.string().trim().optional(),
+  TURN_AUTH_SECRET:
+    z.string().trim().optional(),
   RATE_LIMIT_MAX:
     z.coerce.number().default(120),
   RATE_LIMIT_WINDOW:
@@ -197,6 +201,18 @@ const envSchema = z.object({
       path: ["FIREBASE_PROJECT_ID"],
       message:
         "Firebase project ID and service account JSON are required in production",
+    });
+  }
+
+  if (
+    env.NODE_ENV === "production" &&
+    (!env.TURN_SERVER_URLS || !env.TURN_AUTH_SECRET)
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["TURN_SERVER_URLS"],
+      message:
+        "TURN server URLs and auth secret are required in production for reliable calls",
     });
   }
 });

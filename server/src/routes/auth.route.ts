@@ -24,6 +24,7 @@ import { generateId } from "../lib/uuid.js";
 import { signToken } from "../lib/jwt.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { verifyTurnstileToken } from "../utils/turnstile.js";
+import { generateTurnCredentials } from "../utils/webrtc.js";
 
 const blockedDomains = new Set([
   "tempmail.com",
@@ -1057,5 +1058,37 @@ export async function authRoutes(app: FastifyInstance) {
         user: publicUser(user),
       };
     },
+  );
+
+  app.get(
+    "/auth/turn-credentials",
+    {
+      preHandler: authMiddleware,
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: "1 minute",
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = (request.user as any)?.id;
+
+      if (!userId) {
+        return reply.status(401).send({
+          message: "Unauthorized",
+        });
+      }
+
+      const credentials = generateTurnCredentials(userId);
+
+      if (!credentials) {
+        return reply.status(503).send({
+          message: "Relay service unavailable",
+        });
+      }
+
+      return credentials;
+    }
   );
 }

@@ -6,6 +6,7 @@ import { socket } from "@/socket/socket";
 import { SOCKET_EVENTS } from "@/socket/socket-events";
 import { useToastStore } from "@/store/toast-store";
 import { useAuthStore } from "@/stores/auth.store";
+import { getTurnCredentials } from "@/services/auth.service";
 
 export type CallKind = "voice" | "video";
 
@@ -107,7 +108,11 @@ function parseIceUrls(value?: string) {
     .filter(Boolean);
 }
 
-function getIceServers(): RTCIceServer[] {
+function getIceServers(dynamicServers?: RTCIceServer[]): RTCIceServer[] {
+  if (dynamicServers?.length) {
+    return dynamicServers;
+  }
+
   const stunUrls =
     parseIceUrls(process.env.NEXT_PUBLIC_STUN_URLS);
   const turnUrls =
@@ -138,6 +143,28 @@ function getIceServers(): RTCIceServer[] {
   }
 
   return iceServers;
+}
+
+/**
+ * Future: Fetches dynamic relay credentials from the backend.
+ * Currently scaffolds the interface for Phase 4.
+ */
+export async function fetchIceServers(): Promise<RTCIceServer[] | null> {
+  try {
+    const creds = await getTurnCredentials();
+    if (!creds) return null;
+
+    return [
+      {
+        urls: creds.urls,
+        username: creds.username,
+        credential: creds.credential,
+      }
+    ];
+  } catch (error) {
+    console.warn("[WebRTC] Failed to fetch dynamic ICE servers", error);
+    return null;
+  }
 }
 
 function getIceTransportPolicy(): RTCIceTransportPolicy {

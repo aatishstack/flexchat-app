@@ -93,3 +93,13 @@ export async function getCurrentUser(
 
   return response.data;
 }
+
+export async function getTurnCredentials() {
+  const response = await api.get<{
+    urls: string[];
+    username: string;
+    credential: string;
+  }>("/auth/turn-credentials");
+
+  return response.data;
+}

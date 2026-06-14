@@ -20,6 +20,17 @@ import { authMiddleware } from "../middleware/auth.middleware.js";
 import { deleteMediaAsset } from "../services/media.service.js";
 import { getSocketServer } from "../socket/socket-hub.js";
 import { SOCKET_EVENTS } from "../socket/socket-events.js";
+import { createNotification } from "../utils/notification-sender.js";
+import { users } from "../db/schema/users.js";
+
+async function getUsername(userId: string) {
+  const result = await db
+    .select({ username: users.username })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return result[0]?.username || "Someone";
+}
 
 const messageHistoryParamsSchema = z.object({
   conversationId: z.string().trim().min(1).max(128),
@@ -412,6 +423,8 @@ async function handleMessageReactionRequest(
   const foundMessages = await db
     .select({
       id: messages.id,
+      senderId: messages.senderId,
+      conversationId: messages.conversationId,
       deletedAt: messages.deletedAt,
     })
     .from(messages)
