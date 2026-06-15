@@ -10,6 +10,7 @@
     "test:realtime": "playwright test --config=playwright.config.ts"
   },
   "dependencies": {
+    "@emotion/is-prop-valid": "^1.4.0",
     "@hookform/resolvers": "^5.2.2",
     "@marsidev/react-turnstile": "^1.5.3",
     "@sentry/nextjs": "^10.57.0",
