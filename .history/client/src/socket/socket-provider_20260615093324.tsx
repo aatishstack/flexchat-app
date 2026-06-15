@@ -1275,7 +1275,7 @@ export default function SocketProvider({
         const storyIds = new Set(
           payload.storyIds?.filter(Boolean) ?? []
         );
-        console.log('[SOCKET] onStoryExpired - storyIds set created:', { size: storyIds.size, ids: Array.from(storyIds).slice(0, 10) });
+        console.log('[SOCKET] onStoryExpired - storyIds set created:', { size: storyIds.size, ids: Array.from(storyIds).substring(0, 200) });
 
         if (!storyIds.size) {
           console.log('[SOCKET] onStoryExpired - no storyIds, invalidating all');

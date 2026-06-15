@@ -1268,45 +1268,26 @@ export default function SocketProvider({
     function onStoryExpired(
       payload: StoryExpiredPayload
     ) {
-      // TEMPORARY INSTRUMENTATION - Finding exact exception
-      console.log('[SOCKET] onStoryExpired called with:', { payload });
-      
-      try {
-        const storyIds = new Set(
-          payload.storyIds?.filter(Boolean) ?? []
-        );
-        console.log('[SOCKET] onStoryExpired - storyIds set created:', { size: storyIds.size, ids: Array.from(storyIds).slice(0, 10) });
+      const storyIds = new Set(
+        payload.storyIds?.filter(Boolean) ?? []
+      );
 
-        if (!storyIds.size) {
-          console.log('[SOCKET] onStoryExpired - no storyIds, invalidating all');
-          void queryClient.invalidateQueries({
-            queryKey:
-              queryKeys.stories.all,
-          });
-          return;
-        }
-
-        queryClient.setQueryData<Story[]>(
-          queryKeys.stories.all,
-          (stories) => {
-            console.log('[SOCKET] onStoryExpired - updating cache, old stories:', { count: stories?.length });
-            const result = (stories ?? []).filter(
-              (story) =>
-                !storyIds.has(story.id)
-            );
-            console.log('[SOCKET] onStoryExpired - cache updated, new count:', { count: result.length });
-            return result;
-          }
-        );
-        console.log('[SOCKET] onStoryExpired - completed successfully');
-      } catch (error) {
-        console.error('[SOCKET] onStoryExpired - caught exception:', {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : '',
-          payload,
+      if (!storyIds.size) {
+        void queryClient.invalidateQueries({
+          queryKey:
+            queryKeys.stories.all,
         });
-        throw error;
+        return;
       }
+
+      queryClient.setQueryData<Story[]>(
+        queryKeys.stories.all,
+        (stories) =>
+          (stories ?? []).filter(
+            (story) =>
+              !storyIds.has(story.id)
+          )
+      );
     }
 
     function onAccountDeleted(
