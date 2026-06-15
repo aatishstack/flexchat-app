@@ -50,6 +50,7 @@ async function checkDatabaseReady() {
             users.avatar_public_id,
             conversations.avatar_public_id,
             stories.media_public_id,
+            stories.visibility,
             messages.media_public_id
           from media_assets
           cross join users

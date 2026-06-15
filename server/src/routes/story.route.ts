@@ -21,12 +21,14 @@ import { getSocketServer } from "../socket/socket-hub.js";
 
 const TEXT_STORY_MEDIA_URL = "flexchat://story/text";
 const STORY_LIFETIME_MS = 24 * 60 * 60 * 1000;
+const storyVisibilitySchema = z.enum(["contacts", "only_me"]);
 
 const storyBodySchema = z
   .object({
     mediaUrl: z.string().trim().max(2048),
     mediaPublicId: z.string().trim().min(1).max(512).optional(),
     mediaType: z.enum(["image", "video", "text"]),
+    visibility: storyVisibilitySchema.default("contacts"),
     caption: z.string().trim().max(220).optional(),
   })
   .superRefine((value, context) => {
@@ -85,11 +87,18 @@ const userStoriesParamsSchema = z.object({
   userId: z.string().trim().min(1).max(128),
 });
 
+const storyPrivacyBodySchema = z.object({
+  visibility: storyVisibilitySchema,
+});
+
+type StoryVisibility = z.infer<typeof storyVisibilitySchema>;
+
 type StoryRow = {
   id: string;
   userId: string;
   mediaUrl: string;
   mediaType: "image" | "video" | "text";
+  visibility: StoryVisibility;
   durationSeconds: number | string | null;
   caption: string | null;
   createdAt: Date | string;
@@ -133,6 +142,7 @@ function serializeStory(story: StoryRow) {
     userId: story.userId,
     mediaUrl: story.mediaUrl,
     mediaType: story.mediaType,
+    visibility: story.visibility,
     durationSeconds: Number(
       story.durationSeconds ??
         (story.mediaType === "video" ? 30 : 5),
@@ -170,7 +180,14 @@ function serializeStoryViewer(viewer: StoryViewerRow) {
   };
 }
 
-async function getVisibleStoryUserIds(userId: string) {
+async function getVisibleStoryUserIds(
+  userId: string,
+  visibility: StoryVisibility,
+) {
+  if (visibility === "only_me") {
+    return [userId];
+  }
+
   const rows = await db.execute<{
     userId: string;
   }>(sql`
@@ -205,6 +222,7 @@ async function getStoryById(storyId: string, viewerId: string) {
       s.user_id as "userId",
       s.media_url as "mediaUrl",
       s.media_type as "mediaType",
+      coalesce(s.visibility, 'contacts') as visibility,
       case
         when s.media_type = 'video' then 30
         else 5
@@ -232,8 +250,14 @@ async function getStoryById(storyId: string, viewerId: string) {
       on sv.story_id = s.id
       and sv.user_id = ${viewerId}
     where s.id = ${storyId}
-      and s.user_id in (
-        select user_id from visible_users
+      and (
+        s.user_id = ${viewerId}
+        or (
+          coalesce(s.visibility, 'contacts') = 'contacts'
+          and s.user_id in (
+            select user_id from visible_users
+          )
+        )
       )
       and s.deleted_at is null
       and s.expires_at > now()
@@ -250,6 +274,7 @@ async function createStoryRecord(input: {
   mediaSecureUrl?: string | null;
   mediaResourceType?: string | null;
   mediaType: "image" | "video" | "text";
+  visibility: StoryVisibility;
   caption?: string;
 }) {
   const storyId = generateId();
@@ -266,6 +291,7 @@ async function createStoryRecord(input: {
       media_secure_url,
       media_resource_type,
       media_type,
+      visibility,
       caption,
       expires_at
     )
@@ -277,6 +303,7 @@ async function createStoryRecord(input: {
       ${input.mediaSecureUrl ?? null},
       ${input.mediaResourceType ?? null},
       ${input.mediaType},
+      ${input.visibility},
       ${input.caption ?? null},
       ${expiresAt}
     )
@@ -292,7 +319,10 @@ async function emitStoryCreated(story: ReturnType<typeof serializeStory>) {
     return;
   }
 
-  const audienceUserIds = await getVisibleStoryUserIds(story.userId);
+  const audienceUserIds = await getVisibleStoryUserIds(
+    story.userId,
+    story.visibility,
+  );
 
   audienceUserIds.forEach((audienceUserId) => {
     io.to(`user:${audienceUserId}`).emit(
@@ -337,6 +367,7 @@ export async function storyRoutes(app: FastifyInstance) {
             s.user_id as "userId",
             s.media_url as "mediaUrl",
             s.media_type as "mediaType",
+            coalesce(s.visibility, 'contacts') as visibility,
             case
               when s.media_type = 'video' then 30
               else 5
@@ -363,8 +394,14 @@ export async function storyRoutes(app: FastifyInstance) {
           left join story_views sv
             on sv.story_id = s.id
             and sv.user_id = ${userId}
-          where s.user_id in (
-            select user_id from visible_users
+          where (
+            s.user_id = ${userId}
+            or (
+              coalesce(s.visibility, 'contacts') = 'contacts'
+              and s.user_id in (
+                select user_id from visible_users
+              )
+            )
           )
             and s.deleted_at is null
             and s.expires_at > now()
@@ -427,6 +464,7 @@ export async function storyRoutes(app: FastifyInstance) {
           s.user_id as "userId",
           s.media_url as "mediaUrl",
           s.media_type as "mediaType",
+          coalesce(s.visibility, 'contacts') as visibility,
           case
             when s.media_type = 'video' then 30
             else 5
@@ -454,8 +492,14 @@ export async function storyRoutes(app: FastifyInstance) {
           on sv.story_id = s.id
           and sv.user_id = ${viewerId}
         where s.user_id = ${parsedParams.data.userId}
-          and s.user_id in (
-            select user_id from visible_users
+          and (
+            s.user_id = ${viewerId}
+            or (
+              coalesce(s.visibility, 'contacts') = 'contacts'
+              and s.user_id in (
+                select user_id from visible_users
+              )
+            )
           )
           and s.deleted_at is null
           and s.expires_at > now()
@@ -497,6 +541,17 @@ export async function storyRoutes(app: FastifyInstance) {
             upload.publicId,
             ["story"],
           );
+          const parsedVisibility = storyVisibilitySchema.safeParse(
+            upload.fields.visibility ?? "contacts",
+          );
+
+          if (!parsedVisibility.success) {
+            throw new MediaServiceError(
+              "Invalid story privacy setting",
+              400,
+            );
+          }
+
           const story = await createStoryRecord({
             userId,
             mediaUrl: asset.deliveryUrl,
@@ -505,6 +560,7 @@ export async function storyRoutes(app: FastifyInstance) {
             mediaResourceType: asset.resourceType,
             mediaType:
               asset.kind === "video" ? "video" : "image",
+            visibility: parsedVisibility.data,
             caption:
               upload.fields.caption?.trim().slice(0, 220) ||
               undefined,
@@ -596,6 +652,7 @@ export async function storyRoutes(app: FastifyInstance) {
           mediaSecureUrl: claimedAsset?.secureUrl,
           mediaResourceType: claimedAsset?.resourceType,
           mediaType: parsedBody.data.mediaType,
+          visibility: parsedBody.data.visibility,
           caption: parsedBody.data.caption,
         });
       } catch (error) {
@@ -648,6 +705,96 @@ export async function storyRoutes(app: FastifyInstance) {
       });
 
       return reply.status(201).send(serializedStory);
+    },
+  );
+
+  app.patch(
+    "/stories/:storyId/privacy",
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const userId = getAuthenticatedUserId(request);
+
+      if (!userId) {
+        return reply.status(401).send({
+          message: "Unauthorized",
+        });
+      }
+
+      const parsedParams = storyParamsSchema.safeParse(request.params);
+      const parsedBody = storyPrivacyBodySchema.safeParse(request.body);
+
+      if (!parsedParams.success || !parsedBody.success) {
+        return reply.status(400).send({
+          message: "Invalid story privacy request",
+        });
+      }
+
+      const currentStory = await getStoryById(
+        parsedParams.data.storyId,
+        userId,
+      );
+
+      if (!currentStory || currentStory.userId !== userId) {
+        return reply.status(404).send({
+          message: "Story unavailable",
+        });
+      }
+
+      await db.execute(sql`
+        update stories
+        set visibility = ${parsedBody.data.visibility}
+        where id = ${currentStory.id}
+          and user_id = ${userId}
+          and deleted_at is null
+          and expires_at > now()
+      `);
+
+      const updatedStory = await getStoryById(currentStory.id, userId);
+
+      if (!updatedStory) {
+        return reply.status(404).send({
+          message: "Story unavailable",
+        });
+      }
+
+      const serializedStory = serializeStory(updatedStory);
+      const io = getSocketServer();
+
+      if (io && currentStory.visibility !== serializedStory.visibility) {
+        io.to(`user:${userId}`).emit(
+          SOCKET_EVENTS.STORY_PRIVACY_UPDATED,
+          serializedStory,
+        );
+
+        const contactUserIds = await getVisibleStoryUserIds(
+          userId,
+          "contacts",
+        );
+
+        contactUserIds
+          .filter((audienceUserId) => audienceUserId !== userId)
+          .forEach((audienceUserId) => {
+            if (serializedStory.visibility === "contacts") {
+              io.to(`user:${audienceUserId}`).emit(
+                SOCKET_EVENTS.STORY_PRIVACY_UPDATED,
+                serializedStory,
+              );
+              return;
+            }
+
+            io.to(`user:${audienceUserId}`).emit(
+              SOCKET_EVENTS.STORY_DELETED,
+              {
+                storyId: serializedStory.id,
+                deletedAt: new Date().toISOString(),
+              },
+            );
+          });
+      }
+
+      return serializedStory;
     },
   );
 
@@ -797,6 +944,7 @@ export async function storyRoutes(app: FastifyInstance) {
 
       const deletedStories = await db.execute<{
         id: string;
+        visibility: StoryVisibility;
         mediaPublicId: string | null;
         mediaResourceType: string | null;
       }>(sql`
@@ -807,6 +955,7 @@ export async function storyRoutes(app: FastifyInstance) {
           and deleted_at is null
         returning
           id,
+          coalesce(visibility, 'contacts') as visibility,
           media_public_id as "mediaPublicId",
           media_resource_type as "mediaResourceType"
       `);
@@ -820,7 +969,10 @@ export async function storyRoutes(app: FastifyInstance) {
       const io = getSocketServer();
 
       if (io) {
-        const audienceUserIds = await getVisibleStoryUserIds(userId);
+        const audienceUserIds = await getVisibleStoryUserIds(
+          userId,
+          deletedStories[0].visibility,
+        );
 
         audienceUserIds.forEach((audienceUserId) => {
           io.to(`user:${audienceUserId}`).emit(SOCKET_EVENTS.STORY_DELETED, {

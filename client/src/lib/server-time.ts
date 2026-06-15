@@ -98,3 +98,38 @@ export async function syncServerTime() {
 
   return syncInFlight;
 }
+
+const TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+
+const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+});
+
+export function formatRelativeTime(value?: string | number, now?: number) {
+  if (!value) return "";
+  const time = typeof value === "string" ? new Date(value).getTime() : value;
+  if (Number.isNaN(time)) return "";
+
+  const targetNow = now ?? getServerNow();
+  const diffSeconds = Math.round((targetNow - time) / 1000);
+
+  if (diffSeconds < 60) return "Just now";
+  if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m ago`;
+
+  const date = new Date(time);
+  const nowDate = new Date(targetNow);
+
+  const isSameDay =
+    date.getDate() === nowDate.getDate() &&
+    date.getMonth() === nowDate.getMonth() &&
+    date.getFullYear() === nowDate.getFullYear();
+
+  if (isSameDay) return TIME_FORMATTER.format(date);
+
+  return DATE_FORMATTER.format(date);
+}

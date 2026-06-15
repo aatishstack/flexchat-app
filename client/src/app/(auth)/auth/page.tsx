@@ -7,7 +7,6 @@ import {
   Eye,
   EyeOff,
   Loader2,
-  MessageCircle,
   RadioTower,
   ShieldCheck,
   Video,
@@ -50,6 +49,8 @@ import {
 import PremiumInput from "@/components/ui/premium-input";
 
 import PremiumButton from "@/components/ui/premium-button";
+
+import FlexLogo from "@/components/shared/flex-logo";
 
 function getAuthenticationErrorMessage(error: unknown) {
   if (axios.isAxiosError(error)) {
@@ -474,14 +475,26 @@ export default function AuthPage() {
 
   if (!isHydrated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#07070a] text-white">
+      <div className="flex min-h-screen items-center justify-center bg-black text-white">
         <div className="flex flex-col items-center gap-5">
-          <div className="h-14 w-14 animate-spin rounded-2xl border border-sky-500/30 border-t-sky-400" />
+          <motion.div
+            animate={{
+              scale: [1, 1.1, 1],
+              opacity: [1, 0.8, 1],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          >
+            <FlexLogo size="lg" />
+          </motion.div>
 
           <div className="text-center">
-            <h2 className="text-lg font-semibold">Loading FlexChat</h2>
+            <h2 className="text-lg font-bold">FlexChat</h2>
 
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-[var(--fc-text-muted)]">
               Preparing secure session...
             </p>
           </div>
@@ -491,14 +504,14 @@ export default function AuthPage() {
   }
 
   return (
-    <main className="modal-safe-scroll relative h-svh min-h-svh touch-pan-y overflow-y-auto overflow-x-hidden overscroll-y-contain bg-[#050510] text-white">
+    <main className="modal-safe-scroll relative h-svh min-h-svh touch-pan-y overflow-y-auto overflow-x-hidden overscroll-y-contain bg-black text-white">
       <AuthBackground />
 
       <div className="relative z-10 grid min-h-full lg:grid-cols-[minmax(360px,0.9fr)_minmax(420px,1.1fr)]">
-        <div className="relative hidden overflow-hidden border-r border-white/10 lg:flex">
-          <div className="absolute inset-0 bg-gradient-to-br from-sky-600/[0.12] via-transparent to-cyan-400/[0.08]" />
+        <div className="relative hidden overflow-hidden border-r border-[var(--fc-app-border)] lg:flex">
+          <div className="absolute inset-0 bg-gradient-to-br from-[var(--fc-primary)]/[0.08] via-transparent to-transparent" />
 
-          <div className="relative flex w-full flex-col justify-between p-10 xl:p-12">
+          <div className="relative flex w-full flex-col justify-between p-10 xl:p-16">
             <motion.div
               initial={{
                 opacity: 0,
@@ -510,9 +523,7 @@ export default function AuthPage() {
               }}
               className="flex items-center gap-4"
             >
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#2481CC] shadow-lg shadow-sky-700/25">
-                <MessageCircle size={28} />
-              </div>
+              <FlexLogo size="lg" />
 
               <div>
                 <h1 className="text-2xl font-bold tracking-tight">FlexChat</h1>
@@ -532,21 +543,20 @@ export default function AuthPage() {
                 transition={{
                   delay: 0.08,
                 }}
-                className="text-5xl font-bold leading-tight tracking-tight xl:text-6xl"
+                className="text-5xl font-bold leading-[1.1] tracking-tight xl:text-7xl"
               >
-                Secure messaging,
-                <span className="block bg-gradient-to-r from-sky-200 via-blue-100 to-cyan-200 bg-clip-text text-transparent">
-                  realtime by design.
+                Securely connected,
+                <span className="block bg-gradient-to-r from-[var(--fc-accent-text)] to-[var(--fc-primary)] bg-clip-text text-transparent">
+                  anywhere.
                 </span>
               </motion.h2>
 
-              <p className="mt-5 max-w-lg text-base leading-7 text-zinc-400">
-                A polished chat workspace with live presence, stories, calls,
-                uploads, and resilient reconnect behavior.
+              <p className="mt-6 max-w-lg text-lg leading-relaxed text-[var(--fc-text-muted)]">
+                A premium messaging experience for high-performance teams and professionals.
               </p>
             </div>
 
-            <div className="grid gap-3">
+            <div className="grid gap-4">
               {featureItems.map((item, index) => {
                 const Icon = item.icon;
 
@@ -564,18 +574,18 @@ export default function AuthPage() {
                     transition={{
                       delay: 0.12 + index * 0.06,
                     }}
-                    className="flex max-w-md items-center gap-4 rounded-[24px] border border-white/10 bg-white/[0.04] p-4 shadow-2xl shadow-black/20 backdrop-blur-2xl"
+                    className="flex max-w-md items-center gap-4 rounded-[22px] border border-white/5 bg-white/[0.03] p-5 shadow-2xl backdrop-blur-3xl"
                   >
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-sky-300/20 bg-sky-500/[0.14] text-sky-50">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] border border-[var(--fc-primary)]/20 bg-[var(--fc-primary)]/10 text-[var(--fc-primary)]">
                       <Icon size={21} />
                     </div>
 
                     <div>
-                      <h3 className="text-sm font-semibold text-white">
+                      <h3 className="text-sm font-bold text-white">
                         {item.title}
                       </h3>
 
-                      <p className="mt-1 text-xs leading-relaxed text-zinc-400">
+                      <p className="mt-1 text-xs leading-relaxed text-[var(--fc-text-muted)]">
                         {item.detail}
                       </p>
                     </div>
@@ -586,7 +596,7 @@ export default function AuthPage() {
           </div>
         </div>
 
-        <div className="flex min-h-svh items-start justify-center px-4 py-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:px-8 sm:py-[calc(2rem+env(safe-area-inset-top))] lg:items-center">
+        <div className="flex min-h-svh items-start justify-center px-4 py-[calc(2rem+env(safe-area-inset-top))] pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-8 lg:items-center">
           <motion.div
             initial={{
               opacity: 0,
@@ -596,29 +606,27 @@ export default function AuthPage() {
               opacity: 1,
               y: 0,
             }}
-            className="w-full max-w-[440px]"
+            className="w-full max-w-[420px]"
           >
-            <div className="mb-5 flex items-center justify-center gap-3 sm:mb-7 lg:hidden">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2481CC] to-[#2F8ED8] shadow-lg shadow-sky-700/25">
-                <MessageCircle size={24} />
-              </div>
+            <div className="mb-8 flex items-center justify-center gap-3 lg:hidden">
+              <FlexLogo size="md" />
 
               <div>
                 <h1 className="text-xl font-bold">FlexChat</h1>
               </div>
             </div>
 
-            <div className="mb-4 flex rounded-2xl border border-white/10 bg-white/[0.035] p-1 shadow-xl shadow-black/20 backdrop-blur-2xl sm:mb-6">
+            <div className="mb-6 flex rounded-2xl border border-white/5 bg-white/[0.03] p-1.5 shadow-2xl backdrop-blur-3xl">
               <button
                 type="button"
                 onClick={() => {
                   setIsLogin(true);
                   setError("");
                 }}
-                className={`h-12 flex-1 rounded-xl text-sm font-medium transition-all ${
+                className={`h-11 flex-1 rounded-xl text-sm font-bold transition-all ${
                   isLogin
-                    ? "bg-gradient-to-r from-[#2481CC] to-[#2F8ED8] text-white shadow-lg shadow-sky-700/20"
-                    : "text-zinc-400 hover:text-white"
+                    ? "bg-[var(--fc-primary)] text-white shadow-lg shadow-[rgba(var(--fc-primary-rgb),0.2)]"
+                    : "text-[var(--fc-text-muted)] hover:text-white"
                 }`}
               >
                 Sign In
@@ -630,39 +638,39 @@ export default function AuthPage() {
                   setIsLogin(false);
                   setError("");
                 }}
-                className={`h-12 flex-1 rounded-xl text-sm font-medium transition-all ${
+                className={`h-11 flex-1 rounded-xl text-sm font-bold transition-all ${
                   !isLogin
-                    ? "bg-gradient-to-r from-[#2481CC] to-[#2F8ED8] text-white shadow-lg shadow-sky-700/20"
-                    : "text-zinc-400 hover:text-white"
+                    ? "bg-[var(--fc-primary)] text-white shadow-lg shadow-[rgba(var(--fc-primary-rgb),0.2)]"
+                    : "text-[var(--fc-text-muted)] hover:text-white"
                 }`}
               >
                 Create Account
               </button>
             </div>
 
-            <div className="rounded-[28px] border border-white/10 bg-[#0B111C]/[0.82] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.45),0_0_60px_rgba(36,129,204,0.13)] backdrop-blur-3xl sm:rounded-[34px] sm:p-7">
-              <div className="mb-5 sm:mb-7">
-                <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            <div className="rounded-[24px] border border-white/10 bg-[var(--fc-app-surface)] p-6 shadow-[0_32px_96px_rgba(0,0,0,0.8)] backdrop-blur-3xl sm:p-9">
+              <div className="mb-8">
+                <h2 className="text-3xl font-bold tracking-tight">
                   {isLogin ? "Welcome back" : "Create account"}
                 </h2>
 
-                <p className="mt-2 text-sm leading-relaxed text-zinc-400 sm:text-base">
+                <p className="mt-3 text-sm leading-relaxed text-[var(--fc-text-muted)] sm:text-[15px]">
                   {isLogin
-                    ? "Sign in to continue your conversations."
+                    ? "Sign in to continue to your dashboard."
                     : "Join the next generation messaging platform."}
                 </p>
               </div>
 
               <form
-                className="space-y-4 sm:space-y-5"
+                className="space-y-5 sm:space-y-6"
                 onSubmit={(event) => {
                   event.preventDefault();
                   void handleAuthSuccess();
                 }}
               >
                 {!isLogin && (
-                  <div className="space-y-2">
-                    <label className="text-sm text-zinc-300">Username</label>
+                  <div className="space-y-2.5">
+                    <label className="text-[13px] font-bold text-[var(--fc-text-muted)] uppercase tracking-wider">Username</label>
 
                     <PremiumInput
                       type="text"
@@ -673,8 +681,8 @@ export default function AuthPage() {
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <label className="text-sm text-zinc-300">Email</label>
+                <div className="space-y-2.5">
+                  <label className="text-[13px] font-bold text-[var(--fc-text-muted)] uppercase tracking-wider">Email</label>
 
                   <PremiumInput
                     type="email"
@@ -684,8 +692,8 @@ export default function AuthPage() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm text-zinc-300">Password</label>
+                <div className="space-y-2.5">
+                  <label className="text-[13px] font-bold text-[var(--fc-text-muted)] uppercase tracking-wider">Password</label>
 
                   <div className="relative">
                     <PremiumInput
@@ -701,7 +709,7 @@ export default function AuthPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 transition-colors hover:text-white"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--fc-text-subtle)] transition-colors hover:text-white"
                     >
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
@@ -714,12 +722,12 @@ export default function AuthPage() {
                   onExpire={() => setTurnstileToken("")}
                   onError={() => {
                     setError("Bot protection failed to load. Please refresh.");
-                    setTurnstileToken("");
+                    setTurnstileToken("")
                   }}
                 />
 
                 {error && (
-                  <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                  <div className="rounded-xl border border-red-500/10 bg-red-500/5 px-4 py-3 text-sm text-red-400">
                     {error}
                   </div>
                 )}
@@ -731,8 +739,8 @@ export default function AuthPage() {
                       onClick={() => setAcceptedTerms((value) => !value)}
                       className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${
                         acceptedTerms
-                          ? "border-sky-300 bg-[#2481CC] text-white"
-                          : "border-white/[0.15] bg-white/[0.04] text-transparent hover:border-sky-300/50"
+                          ? "border-[var(--fc-primary)] bg-[var(--fc-primary)] text-white"
+                          : "border-white/10 bg-white/[0.04] text-transparent hover:border-[var(--fc-primary)]/50"
                       }`}
                       role="checkbox"
                       aria-checked={acceptedTerms}
@@ -741,9 +749,8 @@ export default function AuthPage() {
                       <Check size={13} strokeWidth={3} />
                     </button>
 
-                    <p className="text-xs leading-relaxed text-zinc-500">
-                      By creating an account you agree to our Terms and Privacy
-                      Policy.
+                    <p className="text-xs leading-relaxed text-[var(--fc-text-subtle)]">
+                      By creating an account you agree to our <span className="text-[var(--fc-primary)]">Terms</span> and <span className="text-[var(--fc-primary)]">Privacy Policy</span>.
                     </p>
                   </div>
                 )}
@@ -756,10 +763,10 @@ export default function AuthPage() {
                   {isLogin ? "Sign In" : "Create Account"}
                 </PremiumButton>
 
-                <div className="relative flex items-center py-1">
-                  <div className="h-px flex-1 bg-white/10" />
-                  <span className="px-3 text-xs text-zinc-500">or</span>
-                  <div className="h-px flex-1 bg-white/10" />
+                <div className="relative flex items-center py-2">
+                  <div className="h-px flex-1 bg-white/5" />
+                  <span className="px-4 text-[13px] font-bold text-[var(--fc-text-subtle)] uppercase">or</span>
+                  <div className="h-px flex-1 bg-white/5" />
                 </div>
 
                 <motion.button
@@ -774,12 +781,12 @@ export default function AuthPage() {
                     void handleGoogleSignIn();
                   }}
                   disabled={loading || googleLoading}
-                  className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.055] text-sm font-semibold text-white shadow-[0_16px_50px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:border-sky-300/30 hover:bg-sky-500/[0.10] disabled:cursor-wait disabled:opacity-70"
+                  className="flex h-14 w-full items-center justify-center gap-4 rounded-[16px] border border-white/5 bg-white/[0.04] text-sm font-bold text-white shadow-2xl transition-all hover:border-[var(--fc-primary)]/30 hover:bg-[var(--fc-primary)]/[0.04] disabled:cursor-wait disabled:opacity-70"
                 >
                   {googleLoading ? (
                     <Loader2 size={19} className="motion-safe:animate-spin" />
                   ) : (
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-base font-bold text-[#171923]">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-base font-black text-black">
                       G
                     </span>
                   )}

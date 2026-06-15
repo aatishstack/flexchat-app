@@ -19,7 +19,6 @@ import {
   Loader2,
   LockKeyhole,
   LogOut,
-  MessageCircle,
   Moon,
   Palette,
   ShieldCheck,
@@ -28,7 +27,6 @@ import {
   Trash2,
   UserRound,
   Video,
-  Wifi,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -48,6 +46,8 @@ import { deleteCurrentUser } from "@/services/user.service";
 import { useSocketStore } from "@/store/socket-store";
 import { useThemeStore } from "@/store/theme-store";
 import { useToastStore } from "@/store/toast-store";
+
+import FlexLogo from "@/components/shared/flex-logo";
 
 type SettingKey =
   | "readReceipts"
@@ -127,10 +127,10 @@ function ToggleSwitch({
       aria-checked={checked}
       aria-label={label}
       onClick={onChange}
-      className={`fc-telegram-touch relative h-7 w-12 shrink-0 rounded-full border p-1 transition-all duration-200 ${
+      className={`fc-touch relative h-7 w-12 shrink-0 rounded-full border transition-all duration-200 ${
         checked
-          ? "border-[rgba(var(--fc-primary-rgb),0.4)] bg-[var(--fc-primary)]"
-          : "border-[var(--fc-app-border)] bg-[var(--fc-app-surface)]"
+          ? "border-[var(--fc-primary)]/40 bg-[var(--fc-primary)] shadow-lg shadow-[rgba(var(--fc-primary-rgb),0.2)]"
+          : "border-white/10 bg-white/5"
       }`}
     >
       <motion.span
@@ -140,14 +140,14 @@ function ToggleSwitch({
           stiffness: 420,
           damping: 30,
         }}
-        className={`absolute top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[#121624] shadow-lg ${
+        className={`absolute top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-black shadow-md ${
           checked
             ? "left-6"
             : "left-1"
         }`}
       >
         {checked ? (
-          <Check size={13} strokeWidth={3} />
+          <Check size={12} strokeWidth={4} />
         ) : null}
       </motion.span>
     </button>
@@ -168,16 +168,16 @@ function SettingRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="flex min-h-[64px] items-center gap-3 border-b border-[var(--fc-app-border)] px-4 py-2.5 last:border-b-0">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--fc-accent-soft)] text-[var(--fc-accent-text)]">
-        <Icon size={18} />
+    <div className="flex min-h-[72px] items-center gap-4 border-b border-white/[0.03] px-5 py-3 last:border-b-0">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--fc-primary)]/10 bg-[var(--fc-primary)]/5 text-[var(--fc-primary)]">
+        <Icon size={19} />
       </div>
 
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-[15px] font-medium text-[var(--fc-theme-text)]">
+        <h3 className="truncate text-[15px] font-bold text-white/90">
           {title}
         </h3>
-        <p className="mt-0.5 line-clamp-1 text-xs leading-snug text-[var(--fc-text-muted)]">
+        <p className="mt-0.5 line-clamp-1 text-xs font-medium leading-snug text-[var(--fc-text-subtle)]">
           {detail}
         </p>
       </div>
@@ -200,10 +200,10 @@ function Section({
 }) {
   return (
     <section>
-      <h2 className="mb-1.5 px-3 text-[13px] font-semibold text-[var(--fc-accent-text)]">
+      <h2 className="mb-2 px-5 text-[11px] font-black uppercase tracking-[0.15em] text-[var(--fc-text-subtle)]">
         {title}
       </h2>
-      <div className="fc-surface-strong overflow-hidden rounded-[22px] border shadow-[0_10px_28px_rgba(0,0,0,0.18)]">
+      <div className="fc-surface overflow-hidden rounded-[24px] border border-white/10 bg-[var(--fc-app-surface)] shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
         {children}
       </div>
     </section>
@@ -220,24 +220,24 @@ function ThemeModeRow({
   const Icon = lightMode ? Sun : Moon;
 
   return (
-    <div className="flex min-h-[64px] items-center gap-3 border-b border-[var(--fc-app-border)] px-4 py-2.5">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--fc-accent-soft)] text-[var(--fc-accent-text)]">
-        <Icon size={18} />
+    <div className="flex min-h-[72px] items-center gap-4 border-b border-white/[0.03] px-5 py-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--fc-primary)]/10 bg-[var(--fc-primary)]/5 text-[var(--fc-primary)]">
+        <Icon size={19} />
       </div>
 
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-[15px] font-medium text-[var(--fc-theme-text)]">
-          Light mode
+        <h3 className="truncate text-[15px] font-bold text-white/90">
+          Appearance Mode
         </h3>
-        <p className="mt-0.5 line-clamp-1 text-xs leading-snug text-[var(--fc-text-muted)]">
-          Switch between Telegram dark and Flex day themes.
+        <p className="mt-0.5 line-clamp-1 text-xs font-medium leading-snug text-[var(--fc-text-subtle)]">
+          Switch between Dark and Light interface themes.
         </p>
       </div>
 
       <ToggleSwitch
         checked={lightMode}
         onChange={onToggle}
-        label="Light mode"
+        label="Appearance Mode"
       />
     </div>
   );
@@ -304,123 +304,59 @@ export default function SettingsPage() {
   const sections = useMemo(
     () => [
       {
-        title: "Privacy",
-        rows: [
-          {
-            key: "readReceipts" as const,
-            icon: ShieldCheck,
-            title: "Read receipts",
-            detail:
-              "Let conversations know when messages are seen.",
-          },
-          {
-            key: "typingIndicators" as const,
-            icon: MessageCircle,
-            title: "Typing indicators",
-            detail:
-              "Show subtle live typing feedback in active chats.",
-          },
-          {
-            key: "onlinePresence" as const,
-            icon: Wifi,
-            title: "Online presence",
-            detail:
-              "Share your active status with trusted conversations.",
-          },
-        ],
-      },
-      {
-        title: "Notifications",
+        title: "Communications",
         rows: [
           {
             key: "messagePreviews" as const,
             icon: Bell,
-            title: "Message previews",
+            title: "Visual Previews",
             detail:
-              "Show clean previews in notification cards.",
+              "Include message snippets in push notification cards.",
           },
           {
             key: "soundAlerts" as const,
             icon: Headphones,
-            title: "Sound alerts",
+            title: "Audio Feedback",
             detail:
-              "Play a soft alert for new realtime messages.",
+              "Play high-fidelity alerts for incoming messages.",
           },
         ],
       },
       {
-        title: "Security",
-        rows: [
-          {
-            key: "loginAlerts" as const,
-            icon: ShieldCheck,
-            title: "Login alerts",
-            detail:
-              "Notify this device when a new session signs in.",
-          },
-          {
-            key: "appLock" as const,
-            icon: LockKeyhole,
-            title: "App lock",
-            detail:
-              "Require device authentication before opening FlexChat.",
-          },
-        ],
-      },
-      {
-        title: "Appearance",
+        title: "Experience",
         rows: [
           {
             key: "compactLists" as const,
             icon: Palette,
-            title: "Compact lists",
+            title: "High Density Mode",
             detail:
-              "Use denser rows for conversation and contact lists.",
+              "Use tighter information density for navigation lists.",
           },
           {
             key: "reducedMotion" as const,
             icon: Palette,
-            title: "Reduced motion",
+            title: "Motion Optimization",
             detail:
-              "Prefer simpler transitions across the interface.",
+              "Prefer subtle, high-performance transitions.",
           },
         ],
       },
       {
-        title: "Devices",
+        title: "Advanced",
         rows: [
           {
             key: "deviceSync" as const,
             icon: Smartphone,
-            title: "Sync active devices",
+            title: "Cloud Sync",
             detail:
-              "Keep sessions, presence, and unread state aligned.",
+              "Keep multiple active sessions synchronized globally.",
           },
           {
             key: "hdCalls" as const,
             icon: Video,
-            title: "HD calls",
+            title: "HD Video Quality",
             detail:
-              "Prefer higher quality camera streams when available.",
-          },
-        ],
-      },
-      {
-        title: "About",
-        rows: [
-          {
-            key: "mediaAutoDownload" as const,
-            icon: Database,
-            title: "Auto-download media",
-            detail:
-              "Download shared media automatically on trusted networks.",
-          },
-          {
-            key: "releaseNotes" as const,
-            icon: Database,
-            title: "Release notes",
-            detail:
-              "Show product updates and production readiness notes.",
+              "Optimize for maximum bitrate during video calls.",
           },
         ],
       },
@@ -487,143 +423,123 @@ export default function SettingsPage() {
 
   if (!user) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-[#070B14] px-6 text-white">
-        <div className="h-12 w-12 animate-spin rounded-2xl border border-[#2481CC]/25 border-t-[#7CC5FF]" />
+      <main className="flex min-h-dvh items-center justify-center bg-black px-6 text-white">
+        <div className="h-12 w-12 animate-spin rounded-2xl border border-[var(--fc-primary)]/25 border-t-[var(--fc-primary)]" />
       </main>
     );
   }
 
   return (
-    <main className="fc-native-scroll h-dvh min-h-0 overflow-y-auto bg-[var(--fc-app-bg)] px-3 py-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(var(--fc-mobile-nav-height)+1rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 sm:py-7 lg:pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-      <section className="mx-auto flex min-h-0 max-w-2xl flex-col">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => router.replace("/chat")}
-            className="fc-telegram-touch fc-hover flex h-10 w-10 items-center justify-center rounded-full text-[var(--fc-theme-text)] transition"
-            aria-label="Back to chat"
-          >
-            <ArrowLeft size={19} />
-          </button>
+    <>
+      <main className="chat-safe-scroll h-[calc(100dvh-var(--fc-mobile-nav-height,4.75rem))] min-h-[calc(100svh-var(--fc-mobile-nav-height,4.75rem))] overflow-y-auto bg-[var(--fc-app-bg)] px-4 py-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 lg:h-dvh lg:min-h-svh lg:px-8 lg:pb-8 lg:pl-[calc(72px+2rem)]">
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-10">
+          <header className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => router.replace("/chat")}
+                className="fc-hover flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--fc-app-border)] text-zinc-300 transition hover:bg-white/[0.04]"
+                aria-label="Back to chat"
+              >
+                <ArrowLeft size={20} />
+              </button>
+              <FlexLogo size="sm" />
+              <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+            </div>
+            <div className="rounded-full border border-white/5 bg-white/[0.03] px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-[var(--fc-text-subtle)] backdrop-blur-3xl">
+              v1.2.0 Stable
+            </div>
+          </header>
 
-          <div className="fc-surface rounded-full border px-3 py-1.5 text-xs text-[var(--fc-text-muted)] backdrop-blur-xl">
-            FlexChat 1.0.0
-          </div>
-        </div>
-
-        <motion.div
-          initial={{
-            opacity: 0,
-            y: 10,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-          }}
-          transition={{
-            type: "spring",
-            stiffness: 340,
-            damping: 34,
-          }}
-          className="relative"
-        >
-          <div className="grid gap-4">
-            <div className="flex flex-col gap-2.5">
-              <div className="fc-surface-strong rounded-[22px] border p-5 shadow-[0_10px_28px_rgba(0,0,0,0.18)]">
-                <div className="flex flex-col items-center text-center">
-                  <div className="fc-avatar relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full text-3xl font-bold shadow-[0_18px_44px_rgba(0,0,0,0.25)]">
-                    {user.avatar ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={user.avatar}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      getAvatarInitial(
-                        user.username
-                      )
-                    )}
-                  </div>
-
-                  <div className="mt-4 min-w-0">
-                    <h1 className="truncate text-2xl font-semibold">
-                      {user.username}
-                    </h1>
-                    <p className="mt-1 truncate text-sm text-[var(--fc-text-muted)]">
-                      {formatHandle(user.username)}
-                    </p>
-                  </div>
+          <section className="flex flex-col gap-8">
+            <div className="fc-surface overflow-hidden rounded-[28px] border border-white/10 bg-[var(--fc-app-surface)] shadow-[0_32px_96px_rgba(0,0,0,0.6)]">
+              <div className="flex items-center gap-5 p-6 sm:p-8">
+                <div className="fc-avatar relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[24px] border border-white/10 bg-black text-3xl font-black shadow-2xl">
+                  {user.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={user.avatar}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    getAvatarInitial(user.username)
+                  )}
                 </div>
 
-                <div className="mt-5 grid gap-2">
-                  <Link
-                    href="/profile"
-                    className="fc-telegram-touch fc-hover group flex items-center gap-3 rounded-2xl px-4 py-3 transition"
-                  >
-                    <UserRound
-                      size={18}
-                      className="text-[var(--fc-accent-text)]"
-                    />
-                    <span className="min-w-0 flex-1 text-sm font-medium">
-                      View profile
-                    </span>
-                    <ChevronRight
-                      size={17}
-                      className="text-[var(--fc-text-muted)] transition group-hover:translate-x-0.5 group-hover:text-[var(--fc-theme-text)]"
-                    />
-                  </Link>
-
-                  <div className="fc-surface flex items-center gap-3 rounded-2xl px-4 py-3">
-                    <span
-                      className={`h-2.5 w-2.5 rounded-full ${
-                        isConnected
-                          ? "bg-[#4BA3E3] shadow-lg shadow-[#2481CC]/35"
-                          : "bg-amber-300 shadow-lg shadow-amber-500/30"
-                      }`}
-                    />
-                    <span className="text-sm text-[var(--fc-text-muted)]">
-                      {isConnected
-                        ? "Realtime connected"
-                        : "Reconnecting"}
+                <div className="min-w-0 flex-1">
+                  <h2 className="truncate text-2xl font-bold tracking-tight">
+                    {user.username}
+                  </h2>
+                  <p className="mt-1 truncate text-[14px] font-bold text-[var(--fc-accent-text)] opacity-80">
+                    {formatHandle(user.username)}
+                  </p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <div className={`h-1.5 w-1.5 rounded-full ${isConnected ? "bg-[var(--fc-success)]" : "bg-amber-400 animate-pulse"}`} />
+                    <span className="text-[11px] font-black uppercase tracking-wider text-[var(--fc-text-subtle)]">
+                      {isConnected ? "Synced" : "Syncing"}
                     </span>
                   </div>
                 </div>
+
+                <Link
+                  href="/profile"
+                  className="fc-hover flex h-12 w-12 items-center justify-center rounded-2xl border border-white/5 bg-white/[0.03] text-[var(--fc-primary)] transition hover:bg-white/[0.06]"
+                  aria-label="Edit Profile"
+                >
+                  <UserRound size={22} />
+                </Link>
               </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  setLogoutConfirmOpen(true)
-                }
-                className="fc-telegram-touch flex h-12 items-center justify-center gap-2 rounded-[18px] border border-red-300/20 bg-red-500/[0.10] px-5 text-sm font-semibold text-red-100 transition hover:bg-red-500/15"
-              >
-                <LogOut size={18} />
-                Log out
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setDeleteConfirmation("");
-                  setDeleteConfirmOpen(true);
-                }}
-                className="fc-telegram-touch fc-surface flex h-12 items-center justify-center gap-2 rounded-[18px] border px-5 text-sm font-semibold text-red-100 transition hover:bg-red-500/[0.12]"
-              >
-                <Trash2 size={18} />
-                Delete account
-              </button>
+              <div className="grid grid-cols-2 border-t border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setLogoutConfirmOpen(true)}
+                  className="fc-touch flex h-14 items-center justify-center gap-2.5 text-[13px] font-black uppercase tracking-widest text-zinc-300 transition hover:bg-white/[0.03] hover:text-white"
+                >
+                  <LogOut size={16} />
+                  Sign Out
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteConfirmation("");
+                    setDeleteConfirmOpen(true);
+                  }}
+                  className="fc-touch border-l border-white/5 flex h-14 items-center justify-center gap-2.5 text-[13px] font-black uppercase tracking-widest text-red-400 transition hover:bg-red-500/[0.02]"
+                >
+                  <Trash2 size={16} />
+                  Terminate
+                </button>
+              </div>
             </div>
 
-            <div className="grid gap-4">
+            <div className="grid gap-10">
+              <Section title="Privacy Center">
+                 <Link
+                   href="/privacy"
+                   className="flex min-h-[72px] items-center gap-4 px-5 py-3 transition-colors hover:bg-white/[0.01]"
+                 >
+                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--fc-primary)]/10 bg-[var(--fc-primary)]/5 text-[var(--fc-primary)]">
+                      <ShieldCheck size={19} />
+                   </div>
+                   <div className="min-w-0 flex-1">
+                     <h3 className="text-[15px] font-bold text-white/90">Privacy Center</h3>
+                     <p className="mt-0.5 text-xs font-medium text-[var(--fc-text-subtle)]">Visibility, read receipts, and security</p>
+                   </div>
+                   <ChevronRight size={18} className="text-[var(--fc-text-subtle)]" />
+                 </Link>
+              </Section>
+
               {sections.map((section) => (
+
                 <Section
                   key={section.title}
                   title={section.title}
                 >
-                  {section.title === "Appearance" ? (
+                  {section.title === "Experience" ? (
                     <ThemeModeRow
                       lightMode={lightMode}
                       onToggle={toggleThemeMode}
@@ -637,77 +553,85 @@ export default function SettingsPage() {
                       title={row.title}
                       detail={row.detail}
                       checked={settings[row.key]}
-                      onToggle={() =>
-                        toggleSetting(row.key)
-                      }
+                      onToggle={() => toggleSetting(row.key)}
                     />
                   ))}
                 </Section>
               ))}
+
+              <Section title="Account & Data">
+                 <div className="flex min-h-[72px] items-center gap-4 border-b border-white/[0.03] px-5 py-3 transition-colors hover:bg-white/[0.01]">
+                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/5 bg-white/[0.04] text-[var(--fc-text-subtle)]">
+                      <LockKeyhole size={19} />
+                   </div>
+                   <div className="min-w-0 flex-1">
+                     <h3 className="text-[15px] font-bold text-white/90">Passcode Lock</h3>
+                     <p className="mt-0.5 text-xs font-medium text-[var(--fc-text-subtle)]">Secure your conversations</p>
+                   </div>
+                   <ChevronRight size={18} className="text-[var(--fc-text-subtle)]" />
+                 </div>
+                 <div className="flex min-h-[72px] items-center gap-4 border-b border-white/[0.03] px-5 py-3 transition-colors hover:bg-white/[0.01]">
+                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/5 bg-white/[0.04] text-[var(--fc-text-subtle)]">
+                      <Database size={19} />
+                   </div>
+                   <div className="min-w-0 flex-1">
+                     <h3 className="text-[15px] font-bold text-white/90">Data Usage</h3>
+                     <p className="mt-0.5 text-xs font-medium text-[var(--fc-text-subtle)]">Manage network and storage</p>
+                   </div>
+                   <ChevronRight size={18} className="text-[var(--fc-text-subtle)]" />
+                 </div>
+              </Section>
+
+              <Section title="Support">
+                 <div className="flex min-h-[72px] items-center gap-4 border-b border-white/[0.03] px-5 py-3 transition-colors hover:bg-white/[0.01]">
+                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/5 bg-white/[0.04] text-[var(--fc-text-subtle)]">
+                      <AlertTriangle size={19} />
+                   </div>
+                   <div className="min-w-0 flex-1">
+                     <h3 className="text-[15px] font-bold text-white/90">Report a Bug</h3>
+                     <p className="mt-0.5 text-xs font-medium text-[var(--fc-text-subtle)]">Help us improve FlexChat</p>
+                   </div>
+                   <ChevronRight size={18} className="text-[var(--fc-text-subtle)]" />
+                 </div>
+              </Section>
             </div>
-          </div>
-        </motion.div>
-      </section>
+          </section>
+        </div>
+      </main>
 
       <AnimatePresence>
         {logoutConfirmOpen ? (
           <motion.div
-            initial={{
-              opacity: 0,
-            }}
-            animate={{
-              opacity: 1,
-            }}
-            exit={{
-              opacity: 0,
-            }}
-            className="fixed inset-0 z-[280] flex items-center justify-center bg-black/[0.72] p-4 backdrop-blur-xl"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[280] flex items-center justify-center bg-black/90 p-6 backdrop-blur-3xl"
           >
             <motion.div
-              initial={{
-                opacity: 0,
-                y: 10,
-                scale: 0.985,
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-                scale: 1,
-              }}
-              exit={{
-                opacity: 0,
-                y: 10,
-                scale: 0.985,
-              }}
-              transition={{
-                type: "spring",
-                stiffness: 340,
-                damping: 34,
-              }}
-              className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0B111C]/[0.96] p-5 text-white shadow-lg shadow-black/30 backdrop-blur-3xl"
+              initial={{ opacity: 0, y: 32, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 32, scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 340, damping: 34 }}
+              className="w-full max-w-sm rounded-[28px] border border-white/10 bg-[var(--fc-modal)] p-8 text-white shadow-[0_64px_160px_rgba(0,0,0,1)]"
             >
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/[0.15] text-red-100">
-                  <AlertTriangle size={21} />
+              <div className="flex flex-col items-center text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-[20px] border border-[var(--fc-primary)]/10 bg-[var(--fc-primary)]/5 text-[var(--fc-primary)]">
+                  <LogOut size={28} />
                 </div>
 
-                <div className="min-w-0">
-                  <h2 className="text-lg font-semibold">
-                    Log out?
-                  </h2>
-                  <p className="mt-1 text-sm leading-relaxed text-zinc-400">
+                <div className="mt-6">
+                  <h2 className="text-2xl font-bold tracking-tight">Sign Out?</h2>
+                  <p className="fc-muted mt-2 text-[15px] leading-relaxed">
                     Your session will end on this device. Realtime sync resumes after you sign in again.
                   </p>
                 </div>
               </div>
 
-              <div className="mt-6 grid grid-cols-2 gap-3">
+              <div className="mt-10 grid grid-cols-2 gap-4">
                 <button
                   type="button"
-                  onClick={() =>
-                    setLogoutConfirmOpen(false)
-                  }
-                  className="fc-telegram-touch h-12 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08]"
+                  onClick={() => setLogoutConfirmOpen(false)}
+                  className="h-13 rounded-[18px] border border-white/5 bg-white/[0.03] text-[15px] font-black uppercase tracking-widest text-zinc-300 transition hover:bg-white/[0.06] active:scale-95"
                 >
                   Cancel
                 </button>
@@ -715,9 +639,9 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={confirmLogout}
-                  className="fc-telegram-touch h-12 rounded-2xl bg-red-500 text-sm font-semibold text-white transition hover:bg-red-400"
+                  className="h-13 rounded-[18px] bg-[var(--fc-primary)] text-[15px] font-black uppercase tracking-widest text-white shadow-xl shadow-[rgba(var(--fc-primary-rgb),0.3)] transition hover:bg-[var(--fc-primary-hover)] active:scale-95"
                 >
-                  Log out
+                  Confirm
                 </button>
               </div>
             </motion.div>
@@ -728,83 +652,56 @@ export default function SettingsPage() {
       <AnimatePresence>
         {deleteConfirmOpen ? (
           <motion.div
-            initial={{
-              opacity: 0,
-            }}
-            animate={{
-              opacity: 1,
-            }}
-            exit={{
-              opacity: 0,
-            }}
-            className="fixed inset-0 z-[285] flex items-center justify-center bg-black/[0.76] p-4 backdrop-blur-xl"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[285] flex items-center justify-center bg-black/95 p-6 backdrop-blur-3xl"
           >
             <motion.div
-              initial={{
-                opacity: 0,
-                y: 10,
-                scale: 0.985,
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-                scale: 1,
-              }}
-              exit={{
-                opacity: 0,
-                y: 10,
-                scale: 0.985,
-              }}
-              transition={{
-                type: "spring",
-                stiffness: 340,
-                damping: 34,
-              }}
-              className="w-full max-w-md rounded-2xl border border-red-300/15 bg-[#0B111C]/[0.97] p-5 text-white shadow-lg shadow-black/30 backdrop-blur-3xl"
+              initial={{ opacity: 0, y: 32, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 32, scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 340, damping: 34 }}
+              className="w-full max-w-md rounded-[28px] border border-red-500/20 bg-[var(--fc-modal)] p-10 text-white shadow-[0_64px_160px_rgba(0,0,0,1)]"
             >
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-400/25 bg-red-500/[0.16] text-red-100">
-                  <Trash2 size={21} />
+              <div className="flex items-start gap-6">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[20px] border border-red-500/20 bg-red-500/10 text-red-400">
+                  <Trash2 size={28} />
                 </div>
 
                 <div className="min-w-0">
-                  <h2 className="text-lg font-semibold">
-                    Delete account?
-                  </h2>
-                  <p className="mt-1 text-sm leading-relaxed text-zinc-400">
-                    Your profile, presence, stories, notifications, and active sessions will be removed. Existing conversations stay intact as Deleted User.
+                  <h2 className="text-2xl font-bold tracking-tight">Terminate Account?</h2>
+                  <p className="fc-muted mt-2 text-[15px] leading-relaxed">
+                    Your profile, sessions, and active presence will be permanently purged.
                   </p>
                 </div>
               </div>
 
-              <label
-                htmlFor="delete-account-confirmation"
-                className="mt-5 block text-sm font-medium text-zinc-300"
-              >
-                Type DELETE to continue
-              </label>
-              <input
-                id="delete-account-confirmation"
-                value={deleteConfirmation}
-                onChange={(event) =>
-                  setDeleteConfirmation(
-                    event.target.value
-                  )
-                }
-                disabled={deletingAccount}
-                className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-red-300/40 focus:bg-white/[0.06] disabled:cursor-wait disabled:opacity-70"
-                autoComplete="off"
-                autoCapitalize="characters"
-              />
+              <div className="mt-10 space-y-3">
+                <label
+                  htmlFor="delete-account-confirmation"
+                  className="px-1 text-[11px] font-black uppercase tracking-[0.2em] text-red-400/80"
+                >
+                  Type DELETE to Confirm
+                </label>
+                <input
+                  id="delete-account-confirmation"
+                  value={deleteConfirmation}
+                  onChange={(event) => setDeleteConfirmation(event.target.value)}
+                  disabled={deletingAccount}
+                  className="h-14 w-full rounded-2xl border border-red-500/20 bg-red-500/5 px-5 text-sm font-bold text-white outline-none transition focus:border-red-500/40 focus:bg-red-500/10 disabled:opacity-50"
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  placeholder="DELETE"
+                />
+              </div>
 
-              <div className="mt-6 grid grid-cols-2 gap-3">
+              <div className="mt-10 grid grid-cols-2 gap-4">
                 <button
                   type="button"
-                  onClick={() =>
-                    setDeleteConfirmOpen(false)
-                  }
+                  onClick={() => setDeleteConfirmOpen(false)}
                   disabled={deletingAccount}
-                  className="fc-telegram-touch h-12 rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-70"
+                  className="h-13 rounded-[18px] border border-white/5 bg-white/[0.03] text-[15px] font-black uppercase tracking-widest text-zinc-300 transition hover:bg-white/[0.06] active:scale-95"
                 >
                   Cancel
                 </button>
@@ -814,19 +711,13 @@ export default function SettingsPage() {
                   onClick={() => {
                     void confirmDeleteAccount();
                   }}
-                  disabled={
-                    deletingAccount ||
-                    deleteConfirmation !== "DELETE"
-                  }
-                  className="fc-telegram-touch flex h-12 items-center justify-center rounded-2xl bg-red-500 text-sm font-semibold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={deletingAccount || deleteConfirmation !== "DELETE"}
+                  className="fc-touch flex h-13 items-center justify-center rounded-[18px] bg-red-500 text-[15px] font-black uppercase tracking-widest text-white shadow-xl shadow-red-500/30 transition hover:bg-red-400 active:scale-95 disabled:opacity-40"
                 >
                   {deletingAccount ? (
-                    <Loader2
-                      size={18}
-                      className="motion-safe:animate-spin"
-                    />
+                    <Loader2 size={20} className="motion-safe:animate-spin" />
                   ) : (
-                    "Delete"
+                    "Confirm"
                   )}
                 </button>
               </div>
@@ -834,6 +725,6 @@ export default function SettingsPage() {
           </motion.div>
         ) : null}
       </AnimatePresence>
-    </main>
+    </>
   );
 }

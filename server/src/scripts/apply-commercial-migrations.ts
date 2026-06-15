@@ -5,6 +5,7 @@ import {
   db,
 } from "../db/index.js";
 
+try {
 await db.execute(sql`
   alter table users
     add column if not exists is_deleted boolean default false not null
@@ -177,6 +178,11 @@ await db.execute(sql`
 `);
 
 await db.execute(sql`
+  alter table stories
+    add column if not exists visibility text default 'contacts' not null
+`);
+
+await db.execute(sql`
   create table if not exists story_views (
     id text primary key not null,
     story_id text not null,
@@ -307,5 +313,6 @@ await db.execute(sql`
       created_at
     )
 `);
-
-await closeDb();
+} finally {
+  await closeDb();
+}

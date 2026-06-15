@@ -279,23 +279,23 @@ export default function DiscoverPanel({
     <aside
       className={
         variant === "rail"
-          ? "hidden w-[320px] border-r border-[var(--fc-app-border)] bg-[var(--fc-app-panel)] shadow-2xl shadow-black/20 xl:flex xl:flex-col"
-          : "flex h-full w-full flex-col bg-[var(--fc-app-panel)]"
+          ? "hidden w-[320px] border-r border-[var(--fc-app-border)] bg-black shadow-2xl shadow-black/20 xl:flex xl:flex-col"
+          : "flex h-full w-full flex-col bg-black"
       }
     >
-      <div className="border-b border-white/10 bg-white/[0.02] p-5">
-        <h2 className="text-xl font-semibold text-white">
-          Contacts
+      <div className="border-b border-[var(--fc-app-border)] bg-white/[0.02] p-5">
+        <h2 className="text-xl font-bold text-white">
+          Discover
         </h2>
 
-        <p className="mt-1 text-sm text-zinc-500">
-          Recent chats and real FlexChat users
+        <p className="mt-0.5 text-[12px] font-bold uppercase tracking-wider text-[var(--fc-text-subtle)]">
+          Realtime Networking
         </p>
 
-        <div className="relative mt-4">
+        <div className="relative mt-5">
           <Search
             size={17}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--fc-text-subtle)]"
           />
 
           <input
@@ -305,29 +305,29 @@ export default function DiscoverPanel({
                 event.target.value
               )
             }
-            placeholder="Search name or phone number..."
-            className="h-11 w-full rounded-2xl border border-white/10 bg-white/[0.03] pl-11 pr-4 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#2AABEE]/45"
+            placeholder="Search professionals..."
+            className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] pl-11 pr-4 text-sm font-bold text-white outline-none placeholder:text-[var(--fc-text-subtle)] transition focus:border-[var(--fc-primary)]/40 focus:bg-white/[0.05]"
           />
         </div>
       </div>
 
-      <div className="chat-safe-scroll min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
+      <div className="chat-safe-scroll min-h-0 flex-1 space-y-6 overflow-y-auto p-4">
         {discoverQuery.isLoading || conversationsQuery.isLoading ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {Array.from({
               length: 5,
             }).map((_, index) => (
               <div
                 key={index}
-                className="h-[76px] animate-pulse rounded-2xl bg-white/[0.04]"
+                className="h-[76px] animate-pulse rounded-[18px] bg-white/[0.03]"
               />
             ))}
           </div>
         ) : null}
 
         {discoverQuery.isError ? (
-          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-            Unable to load users
+          <div className="rounded-xl border border-red-500/10 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+            Unable to synchronize directory
           </div>
         ) : null}
 
@@ -337,13 +337,13 @@ export default function DiscoverPanel({
           <>
             {filteredContacts.length ? (
               <section>
-                <div className="mb-2 flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
+                <div className="mb-2.5 flex items-center gap-2 px-1 text-[11px] font-black uppercase tracking-widest text-[var(--fc-text-subtle)]">
                   {searchActive ? (
                     <UsersRound size={13} />
                   ) : (
                     <Clock3 size={13} />
                   )}
-                  {searchActive ? "Contacts" : "Recent chats"}
+                  {searchActive ? "Matched Contacts" : "Recent Syncs"}
                 </div>
 
                 <div className="space-y-2">
@@ -369,27 +369,27 @@ export default function DiscoverPanel({
                         setDebouncedSearch("");
                         onConversationOpen?.();
                       }}
-                      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-left transition hover:border-[#2AABEE]/25 hover:bg-[#2AABEE]/10"
+                      className="group fc-touch flex w-full items-center justify-between gap-3 rounded-[18px] border border-white/5 bg-[var(--fc-app-surface)] p-3 text-left transition hover:bg-white/[0.06]"
                     >
                       <span className="flex min-w-0 items-center gap-3">
                         <FlexAvatar
                           src={contact.avatar}
                           name={contact.username}
-                          className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#0E1621] text-base font-bold text-white ring-1 ring-white/10"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-black text-base font-black text-white border border-white/10"
                         />
 
                         <span className="min-w-0">
-                          <span className="block truncate font-medium text-white">
+                          <span className="block truncate font-bold text-white/90">
                             {formatDisplayName(contact.username)}
                           </span>
-                          <span className="block truncate text-sm text-zinc-500">
+                          <span className="block truncate text-xs font-medium text-[var(--fc-text-muted)] group-hover:text-[var(--fc-text-subtle)]">
                             {contact.conversation.latestMessage ||
                               formatHandle(contact.username)}
                           </span>
                         </span>
                       </span>
 
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#2AABEE]/12 text-[#75CFF6]">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--fc-primary)]/10 text-[var(--fc-primary)] shadow-sm">
                         <MessageCircle size={16} />
                       </span>
                     </motion.button>
@@ -400,9 +400,9 @@ export default function DiscoverPanel({
 
             {(searchActive ? users : newlyJoinedUsers).length ? (
               <section>
-                <div className="mb-2 flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
+                <div className="mb-2.5 flex items-center gap-2 px-1 text-[11px] font-black uppercase tracking-widest text-[var(--fc-text-subtle)]">
                   <UserRoundPlus size={13} />
-                  {searchActive ? "FlexChat users" : "Newly joined"}
+                  {searchActive ? "FlexChat Network" : "Fresh Connections"}
                 </div>
 
                 <div className="space-y-2">
@@ -433,23 +433,23 @@ export default function DiscoverPanel({
                           opacity: 1,
                           y: 0,
                         }}
-                        className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 transition hover:border-[#2AABEE]/25 hover:bg-[#2AABEE]/10"
+                        className="group flex items-center justify-between gap-3 rounded-[18px] border border-white/5 bg-[var(--fc-app-surface)] p-3 transition hover:bg-white/[0.06]"
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           <FlexAvatar
                             src={user.avatar}
                             name={user.username}
-                            className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#2AABEE] to-[#75CFF6] text-base font-bold text-white ring-1 ring-white/10"
+                            className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-gradient-to-br from-[var(--fc-primary)] to-[#6D28D9] text-base font-black text-white shadow-lg"
                           />
 
                           <div className="min-w-0">
-                            <h3 className="truncate font-medium text-white">
+                            <h3 className="truncate font-bold text-white/90">
                               {formatDisplayName(
                                 user.username
                               )}
                             </h3>
 
-                            <p className="truncate text-sm text-zinc-500">
+                            <p className="truncate text-xs font-medium text-[var(--fc-text-muted)] group-hover:text-[var(--fc-text-subtle)]">
                               {searchActive && user.phoneNumber
                                 ? user.phoneNumber
                                 : formatHandle(user.username)}
@@ -457,56 +457,58 @@ export default function DiscoverPanel({
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (existingConversation) {
-                              setActiveConversation(
-                                existingConversation
-                              );
-                              setSearch("");
-                              setDebouncedSearch("");
-                              onConversationOpen?.();
-                              return;
-                            }
-
-                            startConversation.mutate(
-                              user.id
-                            );
-                          }}
-                          disabled={isPending}
-                          className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full border border-[#2AABEE]/25 bg-[#2AABEE]/12 px-3 text-sm font-medium text-[#A7D8FF] transition hover:bg-[#2AABEE]/22 disabled:cursor-wait disabled:opacity-60"
-                          aria-label={
-                            hasDirectConversation
-                              ? `Open conversation with ${user.username}`
-                              : `Message ${user.username}`
-                          }
-                        >
-                          {isPending ? (
-                            <Loader2
-                              size={17}
-                              className="motion-safe:animate-spin"
-                            />
-                          ) : (
-                            <MessageCircle size={17} />
-                          )}
-                        </button>
-
-                        {!searchActive ? (
+                        <div className="flex items-center gap-1">
                           <button
                             type="button"
-                            onClick={() =>
-                              dismissUser.mutate(user.id)
+                            onClick={() => {
+                              if (existingConversation) {
+                                setActiveConversation(
+                                  existingConversation
+                                );
+                                setSearch("");
+                                setDebouncedSearch("");
+                                onConversationOpen?.();
+                                return;
+                              }
+
+                              startConversation.mutate(
+                                user.id
+                              );
+                            }}
+                            disabled={isPending}
+                            className="fc-touch flex h-10 min-w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--fc-primary)]/20 bg-[var(--fc-primary)]/10 px-3 text-sm font-bold text-[var(--fc-primary)] transition hover:bg-[var(--fc-primary)]/20 disabled:cursor-wait disabled:opacity-50"
+                            aria-label={
+                              hasDirectConversation
+                                ? `Open conversation with ${user.username}`
+                                : `Message ${user.username}`
                             }
-                            disabled={
-                              dismissUser.isPending
-                            }
-                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] text-zinc-400 transition hover:border-red-300/25 hover:bg-red-500/10 hover:text-red-100 disabled:cursor-wait disabled:opacity-50"
-                            aria-label={`Remove ${user.username} from Discover`}
                           >
-                            <X size={16} />
+                            {isPending ? (
+                              <Loader2
+                                size={17}
+                                className="motion-safe:animate-spin"
+                              />
+                            ) : (
+                              <MessageCircle size={18} />
+                            )}
                           </button>
-                        ) : null}
+
+                          {!searchActive ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                dismissUser.mutate(user.id)
+                              }
+                              disabled={
+                                dismissUser.isPending
+                              }
+                              className="fc-touch flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.02] text-[var(--fc-text-subtle)] transition hover:bg-red-500/10 hover:text-red-400 disabled:cursor-wait disabled:opacity-30"
+                              aria-label={`Remove ${user.username} from Discover`}
+                            >
+                              <X size={18} />
+                            </button>
+                          ) : null}
+                        </div>
                       </motion.div>
                     );
                   })}
@@ -516,10 +518,16 @@ export default function DiscoverPanel({
 
             {!filteredContacts.length &&
             !(searchActive ? users : newlyJoinedUsers).length ? (
-              <div className="flex h-full min-h-56 items-center justify-center px-4 text-center text-sm text-zinc-500">
-                {searchActive
-                  ? "No matching contacts or users"
-                  : "No contacts yet"}
+              <div className="flex h-full min-h-[30vh] items-center justify-center px-6 text-center">
+                 <div>
+                   <Search className="mx-auto text-[var(--fc-text-subtle)]" size={32} />
+                   <p className="mt-3 text-sm font-bold text-[var(--fc-text-muted)]">
+                     No matches found
+                   </p>
+                   <p className="fc-subtle mt-1 text-xs">
+                     Try adjusting your search filters.
+                   </p>
+                 </div>
               </div>
             ) : null}
           </>

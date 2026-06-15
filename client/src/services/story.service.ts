@@ -4,6 +4,7 @@ import type {
   Story,
   StoryViewer,
   StoryMediaType,
+  StoryVisibility,
 } from "@/types/story";
 
 export async function getStories() {
@@ -17,6 +18,7 @@ export async function createStory(input: {
   mediaUrl: string;
   mediaPublicId?: string;
   mediaType: StoryMediaType;
+  visibility: StoryVisibility;
   caption?: string;
 }) {
   const response =
@@ -53,6 +55,18 @@ export async function deleteStory(
   await api.delete(
     `/stories/${storyId}`
   );
+}
+
+export async function updateStoryVisibility(
+  storyId: string,
+  visibility: StoryVisibility,
+) {
+  const response = await api.patch<Story>(
+    `/stories/${storyId}/privacy`,
+    { visibility },
+  );
+
+  return response.data;
 }
 
 export async function getStoryViewers(

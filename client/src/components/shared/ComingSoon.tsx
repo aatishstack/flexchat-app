@@ -23,7 +23,7 @@ export default function ComingSoon({ title }: Props) {
         <div>
           <h1 className="text-2xl font-bold">{title}</h1>
           <p className="fc-muted mt-2 max-w-xs text-sm">
-            We're working hard to bring this feature to you. Stay tuned!
+            We&apos;re working hard to bring this feature to you. Stay tuned!
           </p>
         </div>
 

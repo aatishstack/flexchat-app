@@ -243,6 +243,28 @@ function getMediaTypeByExtension(extension: string) {
   return null;
 }
 
+function getValidatedMediaType(file: File) {
+  const extension = getFileExtension(file);
+  const mediaType =
+    allowedMediaTypes.get(
+      normalizeMimeType(file.type)
+    ) ?? getMediaTypeByExtension(extension)?.mediaType;
+
+  if (
+    !mediaType ||
+    (extension &&
+      !mediaType.extensions.includes(extension))
+  ) {
+    return null;
+  }
+
+  return mediaType;
+}
+
+export function getUploadMediaKind(file: File) {
+  return getValidatedMediaType(file)?.kind ?? null;
+}
+
 function getNormalizedUploadFile(file: File) {
   const extension = getFileExtension(file);
   const normalizedMimeType = normalizeMimeType(file.type);
@@ -664,17 +686,9 @@ async function prepareUploadFile(
 }
 
 export function getUploadValidationError(file: File) {
-  const extension = getFileExtension(file);
-  const mediaType =
-    allowedMediaTypes.get(
-      normalizeMimeType(file.type)
-    ) ?? getMediaTypeByExtension(extension)?.mediaType;
+  const mediaType = getValidatedMediaType(file);
 
-  if (
-    !mediaType ||
-    (extension &&
-      !mediaType.extensions.includes(extension))
-  ) {
+  if (!mediaType) {
     return "Choose a supported image, video, audio file, or PDF.";
   }
 

@@ -176,20 +176,20 @@ export default function NotificationPanel({
   }
 
   return (
-    <div className="flex h-full w-full flex-col">
-      <div className="flex items-center justify-between border-b border-white/10 p-5">
+    <div className="flex h-full w-full flex-col bg-black">
+      <div className="flex items-center justify-between border-b border-[var(--fc-app-border)] p-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-600/18 text-white">
-            <Bell size={20} />
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--fc-primary)]/10 bg-[var(--fc-primary)]/5 text-[var(--fc-primary)]">
+            <Bell size={21} />
           </div>
 
           <div>
-            <h2 className="font-semibold text-white">
+            <h2 className="text-[17px] font-bold text-white">
               Notifications
             </h2>
 
-            <p className="text-sm text-zinc-500">
-              Calls and account events
+            <p className="text-[12px] font-bold uppercase tracking-wider text-[var(--fc-text-subtle)]">
+              Activity & Alerts
             </p>
           </div>
         </div>
@@ -201,10 +201,10 @@ export default function NotificationPanel({
               void handleMarkAllRead();
             }}
             disabled={!unreadCount}
-            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-zinc-400 transition-all hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40"
+            className="fc-touch flex h-10 w-10 items-center justify-center rounded-xl border border-white/5 bg-white/[0.03] text-zinc-400 transition-all hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
             aria-label="Mark all notifications as read"
           >
-            <CheckCheck size={18} />
+            <CheckCheck size={19} />
           </button>
 
           <button
@@ -213,29 +213,29 @@ export default function NotificationPanel({
               void handleClearNotifications();
             }}
             disabled={!notifications.length}
-            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-zinc-400 transition-all hover:bg-red-500/15 hover:text-red-100 disabled:cursor-not-allowed disabled:opacity-40"
+            className="fc-touch flex h-10 w-10 items-center justify-center rounded-xl border border-white/5 bg-white/[0.03] text-zinc-400 transition-all hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30"
             aria-label="Clear notifications"
           >
-            <Trash2 size={17} />
+            <Trash2 size={18} />
           </button>
 
           {onClose ? (
             <button
               type="button"
               onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-zinc-300 transition-all hover:bg-white/[0.06]"
+              className="fc-touch flex h-10 w-10 items-center justify-center rounded-xl border border-white/5 bg-white/[0.03] text-zinc-300 transition-all hover:bg-white/[0.06]"
               aria-label="Close notifications"
             >
-              <X size={18} />
+              <X size={19} />
             </button>
           ) : null}
         </div>
       </div>
 
-      <div className="chat-safe-scroll min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+      <div className="chat-safe-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
         {!notifications.length && (
-          <div className="flex h-full items-center justify-center text-sm text-zinc-500">
-            No notifications yet
+          <div className="flex h-full items-center justify-center text-sm font-bold text-[var(--fc-text-subtle)]">
+            Nothing to see here
           </div>
         )}
 
@@ -247,24 +247,24 @@ export default function NotificationPanel({
               key={
                 notification.id
               }
-              className="w-full rounded-3xl border border-white/10 bg-white/[0.03] p-4 text-left transition hover:bg-white/[0.05]"
+              className="w-full rounded-[20px] border border-white/5 bg-[var(--fc-app-surface)] p-5 text-left transition hover:bg-white/[0.06]"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="text-left">
-                  <h3 className="font-medium text-white">
+              <div className="flex items-start justify-between gap-4">
+                <div className="text-left min-w-0 flex-1">
+                  <h3 className="text-[15px] font-bold text-white/90">
                     {
                       notification.title
                     }
                   </h3>
 
-                  <p className="mt-1 text-sm text-zinc-400">
+                  <p className="mt-1 text-sm font-medium leading-relaxed text-[var(--fc-text-muted)]">
                     {
                       notification.message
                     }
                   </p>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-1">
+                <div className="flex shrink-0 items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => {
@@ -273,7 +273,7 @@ export default function NotificationPanel({
                         !notification.read
                       );
                     }}
-                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-zinc-400 transition hover:bg-white/[0.08] hover:text-white"
+                    className="fc-touch flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.02] text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
                     aria-label={
                       notification.read
                         ? "Mark notification unread"
@@ -281,9 +281,9 @@ export default function NotificationPanel({
                     }
                   >
                     {notification.read ? (
-                      <RotateCcw size={14} />
+                      <RotateCcw size={15} />
                     ) : (
-                      <CheckCheck size={14} />
+                      <CheckCheck size={15} />
                     )}
                   </button>
 
@@ -294,25 +294,30 @@ export default function NotificationPanel({
                         notification.id
                       );
                     }}
-                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-zinc-400 transition hover:bg-red-500/15 hover:text-red-100"
+                    className="fc-touch flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.02] text-zinc-400 transition hover:bg-red-500/10 hover:text-red-400"
                     aria-label="Delete notification"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={15} />
                   </button>
 
                   {!notification.read && (
-                    <div className="ml-1 h-2.5 w-2.5 rounded-full bg-sky-400" />
+                    <div className="ml-1 h-2 w-2 rounded-full bg-[var(--fc-primary)] shadow-lg shadow-[rgba(var(--fc-primary-rgb),0.3)]" />
                   )}
                 </div>
               </div>
 
-              <p className="mt-3 text-xs text-zinc-600">
-                {
-                  formatNotificationTime(
-                    notification.createdAt
-                  )
-                }
-              </p>
+              <div className="mt-4 flex items-center justify-between gap-3">
+                 <p className="text-[11px] font-black uppercase tracking-wider text-[var(--fc-text-subtle)]">
+                   {
+                     formatNotificationTime(
+                       notification.createdAt
+                     )
+                   }
+                 </p>
+                 {!notification.read && (
+                   <span className="text-[10px] font-black uppercase tracking-widest text-[var(--fc-primary)]">New</span>
+                 )}
+              </div>
             </div>
           )
         )}

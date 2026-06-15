@@ -2,65 +2,65 @@
 
 :root {
   color-scheme: dark;
-  --flexchat-bg: #17212b;
-  --flexchat-panel: #17212b;
-  --flexchat-border: #0d1823;
-  --fc-primary: #2aabee;
-  --fc-primary-rgb: 42 171 238;
-  --fc-primary-hover: #3bb7f3;
-  --fc-accent: #2aabee;
-  --fc-accent-rgb: 42 171 238;
-  --fc-accent-soft: rgba(42, 171, 238, 0.14);
-  --fc-accent-muted: rgba(42, 171, 238, 0.22);
-  --fc-accent-text: #75cff6;
-  --fc-chat-bg: #0e1621;
-  --fc-chat-header: rgba(23, 33, 43, 0.96);
-  --fc-chat-composer: rgba(23, 33, 43, 0.95);
-  --fc-own-bubble: #2b5278;
+  --flexchat-bg: #000000;
+  --flexchat-panel: #0A0A0A;
+  --flexchat-border: #161616;
+  --fc-primary: #7C3AED;
+  --fc-primary-rgb: 124 58 237;
+  --fc-primary-hover: #8B5CF6;
+  --fc-accent: #7C3AED;
+  --fc-accent-rgb: 124 58 237;
+  --fc-accent-soft: rgba(124, 58, 237, 0.1);
+  --fc-accent-muted: rgba(124, 58, 237, 0.2);
+  --fc-accent-text: #A78BFA;
+  --fc-chat-bg: #000000;
+  --fc-chat-header: rgba(10, 10, 10, 0.96);
+  --fc-chat-composer: rgba(10, 10, 10, 0.95);
+  --fc-own-bubble: #7C3AED;
   --fc-own-bubble-text: #ffffff;
-  --fc-their-bubble: #182533;
+  --fc-their-bubble: #111111;
   --fc-their-bubble-text: #ffffff;
-  --fc-theme-accent: #2aabee;
+  --fc-theme-accent: #7C3AED;
   --fc-theme-text: #ffffff;
-  --fc-theme-muted: #6c7883;
+  --fc-theme-muted: #888888;
   --fc-text: #ffffff;
-  --fc-text-muted: #6c7883;
-  --fc-text-subtle: rgba(108, 120, 131, 0.82);
-  --fc-app-bg: #17212b;
-  --fc-app-panel: #17212b;
-  --fc-app-panel-strong: #17212b;
-  --fc-app-surface: #232e3c;
-  --fc-app-surface-hover: #2b3a4d;
-  --fc-app-surface-active: #2b5278;
-  --fc-app-elevated: #232e3c;
-  --fc-app-border: #0d1823;
-  --fc-app-border-strong: rgba(42, 171, 238, 0.22);
-  --fc-input-bg: #232e3c;
-  --fc-input-focus: rgba(42, 171, 238, 0.12);
-  --fc-overlay: rgba(0, 0, 0, 0.62);
-  --fc-overlay-strong: rgba(0, 0, 0, 0.78);
-  --fc-modal: rgba(35, 46, 60, 0.98);
-  --fc-skeleton: rgba(255, 255, 255, 0.06);
-  --fc-selection: rgba(42, 171, 238, 0.35);
-  --fc-focus-ring: rgba(42, 171, 238, 0.32);
-  --fc-story-gradient: conic-gradient(from 210deg, #2aabee, #7b61ff, #d946ef, #2aabee);
-  --fc-brand-gradient: linear-gradient(135deg, #2aabee 0%, #168acd 100%);
-  --fc-avatar-bg: rgba(42, 171, 238, 0.16);
-  --fc-shadow-color: rgba(0, 0, 0, 0.46);
-  --fc-scrollbar: rgba(108, 120, 131, 0.35);
-  --fc-divider: #0d1823;
-  --fc-success: #4dcd5e;
-  --fc-warning: #f59e0b;
-  --fc-danger: #ef4444;
-  --fc-motion-fast: 120ms;
-  --fc-motion-base: 180ms;
-  --fc-motion-slow: 280ms;
+  --fc-text-muted: #888888;
+  --fc-text-subtle: #444444;
+  --fc-app-bg: #000000;
+  --fc-app-panel: #0A0A0A;
+  --fc-app-panel-strong: #111111;
+  --fc-app-surface: #0A0A0A;
+  --fc-app-surface-hover: #111111;
+  --fc-app-surface-active: #7C3AED;
+  --fc-app-elevated: #161616;
+  --fc-app-border: #161616;
+  --fc-app-border-strong: rgba(124, 58, 237, 0.2);
+  --fc-input-bg: #0A0A0A;
+  --fc-input-focus: rgba(124, 58, 237, 0.05);
+  --fc-overlay: rgba(0, 0, 0, 0.8);
+  --fc-overlay-strong: rgba(0, 0, 0, 0.9);
+  --fc-modal: #0A0A0A;
+  --fc-skeleton: rgba(255, 255, 255, 0.03);
+  --fc-selection: rgba(124, 58, 237, 0.3);
+  --fc-focus-ring: rgba(124, 58, 237, 0.2);
+  --fc-story-gradient: conic-gradient(from 210deg, #7C3AED, #A78BFA, #7C3AED);
+  --fc-brand-gradient: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%);
+  --fc-avatar-bg: #111111;
+  --fc-shadow-color: rgba(0, 0, 0, 0.6);
+  --fc-scrollbar: rgba(255, 255, 255, 0.1);
+  --fc-divider: #161616;
+  --fc-success: #10B981;
+  --fc-warning: #F59E0B;
+  --fc-danger: #EF4444;
+  --fc-motion-fast: 150ms;
+  --fc-motion-base: 200ms;
+  --fc-motion-slow: 250ms;
   --fc-mobile-nav-height: calc(56px + env(safe-area-inset-bottom));
   --fc-keyboard-inset: env(keyboard-inset-height, 0px);
   --fc-safe-bottom: env(safe-area-inset-bottom);
-  --fc-radius: 14px;
-  --fc-radius-lg: 18px;
-  --fc-radius-xl: 22px;
+  --fc-radius: 10px;
+  --fc-radius-lg: 14px;
+  --fc-radius-xl: 18px;
 }
 
 html[data-flexchat-theme-mode="light"] {
@@ -125,8 +125,8 @@ html[data-flexchat-theme-mode="light"] {
 }
 
 .fc-active {
-  background: #2b5278;
-  border-color: #2b5278;
+  background: var(--fc-primary);
+  border-color: var(--fc-primary);
 }
 
 .fc-muted {
@@ -150,7 +150,7 @@ html[data-flexchat-theme-mode="light"] {
 .fc-input:focus,
 .fc-input:focus-within {
   background: var(--fc-input-focus);
-  border-color: rgba(var(--fc-primary-rgb), 0.52);
+  border-color: var(--fc-primary);
 }
 
 .fc-button-primary {
@@ -166,13 +166,13 @@ html[data-flexchat-theme-mode="light"] {
 .fc-button-soft {
   background: var(--fc-accent-soft);
   color: var(--fc-accent-text);
-  border-color: rgba(var(--fc-primary-rgb), 0.26);
+  border-color: rgba(var(--fc-primary-rgb), 0.1);
 }
 
 .fc-badge {
-  background: #ff3b30;
+  background: var(--fc-primary);
   color: white;
-  box-shadow: 0 0 0 1px rgba(13, 24, 35, 0.5);
+  box-shadow: 0 0 0 1px var(--fc-chat-bg);
 }
 
 .fc-brand-gradient {
@@ -183,28 +183,28 @@ html[data-flexchat-theme-mode="light"] {
   background: var(--fc-story-gradient);
 }
 
-.fc-telegram-touch {
+.fc-touch {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   user-select: none;
   min-height: 44px;
   min-width: 44px;
   transition:
-    transform 130ms cubic-bezier(0.22, 1, 0.36, 1),
-    background-color 130ms ease,
-    opacity 130ms ease;
+    transform var(--fc-motion-fast) cubic-bezier(0.22, 1, 0.36, 1),
+    background-color var(--fc-motion-fast) ease,
+    opacity var(--fc-motion-fast) ease;
 }
 
-.fc-telegram-touch:active {
-  transform: scale(0.982);
+.fc-touch:active {
+  transform: scale(0.98);
 }
 
-.fc-telegram-menu {
-  background: rgba(35, 46, 60, 0.98);
-  border-color: #0d1823;
+.fc-menu {
+  background: var(--fc-modal);
+  border-color: var(--fc-app-border);
   box-shadow:
-    0 22px 54px rgba(0, 0, 0, 0.38),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 22px 54px var(--fc-shadow-color),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .fc-composer textarea:focus,
@@ -214,47 +214,41 @@ html[data-flexchat-theme-mode="light"] {
 }
 
 .fc-composer:focus-within {
-  border-color: rgba(var(--fc-primary-rgb), 0.32) !important;
+  border-color: var(--fc-primary) !important;
 }
 
 .fc-chat-doodle {
   background-color: var(--fc-chat-bg);
-  background-image:
-    radial-gradient(circle at 12px 12px, rgba(255, 255, 255, 0.045) 1px, transparent 1.5px),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.025) 12.5%, transparent 12.5%, transparent 50%, rgba(255, 255, 255, 0.025) 50%, rgba(255, 255, 255, 0.025) 62.5%, transparent 62.5%, transparent);
-  background-size: 34px 34px, 68px 68px;
 }
 
 .fc-message-bubble {
-  border-radius: 12px;
-  font-size: 14.5px;
-  line-height: 1.4;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.035) inset,
-    0 2px 8px rgba(0, 0, 0, 0.08);
+  border-radius: var(--fc-radius-lg);
+  font-size: 15px;
+  line-height: 1.5;
+  box-shadow: 0 2px 8px var(--fc-shadow-color);
 }
 
 .fc-bubble-mine {
-  border-radius: 12px 12px 2px 12px;
+  border-radius: var(--fc-radius-lg) var(--fc-radius-lg) var(--fc-radius) var(--fc-radius-lg);
 }
 
 .fc-bubble-peer {
-  border-radius: 12px 12px 12px 2px;
+  border-radius: var(--fc-radius-lg) var(--fc-radius-lg) var(--fc-radius-lg) var(--fc-radius);
 }
 
 .fc-bubble-mine.fc-bubble-grouped {
-  border-bottom-right-radius: 8px;
+  border-bottom-right-radius: var(--fc-radius-lg);
 }
 
 .fc-bubble-peer.fc-bubble-grouped {
-  border-bottom-left-radius: 8px;
+  border-bottom-left-radius: var(--fc-radius-lg);
 }
 
 .fc-bubble-tail::after {
   position: absolute;
   bottom: 0;
-  width: 9px;
-  height: 12px;
+  width: 10px;
+  height: 14px;
   content: "";
 }
 

@@ -14,8 +14,9 @@ export default defineConfig({
     ...devices["Desktop Chrome"],
     baseURL:
       process.env.PLAYWRIGHT_BASE_URL ??
-      "http://localhost:3000",
+      "https://localhost:3000",
     trace: "retain-on-failure",
+    ignoreHTTPSErrors: true,
     launchOptions: {
       executablePath:
         chromeExecutablePath,

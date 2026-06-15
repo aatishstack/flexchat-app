@@ -11,134 +11,47 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useShallow } from "zustand/react/shallow";
+import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 
-import FlexAvatar from "@/components/chat/flex-avatar";
+import { useCallStore } from "@/store/call-store";
+import { useNotificationStore } from "@/store/notification-store";
 import { useConversationsQuery } from "@/hooks/queries/use-conversations-query";
-import { useServerNow } from "@/hooks/use-server-now";
-import { formatDisplayName } from "@/lib/user-display";
-import { useCallStore, type CallKind } from "@/store/call-store";
-import {
-  useNotificationStore,
-  type NotificationItem,
-} from "@/store/notification-store";
 import { useAuthStore } from "@/stores/auth.store";
+import FlexAvatar from "@/components/chat/flex-avatar";
+import { formatDisplayName } from "@/lib/user-display";
+import { formatRelativeTime } from "@/lib/server-time";
 import type { Conversation } from "@/types/conversation";
+import type { NotificationItem } from "@/store/notification-store";
+import FlexLogo from "@/components/shared/flex-logo";
 
-const CALL_NOTIFICATION_KINDS = new Set([
-  "call",
-  "missed_call",
-  "call_accepted",
-  "call_rejected",
-]);
-
-function getCallTarget(conversation: Conversation, currentUserId?: string) {
-  return conversation.memberIds?.find((memberId) => memberId !== currentUserId);
+function formatElapsed(seconds: number) {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
-function getCallAvatar(conversation: Conversation, currentUserId?: string) {
+function getCallTarget(conversation: Conversation, currentUserId?: string) {
+  if (conversation.type !== "direct") {
+    return null;
+  }
   return (
-    conversation.avatar ??
-    conversation.members?.find(
-      (member) => member.id !== currentUserId && member.avatar,
-    )?.avatar ??
-    null
+    conversation.memberIds?.find((id) => id !== currentUserId) ?? null
   );
 }
 
-function formatRelativeTime(value: string, now: number) {
-  const time = new Date(value).getTime();
-
-  if (Number.isNaN(time)) {
-    return "";
+function getCallAvatar(conversation: Conversation, currentUserId?: string) {
+  if (conversation.type !== "direct") {
+    return conversation.avatar;
   }
-
-  const minutes = Math.max(0, Math.round((now - time) / 60_000));
-
-  if (minutes < 1) {
-    return "Now";
-  }
-
-  if (minutes < 60) {
-    return `${minutes}m ago`;
-  }
-
-  const hours = Math.round(minutes / 60);
-
-  if (hours < 24) {
-    return `${hours}h ago`;
-  }
-
-  const days = Math.round(hours / 24);
-
-  return `${days}d ago`;
-}
-
-function getHistoryGroup(value: string, now: number) {
-  const date = new Date(value);
-  const today = new Date(now);
-  const yesterday = new Date(now - 86_400_000);
-
-  if (
-    date.getFullYear() === today.getFullYear() &&
-    date.getMonth() === today.getMonth() &&
-    date.getDate() === today.getDate()
-  ) {
-    return "Today";
-  }
-
-  if (
-    date.getFullYear() === yesterday.getFullYear() &&
-    date.getMonth() === yesterday.getMonth() &&
-    date.getDate() === yesterday.getDate()
-  ) {
-    return "Yesterday";
-  }
-
-  return "Earlier";
-}
-
-function getHistoryMeta(notification: NotificationItem) {
-  const title = notification.title.toLowerCase();
-  const message = notification.message.toLowerCase();
-  const video =
-    title.includes("video") || message.includes("video");
-
-  if (notification.kind === "missed_call") {
-    return {
-      label: video ? "Missed video call" : "Missed audio call",
-      tone: "text-red-200",
-      icon: PhoneMissed,
-    };
-  }
-
-  if (notification.kind === "call_accepted") {
-    return {
-      label: video ? "Video call connected" : "Audio call connected",
-      tone: "text-[var(--fc-success)]",
-      icon: PhoneIncoming,
-    };
-  }
-
-  if (notification.kind === "call_rejected") {
-    return {
-      label: video ? "Video call declined" : "Audio call declined",
-      tone: "text-amber-200",
-      icon: PhoneOutgoing,
-    };
-  }
-
-  return {
-    label: video ? "Video call" : "Audio call",
-    tone: "text-[var(--fc-accent-text)]",
-    icon: video ? Video : Phone,
-  };
+  const target = conversation.members?.find((m) => m.id !== currentUserId);
+  return target?.avatar ?? conversation.avatar;
 }
 
 export default function CallsPage() {
-  const now = useServerNow();
+  const [now, setNow] = useState(() => Date.now());
+
   const currentUserId = useAuthStore((state) => state.user?.id);
-  const conversationsQuery = useConversationsQuery();
-  const notifications = useNotificationStore((state) => state.notifications);
   const { currentCall, phase, startCall } = useCallStore(
     useShallow((state) => ({
       currentCall: state.currentCall,
@@ -147,93 +60,140 @@ export default function CallsPage() {
     })),
   );
 
-  const conversations = (conversationsQuery.data ?? []).slice(0, 32);
-  const activeConversation = currentCall
-    ? conversationsQuery.data?.find(
-        (conversation) => conversation.id === currentCall.conversationId,
-      )
-    : null;
-  const callHistory = notifications
-    .filter(
-      (notification) =>
-        notification.kind && CALL_NOTIFICATION_KINDS.has(notification.kind),
-    )
-    .slice(0, 60);
-  const groupedHistory = callHistory.reduce<Record<string, NotificationItem[]>>(
-    (groups, notification) => {
-      const group = getHistoryGroup(notification.createdAt, now);
-
-      groups[group] = groups[group] ?? [];
-      groups[group].push(notification);
-
-      return groups;
-    },
-    {},
+  const notifications = useNotificationStore((state) => state.notifications);
+  const conversationsQuery = useConversationsQuery();
+  const conversations = (conversationsQuery.data ?? []).filter(
+    (c) => c.type === "direct",
   );
 
-  async function startConversationCall(
-    conversation: Conversation,
-    kind: CallKind,
-  ) {
-    const targetUserId = getCallTarget(conversation, currentUserId);
+  const activeConversation = useMemo(() => {
+    if (!currentCall) return null;
+    return conversations.find((c) => c.id === currentCall.conversationId);
+  }, [currentCall, conversations]);
 
-    if (!targetUserId) {
-      return;
-    }
+  const callHistory = useMemo(() => {
+    return notifications
+      .filter((n) =>
+        ["call", "missed_call", "call_accepted", "call_rejected"].includes(
+          n.kind ?? "",
+        ),
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+  }, [notifications]);
 
-    await startCall({
-      conversationId: conversation.id,
-      targetUserId,
-      kind,
+  const groupedHistory = useMemo(() => {
+    const groups: Record<string, NotificationItem[]> = {
+      Today: [],
+      Yesterday: [],
+      Earlier: [],
+    };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    callHistory.forEach((item) => {
+      const date = new Date(item.createdAt);
+      if (date >= today) {
+        groups.Today.push(item);
+      } else if (date >= yesterday) {
+        groups.Yesterday.push(item);
+      } else {
+        groups.Earlier.push(item);
+      }
     });
-  }
+
+    return groups;
+  }, [callHistory]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const getHistoryMeta = (notification: NotificationItem) => {
+    switch (notification.kind) {
+      case "missed_call":
+        return {
+          icon: PhoneMissed,
+          label: "Missed Call",
+          tone: "text-red-400",
+        };
+      case "call_rejected":
+        return {
+          icon: PhoneOutgoing,
+          label: "Declined Call",
+          tone: "text-zinc-500",
+        };
+      case "call_accepted":
+        return {
+          icon: PhoneIncoming,
+          label: "Connected Call",
+          tone: "text-[var(--fc-success)]",
+        };
+      default:
+        return {
+          icon: PhoneCall,
+          label: "Recent Activity",
+          tone: "text-[var(--fc-primary)]",
+        };
+    }
+  };
 
   return (
-    <main className="chat-safe-scroll h-[calc(100dvh-var(--fc-mobile-nav-height,4.75rem))] min-h-[calc(100svh-var(--fc-mobile-nav-height,4.75rem))] overflow-y-auto bg-[var(--fc-app-bg)] px-4 py-[calc(1rem+env(safe-area-inset-top))] pb-[calc(6rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 lg:h-dvh lg:min-h-svh lg:px-8 lg:pb-8 lg:pl-[calc(72px+2rem)]">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
-        <header className="flex items-center justify-between gap-4">
+    <main className="chat-safe-scroll h-[calc(100dvh-var(--fc-mobile-nav-height,4.75rem))] min-h-[calc(100svh-var(--fc-mobile-nav-height,4.75rem))] overflow-y-auto bg-[var(--fc-app-bg)] px-4 py-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 lg:h-dvh lg:min-h-svh lg:px-8 lg:pb-8 lg:pl-[calc(72px+2rem)]">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
+        <header className="flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Calls</h1>
-            <p className="fc-muted mt-1 text-sm">
-              Audio, video, and recent call activity.
+            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Calls</h1>
+            <p className="fc-muted mt-2 text-[15px]">
+              Audio, video, and recent activity.
             </p>
           </div>
 
-          <div className="fc-button-soft hidden items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium sm:flex">
-            <Clock3 size={14} />
-            {phase === "idle" ? "Ready" : "Call in progress"}
+          <div className="fc-button-soft hidden items-center gap-2 rounded-full border px-4 py-2 text-[13px] font-bold sm:flex">
+            <div className={`h-2 w-2 rounded-full ${phase === "idle" ? "bg-[var(--fc-success)]" : "bg-[var(--fc-primary)] animate-pulse"}`} />
+            {phase === "idle" ? "Ready" : "In Progress"}
           </div>
         </header>
 
         {currentCall ? (
-          <section className="fc-panel-strong rounded-2xl border p-4 shadow-lg shadow-black/10">
+          <section className="fc-surface-strong rounded-[20px] border p-5 shadow-2xl">
             <div className="flex items-center gap-4">
-              <div className="fc-button-primary flex h-12 w-12 items-center justify-center rounded-2xl">
-                {currentCall.kind === "video" ? <Video size={21} /> : <Phone size={21} />}
+              <div className="fc-button-primary flex h-14 w-14 items-center justify-center rounded-2xl shadow-[0_12px_40px_rgba(var(--fc-primary-rgb),0.3)]">
+                {currentCall.kind === "video" ? <Video size={24} /> : <Phone size={24} />}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">
+                <p className="text-[17px] font-bold">
                   {formatDisplayName(activeConversation?.name ?? "FlexChat call")}
                 </p>
-                <p className="fc-muted mt-1 text-xs capitalize">
+                <p className="fc-muted mt-0.5 text-[13px] font-medium capitalize">
                   {currentCall.kind} call · {phase}
                 </p>
               </div>
-              <span className="rounded-full bg-[rgba(var(--fc-primary-rgb),0.16)] px-3 py-1.5 text-xs font-semibold text-[var(--fc-accent-text)]">
-                Live
-              </span>
+              <div className="flex flex-col items-end gap-1.5">
+                <span className="flex items-center gap-1.5 rounded-full bg-[rgba(var(--fc-primary-rgb),0.12)] px-3 py-1 text-[11px] font-black uppercase tracking-wider text-[var(--fc-accent-text)]">
+                  <div className="h-1.5 w-1.5 rounded-full bg-[var(--fc-primary)] animate-pulse" />
+                  Live
+                </span>
+              </div>
             </div>
           </section>
         ) : null}
 
-        <section className="grid gap-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--fc-text-subtle)]">
-              Start A Call
+        <section className="grid gap-4">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-[13px] font-black uppercase tracking-[0.15em] text-[var(--fc-text-subtle)]">
+              Quick Call
             </h2>
           </div>
 
-          <div className="grid gap-2">
+          <div className="grid gap-2 sm:grid-cols-2">
             {conversations.map((conversation, index) => {
               const targetUserId = getCallTarget(conversation, currentUserId);
               const avatar = getCallAvatar(conversation, currentUserId);
@@ -241,23 +201,23 @@ export default function CallsPage() {
               return (
                 <motion.div
                   key={conversation.id}
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(index * 0.025, 0.18) }}
-                  className="fc-surface flex items-center gap-3 rounded-2xl border p-3"
+                  transition={{ delay: Math.min(index * 0.03, 0.2) }}
+                  className="fc-surface fc-touch flex items-center gap-4 rounded-[20px] border p-3.5 transition-all hover:border-[rgba(var(--fc-primary-rgb),0.2)] hover:bg-[rgba(255,255,255,0.02)]"
                 >
                   <FlexAvatar
                     src={avatar}
                     name={conversation.name}
-                    className="fc-avatar flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-base font-bold"
+                    className="fc-avatar flex h-12 w-12 items-center justify-center overflow-hidden rounded-[14px] text-lg font-bold shadow-lg shadow-black/20"
                   />
 
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">
+                    <p className="truncate text-[15px] font-bold">
                       {formatDisplayName(conversation.name ?? "Untitled")}
                     </p>
-                    <p className="fc-muted mt-1 truncate text-xs">
-                      {conversation.latestMessage ?? "No recent messages"}
+                    <p className="fc-muted mt-0.5 truncate text-[13px] font-medium">
+                      {conversation.latestMessage ?? "Recent contact"}
                     </p>
                   </div>
 
@@ -265,24 +225,33 @@ export default function CallsPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        void startConversationCall(conversation, "voice");
+                        void startCall({
+                          conversationId: conversation.id,
+                          targetUserId: targetUserId!,
+                          kind: "video",
+                        });
+
                       }}
                       disabled={!targetUserId}
-                      className="fc-hover flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--fc-app-border)] text-[var(--fc-accent-text)] transition disabled:cursor-not-allowed disabled:opacity-40"
+                      className="fc-hover flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--fc-app-border)] text-[var(--fc-accent-text)] transition-all hover:border-[var(--fc-primary)] hover:bg-[var(--fc-accent-soft)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-20"
                       aria-label={`Start audio call with ${conversation.name}`}
                     >
-                      <Phone size={17} />
+                      <Phone size={19} />
                     </button>
                     <button
                       type="button"
                       onClick={() => {
-                        void startConversationCall(conversation, "video");
+                        void startCall({
+                          conversationId: conversation.id,
+                          targetUserId: targetUserId!,
+                          kind: "video",
+                        });
                       }}
                       disabled={!targetUserId}
-                      className="fc-hover flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--fc-app-border)] text-[var(--fc-accent-text)] transition disabled:cursor-not-allowed disabled:opacity-40"
+                      className="fc-hover flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--fc-app-border)] text-[var(--fc-accent-text)] transition-all hover:border-[var(--fc-primary)] hover:bg-[var(--fc-accent-soft)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-20"
                       aria-label={`Start video call with ${conversation.name}`}
                     >
-                      <Video size={17} />
+                      <Video size={19} />
                     </button>
                   </div>
                 </motion.div>
@@ -290,13 +259,12 @@ export default function CallsPage() {
             })}
 
             {!conversationsQuery.isLoading && !conversations.length ? (
-              <div className="fc-surface rounded-2xl border p-6 text-center">
-                <PhoneCall
-                  size={28}
-                  className="mx-auto text-[var(--fc-text-subtle)]"
-                />
-                <p className="mt-3 text-sm font-medium">No call contacts yet</p>
-                <p className="fc-muted mt-1 text-xs">
+              <div className="fc-surface col-span-full rounded-[24px] border border-dashed p-10 text-center">
+                <div className="mx-auto mb-5 flex justify-center">
+                  <FlexLogo size="lg" variant="soft" />
+                </div>
+                <p className="text-base font-bold">No call contacts</p>
+                <p className="fc-muted mt-2 text-[13px]">
                   Start a conversation first, then call from here.
                 </p>
               </div>
@@ -304,60 +272,65 @@ export default function CallsPage() {
           </div>
         </section>
 
-        <section className="grid gap-3">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--fc-text-subtle)]">
-            Recent
-          </h2>
+        <section className="grid gap-4">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-[13px] font-black uppercase tracking-[0.15em] text-[var(--fc-text-subtle)]">
+              Recents
+            </h2>
+          </div>
 
-          {["Today", "Yesterday", "Earlier"].map((group) => {
-            const items = groupedHistory[group] ?? [];
+          <div className="flex flex-col gap-6">
+            {["Today", "Yesterday", "Earlier"].map((group) => {
+              const items = groupedHistory[group] ?? [];
 
-            if (!items.length) {
-              return null;
-            }
+              if (!items.length) {
+                return null;
+              }
 
-            return (
-              <div key={group} className="grid gap-2">
-                <p className="fc-subtle px-1 text-xs font-medium">{group}</p>
-                {items.map((notification) => {
-                  const meta = getHistoryMeta(notification);
-                  const Icon = meta.icon;
+              return (
+                <div key={group} className="flex flex-col gap-3">
+                  <p className="fc-subtle px-2 text-[11px] font-black uppercase tracking-widest">{group}</p>
+                  <div className="grid gap-2">
+                    {items.map((notification) => {
+                      const meta = getHistoryMeta(notification);
+                      const Icon = meta.icon;
 
-                  return (
-                    <div
-                      key={notification.id}
-                      className="fc-surface flex items-center gap-3 rounded-2xl border p-3"
-                    >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[var(--fc-app-border)] bg-[rgba(var(--fc-primary-rgb),0.09)]">
-                        <Icon size={17} className={meta.tone} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold">
-                          {meta.label}
-                        </p>
-                        <p className="fc-muted mt-1 truncate text-xs">
-                          {notification.message || notification.title}
-                        </p>
-                      </div>
-                      <span className="fc-subtle shrink-0 text-xs">
-                        {formatRelativeTime(notification.createdAt, now)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
+                      return (
+                        <div
+                          key={notification.id}
+                          className="fc-surface fc-touch flex items-center gap-4 rounded-[20px] border p-4 transition-colors hover:bg-[rgba(255,255,255,0.01)]"
+                        >
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--fc-app-border)] bg-[rgba(var(--fc-primary-rgb),0.06)]">
+                            <Icon size={19} className={meta.tone} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[15px] font-bold">
+                              {meta.label}
+                            </p>
+                            <p className="fc-muted mt-0.5 truncate text-[13px] font-medium">
+                              {notification.message || notification.title}
+                            </p>
+                          </div>
+                          <span className="fc-subtle shrink-0 text-[12px] font-bold">
+                            {formatRelativeTime(notification.createdAt, now)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
           {!callHistory.length ? (
-            <div className="fc-surface rounded-2xl border p-6 text-center">
-              <PhoneCall
-                size={28}
-                className="mx-auto text-[var(--fc-text-subtle)]"
-              />
-              <p className="mt-3 text-sm font-medium">No recent calls</p>
-              <p className="fc-muted mt-1 text-xs">
-                Missed, connected, and declined calls will appear here.
+            <div className="fc-surface rounded-[24px] border border-dashed p-10 text-center">
+              <div className="mx-auto mb-5 flex justify-center">
+                <FlexLogo size="lg" variant="soft" />
+              </div>
+              <p className="text-base font-bold">Call history is empty</p>
+              <p className="fc-muted mt-2 text-[13px]">
+                Your recent calls and activity will appear here.
               </p>
             </div>
           ) : null}

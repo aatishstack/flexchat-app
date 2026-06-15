@@ -945,7 +945,7 @@ function ReactionPicker({
         top,
         width: pickerWidth,
       }}
-      className="fc-modal fixed z-[260] flex items-center justify-center gap-1 rounded-2xl border p-2 sm:backdrop-blur-2xl"
+      className="fc-menu fixed z-[260] flex items-center justify-center gap-1 rounded-2xl border p-2 backdrop-blur-3xl"
       role="menu"
       aria-label="Choose reaction"
     >
@@ -955,7 +955,7 @@ function ReactionPicker({
           type="button"
           onClick={() => onSelect(emoji)}
           disabled={disabled}
-          className="flex h-9 w-9 items-center justify-center rounded-xl text-lg transition hover:bg-white/10 active:scale-90 disabled:cursor-wait disabled:opacity-60"
+          className="fc-touch flex h-9 w-9 items-center justify-center rounded-xl text-lg transition hover:bg-white/10 active:scale-90 disabled:cursor-wait disabled:opacity-60"
           aria-label={`React ${emoji}`}
         >
           {emoji}
@@ -1028,7 +1028,7 @@ function MessageActionOverlay({
       : clamp(aboveTop, 12, viewportHeight - stackHeight - 12);
 
   const actionButtonClass =
-    "fc-telegram-touch flex h-11 w-full items-center gap-3.5 px-4 text-left text-[14.5px] font-medium text-white/92 transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-55";
+    "fc-touch flex h-11 w-full items-center gap-3.5 px-4 text-left text-[14.5px] font-bold text-white/95 transition hover:bg-white/[0.06] disabled:cursor-wait disabled:opacity-55";
 
   const content = (
     <AnimatePresence>
@@ -1044,7 +1044,7 @@ function MessageActionOverlay({
         exit={{
           opacity: 0,
         }}
-        className="fixed inset-0 z-[255] bg-black/15 sm:backdrop-blur-[1px]"
+        className="fixed inset-0 z-[255] bg-black/40 backdrop-blur-[1px]"
         onPointerDown={onClose}
       >
         <motion.div
@@ -1078,7 +1078,7 @@ function MessageActionOverlay({
           role="menu"
           aria-label="Message actions"
         >
-          <div className="fc-telegram-menu mb-2.5 flex h-[52px] items-center justify-between rounded-[22px] border bg-[#17212B]/94 px-1.5 shadow-xl sm:backdrop-blur-3xl">
+          <div className="fc-menu mb-2.5 flex h-[56px] items-center justify-between rounded-[22px] border px-1.5 shadow-2xl backdrop-blur-3xl">
             {QUICK_REACTIONS.map((emoji, index) => (
               <motion.button
                 key={emoji}
@@ -1099,7 +1099,7 @@ function MessageActionOverlay({
                 }}
                 onClick={() => onReact(emoji)}
                 disabled={disabled}
-                className="fc-telegram-touch flex h-10 w-9 items-center justify-center rounded-full text-[22px] transition hover:bg-white/[0.1] active:scale-90 disabled:cursor-wait disabled:opacity-55"
+                className="fc-touch flex h-10 w-10 items-center justify-center rounded-full text-[22px] transition hover:bg-white/[0.1] active:scale-90 disabled:cursor-wait disabled:opacity-55"
                 aria-label={`React ${emoji}`}
               >
                 {emoji}
@@ -1110,14 +1110,14 @@ function MessageActionOverlay({
               type="button"
               onClick={onMoreReactions}
               disabled={disabled}
-              className="fc-telegram-touch flex h-10 w-9 items-center justify-center rounded-full text-white/75 transition hover:bg-white/[0.1] active:scale-90 disabled:cursor-wait disabled:opacity-55"
+              className="fc-touch flex h-10 w-10 items-center justify-center rounded-full text-[var(--fc-primary)] transition hover:bg-[var(--fc-primary)]/10 active:scale-90 disabled:cursor-wait disabled:opacity-55"
               aria-label="More reactions"
             >
               <SmilePlus size={20} />
             </button>
           </div>
 
-          <div className="fc-telegram-menu overflow-hidden rounded-[16px] border bg-[#17212B]/94 py-1 shadow-2xl sm:backdrop-blur-3xl">
+          <div className="fc-menu overflow-hidden rounded-[20px] border py-1 shadow-2xl backdrop-blur-3xl">
             {canReply ? (
               <button
                 type="button"
@@ -1126,7 +1126,7 @@ function MessageActionOverlay({
               >
                 <Reply
                   size={20}
-                  className="text-[#8ED4FF]"
+                  className="text-[var(--fc-primary)]"
                 />
                 Reply
               </button>
@@ -1139,7 +1139,7 @@ function MessageActionOverlay({
             >
               <Forward
                 size={20}
-                className="text-[#8ED4FF]"
+                className="text-[var(--fc-primary)]"
               />
               Forward
             </button>
@@ -1152,7 +1152,7 @@ function MessageActionOverlay({
               >
                 <Pencil
                   size={20}
-                  className="text-[#8ED4FF]"
+                  className="text-[var(--fc-primary)]"
                 />
                 Edit
               </button>
@@ -1166,7 +1166,7 @@ function MessageActionOverlay({
               >
                 <Clipboard
                   size={20}
-                  className="text-[#8ED4FF]"
+                  className="text-[var(--fc-primary)]"
                 />
                 Copy
               </button>
@@ -1179,17 +1179,19 @@ function MessageActionOverlay({
             >
               <Star
                 size={20}
-                className={starred ? "fill-[#FDE047] text-[#FDE047]" : "text-[#FDE047]"}
+                className={starred ? "fill-[var(--fc-primary)] text-[var(--fc-primary)]" : "text-[var(--fc-primary)]"}
               />
               {starred ? "Unstar" : "Star"}
             </button>
+
+            <div className="my-1 h-px bg-white/5" />
 
             {canDelete ? (
               <button
                 type="button"
                 onClick={onDelete}
                 disabled={disabled}
-                className={`${actionButtonClass} text-red-200 hover:bg-red-500/20`}
+                className={`${actionButtonClass} text-red-400 hover:bg-red-500/10`}
               >
                 <Trash2 size={20} />
                 Delete
@@ -4553,20 +4555,20 @@ export default function ChatConversation() {
           ? `translateX(${mobileBackSwipeX}px)`
           : undefined,
       }}
-      className="fc-chat-doodle fc-gpu-accelerated relative flex h-full min-h-0 flex-col overflow-hidden text-[var(--fc-theme-text)] transition-transform duration-150"
+      className="fc-gpu-accelerated relative flex h-full min-h-0 flex-col overflow-hidden text-[var(--fc-theme-text)] transition-transform duration-150"
       onTouchStart={handleConversationTouchStart}
       onTouchMove={handleConversationTouchMove}
       onTouchEnd={handleConversationTouchEnd}
       onTouchCancel={handleConversationTouchEnd}
     >
       <div
-        className="relative z-10 flex shrink-0 items-center justify-between gap-2 border-b border-[#0D1823] bg-[var(--fc-chat-header)] px-2.5 py-2 pt-[calc(0.45rem+env(safe-area-inset-top))] shadow-[0_1px_0_rgba(0,0,0,0.24)] sm:px-5 sm:py-3 sm:backdrop-blur-2xl"
+        className="relative z-10 flex shrink-0 items-center justify-between gap-2 border-b border-[var(--fc-app-border)] bg-[var(--fc-chat-header)] px-2.5 py-2 pt-[calc(0.45rem+env(safe-area-inset-top))] sm:px-5 sm:py-3 sm:backdrop-blur-3xl"
       >
         <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
           <button
             type="button"
             onClick={returnToConversationList}
-            className="fc-telegram-touch fc-hover flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white transition lg:hidden"
+            className="fc-touch fc-hover flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)] lg:hidden"
             aria-label="Back to conversations"
           >
             <ArrowLeft size={24} />
@@ -4582,36 +4584,36 @@ export default function ChatConversation() {
 
               setProfileOpen(true);
             }}
-            className="shrink-0 rounded-2xl outline-none transition active:scale-95 focus-visible:ring-2 focus-visible:ring-[var(--fc-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="shrink-0 rounded-[14px] outline-none transition active:scale-95 focus-visible:ring-2 focus-visible:ring-[var(--fc-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isConversationBlocked}
             aria-label="Open profile"
           >
             <FlexAvatar
               src={activeConversationAvatar}
               name={activeConversation.name}
-              className="fc-avatar flex h-11 w-11 items-center justify-center overflow-hidden rounded-full text-sm font-bold sm:text-base"
+              className="fc-avatar flex h-11 w-11 items-center justify-center overflow-hidden rounded-[14px] text-sm font-bold sm:text-base"
             />
           </button>
 
           <div className="min-w-0 flex-1">
             <h2
-              className="truncate text-[17px] font-semibold leading-tight text-white"
+              className="truncate text-[17px] font-bold leading-tight text-white"
             >
               {activeConversationDisplayName}
             </h2>
 
             <p
-              className={`truncate text-[13px] leading-tight ${
+              className={`truncate text-[12px] font-medium leading-tight ${
                 !isConnected && isConnecting
-                  ? "text-cyan-300"
+                  ? "text-[var(--fc-primary)]"
                   : !isConnected
                     ? "text-[var(--fc-text-subtle)]"
                     : isConversationBlocked
                   ? "text-[var(--fc-text-subtle)]"
                   : remoteTypingUsers.length
-                  ? "text-cyan-300"
+                  ? "text-[var(--fc-primary)]"
                   : isOnline
-                    ? "text-[var(--fc-success)]"
+                    ? "text-[var(--fc-primary)]"
                     : "text-[var(--fc-text-subtle)]"
               }`}
             >
@@ -4621,7 +4623,7 @@ export default function ChatConversation() {
         </div>
 
         <div
-          className="flex max-w-[58vw] shrink-0 items-center gap-2 overflow-x-auto pl-1 sm:max-w-none sm:overflow-visible sm:pl-0"
+          className="flex max-w-[58vw] shrink-0 items-center gap-1 overflow-x-auto pl-1 sm:max-w-none sm:overflow-visible sm:pl-0"
         >
           <button
             type="button"
@@ -4648,7 +4650,7 @@ export default function ChatConversation() {
             onClick={() => setMessageSearchOpen((open) => !open)}
             className={`${headerActionClass} ${
               messageSearchOpen
-                ? "bg-[var(--fc-app-surface-active)] text-white"
+                ? "bg-[var(--fc-primary)]/10 text-[var(--fc-primary)]"
                 : ""
             }`}
             aria-label={messageSearchOpen ? "Close message search" : "Search messages"}
@@ -4756,7 +4758,7 @@ export default function ChatConversation() {
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="chat-safe-scroll relative z-10 min-h-0 flex-1 touch-pan-y overscroll-contain overflow-y-auto scroll-pb-28 px-2.5 py-3 sm:px-5 sm:py-5"
+        className="chat-safe-scroll relative z-10 min-h-0 flex-1 touch-pan-y overscroll-contain overflow-y-auto px-2.5 py-3 pb-32 sm:px-5 sm:py-5"
       >
         {showInitialMessageSkeleton ? (
           <MessageSkeleton />
@@ -4913,8 +4915,8 @@ export default function ChatConversation() {
             </div>
 
             {remoteTypingUsers.length ? (
-              <div className="mt-4 flex justify-start">
-                <div className="rounded-[20px] rounded-bl-md border border-[var(--fc-app-border)] bg-[var(--fc-their-bubble)] px-4 py-3">
+              <div className="mt-4 flex justify-start pb-4">
+                <div className="rounded-[18px] rounded-bl-md border border-[var(--fc-app-border)] bg-[var(--fc-their-bubble)] px-4 py-3 shadow-lg">
                   <div className="flex items-center gap-1">
                     {[0, 1, 2].map((dot) => (
                       <span
@@ -4923,7 +4925,7 @@ export default function ChatConversation() {
                           animationDelay: `${dot * 130}ms`,
                           animationDuration: "720ms",
                         }}
-                        className={`h-2 w-2 rounded-full bg-[var(--fc-accent-text)] ${
+                        className={`h-2 w-2 rounded-full bg-[var(--fc-primary)] ${
                           reducedMotion ? "" : "animate-bounce"
                         }`}
                       />
@@ -4933,7 +4935,7 @@ export default function ChatConversation() {
               </div>
             ) : null}
 
-            <div ref={bottomRef} />
+            <div ref={bottomRef} className="h-2" />
           </>
         )}
       </div>
@@ -4941,342 +4943,336 @@ export default function ChatConversation() {
       <div
         style={{
           paddingBottom:
-            "calc(0.45rem + env(safe-area-inset-bottom) + env(keyboard-inset-height, 0px))",
+            "calc(8px + env(safe-area-inset-bottom) + env(keyboard-inset-height, 0px))",
         }}
-        className="relative z-10 shrink-0 border-t border-[#0D1823] bg-[var(--fc-chat-composer)] px-2.5 pt-2 sm:px-5 sm:py-2.5 sm:backdrop-blur-2xl"
+        className="absolute bottom-0 left-0 z-20 w-full px-2 pt-2 sm:px-3"
       >
-        {replyingTo ? (
-          <div className="fc-button-soft mb-2 flex items-center gap-3 rounded-2xl border p-3 text-sm">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--fc-app-border)] bg-[var(--fc-input-bg)]">
-              <Reply size={16} />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold uppercase text-[var(--fc-accent-text)]">
-                Replying
-              </p>
-              <p className="truncate text-xs text-[var(--fc-text-muted)]">
-                {getMessagePreviewText(replyingTo)}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setReplyingTo(null)}
-              className="fc-surface fc-hover flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition"
-              aria-label="Cancel reply"
-            >
-              <X size={15} />
-            </button>
-          </div>
-        ) : null}
-
-        {failedAttachmentUpload ? (
-          <div className="mb-2 flex items-center gap-3 rounded-2xl border border-red-400/20 bg-red-500/[0.08] p-3 text-sm text-red-100">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--fc-app-border)] bg-[var(--fc-input-bg)]">
-              <AlertCircle size={16} />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <p className="font-medium">Upload failed</p>
-              <p className="truncate text-xs text-red-100/70">
-                {failedAttachmentUpload.message}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                const failed =
-                  failedAttachmentUpload;
-
-                setFailedAttachmentUpload(null);
-                void handleAttachmentUpload(
-                  failed.file
-                );
-              }}
-              disabled={isUploadingAttachment || isConversationBlocked}
-              className="fc-surface fc-hover flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition disabled:cursor-wait disabled:opacity-60"
-              aria-label="Retry attachment upload"
-            >
-              <RefreshCw size={15} />
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                setFailedAttachmentUpload(null)
-              }
-              className="fc-surface fc-hover flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition"
-              aria-label="Dismiss upload error"
-            >
-              <X size={15} />
-            </button>
-          </div>
-        ) : null}
-
-        <div className="relative flex items-end gap-2 sm:gap-2.5">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,audio/*,video/*,application/pdf"
-            className="hidden"
-            disabled={isConversationBlocked}
-            onChange={(event) => {
-              void handleAttachmentUpload(event.target.files?.[0]);
-            }}
-          />
-
-          <div
-            className={`fc-composer relative min-w-0 flex-1 rounded-lg border border-[#0D1823] bg-[#232E3C]/95 px-2 py-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition-colors duration-200 ${
-              isConversationBlocked ? "opacity-75" : ""
-            }`}
-          >
-            <div className="flex items-end gap-1">
-              <button
-                type="button"
-                onClick={toggleEmojiPanel}
-                disabled={isConversationBlocked}
-                className={`fc-telegram-touch fc-hover flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition hover:text-white ${
-                  emojiOpen
-                    ? "bg-[var(--fc-app-surface-active)] text-[var(--fc-accent-text)]"
-                    : "text-[var(--fc-text-subtle)]"
-                }`}
-                aria-label={emojiOpen ? "Close emoji picker" : "Open emoji picker"}
-                aria-expanded={emojiOpen}
-              >
-                <SmilePlus size={20} />
-              </button>
+        <div className="fc-gpu-accelerated flex flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[var(--fc-chat-composer)] shadow-[0_12px_48px_rgba(0,0,0,0.6)] backdrop-blur-3xl transition-[background-color,border-color] duration-200 focus-within:border-[var(--fc-primary)]/30">
+          {replyingTo ? (
+            <div className="flex items-center gap-3 border-b border-white/5 bg-white/[0.03] p-3 text-sm">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/5 bg-black/20 text-[var(--fc-primary)]">
+                <Reply size={16} />
+              </div>
 
               <div className="min-w-0 flex-1">
-                {isRecordingVoice ? (
-                  <div className="flex min-h-[40px] items-center gap-3 py-1 sm:min-h-[44px]">
-                    <button
-                      type="button"
-                      onPointerDown={(event) =>
-                        event.stopPropagation()
-                      }
-                      onClick={() => {
-                        void finishVoiceRecording(false);
-                      }}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-red-300/20 bg-red-500/15 text-red-100"
-                      aria-label="Cancel voice note"
-                    >
-                      <X size={15} />
-                    </button>
-
-                    <div className="flex min-w-0 flex-1 items-center gap-1">
-                      {Array.from({
-                        length: 18,
-                      }).map((_, index) => (
-                        <motion.span
-                          key={index}
-                          animate={{
-                            height: [
-                              8,
-                              18 + ((index % 5) * 3),
-                              8,
-                            ],
-                            opacity: [0.4, 1, 0.4],
-                          }}
-                          transition={{
-                            duration: 0.9,
-                            repeat: Infinity,
-                            delay: index * 0.035,
-                          }}
-                          className="w-1 rounded-full bg-[var(--fc-accent-text)]"
-                        />
-                      ))}
-                    </div>
-
-                    <span className="shrink-0 text-xs font-medium text-[var(--fc-accent-text)]">
-                      {formatDuration(recordingSeconds)}
-                    </span>
-                  </div>
-                ) : (
-                  <textarea
-                    ref={textareaRef}
-                    rows={1}
-                    value={text}
-                    onChange={(event) => handleTyping(event.target.value)}
-                    onFocus={() => setEmojiOpen(false)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && !event.shiftKey) {
-                        event.preventDefault();
-                        handleSend();
-                      }
-                    }}
-                    onBlur={() => {
-                      if (conversationId) {
-                        stopActiveTyping(conversationId);
-                      }
-                    }}
-                    placeholder={
-                      isConversationBlocked
-                        ? `You have blocked ${activeConversationDisplayName}`
-                        : "Write a message..."
-                    }
-                    disabled={isConversationBlocked}
-                    className="max-h-32 min-h-[42px] w-full resize-none overflow-y-auto border-0 bg-transparent py-2.5 text-[16px] leading-5 text-white shadow-none outline-none ring-0 placeholder:text-[#6C7883] focus:border-0 focus:outline-none focus:ring-0 focus-visible:shadow-none disabled:cursor-not-allowed"
-                  />
-                )}
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--fc-primary)]">
+                  Replying
+                </p>
+                <p className="truncate text-xs text-white/80">
+                  {getMessagePreviewText(replyingTo)}
+                </p>
               </div>
 
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploadingAttachment || isConversationBlocked}
-                className="fc-telegram-touch fc-hover relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-[#6C7883] transition hover:text-white disabled:cursor-wait disabled:opacity-70"
-                aria-label="Upload attachment"
+                onClick={() => setReplyingTo(null)}
+                className="fc-touch fc-hover flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/5 transition"
+                aria-label="Cancel reply"
               >
-                <Paperclip
-                  size={20}
-                  className={
-                    isUploadingAttachment
-                      ? "animate-pulse text-[var(--fc-accent-text)]"
-                      : undefined
-                  }
-                />
-                {isUploadingAttachment ? (
-                  <span className="absolute inset-x-2 bottom-1.5 h-1 overflow-hidden rounded-full bg-white/15">
-                    <span
-                      className="block h-full rounded-full bg-[var(--fc-accent-text)] transition-[width]"
-                      style={{
-                        width: `${attachmentUploadProgress}%`,
-                      }}
-                    />
-                  </span>
-                ) : null}
+                <X size={15} />
+              </button>
+            </div>
+          ) : null}
+
+          {failedAttachmentUpload ? (
+            <div className="flex items-center gap-3 border-b border-red-500/10 bg-red-500/[0.08] p-3 text-sm text-red-100">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-red-500/10 bg-black/20">
+                <AlertCircle size={16} />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="font-bold">Upload failed</p>
+                <p className="truncate text-xs text-red-100/70">
+                  {failedAttachmentUpload.message}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const failed =
+                    failedAttachmentUpload;
+
+                  setFailedAttachmentUpload(null);
+                  void handleAttachmentUpload(
+                    failed.file
+                  );
+                }}
+                disabled={isUploadingAttachment || isConversationBlocked}
+                className="fc-touch fc-hover flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/5 transition disabled:cursor-wait disabled:opacity-60"
+                aria-label="Retry attachment upload"
+              >
+                <RefreshCw size={15} />
               </button>
 
               <button
                 type="button"
-                onClick={text.trim() ? handleSend : undefined}
-                onPointerDown={
-                  text.trim()
-                    ? undefined
-                    : (event) => {
-                        event.currentTarget.setPointerCapture(event.pointerId);
-                        recordingPointerActiveRef.current = true;
-                        recordingPointerStartRef.current = {
-                          x: event.clientX,
-                          y: event.clientY,
-                        };
-                        recordingShouldCancelRef.current = false;
-                        void startVoiceRecording();
-                      }
+                onClick={() =>
+                  setFailedAttachmentUpload(null)
                 }
-                onPointerMove={
-                  text.trim()
-                    ? undefined
-                    : (event) => {
-                        const start = recordingPointerStartRef.current;
-
-                        if (!start) {
-                          return;
-                        }
-
-                        const horizontalDelta = event.clientX - start.x;
-                        const verticalDelta = event.clientY - start.y;
-
-                        recordingShouldCancelRef.current =
-                          horizontalDelta < -52 || Math.abs(verticalDelta) > 88;
-                      }
-                }
-                onPointerUp={
-                  text.trim()
-                    ? undefined
-                    : (event) => {
-                        if (
-                          event.currentTarget.hasPointerCapture(event.pointerId)
-                        ) {
-                          event.currentTarget.releasePointerCapture(
-                            event.pointerId,
-                          );
-                        }
-
-                        const shouldSend = !recordingShouldCancelRef.current;
-
-                        recordingPointerActiveRef.current = false;
-                        recordingPointerStartRef.current = null;
-                        recordingShouldCancelRef.current = false;
-                        void finishVoiceRecording(shouldSend);
-                      }
-                }
-                onPointerCancel={
-                  text.trim()
-                    ? undefined
-                    : () => {
-                        recordingPointerActiveRef.current = false;
-                        recordingPointerStartRef.current = null;
-                        recordingShouldCancelRef.current = false;
-                        void finishVoiceRecording(false);
-                      }
-                }
-                onContextMenu={(event) => event.preventDefault()}
-                disabled={
-                  !conversationId ||
-                  isUploadingAttachment ||
-                  isConversationBlocked ||
-                  (!!text.trim() && isRecordingVoice)
-                }
-                className={`fc-telegram-touch flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white transition-all hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-45 ${
-                  text.trim()
-                    ? "fc-button-primary"
-                  : isRecordingVoice
-                      ? "bg-red-500"
-                      : "bg-[var(--fc-app-surface-hover)] hover:bg-[var(--fc-app-surface-active)]"
-                }`}
-                aria-label={
-                  text.trim() ? "Send message" : "Hold to record voice note"
-                }
+                className="fc-touch fc-hover flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/5 transition"
+                aria-label="Dismiss upload error"
               >
-                {text.trim() ? <SendHorizonal size={19} /> : <Mic size={19} />}
+                <X size={15} />
               </button>
             </div>
-          </div>
-        </div>
-
-        <AnimatePresence initial={false}>
-          {emojiOpen ? (
-            <motion.div
-              initial={{
-                height: 0,
-                opacity: 0,
-              }}
-              animate={{
-                height: "min(316px, 42dvh)",
-                opacity: 1,
-              }}
-              exit={{
-                height: 0,
-                opacity: 0,
-              }}
-              transition={{
-                duration: reducedMotion ? 0 : 0.18,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-              className="mt-2 overflow-hidden rounded-[22px] border fc-emoji-panel shadow-[0_18px_60px_rgba(0,0,0,0.22)]"
-            >
-              <EmojiPicker
-                theme={
-                  activeTheme.mode === "light"
-                    ? Theme.LIGHT
-                    : Theme.DARK
-                }
-                emojiStyle={EmojiStyle.NATIVE}
-                lazyLoadEmojis
-                width="100%"
-                height={320}
-                previewConfig={{
-                  showPreview: false,
-                }}
-                searchDisabled={false}
-                onEmojiClick={handleEmojiSelect}
-              />
-            </motion.div>
           ) : null}
-        </AnimatePresence>
+
+          <div className="relative flex items-end gap-1 px-1.5 py-1.5">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,audio/*,video/*,application/pdf"
+              className="hidden"
+              disabled={isConversationBlocked}
+              onChange={(event) => {
+                void handleAttachmentUpload(event.target.files?.[0]);
+              }}
+            />
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingAttachment || isConversationBlocked}
+              className="fc-touch fc-hover relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--fc-text-subtle)] transition hover:text-white disabled:cursor-wait disabled:opacity-70"
+              aria-label="Upload attachment"
+            >
+              <Paperclip
+                size={21}
+                className={
+                  isUploadingAttachment
+                    ? "animate-pulse text-[var(--fc-primary)]"
+                    : undefined
+                }
+              />
+              {isUploadingAttachment ? (
+                <span className="absolute inset-x-2 bottom-1.5 h-1 overflow-hidden rounded-full bg-white/10">
+                  <span
+                    className="block h-full rounded-full bg-[var(--fc-primary)] transition-[width]"
+                    style={{
+                      width: `${attachmentUploadProgress}%`,
+                    }}
+                  />
+                </span>
+              ) : null}
+            </button>
+
+            <div className="min-w-0 flex-1 px-1">
+              {isRecordingVoice ? (
+                <div className="flex min-h-[44px] items-center gap-3 py-1">
+                  <button
+                    type="button"
+                    onPointerDown={(event) =>
+                      event.stopPropagation()
+                    }
+                    onClick={() => {
+                      void finishVoiceRecording(false);
+                    }}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-red-300/20 bg-red-500/15 text-red-100"
+                    aria-label="Cancel voice note"
+                  >
+                    <X size={15} />
+                  </button>
+
+                  <div className="flex min-w-0 flex-1 items-center gap-1">
+                    {Array.from({
+                      length: 18,
+                    }).map((_, index) => (
+                      <motion.span
+                        key={index}
+                        animate={{
+                          height: [
+                            8,
+                            18 + ((index % 5) * 3),
+                            8,
+                          ],
+                          opacity: [0.4, 1, 0.4],
+                        }}
+                        transition={{
+                          duration: 0.9,
+                          repeat: Infinity,
+                          delay: index * 0.035,
+                        }}
+                        className="w-1 rounded-full bg-[var(--fc-primary)]"
+                      />
+                    ))}
+                  </div>
+
+                  <span className="shrink-0 text-xs font-bold text-[var(--fc-primary)]">
+                    {formatDuration(recordingSeconds)}
+                  </span>
+                </div>
+              ) : (
+                <textarea
+                  ref={textareaRef}
+                  rows={1}
+                  value={text}
+                  onChange={(event) => handleTyping(event.target.value)}
+                  onFocus={() => setEmojiOpen(false)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  onBlur={() => {
+                    if (conversationId) {
+                      stopActiveTyping(conversationId);
+                    }
+                  }}
+                  placeholder={
+                    isConversationBlocked
+                      ? `You have blocked ${activeConversationDisplayName}`
+                      : "Message..."
+                  }
+                  disabled={isConversationBlocked}
+                  className="max-h-40 min-h-[44px] w-full resize-none overflow-y-auto border-0 bg-transparent py-3 text-[16px] leading-tight text-white shadow-none outline-none ring-0 placeholder:text-white/30 focus:border-0 focus:outline-none focus:ring-0 focus-visible:shadow-none disabled:cursor-not-allowed"
+                />
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={toggleEmojiPanel}
+              disabled={isConversationBlocked}
+              className={`fc-touch fc-hover flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition hover:text-white ${
+                emojiOpen
+                  ? "text-[var(--fc-primary)]"
+                  : "text-[var(--fc-text-subtle)]"
+              }`}
+              aria-label={emojiOpen ? "Close emoji picker" : "Open emoji picker"}
+              aria-expanded={emojiOpen}
+            >
+              <SmilePlus size={21} />
+            </button>
+
+            <button
+              type="button"
+              onClick={text.trim() ? handleSend : undefined}
+              onPointerDown={
+                text.trim()
+                  ? undefined
+                  : (event) => {
+                      event.currentTarget.setPointerCapture(event.pointerId);
+                      recordingPointerActiveRef.current = true;
+                      recordingPointerStartRef.current = {
+                        x: event.clientX,
+                        y: event.clientY,
+                      };
+                      recordingShouldCancelRef.current = false;
+                      void startVoiceRecording();
+                    }
+              }
+              onPointerMove={
+                text.trim()
+                  ? undefined
+                  : (event) => {
+                      const start = recordingPointerStartRef.current;
+
+                      if (!start) {
+                        return;
+                      }
+
+                      const horizontalDelta = event.clientX - start.x;
+                      const verticalDelta = event.clientY - start.y;
+
+                      recordingShouldCancelRef.current =
+                        horizontalDelta < -52 || Math.abs(verticalDelta) > 88;
+                    }
+              }
+              onPointerUp={
+                text.trim()
+                  ? undefined
+                  : (event) => {
+                      if (
+                        event.currentTarget.hasPointerCapture(event.pointerId)
+                      ) {
+                        event.currentTarget.releasePointerCapture(
+                          event.pointerId,
+                        );
+                      }
+
+                      const shouldSend = !recordingShouldCancelRef.current;
+
+                      recordingPointerActiveRef.current = false;
+                      recordingPointerStartRef.current = null;
+                      recordingShouldCancelRef.current = false;
+                      void finishVoiceRecording(shouldSend);
+                    }
+              }
+              onPointerCancel={
+                text.trim()
+                  ? undefined
+                  : () => {
+                      recordingPointerActiveRef.current = false;
+                      recordingPointerStartRef.current = null;
+                      recordingShouldCancelRef.current = false;
+                      void finishVoiceRecording(false);
+                    }
+              }
+              onContextMenu={(event) => event.preventDefault()}
+              disabled={
+                !conversationId ||
+                isUploadingAttachment ||
+                isConversationBlocked ||
+                (!!text.trim() && isRecordingVoice)
+              }
+              className={`fc-touch flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white transition-all active:scale-90 disabled:cursor-not-allowed disabled:opacity-45 ${
+                text.trim()
+                  ? "bg-[var(--fc-primary)] shadow-lg shadow-[rgba(var(--fc-primary-rgb),0.2)]"
+                : isRecordingVoice
+                    ? "bg-red-500 shadow-lg shadow-red-500/20"
+                    : "text-[var(--fc-primary)] hover:bg-[var(--fc-primary)]/10"
+              }`}
+              aria-label={
+                text.trim() ? "Send message" : "Hold to record voice note"
+              }
+            >
+              {text.trim() ? <SendHorizonal size={20} /> : <Mic size={20} />}
+            </button>
+          </div>
+
+          <AnimatePresence initial={false}>
+            {emojiOpen ? (
+              <motion.div
+                initial={{
+                  height: 0,
+                  opacity: 0,
+                }}
+                animate={{
+                  height: "min(316px, 42dvh)",
+                  opacity: 1,
+                }}
+                exit={{
+                  height: 0,
+                  opacity: 0,
+                }}
+                transition={{
+                  duration: reducedMotion ? 0 : 0.18,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                className="mt-2 overflow-hidden rounded-[22px] border fc-emoji-panel shadow-[0_18px_60px_rgba(0,0,0,0.22)]"
+              >
+                <EmojiPicker
+                  theme={
+                    activeTheme.mode === "light"
+                      ? Theme.LIGHT
+                      : Theme.DARK
+                  }
+                  emojiStyle={EmojiStyle.NATIVE}
+                  lazyLoadEmojis
+                  width="100%"
+                  height={320}
+                  previewConfig={{
+                    showPreview: false,
+                  }}
+                  searchDisabled={false}
+                  onEmojiClick={handleEmojiSelect}
+                />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </div>
       </div>
 
       <AnimatePresence>

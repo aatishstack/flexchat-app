@@ -1133,6 +1133,28 @@ export default function SocketProvider({
       });
     }
 
+    function onStoryPrivacyUpdated(story: Story) {
+      if (!story?.id) {
+        return;
+      }
+
+      queryClient.setQueryData<Story[]>(
+        queryKeys.stories.all,
+        (stories) => {
+          const currentStories = stories ?? [];
+          const hasStory = currentStories.some(
+            (item) => item.id === story.id
+          );
+
+          return hasStory
+            ? currentStories.map((item) =>
+                item.id === story.id ? story : item
+              )
+            : [story, ...currentStories];
+        }
+      );
+    }
+
     function onStoryDeleted(
       payload: StoryDeletedPayload
     ) {
@@ -1561,6 +1583,10 @@ export default function SocketProvider({
       SOCKET_EVENTS.STORY_NEW,
       onStoryCreated,
     );
+    const safeOnStoryPrivacyUpdated = guardSocketHandler(
+      SOCKET_EVENTS.STORY_PRIVACY_UPDATED,
+      onStoryPrivacyUpdated,
+    );
     const safeOnStoryViewed = guardSocketHandler(
       SOCKET_EVENTS.STORY_VIEWED,
       onStoryViewed,
@@ -1670,6 +1696,10 @@ export default function SocketProvider({
     );
     socket.on(SOCKET_EVENTS.STORY_CREATED, safeOnStoryCreated);
     socket.on(SOCKET_EVENTS.STORY_NEW, safeOnStoryNew);
+    socket.on(
+      SOCKET_EVENTS.STORY_PRIVACY_UPDATED,
+      safeOnStoryPrivacyUpdated
+    );
     socket.on(SOCKET_EVENTS.STORY_VIEWED, safeOnStoryViewed);
     socket.on(SOCKET_EVENTS.STORY_DELETED, safeOnStoryDeleted);
     socket.on(SOCKET_EVENTS.STORY_EXPIRED, safeOnStoryExpired);
@@ -1741,6 +1771,10 @@ export default function SocketProvider({
       );
       socket.off(SOCKET_EVENTS.STORY_CREATED, safeOnStoryCreated);
       socket.off(SOCKET_EVENTS.STORY_NEW, safeOnStoryNew);
+      socket.off(
+        SOCKET_EVENTS.STORY_PRIVACY_UPDATED,
+        safeOnStoryPrivacyUpdated
+      );
       socket.off(SOCKET_EVENTS.STORY_VIEWED, safeOnStoryViewed);
       socket.off(SOCKET_EVENTS.STORY_DELETED, safeOnStoryDeleted);
       socket.off(SOCKET_EVENTS.STORY_EXPIRED, safeOnStoryExpired);

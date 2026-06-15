@@ -14,15 +14,30 @@ try {
     mediaPublicId: string | null;
     mediaResourceType: string | null;
   }>(sql`
-    select
+    with removable_stories as (
+      select
+        id,
+        media_public_id,
+        media_resource_type
+      from stories
+      where deleted_at is not null
+        or expires_at <= now()
+    ),
+    deleted_views as (
+      delete from story_views
+      where story_id in (
+        select id from removable_stories
+      )
+    )
+    delete from stories
+    where id in (
+      select id from removable_stories
+    )
+    returning
       id,
       media_public_id as "mediaPublicId",
       media_resource_type as "mediaResourceType"
-    from stories
   `);
-
-  await db.execute(sql`delete from story_views`);
-  await db.execute(sql`delete from stories`);
 
   const deletionResults = await Promise.allSettled(
     stories.map((story) =>
@@ -38,7 +53,7 @@ try {
   const failedAssets = deletionResults.length - removedAssets;
 
   console.log(
-    `Deleted ${stories.length} stories and cleared story views. Removed ${removedAssets} media assets; ${failedAssets} remain queued for retry.`,
+    `Purged ${stories.length} expired or deleted stories. Removed ${removedAssets} media assets; ${failedAssets} remain queued for retry.`,
   );
 } finally {
   await closeDb();

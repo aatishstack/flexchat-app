@@ -24,6 +24,10 @@ export const stories = pgTable(
 
     mediaType: text("media_type").notNull(),
 
+    visibility: text("visibility")
+      .default("contacts")
+      .notNull(),
+
     durationSeconds:
       integer("duration_seconds")
         .default(5)

@@ -5,11 +5,11 @@ import { usePathname } from "next/navigation";
 
 import { motion } from "framer-motion";
 import {
+  Bell,
+  Compass,
   MessageCircle,
   PhoneCall,
-  Settings,
   UserRound,
-  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -35,14 +35,14 @@ const NAV_ITEMS: NavItem[] = [
     icon: PhoneCall,
   },
   {
-    href: "/contacts",
-    label: "Contacts",
-    icon: UsersRound,
+    href: "/discover",
+    label: "Discover",
+    icon: Compass,
   },
   {
-    href: "/settings",
-    label: "Settings",
-    icon: Settings,
+    href: "/notifications",
+    label: "Notifications",
+    icon: Bell,
   },
   {
     href: "/profile",
@@ -57,16 +57,16 @@ function isActivePath(pathname: string, href: string) {
 
 function DesktopNavigation({ pathname }: { pathname: string }) {
   return (
-    <aside className="fc-panel fixed inset-y-0 left-0 z-[190] hidden w-[72px] border-r px-2 py-[calc(0.75rem+env(safe-area-inset-top))] lg:flex lg:flex-col lg:items-center">
+    <aside className="fc-panel fixed inset-y-0 left-0 z-[190] hidden w-[72px] border-r border-[var(--fc-app-border)] bg-black px-2 py-[calc(1.25rem+env(safe-area-inset-top))] lg:flex lg:flex-col lg:items-center">
       <Link
         href="/chat"
-        className="fc-button-primary mb-5 flex h-11 w-11 items-center justify-center rounded-2xl border border-[rgba(var(--fc-primary-rgb),0.28)]"
+        className="fc-button-primary mb-6 flex h-11 w-11 items-center justify-center rounded-[14px] shadow-lg shadow-[rgba(var(--fc-primary-rgb),0.2)]"
         aria-label="Open chats"
       >
-        <MessageCircle size={20} />
+        <MessageCircle size={21} />
       </Link>
 
-      <nav className="flex flex-1 flex-col items-center gap-2">
+      <nav className="flex flex-1 flex-col items-center gap-3">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = isActivePath(pathname, item.href);
@@ -79,21 +79,10 @@ function DesktopNavigation({ pathname }: { pathname: string }) {
               aria-label={item.label}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "group fc-hover relative flex h-12 w-12 items-center justify-center rounded-2xl text-[var(--fc-text-subtle)] transition hover:text-[var(--fc-theme-text)]",
-                active && "fc-active text-[var(--fc-theme-text)]",
+                "group fc-touch relative flex h-11 w-11 items-center justify-center rounded-[14px] text-[var(--fc-text-subtle)] transition hover:bg-white/5 hover:text-[var(--fc-theme-text)]",
+                active && "bg-[var(--fc-primary)] text-white shadow-md shadow-[rgba(var(--fc-primary-rgb),0.1)]",
               )}
             >
-              {active ? (
-                <motion.span
-                  layoutId="desktop-nav-active"
-                  className="absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-full bg-[var(--fc-primary)]"
-                  transition={{
-                    type: "spring",
-                    stiffness: 420,
-                    damping: 34,
-                  }}
-                />
-              ) : null}
               <Icon size={20} />
               <span className="sr-only">{item.label}</span>
             </Link>
@@ -116,8 +105,8 @@ function MobileNavigation({
   }
 
   return (
-    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-[190] h-[calc(56px+env(safe-area-inset-bottom))] border-t border-[var(--fc-app-border)] bg-[var(--fc-app-panel)] pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_32px_rgba(0,0,0,0.22)] lg:hidden">
-      <div className="pointer-events-auto mx-auto grid h-14 max-w-md grid-cols-5 gap-0.5 px-1">
+    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-[190] flex justify-center pb-[calc(1rem+env(safe-area-inset-bottom))] lg:hidden">
+      <div className="pointer-events-auto flex h-[64px] items-center gap-1 rounded-[24px] border border-white/10 bg-[rgba(10,10,10,0.85)] px-2 shadow-[0_20px_60px_rgba(0,0,0,0.5)] backdrop-blur-3xl">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = isActivePath(pathname, item.href);
@@ -129,30 +118,23 @@ function MobileNavigation({
               onClick={() => triggerHaptic(10)}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "fc-telegram-touch relative flex h-14 flex-col items-center justify-center gap-0.5 rounded-2xl text-[10px] font-medium text-[var(--fc-text-subtle)] transition",
-                active &&
-                  "bg-[var(--fc-app-surface-active)] text-[var(--fc-theme-text)]",
+                "fc-touch relative flex h-[48px] min-w-[56px] flex-col items-center justify-center rounded-2xl transition-all duration-200",
+                active ? "text-[var(--fc-primary)]" : "text-[var(--fc-text-subtle)] hover:text-white",
               )}
             >
-              {active ? (
-                <motion.span
-                  layoutId="mobile-nav-active"
-                  className="absolute inset-x-4 top-1 h-0.5 rounded-full bg-[var(--fc-primary)]"
-                  transition={{
-                    type: "spring",
-                    stiffness: 420,
-                    damping: 34,
-                  }}
+              <div className={cn(
+                "flex h-9 w-12 items-center justify-center rounded-full transition-colors",
+                active && "bg-[var(--fc-primary)]/10"
+              )}>
+                <Icon
+                  size={20}
+                  className={cn(
+                    "transition-transform",
+                    active && "scale-110",
+                  )}
                 />
-              ) : null}
-              <Icon
-                size={20}
-                className={cn(
-                  "transition",
-                  active && "text-[var(--fc-accent-text)]",
-                )}
-              />
-              <span>{item.label}</span>
+              </div>
+              <span className="mt-0.5 text-[10px] font-bold tracking-tight">{item.label}</span>
             </Link>
           );
         })}

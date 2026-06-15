@@ -425,59 +425,59 @@ const ConversationListButton = memo(
             event.currentTarget.getBoundingClientRect()
           );
         }}
-        className={`group fc-telegram-touch flex h-[64px] w-full items-center gap-2.5 rounded-lg border px-3 py-0 text-left transition-[background-color,border-color,transform] duration-150 ease-out ${
+        className={`group fc-touch flex h-[72px] w-full items-center gap-3 rounded-xl border px-4 py-0 text-left transition-[background-color,border-color,transform] duration-200 ease-out ${
           active
-            ? "fc-active"
-            : "border-transparent hover:bg-[#2B3A4D]"
-        } ${isPressed ? "bg-[#2B3A4D]/70 scale-[0.98] border-white/5" : ""}`}
+            ? "fc-active shadow-lg shadow-[rgba(var(--fc-primary-rgb),0.15)]"
+            : "border-transparent hover:bg-[var(--fc-app-surface-hover)]"
+        } ${isPressed ? "bg-[var(--fc-app-surface-active)]/10 scale-[0.98] border-[var(--fc-primary)]/10" : ""}`}
       >
         <div className="relative shrink-0">
           <FlexAvatar
             src={avatar}
             name={conversation.name}
-            className="fc-avatar flex h-[46px] w-[46px] items-center justify-center overflow-hidden rounded-full text-base font-bold"
+            className="fc-avatar flex h-[56px] w-[56px] items-center justify-center overflow-hidden rounded-[18px] text-lg font-bold"
           />
 
           {isOnline ? (
-            <div className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[var(--fc-app-panel)] bg-[var(--fc-success)]" />
+            <div className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[var(--fc-app-panel)] bg-[var(--fc-success)] shadow-sm" />
           ) : null}
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="flex min-w-0 items-center gap-1.5">
-              <h3 className="truncate text-[15px] font-semibold leading-tight text-[var(--fc-theme-text)]">
+              <h3 className="truncate text-[16px] font-bold leading-tight text-[var(--fc-theme-text)]">
                 {displayName}
               </h3>
 
               {conversation.pinned ? (
                 <Pin
-                  size={12}
-                  className="shrink-0 text-[var(--fc-accent-text)]"
+                  size={13}
+                  className="shrink-0 text-[var(--fc-primary)]"
                 />
               ) : null}
 
               {conversation.muted ? (
                 <BellOff
-                  size={12}
+                  size={13}
                   className="shrink-0 text-[var(--fc-text-subtle)]"
                 />
               ) : null}
             </div>
 
-            <span suppressHydrationWarning className="shrink-0 mt-0.5 text-[10.5px] font-medium text-[#6C7883]">
+            <span suppressHydrationWarning className="mt-0.5 shrink-0 text-[11px] font-semibold text-[var(--fc-text-muted)]">
               {lastActivityLabel}
             </span>
           </div>
 
-          <div className="mt-0.5 flex items-center justify-between gap-2.5">
-            <p className="truncate text-[13.5px] leading-snug text-[#6C7883]">
+          <div className="mt-1 flex items-center justify-between gap-2.5">
+            <p className="truncate text-[14px] leading-snug text-[var(--fc-text-muted)] group-hover:text-[var(--fc-text-subtle)]">
               {conversation.latestMessage ||
                 "No messages yet"}
             </p>
 
             {conversation.unreadCount ? (
-              <div className="fc-badge flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none">
+              <div className="fc-badge flex h-[20px] min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-bold leading-none">
                 {conversation.unreadCount}
               </div>
             ) : null}
@@ -1351,19 +1351,19 @@ export default function ChatSidebar() {
   ]);
 
   return (
-    <aside className="fc-panel fc-gpu-accelerated flex h-full w-full border-r border-[#0D1823] lg:w-[360px]">
+    <aside className="fc-panel fc-gpu-accelerated flex h-full w-full border-r border-[var(--fc-app-border)] lg:w-[360px]">
       <div className="flex w-full flex-col">
-        <div className="fc-panel-strong relative border-b border-[#0D1823] px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))]">
+        <div className="fc-panel-strong relative border-b border-[var(--fc-app-border)] px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))]">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="fc-button-primary flex h-9 w-9 items-center justify-center rounded-lg">
+              <div className="fc-button-primary flex h-9 w-9 items-center justify-center rounded-lg shadow-sm">
                 <MessageCircle
                   size={19}
                 />
               </div>
 
               <div>
-                <h1 className="text-lg font-semibold text-[var(--fc-theme-text)]">
+                <h1 className="text-xl font-bold tracking-tight text-[var(--fc-theme-text)]">
                   FlexChat
                 </h1>
               </div>
@@ -1386,12 +1386,12 @@ export default function ChatSidebar() {
                 type="button"
                 onClick={() => {
                   triggerHaptic(10);
-                  setLogoutConfirmOpen(true);
+                  router.push("/contacts");
                 }}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--fc-text-muted)] transition hover:bg-red-500/[0.12] hover:text-red-100"
-                aria-label="Logout"
+                className="fc-hover flex h-9 w-9 items-center justify-center rounded-full text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
+                aria-label="New Chat"
               >
-                <LogOut size={17} />
+                <Plus size={19} strokeWidth={2.5} />
               </button>
             </div>
           </div>
@@ -1412,14 +1412,15 @@ export default function ChatSidebar() {
                   height: 0,
                 }}
                 transition={{
-                  duration: 0.18,
+                  duration: 0.2,
+                  ease: "easeOut",
                 }}
                 className="overflow-hidden"
               >
-                <div className="relative mt-2">
+                <div className="relative mt-3">
                   <Search
                     size={16}
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500"
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--fc-text-subtle)]"
                   />
 
                   <input
@@ -1428,14 +1429,14 @@ export default function ChatSidebar() {
                       setSearch(event.target.value)
                     }
                     placeholder="Search"
-                    className="fc-input h-9 w-full rounded-lg border pl-10 pr-3 text-sm outline-none"
+                    className="fc-input h-10 w-full rounded-xl border pl-10 pr-4 text-sm outline-none transition-all placeholder:text-[var(--fc-text-subtle)]"
                   />
                 </div>
               </motion.div>
             ) : null}
           </AnimatePresence>
 
-          <div className="fc-no-scrollbar mt-2 flex items-center gap-1.5 overflow-x-auto pb-0.5">
+          <div className="fc-no-scrollbar mt-3 flex items-center gap-1.5 overflow-x-auto pb-0.5">
             {SIDEBAR_FILTERS.map((folder) => (
               <button
                 key={folder.id}
@@ -1444,16 +1445,16 @@ export default function ChatSidebar() {
                   triggerHaptic(10);
                   setActiveFolder(folder.id);
                 }}
-                className={`relative shrink-0 overflow-hidden rounded-lg px-3 py-1 text-sm font-medium transition-all ${
+                className={`relative shrink-0 overflow-hidden rounded-xl px-3.5 py-1.5 text-[13px] font-bold transition-all ${
                   activeFolder === folder.id
                     ? "text-white"
-                    : "fc-surface text-[var(--fc-text-muted)] hover:bg-[var(--fc-app-surface-hover)]"
+                    : "fc-surface text-[var(--fc-text-muted)] hover:bg-[var(--fc-app-surface-hover)] hover:text-[var(--fc-theme-text)]"
                 }`}
               >
                 {activeFolder === folder.id ? (
                   <motion.span
                     layoutId="sidebar-folder-active"
-                    className="absolute inset-0 rounded-lg bg-[var(--fc-primary)]"
+                    className="absolute inset-0 rounded-xl bg-[var(--fc-primary)] shadow-md shadow-[rgba(var(--fc-primary-rgb),0.2)]"
                     transition={{
                       type: "spring",
                       stiffness: 360,
@@ -1617,7 +1618,7 @@ export default function ChatSidebar() {
                 transition={{
                   duration: 0.15,
                 }}
-                className="fixed inset-0 z-[270] touch-none bg-black/40"
+                className="fixed inset-0 z-[270] touch-none bg-black/60"
                 onPointerDown={
                   closeConversationActions
                 }
@@ -1626,18 +1627,21 @@ export default function ChatSidebar() {
                   initial={{
                     opacity: 0,
                     scale: 0.94,
+                    y: 8,
                   }}
                   animate={{
                     opacity: 1,
                     scale: 1,
+                    y: 0,
                   }}
                   exit={{
                     opacity: 0,
                     scale: 0.94,
+                    y: 8,
                   }}
                   transition={{
-                    duration: 0.15,
-                    ease: "easeOut",
+                    duration: 0.2,
+                    ease: [0.22, 1, 0.36, 1],
                   }}
                   style={{
                     ...getConversationMenuPosition(
@@ -1646,7 +1650,7 @@ export default function ChatSidebar() {
                     width:
                       CONVERSATION_ACTION_MENU_WIDTH,
                   }}
-                  className="fixed overflow-hidden rounded-[18px] border border-white/10 bg-[#17212B]/95 py-1.5 text-white shadow-[0_18px_54px_rgba(0,0,0,0.48)] backdrop-blur-2xl"
+                  className="fixed overflow-hidden rounded-[20px] border border-white/10 bg-[var(--fc-modal)] py-2 text-white shadow-[0_32px_96px_rgba(0,0,0,0.6)] backdrop-blur-3xl"
                   onPointerDown={(event) =>
                     event.stopPropagation()
                   }
@@ -1656,11 +1660,11 @@ export default function ChatSidebar() {
                   <button
                     type="button"
                     onClick={handleTogglePin}
-                    className="flex h-11 w-full items-center gap-3 px-4 text-left text-sm font-medium text-white/90 transition hover:bg-white/[0.07]"
+                    className="flex h-11 w-full items-center gap-3 px-4 text-left text-[14px] font-semibold text-white/90 transition hover:bg-white/[0.06]"
                   >
                     <Pin
                       size={18}
-                      className="text-[#8ED4FF]"
+                      className="text-[var(--fc-primary)]"
                     />
                     {actionConversation.pinned
                       ? "Unpin"
@@ -1670,11 +1674,11 @@ export default function ChatSidebar() {
                   <button
                     type="button"
                     onClick={handleOpenFolderSheet}
-                    className="flex h-11 w-full items-center gap-3 px-4 text-left text-sm font-medium text-white/90 transition hover:bg-white/[0.07]"
+                    className="flex h-11 w-full items-center gap-3 px-4 text-left text-[14px] font-semibold text-white/90 transition hover:bg-white/[0.06]"
                   >
                     <Folder
                       size={18}
-                      className="text-[#8ED4FF]"
+                      className="text-[var(--fc-primary)]"
                     />
                     Add to Folder
                   </button>
@@ -1682,23 +1686,64 @@ export default function ChatSidebar() {
                   <button
                     type="button"
                     onClick={handleToggleRead}
-                    className="flex h-11 w-full items-center gap-3 px-4 text-left text-sm font-medium text-white/90 transition hover:bg-white/[0.07]"
+                    className="flex h-11 w-full items-center gap-3 px-4 text-left text-[14px] font-semibold text-white/90 transition hover:bg-white/[0.06]"
                   >
                     {actionConversation.unreadCount ? (
                       <MailOpen
                         size={18}
-                        className="text-[#8ED4FF]"
+                        className="text-[var(--fc-primary)]"
                       />
                     ) : (
                       <Mail
                         size={18}
-                        className="text-[#8ED4FF]"
+                        className="text-[var(--fc-primary)]"
                       />
                     )}
                     {actionConversation.unreadCount
                       ? "Mark as Read"
                       : "Mark as Unread"}
                   </button>
+
+                  <div className="my-1 h-[1px] bg-white/5" />
+
+                  <button
+                    type="button"
+                    onClick={handleToggleMute}
+                    className="flex h-11 w-full items-center gap-3 px-4 text-left text-[14px] font-semibold text-white/90 transition hover:bg-white/[0.06]"
+                  >
+                    {actionConversation.muted ? (
+                      <Bell
+                        size={18}
+                        className="text-[var(--fc-primary)]"
+                      />
+                    ) : (
+                      <BellOff
+                        size={18}
+                        className="text-[var(--fc-primary)]"
+                      />
+                    )}
+                    {actionConversation.muted
+                      ? "Unmute"
+                      : "Mute"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleToggleBlock}
+                    className="flex h-11 w-full items-center gap-3 px-4 text-left text-[14px] font-semibold text-white/90 transition hover:bg-white/[0.06]"
+                  >
+                    <Ban
+                      size={18}
+                      className="text-[var(--fc-primary)]"
+                    />
+                    {blockedConversationSet.has(
+                      actionConversation.id
+                    )
+                      ? "Unblock"
+                      : "Block"}
+                  </button>
+
+                  <div className="my-1 h-[1px] bg-white/5" />
 
                   <button
                     type="button"
@@ -1712,47 +1757,10 @@ export default function ChatSidebar() {
                       clearPendingConversationId ===
                       actionConversation.id
                     }
-                    className="flex h-11 w-full items-center gap-3 px-4 text-left text-sm font-medium text-red-100 transition hover:bg-red-500/15 disabled:cursor-wait disabled:opacity-60"
+                    className="flex h-11 w-full items-center gap-3 px-4 text-left text-[14px] font-bold text-red-400 transition hover:bg-red-500/10 disabled:cursor-wait disabled:opacity-60"
                   >
                     <Trash2 size={18} />
                     Delete Chat
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleToggleMute}
-                    className="flex h-11 w-full items-center gap-3 px-4 text-left text-sm font-medium text-white/90 transition hover:bg-white/[0.07]"
-                  >
-                    {actionConversation.muted ? (
-                      <Bell
-                        size={18}
-                        className="text-[#8ED4FF]"
-                      />
-                    ) : (
-                      <BellOff
-                        size={18}
-                        className="text-[#8ED4FF]"
-                      />
-                    )}
-                    {actionConversation.muted
-                      ? "Unmute"
-                      : "Mute"}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleToggleBlock}
-                    className="flex h-11 w-full items-center gap-3 px-4 text-left text-sm font-medium text-white/90 transition hover:bg-white/[0.07]"
-                  >
-                    <Ban
-                      size={18}
-                      className="text-[#8ED4FF]"
-                    />
-                    {blockedConversationSet.has(
-                      actionConversation.id
-                    )
-                      ? "Unblock"
-                      : "Block"}
                   </button>
                 </motion.div>
               </motion.div>,
@@ -1772,7 +1780,7 @@ export default function ChatSidebar() {
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[275] flex items-end justify-center bg-black/40 p-3 sm:items-center sm:p-6 sm:backdrop-blur-xl"
+            className="fixed inset-0 z-[275] flex items-end justify-center bg-black/70 p-4 sm:items-center sm:p-6 sm:backdrop-blur-xl"
             onPointerDown={() =>
               setFolderSheetConversation(null)
             }
@@ -1780,8 +1788,8 @@ export default function ChatSidebar() {
             <motion.div
               initial={{
                 opacity: 0,
-                y: 24,
-                scale: 0.96,
+                y: 40,
+                scale: 0.94,
               }}
               animate={{
                 opacity: 1,
@@ -1790,25 +1798,25 @@ export default function ChatSidebar() {
               }}
               exit={{
                 opacity: 0,
-                y: 24,
-                scale: 0.96,
+                y: 40,
+                scale: 0.94,
               }}
               transition={{
                 type: "spring",
-                stiffness: 320,
-                damping: 30,
+                stiffness: 340,
+                damping: 32,
               }}
-              className="fc-modal w-full max-w-sm overflow-hidden rounded-2xl border"
+              className="fc-modal w-full max-w-[400px] overflow-hidden rounded-[24px] border border-white/10 shadow-[0_40px_120px_rgba(0,0,0,0.8)]"
               onClick={(event) =>
                 event.stopPropagation()
               }
             >
-              <div className="flex items-center justify-between border-b border-[var(--fc-app-border)] px-5 py-4">
+              <div className="flex items-center justify-between border-b border-[var(--fc-app-border)] px-6 py-5">
                 <div className="min-w-0">
-                  <h2 className="font-semibold">
+                  <h2 className="text-lg font-bold">
                     Add to Folder
                   </h2>
-                  <p className="fc-subtle truncate text-xs">
+                  <p className="fc-subtle mt-0.5 truncate text-[13px] font-medium">
                     {formatDisplayName(
                       folderSheetConversation.name ??
                         "Untitled"
@@ -1821,14 +1829,14 @@ export default function ChatSidebar() {
                   onClick={() =>
                     setFolderSheetConversation(null)
                   }
-                  className="fc-surface fc-hover flex h-10 w-10 items-center justify-center rounded-2xl border transition"
+                  className="fc-surface fc-hover flex h-10 w-10 items-center justify-center rounded-full border border-[var(--fc-app-border)] transition"
                   aria-label="Close folder sheet"
                 >
-                  <X size={17} />
+                  <X size={18} />
                 </button>
               </div>
 
-              <div className="grid gap-1 p-3">
+              <div className="grid gap-1.5 p-4">
                 {CHAT_FOLDERS.map((folder) => {
                   const selected =
                     folderSheetConversation.folder ===
@@ -1843,21 +1851,25 @@ export default function ChatSidebar() {
                           folder.id
                         );
                       }}
-                      className="fc-hover flex h-12 items-center gap-3 rounded-2xl px-4 text-left text-sm font-medium text-[var(--fc-theme-text)] transition"
+                      className={`fc-hover flex h-[56px] items-center gap-4 rounded-2xl px-4 text-left text-[15px] font-bold transition ${
+                        selected ? "bg-[var(--fc-primary)]/10 text-[var(--fc-primary)]" : "text-[var(--fc-theme-text)]"
+                      }`}
                     >
                       <Folder
-                        size={18}
-                        className="text-[var(--fc-accent-text)]"
+                        size={20}
+                        className={selected ? "text-[var(--fc-primary)]" : "text-[var(--fc-text-muted)]"}
                       />
                       <span className="flex-1">
                         {folder.label}
                       </span>
                       {selected ? (
-                        <Check size={17} />
+                        <Check size={20} />
                       ) : null}
                     </button>
                   );
                 })}
+
+                <div className="my-1.5 h-[1px] bg-white/5" />
 
                 {folderSheetConversation.folder ? (
                   <button
@@ -1865,11 +1877,10 @@ export default function ChatSidebar() {
                     onClick={() => {
                       void handleAssignFolder(null);
                     }}
-                    className="fc-hover flex h-12 items-center gap-3 rounded-2xl px-4 text-left text-sm font-medium text-[var(--fc-theme-text)] transition"
+                    className="fc-hover flex h-[56px] items-center gap-4 rounded-2xl px-4 text-left text-[15px] font-bold text-red-400 transition hover:bg-red-500/10"
                   >
                     <X
-                      size={18}
-                      className="text-[var(--fc-accent-text)]"
+                      size={20}
                     />
                     Remove from Folder
                   </button>
@@ -1878,11 +1889,10 @@ export default function ChatSidebar() {
                 <button
                   type="button"
                   onClick={handleCreateFolder}
-                  className="fc-hover flex h-12 items-center gap-3 rounded-2xl px-4 text-left text-sm font-medium text-[var(--fc-theme-text)] transition"
+                  className="fc-hover flex h-[56px] items-center gap-4 rounded-2xl px-4 text-left text-[15px] font-bold text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
                 >
                   <Plus
-                    size={18}
-                    className="text-[var(--fc-accent-text)]"
+                    size={20}
                   />
                   Create Folder
                 </button>
@@ -1903,7 +1913,7 @@ export default function ChatSidebar() {
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[276] flex items-center justify-center bg-[var(--fc-overlay-strong)] p-4 sm:backdrop-blur-xl"
+            className="fixed inset-0 z-[276] flex items-center justify-center bg-black/80 p-5 sm:backdrop-blur-xl"
             onPointerDown={() =>
               setDeleteConfirmConversation(null)
             }
@@ -1911,8 +1921,8 @@ export default function ChatSidebar() {
             <motion.div
               initial={{
                 opacity: 0,
-                y: 18,
-                scale: 0.96,
+                y: 24,
+                scale: 0.94,
               }}
               animate={{
                 opacity: 1,
@@ -1921,35 +1931,35 @@ export default function ChatSidebar() {
               }}
               exit={{
                 opacity: 0,
-                y: 18,
-                scale: 0.96,
+                y: 24,
+                scale: 0.94,
               }}
               transition={{
                 type: "spring",
-                stiffness: 260,
-                damping: 28,
+                stiffness: 280,
+                damping: 30,
               }}
-              className="fc-modal w-full max-sm:max-w-none rounded-2xl border p-5"
+              className="fc-modal w-full max-w-[400px] overflow-hidden rounded-[24px] border border-white/10 p-7 shadow-[0_48px_128px_rgba(0,0,0,1)]"
               onClick={(event) =>
                 event.stopPropagation()
               }
             >
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/[0.15] text-red-100">
-                  <Trash2 size={21} />
+              <div className="flex flex-col items-center text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-[20px] border border-red-500/10 bg-red-500/5 text-red-400">
+                  <Trash2 size={28} />
                 </div>
 
-                <div className="min-w-0">
-                  <h2 className="text-lg font-semibold">
-                    Delete this chat?
+                <div className="mt-5">
+                  <h2 className="text-xl font-bold">
+                    Delete Chat?
                   </h2>
-                  <p className="fc-muted mt-1 text-sm leading-relaxed">
-                    It will be removed from your chat list.
+                  <p className="fc-muted mt-2 text-[15px] leading-relaxed">
+                    This will remove the conversation from your list. This action cannot be undone.
                   </p>
                 </div>
               </div>
 
-              <div className="mt-6 grid grid-cols-2 gap-3">
+              <div className="mt-8 grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() =>
@@ -1959,7 +1969,7 @@ export default function ChatSidebar() {
                     clearPendingConversationId ===
                     deleteConfirmConversation.id
                   }
-                  className="fc-surface fc-hover h-12 rounded-2xl border text-sm font-medium text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)] disabled:cursor-wait disabled:opacity-60"
+                  className="fc-surface fc-hover h-[52px] rounded-2xl border border-[var(--fc-app-border)] text-[15px] font-bold text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)] disabled:cursor-wait disabled:opacity-60"
                 >
                   Cancel
                 </button>
@@ -1973,7 +1983,7 @@ export default function ChatSidebar() {
                     clearPendingConversationId ===
                     deleteConfirmConversation.id
                   }
-                  className="h-12 rounded-2xl bg-red-500 text-sm font-semibold text-white shadow-xl shadow-red-500/25 transition hover:bg-red-400 disabled:cursor-wait disabled:opacity-60"
+                  className="h-[52px] rounded-2xl bg-red-500 text-[15px] font-bold text-white shadow-lg shadow-red-500/20 transition hover:bg-red-400 disabled:cursor-wait disabled:opacity-60"
                 >
                   Delete
                 </button>
@@ -1993,7 +2003,7 @@ export default function ChatSidebar() {
             exit={{
               opacity: 0,
             }}
-            className="fixed inset-0 z-[280] flex items-center justify-center bg-[var(--fc-overlay-strong)] p-4 sm:backdrop-blur-xl"
+            className="fixed inset-0 z-[280] flex items-center justify-center bg-black/80 p-5 sm:backdrop-blur-xl"
             onPointerDown={() =>
               setLogoutConfirmOpen(false)
             }
@@ -2001,8 +2011,8 @@ export default function ChatSidebar() {
             <motion.div
               initial={{
                 opacity: 0,
-                y: 18,
-                scale: 0.96,
+                y: 24,
+                scale: 0.94,
               }}
               animate={{
                 opacity: 1,
@@ -2011,38 +2021,38 @@ export default function ChatSidebar() {
               }}
               exit={{
                 opacity: 0,
-                y: 18,
-                scale: 0.96,
+                y: 24,
+                scale: 0.94,
               }}
               transition={{
                 type: "spring",
-                stiffness: 260,
-                damping: 28,
+                stiffness: 280,
+                damping: 30,
               }}
-              className="fc-modal w-full max-w-sm rounded-2xl border p-5 sm:backdrop-blur-3xl"
+              className="fc-modal w-full max-w-[400px] overflow-hidden rounded-[24px] border border-white/10 p-7 shadow-[0_48px_128px_rgba(0,0,0,1)]"
             >
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/[0.15] text-red-100">
-                  <AlertTriangle size={21} />
+              <div className="flex flex-col items-center text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-[20px] border border-[var(--fc-primary)]/10 bg-[var(--fc-primary)]/5 text-[var(--fc-primary)]">
+                  <LogOut size={28} />
                 </div>
 
-                <div className="min-w-0">
-                  <h2 className="text-lg font-semibold">
-                    Log out?
+                <div className="mt-5">
+                  <h2 className="text-xl font-bold text-white">
+                    Sign Out?
                   </h2>
-                  <p className="fc-muted mt-1 text-sm leading-relaxed">
-                    Your session will end on this device. Realtime sync resumes after you sign in again.
+                  <p className="fc-muted mt-2 text-[15px] leading-relaxed">
+                    You will need to sign in again to access your chats and receive notifications.
                   </p>
                 </div>
               </div>
 
-              <div className="mt-6 grid grid-cols-2 gap-3">
+              <div className="mt-8 grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() =>
                     setLogoutConfirmOpen(false)
                   }
-                  className="fc-surface fc-hover h-12 rounded-2xl border text-sm font-medium text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
+                  className="fc-surface fc-hover h-[52px] rounded-2xl border border-[var(--fc-app-border)] text-[15px] font-bold text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
                 >
                   Cancel
                 </button>
@@ -2050,9 +2060,9 @@ export default function ChatSidebar() {
                 <button
                   type="button"
                   onClick={confirmLogout}
-                  className="h-12 rounded-2xl bg-red-500 text-sm font-semibold text-white shadow-xl shadow-red-500/25 transition hover:bg-red-400"
+                  className="h-[52px] rounded-2xl bg-[var(--fc-primary)] text-[15px] font-bold text-white shadow-lg shadow-[rgba(var(--fc-primary-rgb),0.2)] transition hover:bg-[var(--fc-primary-hover)]"
                 >
-                  Log out
+                  Sign Out
                 </button>
               </div>
             </motion.div>

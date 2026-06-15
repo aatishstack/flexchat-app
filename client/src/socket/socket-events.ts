@@ -35,6 +35,7 @@ export const SOCKET_EVENTS = {
 
   STORY_CREATED: "story_created",
   STORY_NEW: "story:new",
+  STORY_PRIVACY_UPDATED: "story_privacy_updated",
   STORY_VIEWED: "story_viewed",
   STORY_DELETED: "story_deleted",
   STORY_EXPIRED: "story:expired",

@@ -1,10 +1,12 @@
 export type StoryMediaType = "image" | "video" | "text";
+export type StoryVisibility = "contacts" | "only_me";
 
 export interface Story {
   id: string;
   userId: string;
   mediaUrl: string;
   mediaType: StoryMediaType;
+  visibility: StoryVisibility;
   durationSeconds?: number;
   caption?: string;
   createdAt: string;

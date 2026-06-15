@@ -11,7 +11,7 @@ interface Props {
 
 interface State {
   hasError: boolean;
-  error?: Error;
+  error?: unknown;
 }
 
 export default class GlobalErrorBoundary extends Component<Props, State> {
@@ -19,16 +19,17 @@ export default class GlobalErrorBoundary extends Component<Props, State> {
     hasError: false,
   };
 
-  public static getDerivedStateFromError(error: Error): State {
+  public static getDerivedStateFromError(error: unknown): State {
     return { hasError: true, error };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public componentDidCatch(error: unknown, errorInfo: ErrorInfo) {
+
     console.error("[GlobalErrorBoundary] Uncaught error:", error, errorInfo);
     
     Sentry.withScope((scope) => {
       scope.setTag("component", "GlobalErrorBoundary");
-      scope.setExtras(errorInfo as any);
+      scope.setExtras(errorInfo as unknown as Record<string, unknown>);
       Sentry.captureException(error);
     });
   }
@@ -59,7 +60,7 @@ export default class GlobalErrorBoundary extends Component<Props, State> {
           </h1>
           
           <p className="mb-8 max-w-md text-zinc-400">
-            FlexChat encountered an unexpected error. We've been notified and are looking into it.
+            FlexChat encountered an unexpected error. We&apos;ve been notified and are looking into it.
           </p>
 
           <div className="flex w-full max-w-xs flex-col gap-3">
@@ -79,16 +80,17 @@ export default class GlobalErrorBoundary extends Component<Props, State> {
             </button>
           </div>
 
-          {process.env.NODE_ENV === "development" && this.state.error && (
+          {process.env.NODE_ENV === "development" && this.state.error ? (
             <div className="mt-12 max-w-2xl overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 p-4 text-left">
               <p className="mb-2 font-mono text-xs font-bold uppercase tracking-widest text-red-400">
                 Developer Debug Info
               </p>
               <pre className="overflow-x-auto font-mono text-[10px] leading-relaxed text-zinc-500">
-                {this.state.error.stack}
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {(this.state.error as any).stack || String(this.state.error)}
               </pre>
             </div>
-          )}
+          ) : null}
         </div>
       );
     }
