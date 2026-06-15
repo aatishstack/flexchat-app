@@ -1797,6 +1797,7 @@ export default function SocketProvider({
       socket.io.off("reconnect_error", safeOnReconnectError);
       socket.io.off("reconnect_failed", safeOnReconnectFailed);
       window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [
     addMessage,
