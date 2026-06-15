@@ -37,6 +37,7 @@ logs/
 
 # misc
 .DS_Store
+.history/
 *.pem
 *service-account*.json
 *firebase-adminsdk*.json
