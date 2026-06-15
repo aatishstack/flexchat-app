@@ -2618,8 +2618,8 @@ export default function ChatConversation() {
     isConnected,
     isConnecting,
     connectionError,
-    remoteTypingUsers,
-    isOnline,
+    typingUsers,
+    onlineUsers,
     joinConversation,
     leaveConversation,
     sendSocketMessage,
@@ -2636,14 +2636,8 @@ export default function ChatConversation() {
       isConnected: state.isConnected,
       isConnecting: state.isConnecting,
       connectionError: state.connectionError,
-      remoteTypingUsers: state.typingUsers.filter(
-        (typingUserId: string) => typingUserId !== currentUserId,
-      ),
-      isOnline:
-        activeConversation?.memberIds?.some(
-          (memberId: string) =>
-            memberId !== currentUserId && state.onlineUsers.includes(memberId),
-        ) ?? false,
+      typingUsers: state.typingUsers,
+      onlineUsers: state.onlineUsers,
       joinConversation: state.joinConversation,
       leaveConversation: state.leaveConversation,
       sendSocketMessage: state.sendMessage,
@@ -2653,6 +2647,21 @@ export default function ChatConversation() {
       setConnectionError: state.setConnectionError,
     }))
   );
+
+  const remoteTypingUsers = useMemo(() => {
+    return typingUsers.filter(
+      (typingUserId: string) => typingUserId !== currentUserId,
+    );
+  }, [typingUsers, currentUserId]);
+
+  const isOnline = useMemo(() => {
+    return (
+      activeConversation?.memberIds?.some(
+        (memberId: string) =>
+          memberId !== currentUserId && onlineUsers.includes(memberId),
+      ) ?? false
+    );
+  }, [activeConversation?.memberIds, currentUserId, onlineUsers]);
   const markConversationRead = useConversationStore(
     (state) => state.markConversationRead,
   );
