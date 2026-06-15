@@ -52,3 +52,23 @@ export function verifyToken(
 
   return parsedPayload.data;
 }
+
+export function verifyTokenIgnoringExpiration(
+  token: string
+) {
+  const decoded = jwt.verify(
+    token,
+    env.JWT_SECRET,
+    {
+      algorithms: ["HS256"],
+      ignoreExpiration: true,
+    },
+  );
+  const parsedPayload = jwtPayloadSchema.safeParse(decoded);
+
+  if (!parsedPayload.success) {
+    throw new Error("Invalid token payload");
+  }
+
+  return parsedPayload.data;
+}

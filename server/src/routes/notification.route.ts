@@ -120,7 +120,14 @@ export async function notificationRoutes(
         .limit(50);
 
       return {
-        notifications: results,
+        notifications: results.map((n) => ({
+          id: n.id,
+          title: n.title,
+          message: n.body,
+          createdAt: n.createdAt,
+          read: n.isRead,
+          kind: n.type,
+        })),
       };
     }
   );

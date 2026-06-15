@@ -18,13 +18,19 @@ const protectedPrefixes = [
   "/chat",
   "/calls",
   "/contacts",
+  "/discover",
+  "/friends",
+  "/notifications",
+  "/privacy",
   "/profile",
   "/settings",
+  "/status",
 ];
 
 const authPrefixes = [
   "/auth",
   "/register",
+  "/verify",
 ];
 
 function isProtectedPath(pathname: string) {

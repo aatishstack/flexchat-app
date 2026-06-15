@@ -21,7 +21,7 @@ import { db } from "../db/index.js";
 import { users } from "../db/schema/users.js";
 
 import { generateId } from "../lib/uuid.js";
-import { signToken } from "../lib/jwt.js";
+import { signToken, verifyTokenIgnoringExpiration } from "../lib/jwt.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { verifyTurnstileToken } from "../utils/turnstile.js";
 import { generateTurnCredentials } from "../utils/webrtc.js";
@@ -1021,7 +1021,6 @@ export async function authRoutes(app: FastifyInstance) {
   app.post(
     "/auth/refresh",
     {
-      preHandler: authMiddleware,
       config: {
         rateLimit: {
           max: 30,
@@ -1030,13 +1029,46 @@ export async function authRoutes(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const userId = (request.user as any)?.id;
+      const authHeader = request.headers.authorization;
 
-      if (!userId) {
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
         return reply.status(401).send({
           message: "Unauthorized",
         });
       }
+
+      const token = authHeader.slice("Bearer ".length).trim();
+
+      if (!token) {
+        return reply.status(401).send({
+          message: "Unauthorized",
+        });
+      }
+
+      let decoded: ReturnType<typeof verifyTokenIgnoringExpiration>;
+
+      try {
+        decoded = verifyTokenIgnoringExpiration(token);
+      } catch (error) {
+        request.log.warn(
+          {
+            err:
+              error instanceof Error
+                ? {
+                    name: error.name,
+                    message: error.message,
+                  }
+                : "Unknown token verification error",
+          },
+          "Refresh rejected: token verification failed",
+        );
+
+        return reply.status(401).send({
+          message: "Invalid token",
+        });
+      }
+
+      const userId = decoded.id;
 
       const foundUser = await db
         .select()

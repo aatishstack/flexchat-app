@@ -30,7 +30,10 @@ import { queryKeys } from "@/lib/query-keys";
 import { clearClientSession } from "@/lib/session-cleanup";
 import { getServerNow } from "@/lib/server-time";
 import { tokenStorage } from "@/lib/token";
-import { useNotificationStore } from "@/store/notification-store";
+import { 
+  useNotificationStore,
+  type NotificationItem 
+} from "@/store/notification-store";
 import {
   useCallStore,
   type CallSession,
@@ -132,6 +135,14 @@ type UserUpdatedPayload = {
 
 type DiscoverUserDismissedPayload = {
   userId?: string;
+};
+
+type NotificationCreatedPayload = {
+  notification: NotificationItem;
+};
+
+type NotificationDeletedPayload = {
+  notificationId: string;
 };
 
 type CallLifecyclePayload = {
@@ -1336,6 +1347,30 @@ export default function SocketProvider({
       );
     }
 
+    function onNotificationCreated(
+      payload: NotificationCreatedPayload
+    ) {
+      if (!payload.notification) {
+        return;
+      }
+
+      useNotificationStore
+        .getState()
+        .addNotification(payload.notification);
+    }
+
+    function onNotificationDeleted(
+      payload: NotificationDeletedPayload
+    ) {
+      if (!payload.notificationId) {
+        return;
+      }
+
+      useNotificationStore
+        .getState()
+        .deleteNotification(payload.notificationId);
+    }
+
     function onCallIncoming(
       call: CallSession
     ) {
@@ -1589,9 +1624,18 @@ export default function SocketProvider({
     );
     const safeOnDiscoverUserDismissed = guardSocketHandler(
       SOCKET_EVENTS.DISCOVER_USER_DISMISSED,
-      onDiscoverUserDismissed,
+      onDiscoverUserDismissed
+    );
+    const safeOnNotificationCreated = guardSocketHandler(
+      SOCKET_EVENTS.NOTIFICATION_CREATED,
+      onNotificationCreated
+    );
+    const safeOnNotificationDeleted = guardSocketHandler(
+      SOCKET_EVENTS.NOTIFICATION_DELETED,
+      onNotificationDeleted
     );
     const safeOnCallIncoming = guardSocketHandler(
+
       SOCKET_EVENTS.CALL_INCOMING,
       onCallIncoming,
     );
@@ -1689,6 +1733,14 @@ export default function SocketProvider({
       SOCKET_EVENTS.DISCOVER_USER_DISMISSED,
       safeOnDiscoverUserDismissed
     );
+    socket.on(
+      SOCKET_EVENTS.NOTIFICATION_CREATED,
+      safeOnNotificationCreated
+    );
+    socket.on(
+      SOCKET_EVENTS.NOTIFICATION_DELETED,
+      safeOnNotificationDeleted
+    );
     socket.on(SOCKET_EVENTS.CALL_INCOMING, safeOnCallIncoming);
     socket.on(SOCKET_EVENTS.CALL_ACCEPTED, safeOnCallAccepted);
     socket.on(SOCKET_EVENTS.CALL_REJECTED, safeOnCallRejected);
@@ -1778,6 +1830,14 @@ export default function SocketProvider({
       socket.off(
         SOCKET_EVENTS.DISCOVER_USER_DISMISSED,
         safeOnDiscoverUserDismissed
+      );
+      socket.off(
+        SOCKET_EVENTS.NOTIFICATION_CREATED,
+        safeOnNotificationCreated
+      );
+      socket.off(
+        SOCKET_EVENTS.NOTIFICATION_DELETED,
+        safeOnNotificationDeleted
       );
       socket.off(SOCKET_EVENTS.CALL_INCOMING, safeOnCallIncoming);
       socket.off(SOCKET_EVENTS.CALL_ACCEPTED, safeOnCallAccepted);

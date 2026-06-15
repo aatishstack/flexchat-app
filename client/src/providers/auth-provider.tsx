@@ -135,6 +135,7 @@ export default function AuthProvider({
         });
         setSessionRecovering(false);
         resetClientSessionState();
+        setHydrated(true);
         return;
       }
 
@@ -204,6 +205,7 @@ export default function AuthProvider({
           setSessionRecovering(false);
           tokenStorage.remove();
           resetClientSessionState();
+          setHydrated(true);
           return;
         }
 

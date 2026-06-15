@@ -2,13 +2,23 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { 
+  markNotificationRead as markNotificationReadApi, 
+  deleteNotificationRequest, 
+  markNotificationsRead,
+  clearNotificationsRequest
+} from "@/services/notification.service";
 
 export type NotificationKind =
   | "block"
   | "call"
   | "missed_call"
   | "call_accepted"
-  | "call_rejected";
+  | "call_rejected"
+  | "message_reaction"
+  | "story_reaction"
+  | "story_reply"
+  | "friend_request";
 
 export interface NotificationItem {
   id: string;
@@ -27,6 +37,10 @@ export interface NotificationItem {
 interface NotificationState {
   notifications:
     NotificationItem[];
+
+  setNotifications: (
+    notifications: NotificationItem[]
+  ) => void;
 
   addNotification: (
     notification: NotificationItem
@@ -50,23 +64,15 @@ interface NotificationState {
 }
 
 const MAX_NOTIFICATIONS = 80;
-const CENTER_NOTIFICATION_KINDS: NotificationKind[] = [
-  "block",
-  "call",
-  "missed_call",
-  "call_accepted",
-  "call_rejected",
-];
-
-function isCenterNotification(notification: NotificationItem) {
-  return !!notification.kind && CENTER_NOTIFICATION_KINDS.includes(notification.kind);
-}
 
 export const useNotificationStore =
   create<NotificationState>()(
     persist(
     (set) => ({
       notifications: [],
+
+      setNotifications: (notifications) =>
+        set({ notifications: notifications.slice(0, MAX_NOTIFICATIONS) }),
 
       addNotification:
          (
@@ -76,10 +82,6 @@ export const useNotificationStore =
             (
               state
             ) => {
-              if (!isCenterNotification(notification)) {
-                return state;
-              }
-
               return {
                 notifications:
                   [
@@ -97,103 +99,75 @@ export const useNotificationStore =
             }
           ),
 
-      markAsRead:
-        (
-          id
-        ) =>
-          set(
-            (
-              state
-            ) => ({
-              notifications:
-                state.notifications.map(
-                  (
-                    item
-                  ) =>
-                    item.id ===
-                    id
-                      ? {
-                          ...item,
-                          read: true,
-                        }
-                      : item
-                ),
-            })
-          ),
+      markAsRead: (id) => {
+        set((state) => ({
+          notifications:
+            state.notifications.map(
+              (item) =>
+                item.id === id
+                  ? {
+                      ...item,
+                      read: true,
+                    }
+                  : item
+            ),
+        }));
+        void markNotificationReadApi(id, true).catch(() => {});
+      },
 
-      markAsUnread:
-        (
-          id
-        ) =>
-          set(
-            (
-              state
-            ) => ({
-              notifications:
-                state.notifications.map(
-                  (
-                    item
-                  ) =>
-                    item.id ===
-                    id
-                      ? {
-                          ...item,
-                          read: false,
-                        }
-                      : item
-                ),
-            })
-          ),
+      markAsUnread: (id) => {
+        set((state) => ({
+          notifications:
+            state.notifications.map(
+              (item) =>
+                item.id === id
+                  ? {
+                      ...item,
+                      read: false,
+                    }
+                  : item
+            ),
+        }));
+        void markNotificationReadApi(id, false).catch(() => {});
+      },
 
-      markAllRead:
-        () =>
-          set(
-            (
-              state
-            ) => ({
-              notifications:
-                state.notifications.map(
-                  (
-                    item
-                  ) => ({
-                    ...item,
-                    read: true,
-                  })
-                ),
-            })
-          ),
+      markAllRead: () => {
+        set((state) => ({
+          notifications:
+            state.notifications.map(
+              (item) => ({
+                ...item,
+                read: true,
+              })
+            ),
+        }));
+        void markNotificationsRead().catch(() => {});
+      },
 
-      deleteNotification:
-        (
-          id
-        ) =>
-          set(
-            (
-              state
-            ) => ({
-              notifications:
-                state.notifications.filter(
-                  (
-                    item
-                  ) =>
-                    item.id !==
-                    id
-                ),
-            })
-          ),
+      deleteNotification: (id) => {
+        set((state) => ({
+          notifications:
+            state.notifications.filter(
+              (item) =>
+                item.id !== id
+            ),
+        }));
+        void deleteNotificationRequest(id).catch(() => {});
+      },
 
-      clearNotifications:
-        () =>
-          set({
-            notifications:
-              [],
-          }),
+      clearNotifications: () => {
+        set({
+          notifications: [],
+        });
+        void clearNotificationsRequest().catch(() => {});
+      },
     }),
     {
       name: "flexchat-notifications",
       partialize: (state) => ({
-        notifications: state.notifications.filter(isCenterNotification),
+        notifications: state.notifications,
       }),
     },
     )
   );
+

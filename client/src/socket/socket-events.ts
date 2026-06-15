@@ -54,4 +54,7 @@ export const SOCKET_EVENTS = {
   CALL_ANSWER: "call:answer",
   CALL_ICE_CANDIDATE: "call:ice-candidate",
   CALL_ERROR: "call:error",
+
+  NOTIFICATION_CREATED: "notification:created",
+  NOTIFICATION_DELETED: "notification:deleted",
 } as const;

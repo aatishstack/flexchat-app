@@ -27,12 +27,15 @@ import type { NotificationItem } from "@/store/notification-store";
 import { formatRelativeTime } from "@/lib/server-time";
 import FlexLogo from "@/components/shared/flex-logo";
 import { cn } from "@/lib/utils";
+import { fetchNotifications } from "@/services/notification.service";
 
 export default function NotificationsPage() {
   const router = useRouter();
   const [now, setNow] = useState(() => Date.now());
+
   const {
     notifications,
+    setNotifications,
     markAsRead,
     markAllRead,
     deleteNotification,
@@ -40,12 +43,26 @@ export default function NotificationsPage() {
   } = useNotificationStore(
     useShallow((state) => ({
       notifications: state.notifications,
+      setNotifications: state.setNotifications,
       markAsRead: state.markAsRead,
       markAllRead: state.markAllRead,
       deleteNotification: state.deleteNotification,
       clearNotifications: state.clearNotifications,
     })),
   );
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await fetchNotifications();
+        setNotifications(data);
+      } catch (error) {
+        console.error("Failed to fetch notifications", error);
+      }
+    }
+
+    load();
+  }, [setNotifications]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60_000);

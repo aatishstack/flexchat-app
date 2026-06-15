@@ -12,6 +12,8 @@ export const notifications = pgTable(
     id: text("id").primaryKey(),
     userId: text("user_id").notNull(),
     actorId: text("actor_id"),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
     type: text("type").notNull(), // 'missed_call', 'reaction', 'story_reaction', etc.
     entityId: text("entity_id"),
     metadata: text("metadata"), // Stringified JSON for flexibility
