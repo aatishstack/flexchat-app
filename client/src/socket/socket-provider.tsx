@@ -354,24 +354,12 @@ function guardSocketHandler<Arguments extends unknown[]>(
 ) {
   return (...args: Arguments) => {
     try {
-      // TEMPORARY INSTRUMENTATION - Finding exact exception
-      console.log(`[SOCKET] Entering handler: ${eventName}`, { argsCount: args.length, args: JSON.stringify(args).substring(0, 500) });
       handler(...args);
-      console.log(`[SOCKET] Handler completed successfully: ${eventName}`);
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : '';
       console.error(
-        `[SOCKET] Socket handler FAILED for ${eventName}`,
-        {
-          errorMessage: errorMsg,
-          errorStack: errorStack,
-          errorType: error?.constructor?.name,
-          args: JSON.stringify(args).substring(0, 1000),
-        }
+        `Socket handler failed for ${eventName}`,
+        error,
       );
-      // Re-throw to let it bubble to error boundary if it's a critical error
-      // throw error;
     }
   };
 }
@@ -1076,237 +1064,137 @@ export default function SocketProvider({
     }
 
     function onStoryCreated(story: Story) {
-      // TEMPORARY INSTRUMENTATION - Finding exact exception
-      console.log('[SOCKET] onStoryCreated called with:', { storyId: story?.id, storyUserId: story?.userId });
-      
       if (!story?.id || hasSeenStoryEvent(story.id)) {
-        console.log('[SOCKET] onStoryCreated - missing id or already seen, returning');
         return;
       }
 
-      try {
-        const currentUserId =
-          useAuthStore.getState().user?.id;
-        console.log('[SOCKET] onStoryCreated - auth user:', { userId: currentUserId });
+      const currentUserId =
+        useAuthStore.getState().user?.id;
 
-        queryClient.setQueryData<Story[]>(
-          queryKeys.stories.all,
-          (stories) => {
-            console.log('[SOCKET] onStoryCreated - updating cache, old stories:', { count: stories?.length });
-            const filteredStories =
-              (stories ?? []).filter((item) => {
-                if (item.id === story.id) {
-                  return false;
-                }
+      queryClient.setQueryData<Story[]>(
+        queryKeys.stories.all,
+        (stories) => {
+          const filteredStories =
+            (stories ?? []).filter((item) => {
+              if (item.id === story.id) {
+                return false;
+              }
 
-                return !(
-                  story.userId === currentUserId &&
-                  item.id.startsWith("optimistic-story-")
-                );
-              });
-            
-            const result = [
-              story,
-              ...filteredStories,
-            ];
-            console.log('[SOCKET] onStoryCreated - cache updated, new count:', { count: result.length });
-            return result;
-          }
-        );
-        console.log('[SOCKET] onStoryCreated - completed successfully');
-      } catch (error) {
-        console.error('[SOCKET] onStoryCreated - caught exception:', {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : '',
-          storyId: story?.id,
-        });
-        throw error;
-      }
+              return !(
+                story.userId === currentUserId &&
+                item.id.startsWith("optimistic-story-")
+              );
+            });
+
+          return [
+            story,
+            ...filteredStories,
+          ];
+        }
+      );
     }
 
     function onStoryViewed(
       payload: StoryViewedPayload
     ) {
-      // TEMPORARY INSTRUMENTATION - Finding exact exception
-      console.log('[SOCKET] onStoryViewed called with:', { payload });
-      
       if (!payload.storyId) {
-        console.log('[SOCKET] onStoryViewed - no storyId, returning');
         return;
       }
 
-      try {
-        console.log('[SOCKET] onStoryViewed - getting stories from cache');
-        const currentStories = queryClient.getQueryData<Story[]>(queryKeys.stories.all);
-        console.log('[SOCKET] onStoryViewed - current stories:', { count: currentStories?.length, stories: JSON.stringify(currentStories).substring(0, 500) });
-        
-        const authUser = useAuthStore.getState().user;
-        console.log('[SOCKET] onStoryViewed - auth user:', { userId: authUser?.id });
-
-        queryClient.setQueryData<Story[]>(
-          queryKeys.stories.all,
-          (stories) => {
-            console.log('[SOCKET] onStoryViewed - updating cache, old stories:', { count: stories?.length });
-            const updated = stories?.map((story) => {
-              console.log('[SOCKET] onStoryViewed - processing story:', { id: story.id, matches: story.id === payload.storyId });
-              if (story.id === payload.storyId) {
-                const oldViewCount = story.viewCount;
-                const newViewed = payload.viewerId === authUser?.id ? true : story.viewed;
-                const newViewCount = 
-                  payload.viewerId &&
-                  payload.viewerId !== story.userId &&
-                  payload.viewerId !== authUser?.id
-                    ? (story.viewCount ?? 0) + 1
-                    : story.viewCount;
-                console.log('[SOCKET] onStoryViewed - updating story:', { oldViewCount, newViewCount, oldViewed: story.viewed, newViewed });
-                return {
+      queryClient.setQueryData<Story[]>(
+        queryKeys.stories.all,
+        (stories) =>
+          stories?.map((story) =>
+            story.id === payload.storyId
+              ? {
                   ...story,
-                  viewed: newViewed,
-                  viewCount: newViewCount,
-                };
-              }
-              return story;
-            }) ?? [];
-            console.log('[SOCKET] onStoryViewed - cache updated, new count:', { count: updated.length });
-            return updated;
-          }
-        );
+                  viewed:
+                    payload.viewerId ===
+                    useAuthStore.getState().user?.id
+                      ? true
+                      : story.viewed,
+                  viewCount:
+                    payload.viewerId &&
+                    payload.viewerId !== story.userId &&
+                    payload.viewerId !== useAuthStore.getState().user?.id
+                      ? (story.viewCount ?? 0) + 1
+                      : story.viewCount,
+                }
+              : story
+          ) ?? []
+      );
 
-        console.log('[SOCKET] onStoryViewed - invalidating queries');
-        void queryClient.invalidateQueries({
-          queryKey: [
-            ...queryKeys.stories.all,
-            payload.storyId,
-            "viewers",
-          ],
-        });
-        console.log('[SOCKET] onStoryViewed - completed successfully');
-      } catch (error) {
-        console.error('[SOCKET] onStoryViewed - caught exception:', {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : '',
-          payload,
-        });
-        throw error;
-      }
+      void queryClient.invalidateQueries({
+        queryKey: [
+          ...queryKeys.stories.all,
+          payload.storyId,
+          "viewers",
+        ],
+      });
     }
 
     function onStoryPrivacyUpdated(story: Story) {
-      // TEMPORARY INSTRUMENTATION - Finding exact exception
-      console.log('[SOCKET] onStoryPrivacyUpdated called with:', { storyId: story?.id });
-      
       if (!story?.id) {
-        console.log('[SOCKET] onStoryPrivacyUpdated - no id, returning');
         return;
       }
 
-      try {
-        queryClient.setQueryData<Story[]>(
-          queryKeys.stories.all,
-          (stories) => {
-            console.log('[SOCKET] onStoryPrivacyUpdated - updating cache, old stories:', { count: stories?.length });
-            const currentStories = stories ?? [];
-            const hasStory = currentStories.some(
-              (item) => item.id === story.id
-            );
+      queryClient.setQueryData<Story[]>(
+        queryKeys.stories.all,
+        (stories) => {
+          const currentStories = stories ?? [];
+          const hasStory = currentStories.some(
+            (item) => item.id === story.id
+          );
 
-            const result = hasStory
-              ? currentStories.map((item) =>
-                  item.id === story.id ? story : item
-                )
-              : [story, ...currentStories];
-            console.log('[SOCKET] onStoryPrivacyUpdated - cache updated, new count:', { count: result.length });
-            return result;
-          }
-        );
-        console.log('[SOCKET] onStoryPrivacyUpdated - completed successfully');
-      } catch (error) {
-        console.error('[SOCKET] onStoryPrivacyUpdated - caught exception:', {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : '',
-          storyId: story?.id,
-        });
-        throw error;
-      }
+          return hasStory
+            ? currentStories.map((item) =>
+                item.id === story.id ? story : item
+              )
+            : [story, ...currentStories];
+        }
+      );
     }
 
     function onStoryDeleted(
       payload: StoryDeletedPayload
     ) {
-      // TEMPORARY INSTRUMENTATION - Finding exact exception
-      console.log('[SOCKET] onStoryDeleted called with:', { payload });
-      
       if (!payload.storyId) {
-        console.log('[SOCKET] onStoryDeleted - no storyId, returning');
         return;
       }
 
-      try {
-        queryClient.setQueryData<Story[]>(
-          queryKeys.stories.all,
-          (stories) => {
-            console.log('[SOCKET] onStoryDeleted - updating cache, old stories:', { count: stories?.length });
-            const result = (stories ?? []).filter(
-              (story) =>
-                story.id !== payload.storyId
-            );
-            console.log('[SOCKET] onStoryDeleted - cache updated, new count:', { count: result.length });
-            return result;
-          }
-        );
-        console.log('[SOCKET] onStoryDeleted - completed successfully');
-      } catch (error) {
-        console.error('[SOCKET] onStoryDeleted - caught exception:', {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : '',
-          storyId: payload.storyId,
-        });
-        throw error;
-      }
+      queryClient.setQueryData<Story[]>(
+        queryKeys.stories.all,
+        (stories) =>
+          (stories ?? []).filter(
+            (story) =>
+              story.id !== payload.storyId
+          )
+      );
     }
 
     function onStoryExpired(
       payload: StoryExpiredPayload
     ) {
-      // TEMPORARY INSTRUMENTATION - Finding exact exception
-      console.log('[SOCKET] onStoryExpired called with:', { payload });
-      
-      try {
-        const storyIds = new Set(
-          payload.storyIds?.filter(Boolean) ?? []
-        );
-        console.log('[SOCKET] onStoryExpired - storyIds set created:', { size: storyIds.size, ids: Array.from(storyIds).slice(0, 10) });
+      const storyIds = new Set(
+        payload.storyIds?.filter(Boolean) ?? []
+      );
 
-        if (!storyIds.size) {
-          console.log('[SOCKET] onStoryExpired - no storyIds, invalidating all');
-          void queryClient.invalidateQueries({
-            queryKey:
-              queryKeys.stories.all,
-          });
-          return;
-        }
-
-        queryClient.setQueryData<Story[]>(
-          queryKeys.stories.all,
-          (stories) => {
-            console.log('[SOCKET] onStoryExpired - updating cache, old stories:', { count: stories?.length });
-            const result = (stories ?? []).filter(
-              (story) =>
-                !storyIds.has(story.id)
-            );
-            console.log('[SOCKET] onStoryExpired - cache updated, new count:', { count: result.length });
-            return result;
-          }
-        );
-        console.log('[SOCKET] onStoryExpired - completed successfully');
-      } catch (error) {
-        console.error('[SOCKET] onStoryExpired - caught exception:', {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : '',
-          payload,
+      if (!storyIds.size) {
+        void queryClient.invalidateQueries({
+          queryKey:
+            queryKeys.stories.all,
         });
-        throw error;
+        return;
       }
+
+      queryClient.setQueryData<Story[]>(
+        queryKeys.stories.all,
+        (stories) =>
+          (stories ?? []).filter(
+            (story) =>
+              !storyIds.has(story.id)
+          )
+      );
     }
 
     function onAccountDeleted(
@@ -1428,7 +1316,7 @@ export default function SocketProvider({
                   avatar: updatedAvatar,
                 }
               : user
-          ) ?? []
+          ) ?? users
       );
 
       void queryClient.invalidateQueries({
@@ -1464,7 +1352,7 @@ export default function SocketProvider({
           users?.filter(
             (user) =>
               user.id !== payload.userId
-          ) ?? []
+          ) ?? users
       );
     }
 
