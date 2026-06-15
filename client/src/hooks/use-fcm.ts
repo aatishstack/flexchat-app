@@ -1,10 +1,13 @@
 import { useEffect, useCallback } from "react";
-import { getFcmToken, onMessageListener } from "@/lib/firebase";
+import {
+  getFcmToken,
+  subscribeToForegroundMessages,
+} from "@/lib/firebase";
 import { registerFcmToken } from "@/services/notification.service";
 import { useAuthStore } from "@/stores/auth.store";
 
 export const useFcm = () => {
-  const { user } = useAuthStore();
+  const user = useAuthStore((state) => state.user);
 
   const initializeFcm = useCallback(async () => {
     if (!user) return;
@@ -42,12 +45,15 @@ export const useFcm = () => {
   }, [user, initializeFcm]);
 
   useEffect(() => {
-    onMessageListener()
-      .then((payload) => {
+    try {
+      const unsubscribe = subscribeToForegroundMessages((payload) => {
         console.info("[FCM] Message received in foreground: ", payload);
-        // We can extend this to show a toast or update state
-      })
-      .catch((err) => console.error("[FCM] Foreground listener error: ", err));
+      });
+
+      return unsubscribe;
+    } catch (error) {
+      console.error("[FCM] Foreground listener error: ", error);
+    }
   }, []);
 
   return { initializeFcm };

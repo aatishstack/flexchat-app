@@ -75,20 +75,12 @@ function readStoredPrivacy() {
 
 function ToggleSwitch({
   checked,
-  onChange,
-  label,
 }: {
   checked: boolean;
-  onChange: () => void;
-  label: string;
 }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={onChange}
+    <span
+      aria-hidden="true"
       className={cn(
         "fc-touch relative h-7 w-12 shrink-0 rounded-full border transition-all duration-200",
         checked
@@ -110,7 +102,7 @@ function ToggleSwitch({
       >
         {checked ? <Check size={12} strokeWidth={4} /> : null}
       </motion.span>
-    </button>
+    </span>
   );
 }
 
@@ -158,6 +150,8 @@ function PrivacyRow({
   return (
     <button
       type="button"
+      role={typeof value === "boolean" ? "switch" : undefined}
+      aria-checked={typeof value === "boolean" ? value : undefined}
       onClick={onClick}
       className={cn(
         "flex w-full min-h-[72px] items-center gap-4 px-5 py-3 text-left transition-colors hover:bg-white/[0.02]",
@@ -174,7 +168,7 @@ function PrivacyRow({
 
       <div className="flex items-center gap-3">
         {typeof value === "boolean" ? (
-          <ToggleSwitch checked={value} onChange={onClick} label={title} />
+          <ToggleSwitch checked={value} />
         ) : (
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-[var(--fc-accent-text)] capitalize">
@@ -197,7 +191,9 @@ export default function PrivacyPage() {
     title: string;
   } | null>(null);
 
-  const { blockedConversationIds } = useBlockStore();
+  const blockedConversationIds = useBlockStore(
+    (state) => state.blockedConversationIds,
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;

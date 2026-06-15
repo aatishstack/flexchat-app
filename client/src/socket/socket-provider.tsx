@@ -16,7 +16,6 @@ import {
 } from "@/store/socket-store";
 import {
   mergeMessageIntoQueryCache,
-  updateMessageStatusInQueryCache,
 } from "@/lib/message-query-cache";
 import type { MessageQueryCache } from "@/lib/message-query-cache";
 import {
@@ -394,6 +393,7 @@ export default function SocketProvider({
 
   const presenceUpdateBuffer = useRef<Map<string, { status: "online" | "offline"; lastSeenAt?: string | number }>>(new Map());
   const presenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectTimer = useRef<number | null>(null);
 
   const flushPresence = useCallback(() => {
     if (presenceUpdateBuffer.current.size === 0) return;
@@ -541,7 +541,12 @@ export default function SocketProvider({
         reason === "io server disconnect" &&
         tokenStorage.exists()
       ) {
-        window.setTimeout(() => {
+        if (reconnectTimer.current) {
+          window.clearTimeout(reconnectTimer.current);
+        }
+
+        reconnectTimer.current = window.setTimeout(() => {
+          reconnectTimer.current = null;
           const token = tokenStorage.get();
 
           if (!token || socket.connected || socket.active) {
@@ -597,6 +602,7 @@ export default function SocketProvider({
       }
 
       presenceTimer.current = setTimeout(() => {
+        presenceTimer.current = null;
         flushPresence();
       }, 350);
     }
@@ -787,23 +793,12 @@ export default function SocketProvider({
       }
 
       typingTimer.current = setTimeout(() => {
+        typingTimer.current = null;
         flushTyping();
       }, 150);
     }
 
     function onMessageDelivered(receipt: MessageReceipt) {
-      queryClient.setQueriesData<MessageQueryCache>(
-        {
-          queryKey: ["messages"],
-        },
-        (cache) =>
-          updateMessageStatusInQueryCache(
-            cache,
-            receipt,
-            "delivered"
-          )
-      );
-
       updateMessageStatus(
         receipt.messageId,
         receipt.status ?? "delivered",
@@ -812,18 +807,6 @@ export default function SocketProvider({
     }
 
     function onMessageSeen(receipt: MessageReceipt) {
-      queryClient.setQueriesData<MessageQueryCache>(
-        {
-          queryKey: ["messages"],
-        },
-        (cache) =>
-          updateMessageStatusInQueryCache(
-            cache,
-            receipt,
-            "read"
-          )
-      );
-
       updateMessageStatus(
         receipt.messageId,
         "read",
@@ -1224,9 +1207,6 @@ export default function SocketProvider({
               userId !== payload.userId
           ),
       }));
-      useNotificationStore
-        .getState()
-        .clearNotifications();
 
       void queryClient.invalidateQueries({
         queryKey:
@@ -1732,9 +1712,24 @@ export default function SocketProvider({
         }
       }
     }
-    window.addEventListener("visibilitychange", handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
+      if (presenceTimer.current) {
+        window.clearTimeout(presenceTimer.current);
+        presenceTimer.current = null;
+      }
+
+      if (typingTimer.current) {
+        window.clearTimeout(typingTimer.current);
+        typingTimer.current = null;
+      }
+
+      if (reconnectTimer.current) {
+        window.clearTimeout(reconnectTimer.current);
+        reconnectTimer.current = null;
+      }
+
       socket.off(SOCKET_EVENTS.CONNECT, safeOnConnect);
       socket.off(SOCKET_EVENTS.DISCONNECT, safeOnDisconnect);
       socket.off(SOCKET_EVENTS.CONNECT_ERROR, safeOnConnectError);
@@ -1797,10 +1792,12 @@ export default function SocketProvider({
       socket.io.off("reconnect_error", safeOnReconnectError);
       socket.io.off("reconnect_failed", safeOnReconnectFailed);
       window.removeEventListener("offline", handleOffline);
-      window.removeEventListener("visibilitychange", handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [
     addMessage,
+    flushPresence,
+    flushTyping,
     queryClient,
     resetPendingMessageFlights,
     setConnectionError,

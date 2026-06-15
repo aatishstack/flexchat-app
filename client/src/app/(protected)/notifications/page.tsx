@@ -20,6 +20,7 @@ import {
   motion,
 } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { useShallow } from "zustand/react/shallow";
 
 import { useNotificationStore } from "@/store/notification-store";
 import type { NotificationItem } from "@/store/notification-store";
@@ -36,7 +37,15 @@ export default function NotificationsPage() {
     markAllRead,
     deleteNotification,
     clearNotifications,
-  } = useNotificationStore();
+  } = useNotificationStore(
+    useShallow((state) => ({
+      notifications: state.notifications,
+      markAsRead: state.markAsRead,
+      markAllRead: state.markAllRead,
+      deleteNotification: state.deleteNotification,
+      clearNotifications: state.clearNotifications,
+    })),
+  );
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
@@ -50,7 +59,7 @@ export default function NotificationsPage() {
       Earlier: [],
     };
 
-    const today = new Date();
+    const today = new Date(now);
     today.setHours(0, 0, 0, 0);
 
     const yesterday = new Date(today);
@@ -68,7 +77,7 @@ export default function NotificationsPage() {
     });
 
     return groups;
-  }, [notifications]);
+  }, [notifications, now]);
 
   const getMeta = (notification: NotificationItem) => {
     switch (notification.kind) {

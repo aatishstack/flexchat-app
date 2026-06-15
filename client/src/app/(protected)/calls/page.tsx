@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Clock3,
   Phone,
   PhoneCall,
   PhoneIncoming,
@@ -12,7 +11,6 @@ import {
 import { motion } from "framer-motion";
 import { useShallow } from "zustand/react/shallow";
 import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
 
 import { useCallStore } from "@/store/call-store";
 import { useNotificationStore } from "@/store/notification-store";
@@ -24,12 +22,6 @@ import { formatRelativeTime } from "@/lib/server-time";
 import type { Conversation } from "@/types/conversation";
 import type { NotificationItem } from "@/store/notification-store";
 import FlexLogo from "@/components/shared/flex-logo";
-
-function formatElapsed(seconds: number) {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
-}
 
 function getCallTarget(conversation: Conversation, currentUserId?: string) {
   if (conversation.type !== "direct") {
@@ -62,8 +54,12 @@ export default function CallsPage() {
 
   const notifications = useNotificationStore((state) => state.notifications);
   const conversationsQuery = useConversationsQuery();
-  const conversations = (conversationsQuery.data ?? []).filter(
-    (c) => c.type === "direct",
+  const conversations = useMemo(
+    () =>
+      (conversationsQuery.data ?? []).filter(
+        (conversation) => conversation.type === "direct",
+      ),
+    [conversationsQuery.data],
   );
 
   const activeConversation = useMemo(() => {
@@ -91,7 +87,7 @@ export default function CallsPage() {
       Earlier: [],
     };
 
-    const today = new Date();
+    const today = new Date(now);
     today.setHours(0, 0, 0, 0);
 
     const yesterday = new Date(today);
@@ -109,7 +105,7 @@ export default function CallsPage() {
     });
 
     return groups;
-  }, [callHistory]);
+  }, [callHistory, now]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
@@ -228,13 +224,12 @@ export default function CallsPage() {
                         void startCall({
                           conversationId: conversation.id,
                           targetUserId: targetUserId!,
-                          kind: "video",
+                          kind: "voice",
                         });
-
                       }}
                       disabled={!targetUserId}
                       className="fc-hover flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--fc-app-border)] text-[var(--fc-accent-text)] transition-all hover:border-[var(--fc-primary)] hover:bg-[var(--fc-accent-soft)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-20"
-                      aria-label={`Start audio call with ${conversation.name}`}
+                      aria-label={`Start voice call with ${conversation.name}`}
                     >
                       <Phone size={19} />
                     </button>

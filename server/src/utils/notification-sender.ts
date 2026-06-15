@@ -44,16 +44,20 @@ export async function createNotification({
     });
 
     // Try sending push
-    void FcmService.sendToUser(userId, {
-      title,
-      body,
-      data: {
-        notificationId: id,
-        type,
-        entityId: entityId || "",
-        ...metadata,
-      },
-    });
+    void FcmService
+      .sendToUser(userId, {
+        title,
+        body,
+        data: {
+          notificationId: id,
+          type,
+          entityId: entityId || "",
+          ...metadata,
+        },
+      })
+      .catch((error) => {
+        console.error("[Notification] Failed to send push:", error);
+      });
 
     return id;
   } catch (error) {

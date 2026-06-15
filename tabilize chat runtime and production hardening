@@ -1,0 +1,257 @@
+warning: in the working copy of 'client/src/socket/socket-provider.tsx', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/client/src/socket/socket-provider.tsx b/client/src/socket/socket-provider.tsx[m
+[1mindex c1fad3e..90d520f 100644[m
+[1m--- a/client/src/socket/socket-provider.tsx[m
+[1m+++ b/client/src/socket/socket-provider.tsx[m
+[36m@@ -1,99 +1,98 @@[m
+ "use client";[m
+ [m
+ import { useEffect, useCallback, useRef } from "react";[m
+ [m
+ import { useQueryClient } from "@tanstack/react-query";[m
+ [m
+ import {[m
+   refreshSocketAuth,[m
+   socket,[m
+ } from "./socket";[m
+ import { SOCKET_EVENTS } from "./socket-events";[m
+ [m
+ import {[m
+   Message,[m
+   useSocketStore,[m
+ } from "@/store/socket-store";[m
+ import {[m
+   mergeMessageIntoQueryCache,[m
+[31m-  updateMessageStatusInQueryCache,[m
+ } from "@/lib/message-query-cache";[m
+ import type { MessageQueryCache } from "@/lib/message-query-cache";[m
+ import {[m
+   removeConversationFromQueryCache,[m
+   updateConversationInQueryCache,[m
+ } from "@/lib/conversation-query-cache";[m
+ import type { ConversationQueryCache } from "@/lib/conversation-query-cache";[m
+ import type { Conversation } from "@/types/conversation";[m
+ import { useAuthStore } from "@/stores/auth.store";[m
+ import { useConversationStore } from "@/stores/conversation.store";[m
+ import { queryKeys } from "@/lib/query-keys";[m
+ import { clearClientSession } from "@/lib/session-cleanup";[m
+ import { getServerNow } from "@/lib/server-time";[m
+ import { tokenStorage } from "@/lib/token";[m
+ import { useNotificationStore } from "@/store/notification-store";[m
+ import {[m
+   useCallStore,[m
+   type CallSession,[m
+ } from "@/store/call-store";[m
+ import type { Story } from "@/types/story";[m
+ [m
+ type MessageReceipt = {[m
+   messageId: string;[m
+   serverId?: string;[m
+   status?: "sent" | "delivered" | "read";[m
+ };[m
+ [m
+ type TypingUsersPayload =[m
+   | string[][m
+   | {[m
+       conversationId?: string;[m
+       users?: string[];[m
+     };[m
+ [m
+ type ConversationErrorPayload = {[m
+   conversationId?: string;[m
+   message?: string;[m
+ };[m
+ [m
+ type ConversationUpdatedPayload = {[m
+   conversationId?: string;[m
+   messageId?: string;[m
+   latestMessage?: string;[m
+   senderId?: string;[m
+   createdAt?: string;[m
+ };[m
+ [m
+ type ConversationArchiveUpdatedPayload = {[m
+   conversationId?: string;[m
+   archivedAt?: string | null;[m
+ };[m
+ [m
+ type ConversationDeletedPayload = {[m
+   conversationId?: string;[m
+   hiddenAt?: string;[m
+ };[m
+ [m
+ type ConversationThemeUpdatedPayload = {[m
+   conversationId?: string;[m
+   scope?: "me" | "both";[m
+   themeId?: string | null;[m
+   updatedAt?: string;[m
+ };[m
+ [m
+ type ConversationSettingsUpdatedPayload = {[m
+   conversationId?: string;[m
+   pinned?: boolean;[m
+   pinnedAt?: string | null;[m
+   muted?: boolean;[m
+   mutedAt?: string | null;[m
+   folder?: Conversation["folder"];[m
+ };[m
+ [m
+ type ConversationReadUpdatedPayload = {[m
+   conversationId?: string;[m
+   unreadCount?: number;[m
+ };[m
+ [m
+ type PresenceUpdatedPayload = {[m
+   userId?: string;[m
+[36m@@ -317,363 +316,370 @@[m [masync function showIncomingMessageNotification(input: {[m
+     (document.visibilityState === "visible" && document.hasFocus()) ||[m
+     Notification.permission !== "granted"[m
+   ) {[m
+     return;[m
+   }[m
+ [m
+   const notification = new Notification(input.title, {[m
+     body: input.message,[m
+     tag: `flexchat-message-${input.conversationId}`,[m
+     silent: false,[m
+   });[m
+ [m
+   notification.onclick = () => {[m
+     notification.close();[m
+     openConversationFromNotification(input.conversationId);[m
+   };[m
+ }[m
+ [m
+ function addCallNotification(input: {[m
+   id: string;[m
+   title: string;[m
+   message: string;[m
+   kind: "call" | "missed_call" | "call_accepted" | "call_rejected";[m
+ }) {[m
+   useNotificationStore.getState().addNotification({[m
+     id: input.id,[m
+     title: input.title,[m
+     message: input.message,[m
+     kind: input.kind,[m
+     createdAt: new Date(getServerNow()).toISOString(),[m
+     read: false,[m
+   });[m
+ }[m
+ [m
+ function guardSocketHandler<Arguments extends unknown[]>([m
+   eventName: string,[m
+   handler: (...args: Arguments) => void,[m
+ ) {[m
+   return (...args: Arguments) => {[m
+     try {[m
+       handler(...args);[m
+     } catch (error) {[m
+       console.error([m
+         `Socket handler failed for ${eventName}`,[m
+         error,[m
+       );[m
+     }[m
+   };[m
+ }[m
+ [m
+ export default function SocketProvider({[m
+   children,[m
+ }: {[m
+   children: React.ReactNode;[m
+ }) {[m
+   const queryClient = useQueryClient();[m
+   const setOnlineUsers = useSocketStore([m
+     (state) => state.setOnlineUsers[m
+   );[m
+   const addMessage = useSocketStore([m
+     (state) => state.addMessage[m
+   );[m
+   const setTypingUsers = useSocketStore([m
+     (state) => state.setTypingUsers[m
+   );[m
+   const updateMessageStatus = useSocketStore([m
+     (state) => state.updateMessageStatus[m
+   );[m
+   const setConnectionError = useSocketStore([m
+     (state) => state.setConnectionError[m
+   );[m
+   const resetPendingMessageFlights = useSocketStore([m
+     (state) => state.resetPendingMessageFlights[m
+   );[m
+   const updateConversationMessage = useConversationStore([m
+     (state) => state.updateConversationMessage[m
+   );[m
+ [m
+   const presenceUpdateBuffer = useRef<Map<string, { status: "online" | "offline"; lastSeenAt?: string | number }>>(new Map());[m
+   const presenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);[m
+[32m+[m[32m  const reconnectTimer = useRef<number | null>(null);[m
+ [m
+   const flushPresence = useCallback(() => {[m
+     if (presenceUpdateBuffer.current.size === 0) return;[m
+ [m
+     const updates = Array.from(presenceUpdateBuffer.current.entries());[m
+     presenceUpdateBuffer.current.clear();[m
+ [m
+     useSocketStore.setState((state) => {[m
+       const users = new Set(state.onlineUsers);[m
+       updates.forEach(([userId, update]: [string, { status: string }]) => {[m
+         if (update.status === "online") {[m
+           users.add(userId);[m
+         } else {[m
+           users.delete(userId);[m
+         }[m
+       });[m
+       return {[m
+         onlineUsers: Array.from(users).filter(Boolean).sort(),[m
+       };[m
+     });[m
+ [m
+     queryClient.setQueryData<ConversationQueryCache>([m
+       queryKeys.conversations.all,[m
+       (cache) => {[m
+         if (!cache) return cache;[m
+ [m
+         const updateMembers = (conversation: Conversation): Conversation => {[m
+           let changed = false;[m
+           const nextMembers = conversation.members?.map((member) => {[m
+             const updateEntry = updates.find(([id]) => id === member.id);[m
+             if (updateEntry && updateEntry[1].lastSeenAt) {[m
+               changed = true;[m
+               return {[m
+                 ...member,[m
+                 lastSeenAt: updateEntry[1].lastSeenAt,[m
+               };[m
+             }[m
+             return member;[m
+           }) ?? conversation.members;[m
+ [m
+           return changed ? { ...conversation, members: nextMembers } : conversation;[m
+         };[m
+ [m
+         if (Array.isArray(cache)) {[m
+           return cache.map(updateMembers);[m
+         }[m
+ [m
+         if ("pages" in cache) {[m
+           return {[m
+             ...cache,[m
+             pages: cache.pages.map((page) => ({[m
+               ...page,[m
+               conversations: page.conversations.map(updateMembers),[m
+             })),[m
+           };[m
+         }[m
+ [m
+         return cache;[m
+       }[m
+     );[m
+   }, [queryClient]);[m
+ [m
+   const typingUpdateBuffer = useRef<string[]>([]);[m
+   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);[m
+ [m
+   const flushTyping = useCallback(() => {[m
+     if (typingUpdateBuffer.current.length === 0) return;[m
+     const users = [...typingUpdateBuffer.current];[m
+     typingUpdateBuffer.current = [];[m
+     setTypingUs

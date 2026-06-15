@@ -11,7 +11,6 @@ import {
 } from "react";
 
 import {
-  AlertTriangle,
   Ban,
   Bell,
   BellOff,

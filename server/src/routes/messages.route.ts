@@ -493,7 +493,16 @@ async function handleMessageReactionRequest(
           title: "Message reaction",
           body: `${reactorName} reacted with ${parsedBody.data.emoji} to your message`,
         });
-      })();
+      })().catch((error) => {
+        request.log.error(
+          {
+            err: error,
+            messageId: targetMessage.id,
+            userId,
+          },
+          "Failed to create reaction notification",
+        );
+      });
     }
   }
 

@@ -159,7 +159,15 @@ function closeCall(io: Server, callId: string, reason: string) {
         title: "Missed call",
         body: `You missed a call from ${callerName}`,
       });
-    })();
+    })().catch((error) => {
+      console.error(
+        "[FlexChat Call] failed to create missed call notification",
+        {
+          callId,
+          error,
+        },
+      );
+    });
   }
 
   participantIds(call).forEach((userId) => {
@@ -313,7 +321,23 @@ export function registerCallHandlers(io: Server, socket: Socket) {
         transport: socket.conn.transport.name,
       });
 
-      const allowed = await canCallTarget(userId, conversationId, targetUserId);
+      let allowed = false;
+
+      try {
+        allowed = await canCallTarget(userId, conversationId, targetUserId);
+      } catch (error) {
+        console.error("[FlexChat Call] failed to validate call target", {
+          callerId: userId,
+          targetUserId,
+          conversationId,
+          error,
+        });
+        acknowledge(ack, {
+          ok: false,
+          error: "Call service temporarily unavailable",
+        });
+        return;
+      }
 
       if (!allowed) {
         acknowledge(ack, {

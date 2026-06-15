@@ -1,5 +1,10 @@
 import { initializeApp } from "firebase/app";
-import { getMessaging, getToken, onMessage } from "firebase/messaging";
+import {
+  getMessaging,
+  getToken,
+  onMessage,
+  type MessagePayload,
+} from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -25,10 +30,6 @@ export const getFcmToken = async () => {
   }
 };
 
-export const onMessageListener = () =>
-  new Promise((resolve) => {
-    const messaging = getMessaging(app);
-    onMessage(messaging, (payload) => {
-      resolve(payload);
-    });
-  });
+export const subscribeToForegroundMessages = (
+  listener: (payload: MessagePayload) => void,
+) => onMessage(getMessaging(app), listener);
