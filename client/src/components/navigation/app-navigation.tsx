@@ -5,9 +5,11 @@ import { usePathname } from "next/navigation";
 
 import {
   Bell,
+  CircleDashed,
   Compass,
   MessageCircle,
   PhoneCall,
+  Settings,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
@@ -29,9 +31,9 @@ const NAV_ITEMS: NavItem[] = [
     icon: MessageCircle,
   },
   {
-    href: "/calls",
-    label: "Calls",
-    icon: PhoneCall,
+    href: "/status",
+    label: "Status",
+    icon: CircleDashed,
   },
   {
     href: "/discover",
@@ -39,14 +41,14 @@ const NAV_ITEMS: NavItem[] = [
     icon: Compass,
   },
   {
-    href: "/notifications",
-    label: "Notifications",
-    icon: Bell,
+    href: "/calls",
+    label: "Calls",
+    icon: PhoneCall,
   },
   {
-    href: "/profile",
-    label: "Profile",
-    icon: UserRound,
+    href: "/settings",
+    label: "Settings",
+    icon: Settings,
   },
 ];
 

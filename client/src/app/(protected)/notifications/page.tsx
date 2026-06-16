@@ -111,9 +111,11 @@ export default function NotificationsPage() {
   };
 
   return (
-    <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
-      <div className="px-5 pt-2 pb-3 flex items-center justify-between">
-        <h1 className="text-[22px] font-extrabold text-white">Notifications</h1>
+    <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(0.5rem+env(safe-area-inset-top))]">
+      <div className="px-5 mb-6 flex items-center justify-between">
+        <h1 className="text-[28px] font-extrabold tracking-tight text-white">
+          Notifications
+        </h1>
         {notifications.length > 0 && (
           <button
             onClick={markAllRead}

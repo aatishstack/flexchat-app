@@ -137,15 +137,14 @@ export default function DiscoverPage() {
   );
 
   return (
-    <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-10">
-        <header className="flex flex-col gap-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-               <FlexLogo size="md" />
-               <h1 className="text-4xl font-black tracking-tight">Discover</h1>
-            </div>
-            <div className="fc-button-soft hidden rounded-full border px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-[var(--fc-text-subtle)] sm:block">
+    <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(0.5rem+env(safe-area-inset-top))]">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+        <header className="px-5 mb-2">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-[28px] font-extrabold tracking-tight text-white">
+              Discover
+            </h1>
+            <div className="hidden rounded-full bg-white/[0.05] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/30 sm:block">
               Network v1.0
             </div>
           </div>
@@ -153,18 +152,18 @@ export default function DiscoverPage() {
           <div className="relative">
             <Search
               size={18}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--fc-text-subtle)]"
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30"
             />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by username or handle..."
-              className="h-14 w-full rounded-2xl border border-white/10 bg-[var(--fc-app-surface)] pl-12 pr-4 text-sm font-bold text-white outline-none transition focus:border-[var(--fc-primary)]/40 focus:ring-4 focus:ring-[var(--fc-primary)]/5"
+              placeholder="Search people or groups"
+              className="h-11 w-full rounded-[18px] bg-white/[0.04] pl-11 pr-4 text-[15px] font-medium text-white outline-none transition-all placeholder:text-white/30 focus:bg-white/[0.06] border border-transparent focus:border-[#7C4FF0]/30"
             />
           </div>
         </header>
 
-        <div className="grid gap-10">
+        <div className="grid gap-8 px-4">
           {!searchActive && (
             <>
               <DiscoverSection title="Quick Actions">

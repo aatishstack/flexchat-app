@@ -78,9 +78,9 @@
   --fc-motion-fast: 150ms;
   --fc-motion-base: 200ms;
   --fc-motion-slow: 250ms;
-  --fc-radius: 10px;
-  --fc-radius-lg: 14px;
-  --fc-radius-xl: 18px;
+  --fc-radius: 12px;
+  --fc-radius-lg: 18px;
+  --fc-radius-xl: 22px;
   
   /* Layout Safe Areas */
   --fc-mobile-nav-height: calc(56px + env(safe-area-inset-bottom));

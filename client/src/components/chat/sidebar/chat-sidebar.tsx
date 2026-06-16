@@ -424,7 +424,7 @@ const ConversationListButton = memo(
             event.currentTarget.getBoundingClientRect()
           );
         }}
-        className={`group w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-colors ${
+        className={`group w-full flex items-center gap-3.5 px-3 py-2.5 rounded-2xl transition-colors ${
           active
             ? "bg-[#7C4FF0] text-white"
             : "hover:bg-white/[0.04] text-white"
@@ -434,49 +434,49 @@ const ConversationListButton = memo(
           <FlexAvatar
             src={avatar}
             name={conversation.name}
-            className={`flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-lg font-bold ${active ? "bg-white/20" : "bg-[#16161D]"}`}
+            className={`flex h-[54px] w-[54px] items-center justify-center overflow-hidden rounded-full text-[19px] font-bold ${active ? "bg-white/20" : "bg-[#16161D] border border-white/5"}`}
           />
 
           {isOnline ? (
-            <div className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 ${active ? "border-[#7C4FF0]" : "border-[#0C0C10]"} bg-[#22C55E] shadow-sm`} />
+            <div className={`absolute bottom-[1px] right-[1px] h-3.5 w-3.5 rounded-full border-[2.5px] ${active ? "border-[#7C4FF0]" : "border-[#0C0C10]"} bg-[#22C55E] shadow-sm`} />
           ) : null}
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 flex-1 py-0.5">
+          <div className="flex items-center justify-between gap-2 mb-0.5">
             <div className="flex min-w-0 items-center gap-1.5">
-              <h3 className={`truncate text-[15px] font-bold leading-none ${active ? "text-white" : "text-white"}`}>
+              <h3 className={`truncate text-[16px] font-bold tracking-tight ${active ? "text-white" : "text-white/95"}`}>
                 {displayName}
               </h3>
 
               {conversation.pinned ? (
                 <Pin
                   size={12}
-                  className={`shrink-0 ${active ? "text-white/80" : "text-[#7C4FF0]"}`}
+                  className={`shrink-0 ml-0.5 ${active ? "text-white/80" : "text-[#7C4FF0]"}`}
                 />
               ) : null}
 
               {conversation.muted ? (
                 <BellOff
                   size={12}
-                  className={`shrink-0 ${active ? "text-white/60" : "text-white/30"}`}
+                  className={`shrink-0 ml-0.5 ${active ? "text-white/60" : "text-white/30"}`}
                 />
               ) : null}
             </div>
 
-            <span suppressHydrationWarning className={`mt-0.5 shrink-0 text-[11px] font-semibold ${active ? "text-white/70" : "text-white/40"}`}>
+            <span suppressHydrationWarning className={`shrink-0 text-[11.5px] font-medium tracking-wide ${active ? "text-white/70" : "text-white/40"}`}>
               {lastActivityLabel}
             </span>
           </div>
 
-          <div className="mt-1 flex items-center justify-between gap-2.5">
-            <p className={`truncate text-[13.5px] leading-snug ${active ? "text-white/80" : "text-white/50"}`}>
+          <div className="flex items-center justify-between gap-3">
+            <p className={`truncate text-[14px] leading-tight ${active ? "text-white/85 font-medium" : conversation.unreadCount ? "text-white/85 font-semibold" : "text-white/50 font-medium"}`}>
               {conversation.latestMessage ||
                 "No messages yet"}
             </p>
 
             {conversation.unreadCount ? (
-              <div className={`flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none ${active ? "bg-white text-[#7C4FF0]" : "bg-[#7C4FF0] text-white"}`}>
+              <div className={`flex h-[20px] min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-black leading-none ${active ? "bg-white text-[#7C4FF0]" : "bg-[#7C4FF0] text-white"}`}>
                 {conversation.unreadCount}
               </div>
             ) : null}
@@ -1353,8 +1353,9 @@ export default function ChatSidebar() {
         <div className="px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))]">
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-3">
-              <h1 className="text-[28px] font-extrabold tracking-tight text-white">
-                Chats
+              <h1 className="text-[28px] font-extrabold tracking-tight">
+                <span className="text-white">Flex</span>
+                <span className="text-[#7C4FF0]">Chat</span>
               </h1>
             </div>
 
@@ -1413,7 +1414,7 @@ export default function ChatSidebar() {
             ) : null}
           </AnimatePresence>
 
-          {deferredSearch.trim() ? null : <StoryTray />}
+          {/* StoryTray removed - Migrated to dedicated Status screen */}
         </div>
 
         <div

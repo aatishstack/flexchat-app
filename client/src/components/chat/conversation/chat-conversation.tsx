@@ -4598,16 +4598,16 @@ export default function ChatConversation() {
       onTouchCancel={handleConversationTouchEnd}
     >
       <div
-        className="relative z-10 flex shrink-0 items-center justify-between gap-2 bg-[#0C0C10] px-3 py-2 pt-[calc(0.45rem+env(safe-area-inset-top))] sm:px-5 sm:py-3"
+        className="relative z-10 flex h-[56px] shrink-0 items-center justify-between gap-2 bg-[#0C0C10]/95 px-3 backdrop-blur-3xl pt-[env(safe-area-inset-top)] sm:h-[64px] sm:px-5"
       >
-        <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
           <button
             type="button"
             onClick={returnToConversationList}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/5 hover:text-white lg:hidden"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/5 hover:text-white lg:hidden"
             aria-label="Back to conversations"
           >
-            <ArrowLeft size={24} />
+            <ArrowLeft size={20} />
           </button>
 
           <button
@@ -4620,26 +4620,26 @@ export default function ChatConversation() {
 
               setProfileOpen(true);
             }}
-            className="shrink-0 rounded-[14px] outline-none transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+            className="shrink-0 outline-none transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isConversationBlocked}
             aria-label="Open profile"
           >
             <FlexAvatar
               src={activeConversationAvatar}
               name={activeConversation.name}
-              className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-[#16161D] text-sm font-bold sm:text-base border border-white/5"
+              className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-[#16161D] text-[13.5px] font-bold sm:h-10 sm:w-10 sm:text-base border border-white/5"
             />
           </button>
 
           <div className="min-w-0 flex-1 ml-1">
             <h2
-              className="truncate text-[16px] font-bold leading-tight text-white"
+              className="truncate text-[15.5px] font-bold leading-tight text-white sm:text-[17px]"
             >
               {activeConversationDisplayName}
             </h2>
 
             <p
-              className={`truncate text-[12.5px] font-medium leading-tight ${
+              className={`truncate text-[11px] font-medium leading-tight sm:text-[12.5px] ${
                 !isConnected && isConnecting
                   ? "text-[#7C4FF0]"
                   : !isConnected

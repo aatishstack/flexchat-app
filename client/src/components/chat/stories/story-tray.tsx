@@ -41,15 +41,15 @@ const StoryAvatar = memo(function StoryAvatar({
     : group?.user.username;
 
   return (
-    <div className="flex w-[72px] shrink-0 flex-col items-center gap-2 text-center">
+    <div className="flex w-[76px] shrink-0 flex-col items-center gap-2 text-center">
       <button
         type="button"
         onClick={onOpen}
         disabled={isLoading || (!isCurrentUser && !group)}
         className={cn(
-          "relative flex h-14 w-14 items-center justify-center rounded-full transition-transform duration-150 active:scale-[0.96] disabled:cursor-default disabled:opacity-60",
+          "relative flex h-[68px] w-[68px] items-center justify-center rounded-full transition-transform duration-150 active:scale-[0.96] disabled:cursor-default disabled:opacity-60",
           group?.hasUnseen
-            ? "p-[2.5px] bg-[#7C4FF0]"
+            ? "p-[3px] bg-gradient-to-tr from-[#7C4FF0] to-[#A78BFA]"
             : group
               ? "p-[2.5px] bg-white/10"
               : "p-[2px] bg-white/[0.05]",
@@ -62,24 +62,24 @@ const StoryAvatar = memo(function StoryAvatar({
             : `View ${formatDisplayName(name ?? "")}'s status`
         }
       >
-        <div className="h-full w-full rounded-full ring-2 ring-black overflow-hidden bg-[#111111]">
+        <div className="h-full w-full rounded-full ring-4 ring-[#0C0C10] overflow-hidden bg-[#16161D]">
           <FlexAvatar
             src={isCurrentUser ? avatar : group?.user.avatar}
             name={name}
-            className="h-full w-full text-[13px] font-bold"
+            className="h-full w-full text-[15px] font-bold"
           />
         </div>
 
         {isCurrentUser && !group && (
-          <div className="absolute bottom-0 right-0 h-4.5 w-4.5 rounded-full bg-[#7C4FF0] border-2 border-black flex items-center justify-center text-white">
-            <Plus size={10} strokeWidth={4} />
+          <div className="absolute bottom-0 right-0 h-5 w-5 rounded-full bg-[#7C4FF0] border-2 border-[#0C0C10] flex items-center justify-center text-white">
+            <Plus size={12} strokeWidth={4} />
           </div>
         )}
 
         {isLoading ? (
-          <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/65">
+          <span className="absolute inset-0 flex items-center justify-center rounded-full bg-[#0C0C10]/60">
             <Loader2
-              size={15}
+              size={18}
               className="text-white/70 motion-safe:animate-spin"
             />
           </span>
@@ -87,8 +87,8 @@ const StoryAvatar = memo(function StoryAvatar({
       </button>
 
       <span className={cn(
-        "w-full truncate text-[11px] font-medium transition-colors",
-        group?.hasUnseen ? "text-white" : "text-white/40"
+        "w-full truncate text-[11.5px] font-semibold transition-colors",
+        group?.hasUnseen ? "text-white" : "text-white/50"
       )}>
         {isCurrentUser
           ? "My status"
