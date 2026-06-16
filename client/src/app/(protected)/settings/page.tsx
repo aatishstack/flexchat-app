@@ -158,16 +158,16 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <div className="mb-8 last:mb-0">
-      <div className="mb-3 px-1">
-        <span className="text-[10.5px] font-bold tracking-[0.15em] uppercase text-white/25">
+    <section className="flex flex-col gap-3">
+      <div className="px-1">
+        <h2 className="text-[12px] font-black uppercase tracking-[0.15em] text-white/25">
           {title}
-        </span>
+        </h2>
       </div>
       <div className="overflow-hidden rounded-[28px] bg-[#16161D] border border-white/[0.03] shadow-sm">
         {children}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -188,15 +188,15 @@ function SettingRow({
 }) {
   return (
     <div className={cn(
-      "flex items-center gap-4 px-4 py-3.5 w-full hover:bg-white/[0.02] transition-colors",
+      "flex items-center gap-4 px-5 py-4 w-full hover:bg-white/[0.02] transition-colors",
       !isLast && "border-b border-white/[0.03]"
     )}>
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-[#7C4FF0]/10">
-        <Icon size={16} className="text-[#7C4FF0]" />
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-[#7C4FF0]/10">
+        <Icon size={18} className="text-[#7C4FF0]" />
       </div>
       <div className="flex-1 text-left min-w-0">
-        <div className="text-[14.5px] font-bold text-white tracking-tight">{label}</div>
-        {sub && <div className="text-[12px] text-white/30 font-medium mt-0.5 truncate leading-tight">{sub}</div>}
+        <div className="text-[15px] font-bold text-white tracking-tight">{label}</div>
+        {sub && <div className="text-[12.5px] text-white/30 font-medium mt-0.5 truncate leading-tight">{sub}</div>}
       </div>
       {onToggle !== undefined ? (
         <ToggleSwitch
@@ -370,14 +370,14 @@ export default function SettingsPage() {
   return (
     <>
       <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(0.5rem+env(safe-area-inset-top))]">
-        <div className="mx-auto w-full max-w-2xl px-4 sm:px-6">
-          <header className="mb-8 px-1">
-            <h1 className="text-[32px] font-black tracking-tight text-white">
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+          <header className="px-5 mb-2">
+            <h1 className="text-[28px] font-extrabold tracking-tight text-white">
               Settings
             </h1>
           </header>
 
-          <div className="grid gap-6">
+          <div className="grid gap-8 px-4">
             <button
               onClick={() => router.push("/profile")}
               className="group flex w-full items-center gap-5 rounded-[32px] bg-[#16161D] p-5 border border-white/[0.03] transition-all hover:bg-[#1E1E27] active:scale-[0.99] shadow-sm"
@@ -402,7 +402,7 @@ export default function SettingsPage() {
               </div>
               
               <div className="flex-1 min-w-0 text-left">
-                <h2 className="truncate text-[18px] font-bold text-white tracking-tight">
+                <h2 className="truncate text-[17px] font-bold text-white tracking-tight">
                   {user.username}
                 </h2>
                 <p className="mt-0.5 truncate text-[13px] font-medium text-white/30">
@@ -444,7 +444,7 @@ export default function SettingsPage() {
               <SettingRow icon={AlertTriangle} label="Report Bug" sub="Help us improve the experience" isLast />
             </Section>
 
-            <div className="mt-4 flex flex-col gap-3">
+            <div className="flex flex-col gap-3">
               <button 
                 onClick={() => setLogoutConfirmOpen(true)}
                 className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/15 active:scale-[0.99]"
@@ -465,7 +465,7 @@ export default function SettingsPage() {
               </button>
             </div>
             
-            <footer className="py-10 text-center">
+            <footer className="py-6 text-center">
               <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/10">
                 FlexChat v1.2.0 · 2026
               </p>
