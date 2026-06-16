@@ -1271,9 +1271,9 @@ export default function ChatSidebar() {
     useCallback(() => {
       triggerHaptic(10);
       pushToast({
-        title: "Folder creation coming soon",
+        title: "Folders are not available yet",
         message:
-          "For now you can use Work, Friends, or Groups.",
+          "For now, use Work, Friends, or Groups.",
         variant: "info",
       });
     }, [pushToast]);

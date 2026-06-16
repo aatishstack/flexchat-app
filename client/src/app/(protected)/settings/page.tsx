@@ -416,9 +416,9 @@ export default function SettingsPage() {
             </button>
 
             <Section title="Privacy & Security">
-              <SettingRow icon={UserRound} label="Account" sub="Manage your email and credentials" />
+              <SettingRow icon={UserRound} label="Account" sub="Manage your email and sign-in details" />
               <SettingRow icon={LockKeyhole} label="Privacy" sub="Who can see your status and media" />
-              <SettingRow icon={ShieldCheck} label="Security" sub="Two-factor auth and active sessions" isLast />
+              <SettingRow icon={ShieldCheck} label="Security" sub="Security checks and signed-in devices" isLast />
             </Section>
 
             <Section title="Preferences">
@@ -461,13 +461,13 @@ export default function SettingsPage() {
                 className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-red-400/40 transition-colors hover:text-red-400/60"
               >
                 <Trash2 size={16} />
-                <span className="text-[12px] font-bold">Terminate Account</span>
+                <span className="text-[12px] font-bold">Delete Account</span>
               </button>
             </div>
             
             <footer className="min-w-0 py-6 text-center">
               <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/10">
-                FlexChat v1.2.0 · 2026
+                FlexChat
               </p>
             </footer>
           </div>
@@ -497,7 +497,7 @@ export default function SettingsPage() {
                 <div className="mt-6">
                   <h2 className="text-2xl font-bold tracking-tight">Sign Out?</h2>
                   <p className="fc-muted mt-2 text-[15px] leading-relaxed">
-                    Your session will end on this device. Realtime sync resumes after you sign in again.
+                    Your session will end on this device. You can sign in again anytime.
                   </p>
                 </div>
               </div>
@@ -545,9 +545,9 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="min-w-0">
-                  <h2 className="text-2xl font-bold tracking-tight">Terminate Account?</h2>
+                  <h2 className="text-2xl font-bold tracking-tight">Delete Account?</h2>
                   <p className="fc-muted mt-2 text-[15px] leading-relaxed">
-                    Your profile, sessions, and active presence will be permanently purged.
+                    Your profile and account data will be removed. This action cannot be undone.
                   </p>
                 </div>
               </div>

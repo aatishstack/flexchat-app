@@ -161,7 +161,7 @@ export default function NewChatPanel({
             autoFocus
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search contacts or username..."
+            placeholder="Search contacts or usernames"
             className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.03] pl-12 pr-4 text-[15px] font-bold text-white outline-none transition focus:border-[var(--fc-primary)]/40 focus:bg-white/[0.05]"
           />
         </div>
@@ -180,7 +180,7 @@ export default function NewChatPanel({
               </div>
               <div>
                 <h3 className="text-[15px] font-bold text-white">New Group</h3>
-                <p className="mt-0.5 text-xs font-medium text-[var(--fc-text-subtle)]">Group backend required (v1.3)</p>
+                <p className="mt-0.5 text-xs font-medium text-[var(--fc-text-subtle)]">Group chats are not available yet</p>
               </div>
             </button>
 
@@ -275,7 +275,7 @@ export default function NewChatPanel({
 
             <div>
               <h2 className="mb-2 px-1 text-[11px] font-black uppercase tracking-[0.15em] text-[var(--fc-text-subtle)]">
-                Global Network
+                People
               </h2>
               
               {isGlobalLoading ? (
@@ -329,7 +329,7 @@ export default function NewChatPanel({
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-8 text-center opacity-70">
-                  <p className="text-[13px] font-bold text-white/80">No new network users found.</p>
+                  <p className="text-[13px] font-bold text-white/80">No people found.</p>
                 </div>
               )}
             </div>

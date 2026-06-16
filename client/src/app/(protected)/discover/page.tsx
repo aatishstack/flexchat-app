@@ -145,7 +145,7 @@ export default function DiscoverPage() {
               Discover
             </h1>
             <div className="hidden rounded-full bg-white/[0.05] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/30 sm:block">
-              Network v1.0
+              People
             </div>
           </div>
 
@@ -157,7 +157,7 @@ export default function DiscoverPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search people or groups"
+              placeholder="Search people"
               className="h-11 w-full rounded-[18px] bg-white/[0.04] pl-11 pr-4 text-[15px] font-medium text-white outline-none transition-all placeholder:text-white/30 focus:bg-white/[0.06] border border-transparent focus:border-[#7C4FF0]/30"
             />
           </div>
@@ -166,14 +166,14 @@ export default function DiscoverPage() {
         <div className="grid gap-8 px-4">
           {!searchActive && (
             <>
-              <DiscoverSection title="Network Insights">
+              <DiscoverSection title="Add People">
                 <div className="grid grid-cols-2 gap-4">
                   <button className="group flex flex-col items-center justify-center gap-3 rounded-[28px] bg-[#16161D] p-6 text-center shadow-sm transition-all hover:bg-[#1E1E27] active:scale-[0.98] border border-white/[0.03]">
                     <div className="flex h-13 w-13 items-center justify-center rounded-2xl bg-[#7C4FF0]/10 text-[#7C4FF0] shadow-sm transition-transform group-hover:scale-110">
                       <QrCode size={26} />
                     </div>
                     <div>
-                      <p className="text-[14px] font-bold text-white tracking-tight uppercase">QR Sync</p>
+                      <p className="text-[14px] font-bold text-white tracking-tight uppercase">QR Code</p>
                       <p className="mt-0.5 text-[11px] font-medium text-white/30 uppercase">Scan to add</p>
                     </div>
                   </button>
@@ -225,7 +225,7 @@ export default function DiscoverPage() {
                             disabled={startConversation.isPending}
                             className="flex h-9 px-4 items-center justify-center rounded-xl bg-[#7C4FF0] text-[12px] font-bold text-white transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-[#7C4FF0]/20"
                           >
-                            Connect
+                            Message
                           </button>
                           <button
                             onClick={() => dismissUser.mutate(user.id)}
@@ -244,7 +244,7 @@ export default function DiscoverPage() {
           )}
 
           {searchActive && (
-            <DiscoverSection title="Network Results">
+            <DiscoverSection title="Search Results">
               {discoverQuery.isLoading ? (
                 <div className="grid gap-2">
                   {[1, 2, 3].map((i) => (

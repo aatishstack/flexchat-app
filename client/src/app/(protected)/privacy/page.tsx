@@ -315,7 +315,7 @@ export default function PrivacyPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="text-[15px] font-bold text-white/90">End-to-End Encryption</h3>
-                <p className="mt-0.5 text-xs font-medium text-[var(--fc-text-subtle)]">Coming in v1.3</p>
+                <p className="mt-0.5 text-xs font-medium text-[var(--fc-text-subtle)]">Not available yet</p>
               </div>
               <ShieldAlert size={18} className="text-[var(--fc-text-subtle)]" />
             </div>

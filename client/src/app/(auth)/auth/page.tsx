@@ -458,18 +458,18 @@ export default function AuthPage() {
   const featureItems = [
     {
       icon: RadioTower,
-      title: "Realtime Sync",
+      title: "Live Sync",
       detail: "Live delivery, typing, and presence across devices.",
     },
     {
       icon: Video,
       title: "Voice and Video",
-      detail: "WebRTC calls with production STUN/TURN support.",
+      detail: "Clear calls that stay connected wherever you are.",
     },
     {
       icon: ShieldCheck,
       title: "Secure Sessions",
-      detail: "Persistent JWT auth with reconnect recovery.",
+      detail: "Stay signed in safely across your trusted devices.",
     },
   ];
 
@@ -500,7 +500,7 @@ export default function AuthPage() {
             </h1>
 
             <p className="mt-3 text-[15px] font-medium text-[#7C4FF0]/60 uppercase tracking-widest">
-              Securing connection
+              Connecting securely
             </p>
           </div>
         </div>
@@ -562,7 +562,7 @@ export default function AuthPage() {
               </motion.h2>
 
               <p className="mt-8 max-w-lg text-xl font-medium leading-relaxed text-white/40">
-                The premium messaging experience for high-performance teams and professionals.
+                Keep your chats, calls, and stories close wherever you are.
               </p>
             </div>
 
@@ -666,8 +666,8 @@ export default function AuthPage() {
 
                 <p className="mt-3 text-sm leading-relaxed text-[var(--fc-text-muted)] sm:text-[15px]">
                   {isLogin
-                    ? "Sign in to continue to your dashboard."
-                    : "Join the next generation messaging platform."}
+                    ? "Sign in to continue to your chats."
+                    : "Create your FlexChat account."}
                 </p>
               </div>
 

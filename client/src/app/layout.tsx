@@ -25,7 +25,7 @@ import GlobalErrorBoundary from "@/components/shared/GlobalErrorBoundary";
 
 export const metadata: Metadata = {
   title: "FlexChat",
-  description: "Premium realtime messaging platform",
+  description: "Private messaging for chats, calls, and stories.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

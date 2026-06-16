@@ -1,7 +1,7 @@
 {
   "name": "FlexChat",
   "short_name": "FlexChat",
-  "description": "Premium realtime messaging platform",
+  "description": "Private messaging for chats, calls, and stories.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#17212b",

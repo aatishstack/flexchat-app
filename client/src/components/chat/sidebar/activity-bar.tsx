@@ -40,7 +40,7 @@ export default function ActivityBar() {
       return {
         dot: "bg-red-400 shadow-red-500/50",
         label:
-          "Realtime connection issue",
+          "Connection issue",
         detail:
           connectionError,
       };
@@ -55,7 +55,7 @@ export default function ActivityBar() {
         label:
           "Reconnecting",
         detail:
-          "Syncing live updates",
+          "Syncing updates",
       };
     }
 
@@ -66,7 +66,7 @@ export default function ActivityBar() {
           ? "1 user online"
           : `${onlineCount} users online`,
       detail:
-        "Realtime connected",
+        "Live updates connected",
     };
   }, [
     connectionError,

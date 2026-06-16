@@ -117,7 +117,7 @@ function RouteGateLoader() {
           </h1>
           <div className="mt-4 flex flex-col items-center gap-2">
             <p className="text-[15px] font-bold tracking-wide text-[#7C4FF0]/70 uppercase">
-              Restoring Session
+              Restoring session
             </p>
             <div className="flex gap-1">
               {[0, 1, 2].map((i) => (
@@ -155,7 +155,7 @@ function SessionRecoveryScreen() {
           Restoring your session
         </h1>
         <p className="mt-4 text-[14.5px] leading-relaxed text-white/40">
-          FlexChat cannot reach the API right now. Your sign-in is preserved
+          FlexChat is having trouble connecting right now. Your sign-in is preserved
           while we reconnect safely.
         </p>
         
