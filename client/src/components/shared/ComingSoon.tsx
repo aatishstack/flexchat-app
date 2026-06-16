@@ -16,7 +16,7 @@ export default function ComingSoon({ title }: Props) {
         animate={{ opacity: 1, scale: 1 }}
         className="fc-surface-strong flex flex-col items-center gap-6 rounded-3xl border p-12 sm:p-16"
       >
-        <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[#2AABEE]/10 text-[#2AABEE]">
+        <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[#7C4FF0]/10 text-[#7C4FF0]">
           <Hammer size={40} />
         </div>
         

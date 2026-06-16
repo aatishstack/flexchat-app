@@ -184,6 +184,7 @@ export default function AppNavigation() {
 
   return (
     <>
+      <DesktopNavigation pathname={pathname} />
       <MobileNavigation
         pathname={pathname}
         hidden={hideMobileNavigation}

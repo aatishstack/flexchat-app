@@ -1350,10 +1350,10 @@ export default function ChatSidebar() {
   return (
     <aside className="fc-panel fc-gpu-accelerated flex h-full w-full border-r border-white/5 lg:w-[360px] bg-[#0C0C10]">
       <div className="flex w-full flex-col">
-        <div className="px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))]">
+        <div className="px-4 pb-2 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-3">
-              <h1 className="text-[28px] font-extrabold tracking-tight">
+              <h1 className="text-[26px] font-black tracking-tighter leading-none">
                 <span className="text-white">Flex</span>
                 <span className="text-[#7C4FF0]">Chat</span>
               </h1>
@@ -1366,7 +1366,7 @@ export default function ChatSidebar() {
                   triggerHaptic(10);
                   router.push("/contacts");
                 }}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.05] text-white hover:bg-white/[0.1] transition-colors"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white transition-all shadow-sm"
                 aria-label="New Chat"
               >
                 <Plus size={20} strokeWidth={2.5} />
@@ -1374,45 +1374,21 @@ export default function ChatSidebar() {
             </div>
           </div>
 
-          <AnimatePresence initial={false}>
-            {searchOpen || search ? (
-              <motion.div
-                initial={{
-                  opacity: 0,
-                  height: 0,
-                }}
-                animate={{
-                  opacity: 1,
-                  height: "auto",
-                }}
-                exit={{
-                  opacity: 0,
-                  height: 0,
-                }}
-                transition={{
-                  duration: 0.2,
-                  ease: "easeOut",
-                }}
-                className="overflow-hidden"
-              >
-                <div className="relative mb-3">
-                  <Search
-                    size={18}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30"
-                  />
+          <div className="relative mb-2">
+            <Search
+              size={17}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20"
+            />
 
-                  <input
-                    value={search}
-                    onChange={(event) =>
-                      setSearch(event.target.value)
-                    }
-                    placeholder="Ask AI or Search"
-                    className="h-11 w-full rounded-[18px] bg-white/[0.04] pl-11 pr-4 text-[15px] font-medium text-white outline-none transition-all placeholder:text-white/30 focus:bg-white/[0.06] border border-transparent focus:border-[#7C4FF0]/30"
-                  />
-                </div>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
+            <input
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+              placeholder="Search conversations"
+              className="h-10 w-full rounded-[14px] bg-white/[0.03] pl-10 pr-4 text-[14.5px] font-medium text-white outline-none transition-all placeholder:text-white/20 focus:bg-white/[0.05] border border-white/[0.02] focus:border-[#7C4FF0]/20"
+            />
+          </div>
 
           {/* StoryTray removed - Migrated to dedicated Status screen */}
         </div>

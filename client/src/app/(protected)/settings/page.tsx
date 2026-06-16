@@ -370,11 +370,12 @@ export default function SettingsPage() {
   return (
     <>
       <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(0.5rem+env(safe-area-inset-top))]">
-        <div className="px-5 mb-6">
-          <h1 className="text-[28px] font-extrabold tracking-tight text-white">
-            Settings
-          </h1>
-        </div>
+        <div className="mx-auto max-w-2xl px-4 sm:px-6">
+          <div className="mb-6 px-1">
+            <h1 className="text-[28px] font-black tracking-tight text-white">
+              Settings
+            </h1>
+          </div>
 
         <button
           onClick={() => router.push("/profile")}
@@ -465,7 +466,8 @@ export default function SettingsPage() {
           
           <p className="text-center text-[10.5px] text-white/18 pb-10">FlexChat 1.2.0 · © 2026 FlexCorp Ltd.</p>
         </div>
-      </main>
+      </div>
+    </main>
 
       <AnimatePresence>
         {logoutConfirmOpen ? (

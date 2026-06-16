@@ -191,7 +191,7 @@ export default function PhoneOnboardingGate() {
       >
         <div className="border-b border-white/10 px-5 py-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#2481CC]/15 text-[#7CC5FF]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#7C4FF0]/15 text-[#A78BFA]">
               <Phone size={22} />
             </div>
             <div className="min-w-0">
@@ -221,7 +221,7 @@ export default function PhoneOnboardingGate() {
               setSaveError(null);
             }}
             disabled={isSaving}
-            className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-sm text-white outline-none transition focus:border-[#2481CC]/55 disabled:cursor-wait disabled:opacity-70"
+            className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 text-sm text-white outline-none transition focus:border-[#7C4FF0]/55 disabled:cursor-wait disabled:opacity-70"
           >
             {COUNTRIES.map((item) => (
               <option
@@ -245,10 +245,10 @@ export default function PhoneOnboardingGate() {
               className={`mt-2 flex overflow-hidden rounded-2xl border bg-white/[0.05] transition ${
                 saveError
                   ? "border-rose-300/45 focus-within:border-rose-300/70"
-                  : "border-white/10 focus-within:border-[#2481CC]/55"
+                  : "border-white/10 focus-within:border-[#7C4FF0]/55"
               }`}
             >
-              <div className="flex h-12 items-center border-r border-white/10 px-4 text-sm font-semibold text-[#9BD0FF]">
+              <div className="flex h-12 items-center border-r border-white/10 px-4 text-sm font-semibold text-[#A78BFA]">
                 +{country.code}
               </div>
               <input
@@ -298,7 +298,7 @@ export default function PhoneOnboardingGate() {
           </div>
 
           <div className="grid grid-cols-[2.5rem_1fr] gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-sm text-zinc-300">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#2481CC]/15 text-[#9BD0FF]">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#7C4FF0]/15 text-[#A78BFA]">
               <ShieldCheck size={18} />
             </div>
             <p className="leading-relaxed">
@@ -315,7 +315,7 @@ export default function PhoneOnboardingGate() {
               void savePhoneNumber();
             }}
             disabled={!phoneIsValid || isSaving}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#2481CC] text-sm font-semibold text-white transition hover:bg-[#2F8ED8] disabled:cursor-not-allowed disabled:opacity-55"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#7C4FF0] text-sm font-semibold text-white transition hover:bg-[#8B5CF6] disabled:cursor-not-allowed disabled:opacity-55"
           >
             {isSaving ? (
               <Loader2

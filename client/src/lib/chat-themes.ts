@@ -112,52 +112,40 @@ function mix(left: string, right: string, weight = 0.5) {
 function createTheme(seed: ThemeSeed): ChatTheme {
   const isLight = seed.mode === "light";
   const warm = seed.warm ?? seed.accent;
-  const baseAlt = seed.baseAlt ?? (isLight ? "#ffffff" : mix(seed.base, "#000000", 0.18));
-  const text = isLight ? "#172033" : "#ffffff";
-  const mutedText = isLight ? "rgba(38, 50, 72, 0.68)" : "#6c7883";
-  const subtleText = isLight ? "rgba(38, 50, 72, 0.48)" : "rgba(108, 120, 131, 0.82)";
+  const baseAlt = seed.baseAlt ?? (isLight ? "#ffffff" : mix(seed.base, "#000000", 0.12));
+  const text = isLight ? "#172033" : "#F0EEF8";
+  const mutedText = isLight ? "rgba(38, 50, 72, 0.65)" : "#71717A";
+  const subtleText = isLight ? "rgba(38, 50, 72, 0.45)" : "rgba(113, 113, 122, 0.7)";
   const panel =
     seed.panel ??
-    (isLight ? alpha(baseAlt, 0.84) : alpha(mix(seed.base, seed.primary, 0.14), 0.9));
+    (isLight ? alpha(baseAlt, 0.88) : alpha(mix(seed.base, seed.primary, 0.08), 0.94));
   const panelStrong =
     seed.surfaceStrong ??
-    (isLight ? alpha("#ffffff", 0.94) : alpha(mix(seed.base, seed.primary, 0.08), 0.96));
+    (isLight ? alpha("#ffffff", 0.96) : alpha(mix(seed.base, seed.primary, 0.05), 0.98));
   const surface =
     seed.surface ??
-    (isLight ? alpha("#ffffff", 0.72) : alpha(mix(seed.base, "#ffffff", 0.08), 0.68));
-  const surfaceHover =
-    seed.id === DEFAULT_CHAT_THEME_ID && !isLight
-      ? "#2b3a4d"
-      : isLight
-        ? alpha(seed.primary, 0.08)
-        : alpha("#ffffff", 0.07);
-  const surfaceActive =
-    seed.id === DEFAULT_CHAT_THEME_ID && !isLight
-      ? "#2b5278"
-      : isLight
-        ? alpha(seed.primary, 0.14)
-        : alpha(seed.primary, 0.18);
-  const border = isLight ? "rgba(29, 51, 87, 0.12)" : "#0d1823";
-  const borderStrong = isLight ? "rgba(29, 51, 87, 0.18)" : "rgba(42, 171, 238, 0.22)";
+    (isLight ? alpha("#ffffff", 0.75) : alpha(mix(seed.base, "#ffffff", 0.06), 0.7));
+  const surfaceHover = isLight
+    ? alpha(seed.primary, 0.08)
+    : alpha("#ffffff", 0.05);
+  const surfaceActive = isLight
+    ? alpha(seed.primary, 0.12)
+    : alpha(seed.primary, 0.15);
+  const border = isLight ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.06)";
+  const borderStrong = isLight ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.12)";
   const ownBubble =
     seed.ownBubble ??
-    `linear-gradient(135deg, ${seed.primary}, ${mix(seed.primary, warm, 0.18)})`;
+    `linear-gradient(135deg, ${seed.primary}, ${mix(seed.primary, warm, 0.15)})`;
   const theirBubble =
     seed.theirBubble ??
-    (isLight ? alpha("#ffffff", 0.78) : alpha(mix(seed.base, "#ffffff", 0.12), 0.72));
-  const primaryHover = seed.primaryHover ?? mix(seed.primary, isLight ? "#10244a" : "#ffffff", 0.15);
-  const composer =
-    seed.id === DEFAULT_CHAT_THEME_ID && !isLight
-      ? "#17212b"
-      : isLight
-        ? alpha("#ffffff", 0.78)
-        : alpha("#ffffff", 0.07);
-  const input =
-    seed.id === DEFAULT_CHAT_THEME_ID && !isLight
-      ? "#232e3c"
-      : isLight
-        ? alpha("#ffffff", 0.72)
-        : alpha("#ffffff", 0.07);
+    (isLight ? alpha("#ffffff", 0.82) : alpha(mix(seed.base, "#ffffff", 0.08), 0.75));
+  const primaryHover = seed.primaryHover ?? mix(seed.primary, isLight ? "#000000" : "#ffffff", 0.1);
+  const composer = isLight
+    ? alpha("#ffffff", 0.8)
+    : alpha("#ffffff", 0.05);
+  const input = isLight
+    ? alpha("#ffffff", 0.75)
+    : alpha("#ffffff", 0.04);
 
   return {
     id: seed.id,
@@ -177,67 +165,64 @@ function createTheme(seed: ThemeSeed): ChatTheme {
     mutedText,
     subtleText,
     appBackground: isLight
-      ? `radial-gradient(circle at 16% -8%, ${alpha(warm, 0.72)}, transparent 30%), radial-gradient(circle at 88% 4%, ${alpha(seed.primary, 0.20)}, transparent 34%), linear-gradient(145deg, ${seed.base} 0%, ${baseAlt} 54%, ${mix(seed.base, warm, 0.26)} 100%)`
-      : `radial-gradient(circle at 14% -10%, ${alpha(warm, 0.18)}, transparent 28%), radial-gradient(circle at 88% 2%, ${alpha(seed.primary, 0.24)}, transparent 36%), linear-gradient(145deg, ${seed.base} 0%, ${baseAlt} 52%, ${mix(seed.base, seed.primary, 0.14)} 100%)`,
+      ? `radial-gradient(circle at 16% -8%, ${alpha(warm, 0.65)}, transparent 32%), radial-gradient(circle at 88% 4%, ${alpha(seed.primary, 0.18)}, transparent 36%), linear-gradient(145deg, ${seed.base} 0%, ${baseAlt} 55%, ${mix(seed.base, warm, 0.2)} 100%)`
+      : `radial-gradient(circle at 14% -10%, ${alpha(warm, 0.12)}, transparent 30%), radial-gradient(circle at 88% 2%, ${alpha(seed.primary, 0.18)}, transparent 38%), linear-gradient(145deg, ${seed.base} 0%, ${baseAlt} 52%, ${mix(seed.base, seed.primary, 0.08)} 100%)`,
     panel,
     panelStrong,
     surface,
     surfaceHover,
     surfaceActive,
-    elevated: isLight ? alpha("#ffffff", 0.9) : alpha(mix(seed.base, "#ffffff", 0.1), 0.94),
+    elevated: isLight ? alpha("#ffffff", 0.9) : alpha(mix(seed.base, "#ffffff", 0.08), 0.95),
     border,
     borderStrong,
     input,
-    inputFocus: isLight ? alpha(seed.primary, 0.08) : alpha(seed.primary, 0.14),
-    overlay: isLight ? "rgba(20, 31, 51, 0.34)" : "rgba(0, 0, 0, 0.62)",
-    overlayStrong: isLight ? "rgba(20, 31, 51, 0.52)" : "rgba(0, 0, 0, 0.78)",
-    modal: isLight ? alpha("#ffffff", 0.94) : alpha(mix(seed.base, "#ffffff", 0.08), 0.97),
-    skeleton: isLight ? "rgba(29, 51, 87, 0.07)" : "rgba(255, 255, 255, 0.055)",
-    selection: alpha(seed.primary, isLight ? 0.22 : 0.38),
-    focusRing: alpha(seed.primary, 0.34),
-    storyGradient:
-      seed.id === DEFAULT_CHAT_THEME_ID && !isLight
-        ? "conic-gradient(from 210deg, #2aabee, #7b61ff, #d946ef, #2aabee)"
-        : `linear-gradient(135deg, ${warm} 0%, ${seed.primary} 58%, ${mix(seed.primary, seed.accent, 0.28)} 100%)`,
+    inputFocus: isLight ? alpha(seed.primary, 0.06) : alpha(seed.primary, 0.12),
+    overlay: isLight ? "rgba(0, 0, 0, 0.25)" : "rgba(0, 0, 0, 0.7)",
+    overlayStrong: isLight ? "rgba(0, 0, 0, 0.45)" : "rgba(0, 0, 0, 0.85)",
+    modal: isLight ? alpha("#ffffff", 0.95) : alpha(mix(seed.base, "#ffffff", 0.06), 0.98),
+    skeleton: isLight ? "rgba(0, 0, 0, 0.05)" : "rgba(255, 255, 255, 0.04)",
+    selection: alpha(seed.primary, isLight ? 0.2 : 0.35),
+    focusRing: alpha(seed.primary, 0.3),
+    storyGradient: `linear-gradient(135deg, ${warm} 0%, ${seed.primary} 58%, ${mix(seed.primary, seed.accent, 0.25)} 100%)`,
     brandGradient: `linear-gradient(135deg, ${warm} 0%, ${seed.primary} 48%, ${seed.accent} 100%)`,
-    accentSoft: alpha(seed.primary, isLight ? 0.12 : 0.16),
-    accentMuted: alpha(seed.primary, isLight ? 0.18 : 0.24),
-    accentText: isLight ? mix(seed.primary, "#07111b", 0.22) : mix(seed.primary, "#ffffff", 0.5),
-    avatar: isLight ? alpha(seed.primary, 0.10) : alpha(seed.primary, 0.18),
-    shadow: isLight ? "rgba(37, 59, 96, 0.18)" : "rgba(0, 0, 0, 0.46)",
-    scrollbar: isLight ? "rgba(29, 51, 87, 0.22)" : "rgba(255, 255, 255, 0.18)",
+    accentSoft: alpha(seed.primary, isLight ? 0.1 : 0.14),
+    accentMuted: alpha(seed.primary, isLight ? 0.16 : 0.2),
+    accentText: isLight ? mix(seed.primary, "#000000", 0.2) : mix(seed.primary, "#ffffff", 0.45),
+    avatar: isLight ? alpha(seed.primary, 0.08) : alpha(seed.primary, 0.15),
+    shadow: isLight ? "rgba(0, 0, 0, 0.12)" : "rgba(0, 0, 0, 0.6)",
+    scrollbar: isLight ? "rgba(0, 0, 0, 0.15)" : "rgba(255, 255, 255, 0.12)",
   };
 }
 
 export const CHAT_THEMES: ChatTheme[] = [
   createTheme({
     id: "buttermilk-blue",
-    name: "Telegram Dark",
+    name: "Flex Dark",
     mode: "dark",
-    base: "#0e1621",
-    baseAlt: "#17212b",
-    panel: "#17212b",
-    surface: "#232e3c",
-    surfaceStrong: "#17212b",
-    primary: "#2aabee",
-    primaryHover: "#3bb7f3",
-    accent: "#2aabee",
-    warm: "#7b61ff",
-    ownBubble: "#2b5278",
-    theirBubble: "#182533",
+    base: "#0C0C10",
+    baseAlt: "#16161D",
+    panel: "#16161D",
+    surface: "#1E1E27",
+    surfaceStrong: "#16161D",
+    primary: "#7C4FF0",
+    primaryHover: "#8B5CF6",
+    accent: "#7C4FF0",
+    warm: "#A78BFA",
+    ownBubble: "#7C4FF0",
+    theirBubble: "#1E1E27",
   }),
   createTheme({
     id: "buttermilk-day",
     name: "Flex Day",
     mode: "light",
-    base: "#eef7ff",
-    baseAlt: "#f7fbff",
-    primary: "#285ccc",
-    primaryHover: "#1f4ead",
-    accent: "#2481cc",
-    warm: "#bfdbfe",
-    ownBubble: "linear-gradient(135deg, #285ccc, #477ee8)",
-    theirBubble: "rgba(255, 255, 255, 0.82)",
+    base: "#F0EEF8",
+    baseAlt: "#FFFFFF",
+    primary: "#7C4FF0",
+    primaryHover: "#6D28D9",
+    accent: "#7C4FF0",
+    warm: "#A78BFA",
+    ownBubble: "#7C4FF0",
+    theirBubble: "#FFFFFF",
   }),
   createTheme({
     id: "flex-azure",
@@ -409,8 +394,7 @@ export function getChatThemeStyle(theme: ChatTheme) {
     "--fc-text": theme.text,
     "--fc-text-muted": theme.mutedText,
     "--fc-text-subtle": theme.subtleText,
-    "--fc-app-bg":
-      theme.id === DEFAULT_CHAT_THEME_ID ? "#17212b" : theme.appBackground,
+    "--fc-app-bg": theme.appBackground,
     "--fc-app-panel": theme.panel,
     "--fc-app-panel-strong": theme.panelStrong,
     "--fc-app-surface": theme.surface,
@@ -420,9 +404,9 @@ export function getChatThemeStyle(theme: ChatTheme) {
     "--fc-app-border": theme.border,
     "--fc-app-border-strong": theme.borderStrong,
     "--fc-chat-bg":
-      theme.id === DEFAULT_CHAT_THEME_ID
-        ? "#0e1621"
-        : `radial-gradient(circle at 12% 0%, ${theme.accentSoft}, transparent 32%), ${theme.background}`,
+      theme.id === "aurora" || theme.id === "velvet"
+        ? `radial-gradient(circle at 12% 0%, ${theme.accentSoft}, transparent 32%), ${theme.background}`
+        : theme.background,
     "--fc-chat-header": theme.header,
     "--fc-chat-composer": theme.composer,
     "--fc-own-bubble": theme.ownBubble,
@@ -477,7 +461,7 @@ export function applyGlobalChatTheme(themeId?: string | null) {
   root.style.colorScheme = theme.mode;
 
   // Sync status bar color with theme background
-  syncStatusBar(theme.id === DEFAULT_CHAT_THEME_ID ? "#17212b" : theme.background);
+  syncStatusBar(theme.background);
 
   try {
     window.localStorage.setItem(APP_THEME_STORAGE_KEY, theme.id);

@@ -14,8 +14,8 @@
   --primary-foreground: #ffffff;
   --secondary: #1E1E27;
   --secondary-foreground: #F0EEF8;
-  --muted: #1A1A22;
-  --muted-foreground: #6B6880;
+  --muted: #16161D;
+  --muted-foreground: #71717a;
   --accent: #7C4FF0;
   --accent-foreground: #ffffff;
   --destructive: #EF4444;
@@ -321,9 +321,9 @@
 }
 
 .fc-emoji-panel {
-  background:
-    linear-gradient(180deg, rgba(15, 27, 41, 0.98), rgba(10, 20, 32, 0.98));
+  background: var(--fc-app-panel);
   border-color: var(--fc-app-border);
+  backdrop-filter: blur(20px);
 }
 
 .fc-story-ring-unseen {
@@ -382,12 +382,12 @@ body {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: var(--fc-scrollbar) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
 }
 
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -395,15 +395,15 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background:
-    var(--fc-scrollbar);
-
-  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background:
-    var(--fc-text-subtle);
+  background: rgba(255, 255, 255, 0.15);
+  background-clip: content-box;
 }
 
 ::selection {

@@ -23,8 +23,10 @@ export default function ProtectedLayout({
   return (
     <div className="min-h-dvh bg-[#0C0C10] text-[#F0EEF8]">
       <AppNavigation />
-      <div className="min-h-dvh w-full max-w-screen-xl mx-auto">
-        {children}
+      <div className="min-h-dvh w-full lg:pl-[80px] lg:pr-[0px] flex flex-col">
+        <div className="flex-1 w-full max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
+          {children}
+        </div>
       </div>
       <CallLayer />
       <PhoneOnboardingGate />

@@ -4717,7 +4717,7 @@ export default function ChatConversation() {
             transition={{
               duration: reducedMotion ? 0 : 0.18,
             }}
-            className="relative z-10 overflow-hidden border-b border-[#0D1823] bg-[var(--fc-chat-header)] px-2.5 py-2 sm:px-5 sm:backdrop-blur-2xl"
+            className="relative z-10 overflow-hidden border-b border-white/5 bg-[var(--fc-chat-header)] px-2.5 py-2 sm:px-5 sm:backdrop-blur-2xl"
           >
             <div className="flex items-center gap-2">
               <div className="fc-input flex h-11 min-w-0 flex-1 items-center gap-2 rounded-2xl border px-3">

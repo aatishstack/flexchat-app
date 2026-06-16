@@ -52,7 +52,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content="#17212b" />
+        <meta name="theme-color" content="#0C0C10" />
       </head>
       <body className={`${plusJakartaSans.variable} font-sans fc-theme-transition bg-[var(--fc-app-bg)] text-[var(--fc-theme-text)] antialiased`}>
         <GlobalErrorBoundary>
