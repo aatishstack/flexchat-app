@@ -158,13 +158,13 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <div className="mb-6">
-      <div className="px-5 mb-3 flex items-center justify-between">
-        <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/28">
+    <div className="mb-8 last:mb-0">
+      <div className="mb-3 px-1">
+        <span className="text-[10.5px] font-bold tracking-[0.15em] uppercase text-white/25">
           {title}
         </span>
       </div>
-      <div className="mx-4 overflow-hidden rounded-[24px] bg-[#16161D] border border-white/[0.03] shadow-sm">
+      <div className="overflow-hidden rounded-[28px] bg-[#16161D] border border-white/[0.03] shadow-sm">
         {children}
       </div>
     </div>
@@ -370,104 +370,109 @@ export default function SettingsPage() {
   return (
     <>
       <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(0.5rem+env(safe-area-inset-top))]">
-        <div className="mx-auto max-w-2xl px-4 sm:px-6">
-          <div className="mb-6 px-1">
-            <h1 className="text-[28px] font-black tracking-tight text-white">
+        <div className="mx-auto w-full max-w-2xl px-4 sm:px-6">
+          <header className="mb-8 px-1">
+            <h1 className="text-[32px] font-black tracking-tight text-white">
               Settings
             </h1>
-          </div>
+          </header>
 
-        <button
-          onClick={() => router.push("/profile")}
-          className="flex items-center gap-4 mx-5 mb-5 p-4 rounded-2xl hover:bg-white/[0.06] transition-colors w-[calc(100%-40px)]"
-          style={{ background: "rgba(255,255,255,0.05)" }}
-        >
-          <div
-            className="w-14 h-14 rounded-full flex items-center justify-center text-[18px] font-black text-white flex-shrink-0"
-            style={{ background: "#7C4FF0" }}
-          >
-            {user.avatar ? (
-              <img src={user.avatar} alt="" className="h-full w-full rounded-full object-cover" />
-            ) : (
-              getAvatarInitial(user.username)
-            )}
-          </div>
-          <div className="flex-1 min-w-0 text-left">
-            <div className="text-[15.5px] font-bold text-white">{user.username}</div>
-            <div className="text-[12.5px] text-white/38 font-medium mt-0.5">
-              {formatHandle(user.username)} · {isConnected ? "Online" : "Syncing"}
+          <div className="grid gap-6">
+            <button
+              onClick={() => router.push("/profile")}
+              className="group flex w-full items-center gap-5 rounded-[32px] bg-[#16161D] p-5 border border-white/[0.03] transition-all hover:bg-[#1E1E27] active:scale-[0.99] shadow-sm"
+            >
+              <div className="relative shrink-0">
+                <div
+                  className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[24px] text-xl font-black text-white"
+                  style={{ background: "linear-gradient(135deg, #7C4FF0, #A78BFA)" }}
+                >
+                  {user.avatar ? (
+                    <img src={user.avatar} alt="" className="h-full w-full object-cover transition-transform group-hover:scale-110" />
+                  ) : (
+                    getAvatarInitial(user.username)
+                  )}
+                </div>
+                <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#0C0C10] p-1">
+                  <div className={cn(
+                    "h-full w-full rounded-full shadow-[0_0_8px_rgba(34,197,94,0.4)]",
+                    isConnected ? "bg-[#22C55E]" : "bg-zinc-600"
+                  )} />
+                </div>
+              </div>
+              
+              <div className="flex-1 min-w-0 text-left">
+                <h2 className="truncate text-[18px] font-bold text-white tracking-tight">
+                  {user.username}
+                </h2>
+                <p className="mt-0.5 truncate text-[13px] font-medium text-white/30">
+                  {formatHandle(user.username)} · {isConnected ? "Active" : "Syncing"}
+                </p>
+              </div>
+              
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.03] text-white/20 transition group-hover:bg-white/5 group-hover:text-white">
+                <ChevronRight size={20} />
+              </div>
+            </button>
+
+            <Section title="Privacy & Security">
+              <SettingRow icon={UserRound} label="Account" sub="Manage your email and credentials" />
+              <SettingRow icon={LockKeyhole} label="Privacy" sub="Who can see your status and media" />
+              <SettingRow icon={ShieldCheck} label="Security" sub="Two-factor auth and active sessions" isLast />
+            </Section>
+
+            <Section title="Preferences">
+              <SettingRow 
+                icon={Bell} 
+                label="Notifications" 
+                sub="Sound, vibration and preview alerts" 
+                checked={settings.messagePreviews}
+                onToggle={() => toggleSetting("messagePreviews")}
+              />
+              <SettingRow 
+                icon={Moon} 
+                label="Appearance" 
+                sub={lightMode ? "Light mode enabled" : "Dark mode enabled"} 
+                checked={lightMode}
+                onToggle={toggleThemeMode}
+              />
+              <SettingRow icon={Database} label="Data & Storage" sub="Auto-download and cache management" isLast />
+            </Section>
+
+            <Section title="App Support">
+              <SettingRow icon={Headphones} label="Help Center" sub="FAQ and contact support" />
+              <SettingRow icon={AlertTriangle} label="Report Bug" sub="Help us improve the experience" isLast />
+            </Section>
+
+            <div className="mt-4 flex flex-col gap-3">
+              <button 
+                onClick={() => setLogoutConfirmOpen(true)}
+                className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/15 active:scale-[0.99]"
+              >
+                <LogOut size={18} />
+                <span className="text-[14px] font-bold">Sign Out</span>
+              </button>
+              
+              <button 
+                onClick={() => {
+                  setDeleteConfirmation("");
+                  setDeleteConfirmOpen(true);
+                }}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-red-400/40 transition-colors hover:text-red-400/60"
+              >
+                <Trash2 size={16} />
+                <span className="text-[12px] font-bold">Terminate Account</span>
+              </button>
             </div>
+            
+            <footer className="py-10 text-center">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/10">
+                FlexChat v1.2.0 · 2026
+              </p>
+            </footer>
           </div>
-          <ChevronRight size={17} className="text-white/28 flex-shrink-0" />
-        </button>
-
-        <div className="grid gap-2">
-          <Section title="Account & Privacy">
-            <SettingRow icon={UserRound} label="Account" sub="Email, password, security" />
-            <SettingRow icon={LockKeyhole} label="Privacy" sub="Visibility, blocked users" />
-            <SettingRow icon={ShieldCheck} label="Security" sub="Face ID, Passkeys" isLast />
-          </Section>
-
-          <Section title="Features">
-            <SettingRow 
-              icon={Bell} 
-              label="Visual Previews" 
-              sub="Include message snippets in push notification cards" 
-              checked={settings.messagePreviews}
-              onToggle={() => toggleSetting("messagePreviews")}
-            />
-            <SettingRow 
-              icon={Headphones} 
-              label="Audio Feedback" 
-              sub="Play high-fidelity alerts for incoming messages" 
-              checked={settings.soundAlerts}
-              onToggle={() => toggleSetting("soundAlerts")}
-            />
-            <SettingRow icon={Video} label="Calls" sub="Data usage, call recording" isLast />
-          </Section>
-
-          <Section title="App Settings">
-            <SettingRow 
-              icon={Moon} 
-              label="Appearance" 
-              sub={lightMode ? "Light mode active" : "Dark mode active"} 
-              checked={lightMode}
-              onToggle={toggleThemeMode}
-            />
-            <SettingRow icon={Database} label="Data Usage" sub="Manage network and storage" />
-            <SettingRow icon={Palette} label="Accessibility" sub="Text size, animations" isLast />
-          </Section>
-
-          <Section title="Support">
-            <SettingRow icon={AlertTriangle} label="Report a Bug" sub="Help us improve FlexChat" />
-            <SettingRow icon={Headphones} label="Help Center" sub="Contact us, FAQ" isLast />
-          </Section>
-
-          <div className="mx-5 mt-2 mb-5">
-            <button 
-              onClick={() => setLogoutConfirmOpen(true)}
-              className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl hover:bg-red-500/[0.12] transition-colors" 
-              style={{ background: "rgba(239,68,68,0.08)" }}
-            >
-              <LogOut size={17} className="text-red-400" />
-              <span className="text-[13.5px] font-bold text-red-400">Sign Out</span>
-            </button>
-            <button 
-              onClick={() => {
-                setDeleteConfirmation("");
-                setDeleteConfirmOpen(true);
-              }}
-              className="mt-3 flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl hover:bg-red-500/[0.12] transition-colors opacity-60"
-            >
-              <Trash2 size={15} className="text-red-400/80" />
-              <span className="text-[12px] font-bold text-red-400/80">Terminate Account</span>
-            </button>
-          </div>
-          
-          <p className="text-center text-[10.5px] text-white/18 pb-10">FlexChat 1.2.0 · © 2026 FlexCorp Ltd.</p>
         </div>
-      </div>
-    </main>
+      </main>
 
       <AnimatePresence>
         {logoutConfirmOpen ? (

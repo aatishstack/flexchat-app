@@ -401,122 +401,124 @@ export default function ProfilePage() {
   return (
     <>
       <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
-        {/* Header with Back Button */}
-        <div className="flex items-center justify-between px-3 py-2">
-          <button
-            onClick={() => router.replace("/settings")}
-            className="p-2"
-          >
-            <ArrowLeft size={24} className="text-white" />
-          </button>
-          <div className="flex items-center gap-1">
-            <button onClick={openEditModal} className="p-2">
-              <PenLine size={20} className="text-white" />
-            </button>
-          </div>
-        </div>
-
-        {/* Identity Presentation */}
-        <div className="flex flex-col items-center pt-2 pb-10">
-          <div className="relative mb-6">
+        <div className="mx-auto w-full max-w-2xl px-4 sm:px-6">
+          {/* Header with Back Button */}
+          <div className="flex items-center justify-between py-2 mb-4">
             <button
-              onClick={() => setPhotoPreviewOpen(true)}
-              className="w-[124px] h-[124px] rounded-[42px] overflow-hidden border border-white/[0.08] shadow-2xl relative group"
+              onClick={() => router.replace("/settings")}
+              className="p-2 -ml-2 rounded-full hover:bg-white/5 transition-colors"
             >
-              {avatar ? (
-                <img src={avatar} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-              ) : (
-                <div 
-                  className="w-full h-full flex items-center justify-center text-[44px] font-black text-white"
-                  style={{ background: "linear-gradient(135deg, #7C4FF0, #A78BFA)" }}
-                >
-                  {getAvatarInitial(profile.displayName)}
+              <ArrowLeft size={24} className="text-white" />
+            </button>
+            <div className="flex items-center gap-1">
+              <button onClick={openEditModal} className="p-2 rounded-full hover:bg-white/5 transition-colors">
+                <PenLine size={20} className="text-white" />
+              </button>
+            </div>
+          </div>
+
+          {/* Identity Presentation */}
+          <div className="flex flex-col items-center pt-2 pb-10">
+            <div className="relative mb-6">
+              <button
+                onClick={() => setPhotoPreviewOpen(true)}
+                className="w-[124px] h-[124px] rounded-[42px] overflow-hidden border border-white/[0.08] shadow-2xl relative group"
+              >
+                {avatar ? (
+                  <img src={avatar} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                ) : (
+                  <div 
+                    className="w-full h-full flex items-center justify-center text-[44px] font-black text-white"
+                    style={{ background: "linear-gradient(135deg, #7C4FF0, #A78BFA)" }}
+                  >
+                    {getAvatarInitial(profile.displayName)}
+                  </div>
+                )}
+              </button>
+              <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-2xl bg-[#0C0C10] flex items-center justify-center border border-white/5">
+                 <div className="w-4 h-4 rounded-full bg-[#22C55E] shadow-[0_0_12px_rgba(34,197,94,0.4)]" />
+              </div>
+            </div>
+            
+            <h2 className="text-[32px] font-extrabold text-white mb-1.5 tracking-tight">
+              {formatDisplayName(profile.displayName)}
+            </h2>
+            <div className="flex items-center gap-2">
+              <span className="text-[14px] text-[#7C4FF0] font-bold">
+                {formatHandle(user.username)}
+              </span>
+              <span className="text-white/20 text-[12px] font-bold uppercase tracking-widest">•</span>
+              <span className="text-[13px] text-white/40 font-bold uppercase tracking-widest">
+                {isConnected ? "Active Now" : "Syncing"}
+              </span>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-center gap-8 mb-10">
+            <div className="flex flex-col items-center gap-2.5 flex-1 max-w-[80px]">
+              <button className="w-14 h-14 rounded-2xl flex items-center justify-center bg-[#16161D] text-white border border-white/[0.05] shadow-sm active:scale-95 transition-all hover:bg-[#1E1E27]">
+                <Phone size={22} className="text-[#7C4FF0]" />
+              </button>
+              <span className="text-[11px] font-bold text-white/25 uppercase tracking-widest">Call</span>
+            </div>
+            <div className="flex flex-col items-center gap-2.5 flex-1 max-w-[80px]">
+              <button className="w-14 h-14 rounded-2xl flex items-center justify-center bg-[#16161D] text-white border border-white/[0.05] shadow-sm active:scale-95 transition-all hover:bg-[#1E1E27]">
+                <Camera size={22} className="text-[#7C4FF0]" />
+              </button>
+              <span className="text-[11px] font-bold text-white/25 uppercase tracking-widest">Video</span>
+            </div>
+            <div className="flex flex-col items-center gap-2.5 flex-1 max-w-[80px]">
+              <button className="w-14 h-14 rounded-2xl flex items-center justify-center bg-[#16161D] text-white border border-white/[0.05] shadow-sm active:scale-95 transition-all hover:bg-[#1E1E27]">
+                <ShieldCheck size={22} className="text-[#7C4FF0]" />
+              </button>
+              <span className="text-[11px] font-bold text-white/25 uppercase tracking-widest">Secure</span>
+            </div>
+          </div>
+
+          {/* Bio & Details Section */}
+          <div className="mb-6 p-6 rounded-[32px] bg-[#16161D] border border-white/[0.03] shadow-sm">
+            <div className="mb-6">
+              <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/25 block mb-2 px-1">Biography</span>
+              <p className="text-[15px] text-white/90 leading-relaxed px-1">
+                {profile.about || "Hey there! I am using FlexChat."}
+              </p>
+            </div>
+            <div className="space-y-5">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#7C4FF0]/10 shrink-0">
+                  <Mail size={18} className="text-[#7C4FF0]" />
                 </div>
-              )}
-            </button>
-            <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-2xl bg-[#0C0C10] flex items-center justify-center border border-white/5">
-               <div className="w-4 h-4 rounded-full bg-[#22C55E] shadow-[0_0_12px_rgba(34,197,94,0.4)]" />
-            </div>
-          </div>
-          
-          <h2 className="text-[32px] font-extrabold text-white mb-1.5 tracking-tight">
-            {formatDisplayName(profile.displayName)}
-          </h2>
-          <div className="flex items-center gap-2">
-            <span className="text-[14px] text-[#7C4FF0] font-bold">
-              {formatHandle(user.username)}
-            </span>
-            <span className="text-white/20 text-[12px] font-bold uppercase tracking-widest">•</span>
-            <span className="text-[13px] text-white/40 font-bold uppercase tracking-widest">
-              {isConnected ? "Active Now" : "Syncing"}
-            </span>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center justify-center gap-10 mb-10 px-6">
-          <div className="flex flex-col items-center gap-2.5 flex-1 max-w-[80px]">
-            <button className="w-13 h-13 rounded-2xl flex items-center justify-center bg-[#16161D] text-white border border-white/[0.05] shadow-sm active:scale-95 transition-all hover:bg-[#1E1E27]">
-              <Phone size={22} className="text-[#7C4FF0]" />
-            </button>
-            <span className="text-[11px] font-bold text-white/25 uppercase tracking-widest">Call</span>
-          </div>
-          <div className="flex flex-col items-center gap-2.5 flex-1 max-w-[80px]">
-            <button className="w-13 h-13 rounded-2xl flex items-center justify-center bg-[#16161D] text-white border border-white/[0.05] shadow-sm active:scale-95 transition-all hover:bg-[#1E1E27]">
-              <Camera size={22} className="text-[#7C4FF0]" />
-            </button>
-            <span className="text-[11px] font-bold text-white/25 uppercase tracking-widest">Video</span>
-          </div>
-          <div className="flex flex-col items-center gap-2.5 flex-1 max-w-[80px]">
-            <button className="w-13 h-13 rounded-2xl flex items-center justify-center bg-[#16161D] text-white border border-white/[0.05] shadow-sm active:scale-95 transition-all hover:bg-[#1E1E27]">
-              <ShieldCheck size={22} className="text-[#7C4FF0]" />
-            </button>
-            <span className="text-[11px] font-bold text-white/25 uppercase tracking-widest">Secure</span>
-          </div>
-        </div>
-
-        {/* Bio & Details Section */}
-        <div className="mx-4 mb-6 p-5 rounded-[28px] bg-[#16161D] border border-white/[0.03] shadow-sm">
-          <div className="mb-6">
-            <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/28 block mb-2 px-1">Biography</span>
-            <p className="text-[15px] text-white/90 leading-relaxed px-1">
-              {profile.about || "Hey there! I am using FlexChat."}
-            </p>
-          </div>
-          <div className="space-y-5">
-            <div className="flex items-center gap-4">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#7C4FF0]/10 shrink-0">
-                <Mail size={16} className="text-[#7C4FF0]" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] text-white/20 font-bold uppercase tracking-wider">Email Address</div>
+                  <div className="text-[14.5px] font-bold text-white truncate tracking-tight">{user.email}</div>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[11px] text-white/20 font-bold uppercase tracking-wider">Email Address</div>
-                <div className="text-[14.5px] font-bold text-white truncate tracking-tight">{user.email}</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#7C4FF0]/10 shrink-0">
-                <Phone size={16} className="text-[#7C4FF0]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[11px] text-white/20 font-bold uppercase tracking-wider">Mobile Number</div>
-                <div className="text-[14.5px] font-bold text-white truncate tracking-tight">
-                  {user.phoneNumber || profile.phone || "Not configured"}
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#7C4FF0]/10 shrink-0">
+                  <Phone size={18} className="text-[#7C4FF0]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] text-white/20 font-bold uppercase tracking-wider">Mobile Number</div>
+                  <div className="text-[14.5px] font-bold text-white truncate tracking-tight">
+                    {user.phoneNumber || profile.phone || "Not configured"}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Shared Assets Section */}
-        <div className="mx-4">
-          <div className="mb-3 px-1">
-            <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/28">Shared Discovery</span>
-          </div>
-          <div className="flex flex-col items-center justify-center py-16 rounded-[28px] bg-[#16161D] border border-white/[0.02] shadow-inner">
-            <div className="w-16 h-16 rounded-3xl bg-white/[0.03] flex items-center justify-center mb-5">
-              <User size={32} className="text-white/10" />
+          {/* Shared Assets Section */}
+          <div className="mb-10">
+            <div className="mb-3 px-1">
+              <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/25">Shared Content</span>
             </div>
-            <p className="text-[14px] font-bold text-white/20 tracking-tight">Media assets will appear here</p>
+            <div className="flex flex-col items-center justify-center py-20 rounded-[32px] bg-[#16161D] border border-white/[0.02] shadow-inner">
+              <div className="w-16 h-16 rounded-3xl bg-white/[0.03] flex items-center justify-center mb-5">
+                <User size={32} className="text-white/10" />
+              </div>
+              <p className="text-[14px] font-bold text-white/20 tracking-tight">Media assets will appear here</p>
+            </div>
           </div>
         </div>
       </main>

@@ -112,110 +112,114 @@ export default function NotificationsPage() {
 
   return (
     <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(0.5rem+env(safe-area-inset-top))]">
-      <div className="px-5 mb-6 flex items-center justify-between">
-        <h1 className="text-[28px] font-extrabold tracking-tight text-white">
-          Notifications
-        </h1>
-        {notifications.length > 0 && (
-          <button
-            onClick={markAllRead}
-            className="text-[12px] font-bold text-[#7C4FF0] hover:opacity-80 transition-opacity"
-          >
-            Mark all as read
-          </button>
-        )}
-      </div>
-
-      {notifications.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-32 text-center px-10">
-          <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-6">
-            <Bell size={28} className="text-white/10" />
-          </div>
-          <h2 className="text-lg font-bold text-white mb-2">No notifications</h2>
-          <p className="text-white/30 text-sm leading-relaxed">
-            Your missed calls, mentions, and activity will appear here.
-          </p>
-        </div>
-      ) : (
-        <div className="px-5 space-y-6">
-          {["Today", "Yesterday", "Earlier"].map((group) => {
-            const items = groupedNotifications[group];
-            if (!items.length) return null;
-
-            return (
-              <div key={group} className="space-y-3">
-                <div className="px-1">
-                  <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/28">{group}</span>
-                </div>
-                <div className="space-y-2.5">
-                  <AnimatePresence initial={false}>
-                    {items.map((notification) => {
-                      const meta = getMeta(notification);
-                      const Icon = meta.icon;
-
-                      return (
-                        <motion.div
-                          key={notification.id}
-                          layout
-                          initial={{ opacity: 0, scale: 0.98 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, x: -10 }}
-                          onClick={() => handleAction(notification)}
-                          className={cn(
-                            "relative flex items-start gap-3.5 p-4 rounded-2xl cursor-pointer hover:bg-white/[0.06] transition-colors",
-                            notification.read ? "bg-white/[0.04]" : "bg-white/[0.08]"
-                          )}
-                        >
-                          {!notification.read && (
-                            <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1 h-8 rounded-full bg-[#7C4FF0]" />
-                          )}
-                          
-                          <div className={cn(
-                            "w-10 h-10 shrink-0 rounded-[12px] flex items-center justify-center",
-                            meta.bg,
-                            meta.color
-                          )}>
-                            <Icon size={18} />
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-2 mb-0.5">
-                              <h3 className={cn(
-                                "text-[14.5px] font-bold truncate",
-                                notification.read ? "text-white/70" : "text-white"
-                              )}>
-                                {notification.title}
-                              </h3>
-                              <span className="shrink-0 text-[10px] font-medium text-white/20">
-                                {formatRelativeTime(notification.createdAt, now)}
-                              </span>
-                            </div>
-                            <p className={cn(
-                              "text-[13px] leading-relaxed line-clamp-2",
-                              notification.read ? "text-white/30" : "text-white/50"
-                            )}>
-                              {notification.message}
-                            </p>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </AnimatePresence>
-                </div>
-              </div>
-            );
-          })}
-          
+      <div className="mx-auto w-full max-w-2xl px-4 sm:px-6">
+        <header className="px-1 mb-8 flex items-center justify-between">
+          <h1 className="text-[32px] font-black tracking-tight text-white">
+            Notifications
+          </h1>
           {notifications.length > 0 && (
             <button
-              onClick={clearNotifications}
-              className="w-full py-4 text-[13px] font-bold text-white/20 hover:text-red-400/50 transition-colors"
+              onClick={markAllRead}
+              className="text-[12px] font-bold text-[#7C4FF0] hover:opacity-80 transition-opacity"
             >
-              Clear all notifications
+              Mark all as read
             </button>
           )}
-        </div>
-      )}
+        </header>
+
+        {notifications.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-32 text-center">
+            <div className="w-16 h-16 rounded-3xl bg-white/5 flex items-center justify-center mb-6">
+              <Bell size={28} className="text-white/10" />
+            </div>
+            <h2 className="text-lg font-bold text-white mb-2">No notifications</h2>
+            <p className="text-white/30 text-sm leading-relaxed max-w-[240px]">
+              Your missed calls, mentions, and activity will appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {["Today", "Yesterday", "Earlier"].map((group) => {
+              const items = groupedNotifications[group];
+              if (!items.length) return null;
+
+              return (
+                <div key={group} className="space-y-4">
+                  <div className="px-1">
+                    <span className="text-[10.5px] font-bold tracking-[0.15em] uppercase text-white/25">{group}</span>
+                  </div>
+                  <div className="space-y-3">
+                    <AnimatePresence initial={false}>
+                      {items.map((notification) => {
+                        const meta = getMeta(notification);
+                        const Icon = meta.icon;
+
+                        return (
+                          <motion.div
+                            key={notification.id}
+                            layout
+                            initial={{ opacity: 0, scale: 0.98 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            onClick={() => handleAction(notification)}
+                            className={cn(
+                              "relative flex items-start gap-4 p-5 rounded-[28px] cursor-pointer hover:bg-white/[0.04] transition-all active:scale-[0.99] border border-white/[0.02]",
+                              notification.read ? "bg-[#16161D]/50" : "bg-[#16161D] shadow-sm"
+                            )}
+                          >
+                            {!notification.read && (
+                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-1.5 h-8 rounded-full bg-[#7C4FF0]" />
+                            )}
+                            
+                            <div className={cn(
+                              "w-11 h-11 shrink-0 rounded-[14px] flex items-center justify-center",
+                              meta.bg,
+                              meta.color
+                            )}>
+                              <Icon size={20} />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2 mb-0.5">
+                                <h3 className={cn(
+                                  "text-[15.5px] font-bold truncate tracking-tight",
+                                  notification.read ? "text-white/70" : "text-white"
+                                )}>
+                                  {notification.title}
+                                </h3>
+                                <span className="shrink-0 text-[10.5px] font-bold text-white/20 uppercase tracking-tighter">
+                                  {formatRelativeTime(notification.createdAt, now)}
+                                </span>
+                              </div>
+                              <p className={cn(
+                                "text-[13.5px] leading-relaxed line-clamp-2 font-medium",
+                                notification.read ? "text-white/30" : "text-white/50"
+                              )}>
+                                {notification.message}
+                              </p>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              );
+            })}
+            
+            {notifications.length > 0 && (
+              <div className="pt-4 pb-10">
+                <button
+                  onClick={clearNotifications}
+                  className="w-full py-4 rounded-2xl border border-white/[0.03] text-[13px] font-bold text-white/20 hover:text-red-400/50 hover:bg-red-500/[0.02] transition-all"
+                >
+                  Clear all notifications
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </main>
   );
 }
