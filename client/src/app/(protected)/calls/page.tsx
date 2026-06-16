@@ -161,9 +161,9 @@ export default function CallsPage() {
               return (
                 <div 
                   key={conversation.id}
-                  className="flex items-center gap-4 p-3.5 rounded-2xl bg-white/[0.04] border border-white/[0.05]"
+                  className="flex items-center gap-4 p-3.5 rounded-[22px] bg-[#16161D] border border-white/[0.05] shadow-sm hover:bg-[#1E1E27] transition-colors"
                 >
-                  <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-[#111111]">
+                  <div className="w-13 h-13 rounded-full overflow-hidden flex-shrink-0 bg-[#0C0C10] border border-white/5">
                     <FlexAvatar
                       src={avatar}
                       name={conversation.name}
@@ -171,21 +171,21 @@ export default function CallsPage() {
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[15px] font-bold text-white truncate">{formatDisplayName(conversation.name ?? "Untitled")}</div>
-                    <div className="text-[12.5px] text-white/30 font-medium mt-0.5">Recent contact</div>
+                    <div className="text-[16px] font-bold text-white truncate">{formatDisplayName(conversation.name ?? "Untitled")}</div>
+                    <div className="text-[12.5px] text-white/30 font-medium mt-0.5">Contact</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button 
                       onClick={() => void startCall({ conversationId: conversation.id, targetUserId: targetUserId!, kind: "voice" })}
-                      className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 text-[#7C4FF0] active:scale-95 transition-transform"
+                      className="w-11 h-11 rounded-full flex items-center justify-center bg-white/[0.05] text-[#7C4FF0] hover:bg-white/[0.08] active:scale-95 transition-all"
                     >
-                      <Phone size={18} />
+                      <Phone size={19} />
                     </button>
                     <button 
                       onClick={() => void startCall({ conversationId: conversation.id, targetUserId: targetUserId!, kind: "video" })}
-                      className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 text-[#7C4FF0] active:scale-95 transition-transform"
+                      className="w-11 h-11 rounded-full flex items-center justify-center bg-white/[0.05] text-[#7C4FF0] hover:bg-white/[0.08] active:scale-95 transition-all"
                     >
-                      <Video size={18} />
+                      <Video size={19} />
                     </button>
                   </div>
                 </div>
@@ -196,37 +196,37 @@ export default function CallsPage() {
 
         {/* Recents Section */}
         <div>
-          <div className="px-5 mb-3">
-            <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/28">Recents</span>
+          <div className="px-5 mb-3 flex items-center justify-between">
+            <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/28">Recent History</span>
           </div>
-          <div className="px-5 space-y-6">
+          <div className="px-3 space-y-6">
             {["Today", "Yesterday", "Earlier"].map((group) => {
               const items = groupedHistory[group] ?? [];
               if (!items.length) return null;
 
               return (
-                <div key={group} className="space-y-3">
-                  <div className="px-1">
-                    <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">{group}</span>
+                <div key={group} className="space-y-1">
+                  <div className="px-3 py-2">
+                    <span className="text-[11px] font-bold text-white/20 uppercase tracking-widest">{group}</span>
                   </div>
-                  <div className="space-y-2.5">
+                  <div className="space-y-1">
                     {items.map((notification) => {
                       const meta = getHistoryMeta(notification);
                       const Icon = meta.icon;
 
                       return (
-                        <div key={notification.id} className="flex items-center gap-3.5 p-4 rounded-2xl bg-white/[0.04] border border-white/[0.02]">
-                          <div className="w-10 h-10 shrink-0 rounded-[12px] flex items-center justify-center bg-white/5">
+                        <div key={notification.id} className="flex items-center gap-4 px-3 py-3 rounded-2xl hover:bg-white/[0.03] transition-colors">
+                          <div className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center bg-white/[0.04]">
                             <Icon size={18} className={meta.tone} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2 mb-0.5">
-                              <h3 className="text-[14.5px] font-bold text-white truncate">{meta.label}</h3>
-                              <span className="shrink-0 text-[10px] font-medium text-white/20">
+                              <h3 className="text-[15px] font-bold text-white truncate">{meta.label}</h3>
+                              <span className="shrink-0 text-[10.5px] font-bold text-white/20 uppercase">
                                 {formatRelativeTime(notification.createdAt, now)}
                               </span>
                             </div>
-                            <p className="text-[13px] text-white/30 truncate leading-relaxed">
+                            <p className="text-[13px] text-white/30 font-medium truncate leading-relaxed">
                               {notification.message || notification.title}
                             </p>
                           </div>

@@ -475,27 +475,32 @@ export default function AuthPage() {
 
   if (!isHydrated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black text-white">
-        <div className="flex flex-col items-center gap-5">
+      <div className="flex min-h-screen items-center justify-center bg-[#0C0C10] text-white overflow-hidden relative">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.01)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse:60%_50%_at_50%_50%,#000_70%,transparent_100%)]" />
+        <div className="flex flex-col items-center gap-8 relative z-10">
           <motion.div
             animate={{
-              scale: [1, 1.1, 1],
-              opacity: [1, 0.8, 1],
+              scale: [1, 1.05, 1],
+              opacity: [1, 0.7, 1],
             }}
             transition={{
-              duration: 2,
+              duration: 3,
               repeat: Infinity,
               ease: "easeInOut",
             }}
+            className="h-24 w-24 rounded-[32px] overflow-hidden shadow-2xl shadow-[#7C4FF0]/20 border border-white/5"
           >
-            <FlexLogo size="lg" />
+            <img src="/logo.jpeg" alt="FlexChat" className="h-full w-full object-cover" />
           </motion.div>
 
           <div className="text-center">
-            <h2 className="text-lg font-bold">FlexChat</h2>
+            <h1 className="text-[28px] font-extrabold tracking-tight">
+              <span className="text-white">Flex</span>
+              <span className="text-[#7C4FF0]">Chat</span>
+            </h1>
 
-            <p className="mt-1 text-sm text-[var(--fc-text-muted)]">
-              Preparing secure session...
+            <p className="mt-3 text-[15px] font-medium text-[#7C4FF0]/60 uppercase tracking-widest">
+              Securing connection
             </p>
           </div>
         </div>
@@ -504,12 +509,12 @@ export default function AuthPage() {
   }
 
   return (
-    <main className="modal-safe-scroll relative h-svh min-h-svh touch-pan-y overflow-y-auto overflow-x-hidden overscroll-y-contain bg-black text-white">
+    <main className="modal-safe-scroll relative h-svh min-h-svh touch-pan-y overflow-y-auto overflow-x-hidden overscroll-y-contain bg-[#0C0C10] text-white">
       <AuthBackground />
 
       <div className="relative z-10 grid min-h-full lg:grid-cols-[minmax(360px,0.9fr)_minmax(420px,1.1fr)]">
-        <div className="relative hidden overflow-hidden border-r border-[var(--fc-app-border)] lg:flex">
-          <div className="absolute inset-0 bg-gradient-to-br from-[var(--fc-primary)]/[0.08] via-transparent to-transparent" />
+        <div className="relative hidden overflow-hidden border-r border-white/[0.03] lg:flex">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#7C4FF0]/[0.05] via-transparent to-transparent" />
 
           <div className="relative flex w-full flex-col justify-between p-10 xl:p-16">
             <motion.div
@@ -521,12 +526,17 @@ export default function AuthPage() {
                 opacity: 1,
                 y: 0,
               }}
-              className="flex items-center gap-4"
+              className="flex items-center gap-5"
             >
-              <FlexLogo size="lg" />
+              <div className="h-13 w-13 rounded-[18px] overflow-hidden border border-white/5 shadow-2xl">
+                <img src="/logo.jpeg" alt="FlexChat" className="h-full w-full object-cover" />
+              </div>
 
               <div>
-                <h1 className="text-2xl font-bold tracking-tight">FlexChat</h1>
+                <h1 className="text-3xl font-extrabold tracking-tight">
+                  <span className="text-white">Flex</span>
+                  <span className="text-[#7C4FF0]">Chat</span>
+                </h1>
               </div>
             </motion.div>
 
@@ -543,16 +553,16 @@ export default function AuthPage() {
                 transition={{
                   delay: 0.08,
                 }}
-                className="text-5xl font-bold leading-[1.1] tracking-tight xl:text-7xl"
+                className="text-5xl font-black leading-[1.05] tracking-tight xl:text-7xl"
               >
                 Securely connected,
-                <span className="block bg-gradient-to-r from-[var(--fc-accent-text)] to-[var(--fc-primary)] bg-clip-text text-transparent">
+                <span className="block text-[#7C4FF0]">
                   anywhere.
                 </span>
               </motion.h2>
 
-              <p className="mt-6 max-w-lg text-lg leading-relaxed text-[var(--fc-text-muted)]">
-                A premium messaging experience for high-performance teams and professionals.
+              <p className="mt-8 max-w-lg text-xl font-medium leading-relaxed text-white/40">
+                The premium messaging experience for high-performance teams and professionals.
               </p>
             </div>
 
@@ -574,18 +584,18 @@ export default function AuthPage() {
                     transition={{
                       delay: 0.12 + index * 0.06,
                     }}
-                    className="flex max-w-md items-center gap-4 rounded-[22px] border border-white/5 bg-white/[0.03] p-5 shadow-2xl backdrop-blur-3xl"
+                    className="flex max-w-md items-center gap-5 rounded-[28px] border border-white/[0.03] bg-white/[0.02] p-5 shadow-sm backdrop-blur-3xl"
                   >
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] border border-[var(--fc-primary)]/20 bg-[var(--fc-primary)]/10 text-[var(--fc-primary)]">
-                      <Icon size={21} />
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#7C4FF0]/10 text-[#7C4FF0]">
+                      <Icon size={22} />
                     </div>
 
                     <div>
-                      <h3 className="text-sm font-bold text-white">
+                      <h3 className="text-[15px] font-bold text-white tracking-tight">
                         {item.title}
                       </h3>
 
-                      <p className="mt-1 text-xs leading-relaxed text-[var(--fc-text-muted)]">
+                      <p className="mt-1 text-[12.5px] font-medium leading-relaxed text-white/30">
                         {item.detail}
                       </p>
                     </div>

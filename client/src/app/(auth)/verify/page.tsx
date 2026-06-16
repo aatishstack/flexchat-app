@@ -70,36 +70,21 @@ export default function VerifyPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050816] px-6 text-white">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0C0C10] px-6 text-white">
       {/* BACKGROUND */}
       <div className="absolute inset-0 overflow-hidden">
-        {/* BLOBS */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.01)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)]" />
         <motion.div
           animate={{
-            x: [0, 80, 0],
-            y: [0, -40, 0],
+            scale: [1, 1.1, 1],
+            opacity: [0.2, 0.4, 0.2],
           }}
           transition={{
-            duration: 12,
+            duration: 8,
             repeat: Infinity,
           }}
-          className="absolute left-[-120px] top-[-120px] h-[420px] w-[420px] rounded-full bg-sky-500/20 blur-[120px]"
+          className="absolute left-[-100px] top-[-100px] h-[400px] w-[400px] rounded-full bg-[#7C4FF0]/20 blur-[120px]"
         />
-
-        <motion.div
-          animate={{
-            x: [0, -60, 0],
-            y: [0, 40, 0],
-          }}
-          transition={{
-            duration: 14,
-            repeat: Infinity,
-          }}
-          className="absolute bottom-[-120px] right-[-120px] h-[420px] w-[420px] rounded-full bg-cyan-500/20 blur-[120px]"
-        />
-
-        {/* GRID */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
       </div>
 
       {/* CARD */}
@@ -112,43 +97,41 @@ export default function VerifyPage() {
           opacity: 1,
           y: 0,
         }}
-        transition={{
-          duration: 0.6,
-        }}
-        className="relative z-10 w-full max-w-md rounded-[40px] border border-white/10 bg-white/[0.04] p-8 backdrop-blur-3xl"
+        className="relative z-10 w-full max-w-md rounded-[40px] border border-white/[0.06] bg-[#16161D]/80 p-10 backdrop-blur-3xl shadow-[0_48px_100px_-12px_rgba(0,0,0,0.8)]"
       >
         {/* BACK */}
         <Link
           href="/auth"
-          className="mb-8 inline-flex items-center gap-2 text-sm text-white/45 transition-all hover:text-white"
+          className="mb-8 inline-flex items-center gap-2 text-sm font-bold text-white/30 transition-all hover:text-[#7C4FF0]"
         >
           <ChevronLeft className="h-4 w-4" />
-
-          Back
+          Back to access
         </Link>
 
         {/* ICON */}
-        <div className="mb-8 flex h-20 w-20 items-center justify-center rounded-[30px] bg-gradient-to-br from-[#2481CC] to-blue-500 shadow-[0_10px_50px_rgba(36,129,204,0.35)]">
-          <Smartphone className="h-10 w-10" />
+        <div className="mb-10 flex h-20 w-20 items-center justify-center rounded-[28px] bg-[#0C0C10] shadow-2xl border border-white/5 overflow-hidden">
+           <img src="/logo.jpeg" alt="FlexChat" className="h-full w-full object-cover" />
         </div>
 
         {/* TITLE */}
         <div>
-          <h1 className="text-4xl font-black">
-            Verify Identity
+          <h1 className="text-4xl font-black tracking-tight text-white">
+            Verify
           </h1>
 
-          <p className="mt-4 leading-relaxed text-white/45">
+          <p className="mt-4 text-[15px] font-medium leading-relaxed text-white/40">
             We sent a secure verification code to your
             registered device.
           </p>
         </div>
 
         {/* PHONE */}
-        <div className="mt-8 flex items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] px-5 py-4">
-          <ShieldCheck className="h-5 w-5 text-cyan-300" />
+        <div className="mt-8 flex items-center gap-4 rounded-2xl border border-white/5 bg-white/[0.02] px-5 py-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#7C4FF0]/10">
+            <ShieldCheck className="h-4 w-4 text-[#7C4FF0]" />
+          </div>
 
-          <span className="text-sm text-white/65">
+          <span className="text-[14px] font-bold text-white/60 tracking-tight">
             +91 ***** **704
           </span>
         </div>
@@ -178,22 +161,22 @@ export default function VerifyPage() {
                   event.target.value
                 )
               }
-              className={`h-16 w-14 rounded-3xl border bg-white/[0.04] text-center text-2xl font-black outline-none transition-all ${
-                index === 2
-                  ? "border-sky-500/50 shadow-[0_0_30px_rgba(36,129,204,0.28)]"
+              className={`h-15 w-12 rounded-2xl border bg-white/[0.03] text-center text-xl font-black outline-none transition-all ${
+                code[index]
+                  ? "border-[#7C4FF0]/50 shadow-[0_0_20px_rgba(124,79,240,0.2)]"
                   : "border-white/10"
-              }`}
+              } focus:border-[#7C4FF0]/50`}
             />
           ))}
         </div>
 
         {/* TIMER */}
-        <div className="mt-8 flex items-center justify-between text-sm">
-          <span className="text-white/40">
-            Resend code in
+        <div className="mt-8 flex items-center justify-between text-[13px] font-medium">
+          <span className="text-white/30 uppercase tracking-widest text-[11px] font-bold">
+            Resend Code
           </span>
 
-          <span className="font-semibold text-sky-200">
+          <span className="font-bold text-[#7C4FF0]">
             00:24
           </span>
         </div>
@@ -202,36 +185,26 @@ export default function VerifyPage() {
         <motion.button
           type="button"
           whileHover={{
-            scale: canVerify ? 1.02 : 1,
+            scale: canVerify ? 1.01 : 1,
           }}
           whileTap={{
             scale: canVerify ? 0.98 : 1,
           }}
           onClick={handleVerify}
           disabled={!canVerify}
-          className="mt-8 flex w-full items-center justify-center gap-3 rounded-3xl bg-gradient-to-r from-[#2481CC] to-blue-500 py-5 text-lg font-bold shadow-[0_10px_40px_rgba(36,129,204,0.30)] transition disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-10 flex w-full items-center justify-center gap-3 rounded-[20px] bg-[#7C4FF0] py-4.5 text-[15.5px] font-black uppercase tracking-widest text-white shadow-xl shadow-[#7C4FF0]/20 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Verify & Continue
-
+          Verify Identity
           <ArrowRight className="h-5 w-5" />
         </motion.button>
 
-        {/* RESEND */}
-        <button
-          type="button"
-          onClick={handleResend}
-          className="mt-5 w-full text-center text-sm text-white/45 transition-all hover:text-white"
-        >
-          Didn&apos;t receive anything? Resend
-        </button>
-
         {/* SECURITY */}
-        <div className="mt-10 flex items-center justify-center gap-3 rounded-3xl border border-white/10 bg-white/[0.03] px-5 py-4">
-          <ShieldCheck className="h-5 w-5 text-[#7CC5FF]" />
-
-          <span className="text-sm text-white/55">
-            End-to-end encrypted verification
+        <div className="mt-10 flex items-center justify-center gap-3">
+          <div className="h-1 w-1 rounded-full bg-[#7C4FF0]" />
+          <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white/20">
+            End-to-End Encrypted
           </span>
+          <div className="h-1 w-1 rounded-full bg-[#7C4FF0]" />
         </div>
       </motion.div>
     </main>

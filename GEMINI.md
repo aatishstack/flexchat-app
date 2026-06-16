@@ -1,12 +1,12 @@
-# FlexChat Master Engineering Context
+# FlexChat Master Engineering Context v2
 
-## Project Status
+## Project Overview
 
-FlexChat is currently in the final productization phase.
+FlexChat is a production-grade realtime messaging platform currently in its final UI migration and launch preparation phase.
 
-Core infrastructure is considered complete.
+Core infrastructure is considered stable.
 
-Completed:
+The application already contains:
 
 - Authentication
 - JWT Refresh Flow
@@ -16,9 +16,9 @@ Completed:
 - Typing System
 - Notification Persistence
 - Notification Realtime Sync
-- Firebase FCM Integration
-- Cloudinary Integration
-- Cloudflare Turnstile Integration
+- Firebase FCM
+- Cloudinary Media Pipeline
+- Cloudflare Turnstile
 - Error Boundaries
 - Health Checks
 - Readiness Checks
@@ -27,19 +27,13 @@ Completed:
 - Conversation Virtualization
 - Mobile Safe Areas
 - APK Preparation
-- Production Cleanup
-- Media Upload Pipeline
-- Story System Foundation
-- Call Signaling Foundation
-- Dynamic TURN Credential Integration
+- Story System
+- Call Signaling
+- Dynamic TURN Integration
 
-Current Metrics:
+Infrastructure is NOT the current focus.
 
-Infrastructure Readiness: 99%
-Production Stability: 98%
-UI Completion: 65%
-APK Readiness: 92%
-Call Reliability: Pending Coturn Deployment
+Visual parity and launch readiness are the current focus.
 
 ---
 
@@ -50,64 +44,112 @@ If instructions conflict:
 1. Runtime Stability
 2. Production Functionality
 3. Existing Architecture
-4. Approved Prototype
-5. Visual Improvements
+4. Reference Screenshots
+5. Approved Prototype
+6. Visual Improvements
 
 Higher priorities always win.
 
 ---
 
-# Current Project Phase
+# Current Phase
 
 Current Phase:
 
-UI Migration
-UX Polish
-Production Verification
+Visual Parity Pass
 
-The approved FlexChat prototype package is the official visual source of truth.
+Bug fixing is temporarily paused.
 
-The existing FlexChat application is the official functional source of truth.
+Feature development is temporarily paused.
 
----
+The immediate objective is:
 
-# Mission
+Match the approved reference screenshots as closely as possible.
 
-Transform FlexChat into a premium production-grade messaging platform.
-
-Target:
-
-- Telegram usability
-- Telegram responsiveness
-- Apple-level polish
-- Linear-level cleanliness
-- Android-native feel
+Only after visual parity is achieved should bug fixing begin.
 
 ---
 
-# Core Philosophy
+# Visual Source Of Truth
 
-Functionality First
+Primary Reference:
 
-Reliability First
+F:\projects\flexchat\Refrence images
 
-Visual Quality Second
+Current Application Screens:
 
-Never sacrifice:
+F:\projects\flexchat\current state
 
-- stability
-- messaging reliability
-- call reliability
-- notification reliability
-- mobile performance
+Before modifying UI:
 
-for visual improvements.
+1. Review reference screenshots.
+2. Review current state screenshots.
+3. Compare side-by-side.
+4. Identify differences.
+5. Apply only necessary UI changes.
+
+Never redesign from imagination.
+
+Never invent layouts.
+
+Never modernize without reference support.
+
+Goal:
+
+Visual parity.
+
+Not redesign.
+
+---
+
+# Functional Source Of Truth
+
+The existing FlexChat application is the functional source of truth.
+
+Preserve:
+
+- Socket.IO lifecycle
+- Zustand ownership
+- Existing APIs
+- Existing routes
+- Existing services
+- Existing stores
+- Existing business logic
+- Existing notification pipeline
+- Existing media pipeline
+- Existing story pipeline
+- Existing WebRTC pipeline
+
+Replace presentation only.
+
+---
+
+# Protected Systems
+
+Do NOT rewrite:
+
+- Auth
+- JWT
+- Socket.IO
+- Presence
+- Typing
+- Notifications backend
+- Firebase
+- Cloudinary
+- Stories backend
+- Calls backend
+- TURN integration
+- Database logic
+- Providers
+- Zustand stores
+
+These systems are already integrated and production-tested.
 
 ---
 
 # Approved Visual Identity
 
-Primary:
+Primary Accent:
 
 #7C4FF0
 
@@ -115,7 +157,7 @@ Background:
 
 #0C0C10
 
-Surface:
+Primary Surface:
 
 #16161D
 
@@ -151,108 +193,67 @@ Motion:
 
 ---
 
-# Prototype Rules
+# Brand Rules
 
-The approved prototype is the visual source of truth.
+Official Brand:
 
-Use it for:
+FlexChat
 
-- spacing
-- hierarchy
-- typography
-- navigation
-- stories
-- calls
-- settings
-- profile
-- motion
+Brand Styling:
 
-Do not use it for:
+Flex = White
 
-- backend architecture
-- state management
-- socket architecture
-- API architecture
+Chat = #7C4FF0
 
----
+Official Logo:
 
-# UI Migration Rules
+F:\projects\flexchat\assets\logo\FlexChatLogo.jpeg
 
-DO NOT:
+Use the official logo only.
 
-- rewrite backend
-- rewrite auth
-- rewrite sockets
-- rewrite notifications
-- rewrite stories backend
-- rewrite media backend
-- rewrite WebRTC
-- rewrite TURN integration
-- rewrite database logic
-- rewrite providers
-- rewrite Zustand ownership
+Do NOT create:
 
-Preserve all working production systems.
+- alternate logos
+- generated logos
+- placeholder icons
+- replacement F marks
 
-Replace presentation only.
+Use the official asset whenever branding is required.
+
+Branding Areas:
+
+- Splash
+- Authentication
+- Session Restore
+- Onboarding
+- Empty States
+- Branding Headers
 
 ---
 
-# Architecture Rules
+# Anti-Telegram Rule
 
-Preserve:
+Telegram usability is allowed.
 
-- Socket.IO lifecycle
-- Zustand ownership
-- Existing APIs
-- Existing routes
-- Existing business logic
-- Existing media pipeline
-- Existing notification pipeline
+Telegram visuals are not.
 
-Avoid:
+Remove:
 
-- duplicate stores
-- duplicate listeners
-- duplicate services
-- competing systems
+- Telegram blue gradients
+- Telegram blue surfaces
+- Telegram blue message bubbles
+- Telegram blue hierarchy
 
----
+Allowed:
 
-# Realtime Rules
+- Responsiveness
+- Message density
+- Scroll performance
+- Conversation usability
 
-Always:
+FlexChat must maintain:
 
-- cleanup listeners
-- cleanup subscriptions
-- validate reconnect behavior
-- validate offline recovery
-- validate multi-tab behavior
-
-Never:
-
-- create competing presence systems
-- create competing typing systems
-- create duplicate socket instances
-
----
-
-# Stories Vision
-
-Stories are a flagship feature.
-
-Requirements:
-
-- immersive viewer
-- premium transitions
-- viewer lists
-- story analytics
-- reactions
-- replies
-
-Story close must always return to previous route.
-
-Never redirect unexpectedly.
+Black + Purple identity.
 
 ---
 
@@ -263,16 +264,37 @@ Priorities:
 1. Readability
 2. Density
 3. Speed
-4. Touch Ergonomics
+4. One-Handed Use
 
 Requirements:
 
-- clean grouping
-- visible typing indicators
-- premium composer
-- lightweight reactions
-- smooth scrolling
-- one-handed usability
+- Clean grouping
+- Visible typing indicators
+- Premium composer
+- Lightweight reactions
+- Smooth scrolling
+- Comfortable touch targets
+
+Never sacrifice reliability for appearance.
+
+---
+
+# Stories Vision
+
+Stories are a flagship feature.
+
+Requirements:
+
+- Immersive viewer
+- Premium transitions
+- Viewer lists
+- Reactions
+- Replies
+- Analytics
+
+Story close must always return to the previous route.
+
+Never redirect unexpectedly.
 
 ---
 
@@ -280,11 +302,11 @@ Requirements:
 
 Requirements:
 
-- premium incoming call screen
-- premium voice call screen
-- premium video call screen
-- network indicators
-- connection indicators
+- Premium incoming call screen
+- Premium voice call screen
+- Premium video call screen
+- Connection indicators
+- Network indicators
 
 The UI should inspire confidence.
 
@@ -296,22 +318,22 @@ Settings should feel like a premium operating system.
 
 Focus:
 
-- hierarchy
-- grouping
-- discoverability
-- accessibility
+- Hierarchy
+- Grouping
+- Discoverability
+- Accessibility
 
-Avoid endless settings lists.
+Avoid endless flat lists.
 
 ---
 
 # Mobile Rules
 
-Primary Target:
+Primary Platform:
 
 Android
 
-Widths:
+Target Widths:
 
 360
 390
@@ -330,22 +352,48 @@ Desktop is secondary.
 
 ---
 
+# Loading Experience Rules
+
+Loading screens are part of the product.
+
+Avoid:
+
+- Generic spinners
+- Default loaders
+- Blue loading indicators
+
+Prefer:
+
+- Official logo
+- Purple accent motion
+- Brand-consistent loading states
+
+Priority:
+
+1. Splash
+2. Session Restore
+3. Auth Loading
+4. Story Loading
+5. Call Connecting
+
+---
+
 # Performance Rules
 
 Never optimize blindly.
 
 Before optimization:
 
-- identify bottleneck
-- measure impact
-- verify improvement
+1. Identify bottleneck.
+2. Measure impact.
+3. Verify improvement.
 
 Prefer:
 
-- fewer rerenders
-- lower memory usage
-- smoother scrolling
-- lower network traffic
+- Fewer rerenders
+- Lower memory usage
+- Smoother scrolling
+- Lower network traffic
 
 ---
 
@@ -353,10 +401,10 @@ Prefer:
 
 Always:
 
-- validate server-side
-- authorize server-side
-- sanitize inputs
-- rate limit sensitive actions
+- Validate server-side
+- Authorize server-side
+- Sanitize inputs
+- Rate-limit sensitive actions
 
 Never trust client state.
 
@@ -368,14 +416,35 @@ Nothing is complete until verified.
 
 Required:
 
-- build passes
-- typecheck passes
-- runtime path verified
-- mobile viewport verified
+- Build passes
+- Typecheck passes
+- Runtime path verified
+- Mobile viewport verified
 
 If not tested:
 
-UNVERIFIED
+Status = UNVERIFIED
+
+Never report:
+
+- COMPLETE
+- VERIFIED
+- PASSED
+- WORKING
+
+unless actually confirmed.
+
+Never report:
+
+100% parity
+
+without side-by-side comparison.
+
+Never report:
+
+No regressions
+
+without validating affected flows.
 
 ---
 
@@ -383,17 +452,21 @@ UNVERIFIED
 
 After every major change verify:
 
-- login
-- register
-- refresh token
-- messaging
-- typing indicator
-- presence
-- notifications
-- stories
-- media uploads
-- calls
-- push notifications
+- Login
+- Register
+- Refresh Token
+- Messaging
+- Typing Indicator
+- Presence
+- Notifications
+- Stories
+- Media Uploads
+- Calls
+- Push Notifications
+
+If not checked:
+
+Mark as UNVERIFIED.
 
 ---
 
@@ -403,6 +476,8 @@ Always report:
 
 # VERIFIED CHANGES
 
+# UNVERIFIED CHANGES
+
 # REMAINING RISKS
 
 # REGRESSIONS
@@ -411,23 +486,26 @@ Always report:
 
 # NEXT RECOMMENDED STEP
 
-Never exaggerate progress.
+Do not exaggerate progress.
 
-Never mark unverified work as complete.
+Do not assume success.
+
+Be precise.
 
 ---
 
 # Current Priority Order
 
-1. UI Migration
-2. UX Polish
-3. Story Experience
-4. Call Experience
-5. Notification Experience
-6. Mobile APK Validation
-7. Coturn Deployment
-8. Real Device Testing
-9. Production Launch
+1. Visual Parity Pass
+2. UI Polish
+3. Bug Fixing
+4. Story Experience
+5. Call Experience
+6. Notification Experience
+7. APK Validation
+8. Coturn Deployment
+9. Real Device Testing
+10. Production Launch
 
 ---
 
@@ -435,18 +513,22 @@ Never mark unverified work as complete.
 
 FlexChat should launch as:
 
-- production-grade
-- premium
-- mobile-first
-- reliable
-- secure
-- scalable
+- Production-grade
+- Premium
+- Mobile-first
+- Reliable
+- Secure
+- Scalable
 
 Combining:
 
 - Telegram usability
 - Telegram responsiveness
-- Premium black-and-purple identity
+- Black & Purple FlexChat identity
+- Native Android feel
 - Modern minimalist design
-- Native-quality mobile experience
 - Production-grade reliability
+
+Mission:
+
+Make FlexChat feel like a flagship messaging product while preserving the stability of the existing realtime architecture.

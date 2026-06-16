@@ -36,6 +36,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import {
   formatHandle,
@@ -127,28 +128,23 @@ function ToggleSwitch({
       aria-checked={checked}
       aria-label={label}
       onClick={onChange}
-      className={`fc-touch relative h-7 w-12 shrink-0 rounded-full border transition-all duration-200 ${
+      className={`relative h-6 w-11 shrink-0 rounded-full transition-all duration-300 ${
         checked
-          ? "border-[var(--fc-primary)]/40 bg-[var(--fc-primary)] shadow-lg shadow-[rgba(var(--fc-primary-rgb),0.2)]"
-          : "border-white/10 bg-white/5"
+          ? "bg-[#7C4FF0] shadow-md shadow-[#7C4FF0]/30"
+          : "bg-white/[0.08] border border-white/5"
       }`}
     >
       <motion.span
         layout
         transition={{
           type: "spring",
-          stiffness: 420,
+          stiffness: 500,
           damping: 30,
         }}
-        className={`absolute top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-black shadow-md ${
-          checked
-            ? "left-6"
-            : "left-1"
-        }`}
+        className="absolute top-[2.5px] left-[2.5px] h-[19px] w-[19px] rounded-full bg-white shadow-sm flex items-center justify-center"
+        animate={{ x: checked ? 20 : 0 }}
       >
-        {checked ? (
-          <Check size={12} strokeWidth={4} />
-        ) : null}
+        {checked && <div className="w-1 h-1 rounded-full bg-[#7C4FF0]" />}
       </motion.span>
     </button>
   );
@@ -162,11 +158,13 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <div className="mb-5">
-      <div className="px-5 mb-2">
-        <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/28">{title}</span>
+    <div className="mb-6">
+      <div className="px-5 mb-3 flex items-center justify-between">
+        <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/28">
+          {title}
+        </span>
       </div>
-      <div className="mx-5 rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.04)" }}>
+      <div className="mx-4 overflow-hidden rounded-[24px] bg-[#16161D] border border-white/[0.03] shadow-sm">
         {children}
       </div>
     </div>
@@ -189,13 +187,16 @@ function SettingRow({
   isLast?: boolean;
 }) {
   return (
-    <div className={`flex items-center gap-3.5 px-4 py-3.5 w-full hover:bg-white/[0.04] transition-colors ${!isLast ? "border-t border-white/[0.05]" : ""}`}>
-      <div className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0" style={{ background: "rgba(124,79,240,0.14)" }}>
-        <Icon size={15} style={{ color: "#7C4FF0" }} />
+    <div className={cn(
+      "flex items-center gap-4 px-4 py-3.5 w-full hover:bg-white/[0.02] transition-colors",
+      !isLast && "border-b border-white/[0.03]"
+    )}>
+      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-[#7C4FF0]/10">
+        <Icon size={16} className="text-[#7C4FF0]" />
       </div>
       <div className="flex-1 text-left min-w-0">
-        <div className="text-[13.5px] font-semibold text-white">{label}</div>
-        {sub && <div className="text-[11.5px] text-white/32 font-medium mt-0.5 truncate">{sub}</div>}
+        <div className="text-[14.5px] font-bold text-white tracking-tight">{label}</div>
+        {sub && <div className="text-[12px] text-white/30 font-medium mt-0.5 truncate leading-tight">{sub}</div>}
       </div>
       {onToggle !== undefined ? (
         <ToggleSwitch
@@ -204,7 +205,7 @@ function SettingRow({
           label={label}
         />
       ) : (
-        <ChevronRight size={15} className="text-white/22 flex-shrink-0" />
+        <ChevronRight size={15} className="text-white/20 flex-shrink-0" />
       )}
     </div>
   );

@@ -2005,9 +2005,9 @@ const ChatMessageRow = memo(function ChatMessageRow({
       <div
         ref={rowRef}
         style={rowStyle}
-        className={`fc-telegram-touch flex ${grouped ? "mt-0.5" : "mt-2"} ${
+        className={`flex ${grouped ? "mt-0.5" : "mt-2"} ${
           mine ? "justify-end" : "justify-start"
-        } group/message relative ${actionsOpen ? "z-[266]" : "z-0"} [transition:transform_0.2s_cubic-bezier(0.22,1,0.36,1)]`}
+        } group/message relative ${actionsOpen ? "z-[266]" : "z-0"} [transition:transform_0.2s_cubic-bezier(0.22,1,0.36,1)] px-3 sm:px-4`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={() => {
@@ -2034,7 +2034,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
         {canReply ? (
           <div
             className={`fc-button-soft pointer-events-none absolute top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border transition-opacity ${
-              mine ? "right-[calc(100%-2rem)]" : "left-0"
+              mine ? "right-[calc(100%-2.5rem)]" : "left-1"
             } ${swipeX >= 40 ? "opacity-100" : "opacity-0"}`}
           >
             <Reply size={14} />
@@ -2055,32 +2055,32 @@ const ChatMessageRow = memo(function ChatMessageRow({
                 }
               : undefined
           }
-          className={`fc-message-bubble relative max-w-[88%] px-3 py-1.5 text-white sm:max-w-[72%] sm:px-3.5 sm:py-2 ${
+          className={`fc-message-bubble relative max-w-[85%] px-3.5 py-2 text-white shadow-md sm:max-w-[70%] sm:px-4 sm:py-2.5 ${
             mine
-              ? "fc-bubble-mine"
-              : "fc-bubble-peer border border-[var(--fc-app-border)]"
-          } ${!grouped ? "fc-bubble-tail" : ""} ${
-            grouped ? "fc-bubble-grouped" : ""
+              ? "rounded-2xl rounded-tr-none"
+              : "rounded-2xl rounded-tl-none border border-white/[0.05]"
+          } ${
+            grouped ? (mine ? "!rounded-tr-2xl" : "!rounded-tl-2xl") : ""
           } ${message.status === "failed" ? "ring-1 ring-red-400/35" : ""} ${
             activeSearchMatch ? "ring-2 ring-[#FDE047]/70" : ""
           } ${
             isDeleted
-              ? "border border-[var(--fc-app-border)] bg-[var(--fc-app-surface)] text-[var(--fc-text-muted)]"
+              ? "border border-white/[0.08] bg-[#16161D] text-white/40"
               : ""
           }`}
         >
           {message.replyTo ? (
-            <div className="mb-3 rounded-lg border border-[#0D1823] border-l-2 border-l-[#2AABEE] bg-black/10 px-3 py-2 text-xs text-[#B9C2CA]">
-              <p className="font-medium text-white">Reply</p>
-              <p className="mt-1 line-clamp-2">
+            <div className="mb-2 rounded-xl border border-white/[0.05] border-l-[3px] border-l-[#7C4FF0] bg-white/[0.03] px-3 py-2 text-[12px] text-white/50">
+              <p className="font-bold text-[#7C4FF0]">Reply</p>
+              <p className="mt-0.5 line-clamp-2">
                 {highlightedReplyText}
               </p>
             </div>
           ) : null}
 
           {message.forwardedFrom && !isDeleted ? (
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/55">
-              <Forward size={12} />
+            <div className="mb-2 flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-white/35">
+              <Forward size={11} />
               <span className="truncate">
                 Forwarded
                 {message.forwardedFrom.senderName
@@ -2093,49 +2093,53 @@ const ChatMessageRow = memo(function ChatMessageRow({
           ) : null}
 
           {isDeleted ? (
-            <p className="italic text-white/65">This message was deleted</p>
+            <p className="italic text-[14px]">This message was deleted</p>
           ) : null}
 
           {message.status === "failed" && mine && !isDeleted ? (
             <button
               type="button"
               onClick={() => onRetry(message.id)}
-              className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-red-300 hover:text-red-200"
+              className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-red-300 hover:text-red-200"
             >
               <RefreshCw size={12} />
               Tap to retry
             </button>
           ) : null}
           {!isDeleted && media ? (
-            media.type === "image" ? (
-              <MessageMediaAttachment
-                url={media.url}
-                type="image"
-                label={media.label}
-              />
-            ) : media.type === "video" ? (
-              <MessageMediaAttachment
-                url={media.url}
-                type="video"
-                label={media.label}
-              />
-            ) : media.type === "audio" ? (
-              <MessageVoiceAttachment url={media.url} />
-            ) : (
-              <MessageFileAttachment
-                url={media.url}
-                label={media.label}
-                size={media.size}
-              />
-            )
+            <div className="mb-1">
+              {media.type === "image" ? (
+                <MessageMediaAttachment
+                  url={media.url}
+                  type="image"
+                  label={media.label}
+                />
+              ) : media.type === "video" ? (
+                <MessageMediaAttachment
+                  url={media.url}
+                  type="video"
+                  label={media.label}
+                />
+              ) : media.type === "audio" ? (
+                <MessageVoiceAttachment url={media.url} />
+              ) : (
+                <MessageFileAttachment
+                  url={media.url}
+                  label={media.label}
+                  size={media.size}
+                />
+              )}
+            </div>
           ) : null}
 
           {!isDeleted && message.audio ? (
-            <MessageVoiceAttachment url={message.audio} />
+            <div className="mb-1">
+              <MessageVoiceAttachment url={message.audio} />
+            </div>
           ) : null}
 
           {!isDeleted && isEditing ? (
-            <div className="space-y-3">
+            <div className="space-y-3 min-w-[200px]">
               <textarea
                 value={draftText}
                 onChange={(event) =>
@@ -2143,7 +2147,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
                 }
                 autoFocus
                 rows={3}
-                className="fc-input w-full resize-none rounded-2xl border px-3 py-2 text-sm leading-relaxed outline-none transition"
+                className="fc-input w-full resize-none rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-[14.5px] leading-relaxed outline-none transition"
               />
 
               <div className="flex justify-end gap-2">
@@ -2154,10 +2158,10 @@ const ChatMessageRow = memo(function ChatMessageRow({
                     setIsEditing(false);
                   }}
                   disabled={isMutating}
-                  className="fc-surface fc-hover flex h-9 w-9 items-center justify-center rounded-xl border transition disabled:cursor-wait disabled:opacity-60"
+                  className="flex h-9 items-center justify-center rounded-xl bg-white/[0.08] px-3 text-[13px] font-bold text-white/60 transition active:scale-95 disabled:opacity-60"
                   aria-label="Cancel edit"
                 >
-                  <X size={15} />
+                  Cancel
                 </button>
 
                 <button
@@ -2166,19 +2170,19 @@ const ChatMessageRow = memo(function ChatMessageRow({
                     void submitEdit();
                   }}
                   disabled={isMutating || !draftText.trim()}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[var(--fc-primary)] transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex h-9 items-center justify-center rounded-xl bg-[#7C4FF0] px-4 text-[13px] font-bold text-white transition hover:scale-105 active:scale-95 disabled:opacity-60 shadow-lg shadow-[#7C4FF0]/20"
                   aria-label="Save edit"
                 >
-                  <Check size={15} />
+                  Save
                 </button>
               </div>
             </div>
           ) : !isDeleted && message.text && !media ? (
             <div className="relative pb-0.5">
-              <p className="whitespace-pre-wrap break-words pr-11">
+              <p className="whitespace-pre-wrap break-words pr-14 text-[15px] leading-relaxed">
                 {highlightedMessageText}
               </p>
-              <div className={`absolute bottom-[-4px] right-[-2px] flex items-center gap-1 text-[10px] font-medium leading-none ${mine ? "text-white/65" : "text-[var(--fc-text-muted)]"}`}>
+              <div className={`absolute bottom-[-2px] right-[-4px] flex items-center gap-1 text-[10px] font-bold tracking-tight ${mine ? "text-white/45" : "text-white/25"}`}>
                 {message.editedAt && !isDeleted ? <span>edited</span> : null}
                 <span suppressHydrationWarning>{messageTime}</span>
                 {mine ? (
@@ -2189,7 +2193,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
           ) : !isDeleted && (media || message.audio) ? (
             <div className="relative">
               {/* Media rendering happened above */}
-              <div className="absolute bottom-1 right-1 flex items-center gap-1 rounded-full bg-black/40 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white backdrop-blur-md">
+              <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-md">
                 {message.editedAt && !isDeleted ? <span>edited</span> : null}
                 <span suppressHydrationWarning>{messageTime}</span>
                 {mine ? (
@@ -2200,11 +2204,11 @@ const ChatMessageRow = memo(function ChatMessageRow({
           ) : null}
 
           {!isDeleted && message.reactions?.length ? (
-            <div className="mt-1.5 flex flex-wrap justify-end gap-1.5">
+            <div className="mt-2 flex flex-wrap justify-end gap-1">
               {message.reactions.map((reaction) => (
                 <span
                   key={reaction.emoji}
-                  className="rounded-full border border-[#0D1823] bg-[#232E3C]/90 px-2 py-1 text-[11px] text-white shadow-sm"
+                  className="rounded-full border border-white/[0.08] bg-white/[0.06] px-2 py-0.5 text-[11px] font-bold text-white shadow-sm"
                 >
                   {reaction.emoji} {reaction.count}
                 </span>
@@ -3391,7 +3395,7 @@ export default function ChatConversation() {
   }, []);
 
   const headerActionClass =
-    "fc-telegram-touch fc-hover flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#6C7883] transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40";
+    "fc-hover flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#6C7883] transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40";
   const headerIconSize = 18;
   const aiSuggestions = useMemo(
     () => [

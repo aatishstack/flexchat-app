@@ -46,7 +46,7 @@
   --fc-theme-muted: var(--muted-foreground);
   --fc-text: var(--foreground);
   --fc-text-muted: var(--muted-foreground);
-  --fc-text-subtle: #444444;
+  --fc-text-subtle: rgba(255, 255, 255, 0.45);
   --fc-app-bg: var(--background);
   --fc-app-panel: var(--card);
   --fc-app-panel-strong: #1E1E27;

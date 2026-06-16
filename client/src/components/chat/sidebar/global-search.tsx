@@ -133,12 +133,12 @@ export default function GlobalSearch() {
   }
 
   return (
-    <div className="fixed inset-0 z-[220] flex items-start justify-center bg-black/70 px-3 pt-[calc(5rem+env(safe-area-inset-top))] sm:backdrop-blur-xl">
-      <div className="w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-[#111827] shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
+    <div className="fixed inset-0 z-[220] flex items-start justify-center bg-[#0C0C10]/80 px-3 pt-[calc(5rem+env(safe-area-inset-top))] backdrop-blur-3xl">
+      <div className="w-full max-w-2xl overflow-hidden rounded-[32px] border border-white/[0.08] bg-[#16161D] shadow-[0_32px_80px_rgba(0,0,0,0.8)]">
+        <div className="flex items-center gap-4 border-b border-white/[0.05] px-6 py-5">
           <Search
             size={20}
-            className="text-zinc-500"
+            className="text-white/30"
           />
 
           <input
@@ -149,8 +149,8 @@ export default function GlobalSearch() {
                 e.target.value
               )
             }
-            placeholder="Search globally..."
-            className="h-12 flex-1 bg-transparent text-white outline-none placeholder:text-zinc-500"
+            placeholder="Search messages, people or groups"
+            className="flex-1 bg-transparent text-[16.5px] font-medium text-white outline-none placeholder:text-white/30"
           />
 
           <button
@@ -160,7 +160,7 @@ export default function GlobalSearch() {
                 false
               )
             }
-            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-zinc-400"
+            className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/[0.04] text-white/20 transition-colors hover:text-white"
             aria-label="Close search"
           >
             <X size={18} />
@@ -185,7 +185,7 @@ export default function GlobalSearch() {
                 }}
                 className="flex w-full items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.03] p-4 text-left transition-all hover:bg-white/[0.05]"
               >
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2AABEE] to-[#168ACD] text-lg font-bold text-white">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#7C4FF0] to-[#A78BFA] text-lg font-bold text-white shadow-lg">
                   {conversation.name?.charAt(
                     0
                   ) || "F"}

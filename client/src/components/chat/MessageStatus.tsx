@@ -33,26 +33,17 @@ export default function MessageStatus({
   const iconSize = size;
 
   if (status === "sending") {
-    if (reducedMotion) {
-      return (
-        <div 
-          className={cn("rounded-full border border-[#6C7883]/45 border-t-[#2AABEE]", className)}
-          style={{ width: iconSize, height: iconSize }}
-        />
-      );
-    }
-
     return (
       <motion.div
         animate={{
           rotate: 360,
         }}
         transition={{
-          duration: 1,
+          duration: 1.5,
           repeat: Infinity,
           ease: "linear",
         }}
-        className={cn("rounded-full border border-[#6C7883]/45 border-t-[#2AABEE]", className)}
+        className={cn("rounded-full border border-white/10 border-t-[#7C4FF0]", className)}
         style={{ width: iconSize, height: iconSize }}
       />
     );
@@ -62,7 +53,7 @@ export default function MessageStatus({
     return (
       <Check
         size={iconSize}
-        className={cn("text-[#6C7883]", className)}
+        className={cn("text-white/20", className)}
       />
     );
   }
@@ -71,7 +62,7 @@ export default function MessageStatus({
     return (
       <CheckCheck
         size={iconSize}
-        className={cn("text-[#6C7883]", className)}
+        className={cn("text-white/20", className)}
       />
     );
   }
@@ -80,7 +71,7 @@ export default function MessageStatus({
     return (
       <AlertCircle
         size={iconSize}
-        className={cn("text-red-200", className)}
+        className={cn("text-red-400", className)}
       />
     );
   }
@@ -88,7 +79,7 @@ export default function MessageStatus({
   return (
     <CheckCheck
       size={iconSize}
-      className={cn("text-[#2AABEE]", className)}
+      className={cn("text-[#7C4FF0]", className)}
     />
   );
 }

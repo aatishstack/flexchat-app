@@ -434,18 +434,18 @@ const ConversationListButton = memo(
           <FlexAvatar
             src={avatar}
             name={conversation.name}
-            className={`flex h-[54px] w-[54px] items-center justify-center overflow-hidden rounded-full text-[19px] font-bold ${active ? "bg-white/20" : "bg-[#16161D] border border-white/5"}`}
+            className={`flex h-[56px] w-[56px] items-center justify-center overflow-hidden rounded-full text-[19px] font-bold ${active ? "bg-white/20" : "bg-[#16161D] border border-white/5 shadow-sm"}`}
           />
 
           {isOnline ? (
-            <div className={`absolute bottom-[1px] right-[1px] h-3.5 w-3.5 rounded-full border-[2.5px] ${active ? "border-[#7C4FF0]" : "border-[#0C0C10]"} bg-[#22C55E] shadow-sm`} />
+            <div className={`absolute bottom-[2px] right-[2px] h-[13px] w-[13px] rounded-full border-[2.5px] ${active ? "border-[#7C4FF0]" : "border-[#0C0C10]"} bg-[#22C55E]`} />
           ) : null}
         </div>
 
-        <div className="min-w-0 flex-1 py-0.5">
+        <div className="min-w-0 flex-1 py-1">
           <div className="flex items-center justify-between gap-2 mb-0.5">
             <div className="flex min-w-0 items-center gap-1.5">
-              <h3 className={`truncate text-[16px] font-bold tracking-tight ${active ? "text-white" : "text-white/95"}`}>
+              <h3 className={`truncate text-[16.5px] font-bold tracking-tight ${active ? "text-white" : "text-white/95"}`}>
                 {displayName}
               </h3>
 
@@ -464,19 +464,19 @@ const ConversationListButton = memo(
               ) : null}
             </div>
 
-            <span suppressHydrationWarning className={`shrink-0 text-[11.5px] font-medium tracking-wide ${active ? "text-white/70" : "text-white/40"}`}>
+            <span suppressHydrationWarning className={`shrink-0 text-[11px] font-bold tracking-wide ${active ? "text-white/70" : "text-white/25"}`}>
               {lastActivityLabel}
             </span>
           </div>
 
           <div className="flex items-center justify-between gap-3">
-            <p className={`truncate text-[14px] leading-tight ${active ? "text-white/85 font-medium" : conversation.unreadCount ? "text-white/85 font-semibold" : "text-white/50 font-medium"}`}>
+            <p className={`truncate text-[14.5px] leading-snug ${active ? "text-white/85 font-medium" : conversation.unreadCount ? "text-white/90 font-semibold" : "text-white/45 font-medium"}`}>
               {conversation.latestMessage ||
                 "No messages yet"}
             </p>
 
             {conversation.unreadCount ? (
-              <div className={`flex h-[20px] min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-black leading-none ${active ? "bg-white text-[#7C4FF0]" : "bg-[#7C4FF0] text-white"}`}>
+              <div className={`flex h-[20px] min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10.5px] font-black leading-none ${active ? "bg-white text-[#7C4FF0]" : "bg-[#7C4FF0] text-white shadow-lg shadow-[#7C4FF0]/20"}`}>
                 {conversation.unreadCount}
               </div>
             ) : null}

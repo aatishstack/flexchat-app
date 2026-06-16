@@ -232,7 +232,7 @@ export const StoryCreator = memo(function StoryCreator({
               <button
                 type="button"
                 onClick={resetAndClose}
-                className="fc-telegram-touch flex h-10 w-10 items-center justify-center rounded-xl text-zinc-400 hover:bg-white/[0.06]"
+                className="flex h-10 w-10 items-center justify-center rounded-xl text-zinc-400 hover:bg-white/[0.06]"
                 aria-label="Close status creator"
               >
                 <X size={19} />

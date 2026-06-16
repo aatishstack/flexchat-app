@@ -166,24 +166,24 @@ export default function DiscoverPage() {
         <div className="grid gap-8 px-4">
           {!searchActive && (
             <>
-              <DiscoverSection title="Quick Actions">
+              <DiscoverSection title="Network Insights">
                 <div className="grid grid-cols-2 gap-4">
-                  <button className="fc-surface fc-touch flex flex-col items-center justify-center gap-3 rounded-[24px] border p-6 text-center transition hover:border-[var(--fc-primary)]/30 hover:bg-white/[0.01]">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--fc-primary)]/10 text-[var(--fc-primary)] shadow-sm">
-                      <QrCode size={24} />
+                  <button className="group flex flex-col items-center justify-center gap-3 rounded-[28px] bg-[#16161D] p-6 text-center shadow-sm transition-all hover:bg-[#1E1E27] active:scale-[0.98] border border-white/[0.03]">
+                    <div className="flex h-13 w-13 items-center justify-center rounded-2xl bg-[#7C4FF0]/10 text-[#7C4FF0] shadow-sm transition-transform group-hover:scale-110">
+                      <QrCode size={26} />
                     </div>
                     <div>
-                      <p className="text-sm font-black uppercase tracking-widest">QR Sync</p>
-                      <p className="mt-0.5 text-[11px] font-medium text-[var(--fc-text-subtle)]">Scan to add</p>
+                      <p className="text-[14px] font-bold text-white tracking-tight uppercase">QR Sync</p>
+                      <p className="mt-0.5 text-[11px] font-medium text-white/30 uppercase">Scan to add</p>
                     </div>
                   </button>
-                  <button className="fc-surface fc-touch flex flex-col items-center justify-center gap-3 rounded-[24px] border p-6 text-center transition hover:border-[var(--fc-primary)]/30 hover:bg-white/[0.01]">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.04] text-white/90 shadow-sm">
-                      <UserPlus size={24} />
+                  <button className="group flex flex-col items-center justify-center gap-3 rounded-[28px] bg-[#16161D] p-6 text-center shadow-sm transition-all hover:bg-[#1E1E27] active:scale-[0.98] border border-white/[0.03]">
+                    <div className="flex h-13 w-13 items-center justify-center rounded-2xl bg-white/[0.04] text-white/90 shadow-sm transition-transform group-hover:scale-110">
+                      <UserPlus size={26} />
                     </div>
                     <div>
-                      <p className="text-sm font-black uppercase tracking-widest">Requests</p>
-                      <p className="mt-0.5 text-[11px] font-medium text-[var(--fc-text-subtle)]">Pending invites</p>
+                      <p className="text-[14px] font-bold text-white tracking-tight uppercase">Requests</p>
+                      <p className="mt-0.5 text-[11px] font-medium text-white/30 uppercase">Pending</p>
                     </div>
                   </button>
                 </div>
@@ -191,9 +191,9 @@ export default function DiscoverPage() {
 
               <DiscoverSection title="New on FlexChat">
                 {discoverQuery.isLoading ? (
-                  <div className="grid gap-2">
+                  <div className="grid gap-3">
                     {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-20 animate-pulse rounded-2xl bg-white/[0.03]" />
+                      <div key={i} className="h-[72px] animate-pulse rounded-2xl bg-white/[0.03]" />
                     ))}
                   </div>
                 ) : (
@@ -201,19 +201,19 @@ export default function DiscoverPage() {
                     {newlyJoinedUsers.map((user) => (
                       <div
                         key={user.id}
-                        className="fc-surface group flex items-center justify-between gap-4 rounded-[22px] border p-4 transition hover:bg-white/[0.01]"
+                        className="group flex items-center justify-between gap-4 rounded-[22px] bg-[#16161D] p-3.5 transition-all hover:bg-[#1E1E27] border border-white/[0.03]"
                       >
                         <div className="flex min-w-0 items-center gap-4">
                           <FlexAvatar
                             src={user.avatar}
                             name={user.username}
-                            className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-gradient-to-br from-[var(--fc-primary)] to-[#6D28D9] text-lg font-black text-white shadow-lg"
+                            className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#7C4FF0] to-[#A78BFA] text-lg font-black text-white shadow-lg"
                           />
                           <div className="min-w-0">
-                            <h3 className="truncate text-[15px] font-bold text-white/90">
+                            <h3 className="truncate text-[15.5px] font-bold text-white tracking-tight">
                               {formatDisplayName(user.username)}
                             </h3>
-                            <p className="truncate text-xs font-medium text-[var(--fc-text-muted)] group-hover:text-[var(--fc-text-subtle)]">
+                            <p className="truncate text-[12.5px] font-medium text-white/30">
                               {formatHandle(user.username)}
                             </p>
                           </div>
@@ -223,16 +223,16 @@ export default function DiscoverPage() {
                           <button
                             onClick={() => startConversation.mutate(user.id)}
                             disabled={startConversation.isPending}
-                            className="fc-touch flex h-10 px-4 items-center justify-center rounded-xl bg-[var(--fc-primary)] text-[12px] font-black uppercase tracking-widest text-white shadow-lg shadow-[rgba(var(--fc-primary-rgb),0.2)] transition hover:bg-[var(--fc-primary-hover)] active:scale-95 disabled:opacity-50"
+                            className="flex h-9 px-4 items-center justify-center rounded-xl bg-[#7C4FF0] text-[12px] font-bold text-white transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-[#7C4FF0]/20"
                           >
                             Connect
                           </button>
                           <button
                             onClick={() => dismissUser.mutate(user.id)}
-                            className="fc-hover flex h-10 w-10 items-center justify-center rounded-xl border border-white/5 bg-white/[0.02] text-[var(--fc-text-subtle)] transition hover:text-red-400"
+                            className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.04] text-white/20 transition-colors hover:text-red-400"
                             aria-label="Dismiss"
                           >
-                            <X size={18} />
+                            <X size={16} />
                           </button>
                         </div>
                       </div>

@@ -176,19 +176,19 @@ export default function NotificationPanel({
   }
 
   return (
-    <div className="flex h-full w-full flex-col bg-black">
-      <div className="flex items-center justify-between border-b border-[var(--fc-app-border)] p-5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--fc-primary)]/10 bg-[var(--fc-primary)]/5 text-[var(--fc-primary)]">
-            <Bell size={21} />
+    <div className="flex h-full w-full flex-col bg-[#0C0C10]">
+      <div className="flex items-center justify-between border-b border-white/[0.05] p-5">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#7C4FF0]/10 text-[#7C4FF0]">
+            <Bell size={22} />
           </div>
 
           <div>
-            <h2 className="text-[17px] font-bold text-white">
+            <h2 className="text-[18px] font-extrabold text-white tracking-tight">
               Notifications
             </h2>
 
-            <p className="text-[12px] font-bold uppercase tracking-wider text-[var(--fc-text-subtle)]">
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/28">
               Activity & Alerts
             </p>
           </div>
@@ -201,7 +201,7 @@ export default function NotificationPanel({
               void handleMarkAllRead();
             }}
             disabled={!unreadCount}
-            className="fc-touch flex h-10 w-10 items-center justify-center rounded-xl border border-white/5 bg-white/[0.03] text-zinc-400 transition-all hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.04] text-white/20 transition-all hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
             aria-label="Mark all notifications as read"
           >
             <CheckCheck size={19} />
@@ -213,7 +213,7 @@ export default function NotificationPanel({
               void handleClearNotifications();
             }}
             disabled={!notifications.length}
-            className="fc-touch flex h-10 w-10 items-center justify-center rounded-xl border border-white/5 bg-white/[0.03] text-zinc-400 transition-all hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.04] text-white/20 transition-all hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30"
             aria-label="Clear notifications"
           >
             <Trash2 size={18} />
@@ -223,7 +223,7 @@ export default function NotificationPanel({
             <button
               type="button"
               onClick={onClose}
-              className="fc-touch flex h-10 w-10 items-center justify-center rounded-xl border border-white/5 bg-white/[0.03] text-zinc-300 transition-all hover:bg-white/[0.06]"
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.04] text-white/30 transition-all hover:bg-white/[0.06]"
               aria-label="Close notifications"
             >
               <X size={19} />
@@ -234,8 +234,11 @@ export default function NotificationPanel({
 
       <div className="chat-safe-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
         {!notifications.length && (
-          <div className="flex h-full items-center justify-center text-sm font-bold text-[var(--fc-text-subtle)]">
-            Nothing to see here
+          <div className="flex h-full flex-col items-center justify-center py-20 text-center">
+            <div className="w-16 h-16 rounded-3xl bg-white/[0.02] flex items-center justify-center mb-5">
+               <Bell size={32} className="text-white/10" />
+            </div>
+            <p className="text-[14px] font-bold text-white/20 tracking-tight">Nothing to see here</p>
           </div>
         )}
 
@@ -247,24 +250,24 @@ export default function NotificationPanel({
               key={
                 notification.id
               }
-              className="w-full rounded-[20px] border border-white/5 bg-[var(--fc-app-surface)] p-5 text-left transition hover:bg-white/[0.06]"
+              className="w-full rounded-[24px] border border-white/[0.03] bg-[#16161D] p-5 text-left transition hover:bg-[#1E1E27]"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="text-left min-w-0 flex-1">
-                  <h3 className="text-[15px] font-bold text-white/90">
+                  <h3 className="text-[15.5px] font-bold text-white tracking-tight">
                     {
                       notification.title
                     }
                   </h3>
 
-                  <p className="mt-1 text-sm font-medium leading-relaxed text-[var(--fc-text-muted)]">
+                  <p className="mt-1 text-[13px] font-medium leading-relaxed text-white/40">
                     {
                       notification.message
                     }
                   </p>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-1.5">
+                <div className="flex shrink-0 items-center gap-2">
                   <button
                     type="button"
                     onClick={() => {
@@ -273,7 +276,7 @@ export default function NotificationPanel({
                         !notification.read
                       );
                     }}
-                    className="fc-touch flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.02] text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
+                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.04] text-white/20 transition hover:text-white"
                     aria-label={
                       notification.read
                         ? "Mark notification unread"
@@ -294,20 +297,20 @@ export default function NotificationPanel({
                         notification.id
                       );
                     }}
-                    className="fc-touch flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.02] text-zinc-400 transition hover:bg-red-500/10 hover:text-red-400"
+                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.04] text-white/20 transition hover:text-red-400"
                     aria-label="Delete notification"
                   >
                     <Trash2 size={15} />
                   </button>
 
                   {!notification.read && (
-                    <div className="ml-1 h-2 w-2 rounded-full bg-[var(--fc-primary)] shadow-lg shadow-[rgba(var(--fc-primary-rgb),0.3)]" />
+                    <div className="ml-1 h-2 w-2 rounded-full bg-[#7C4FF0] shadow-lg shadow-[#7C4FF0]/30" />
                   )}
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center justify-between gap-3">
-                 <p className="text-[11px] font-black uppercase tracking-wider text-[var(--fc-text-subtle)]">
+              <div className="mt-5 flex items-center justify-between gap-3">
+                 <p className="text-[11px] font-bold uppercase tracking-widest text-white/20">
                    {
                      formatNotificationTime(
                        notification.createdAt
@@ -315,7 +318,7 @@ export default function NotificationPanel({
                    }
                  </p>
                  {!notification.read && (
-                   <span className="text-[10px] font-black uppercase tracking-widest text-[var(--fc-primary)]">New</span>
+                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#7C4FF0]">New</span>
                  )}
               </div>
             </div>

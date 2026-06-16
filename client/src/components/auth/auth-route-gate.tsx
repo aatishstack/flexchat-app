@@ -51,38 +51,48 @@ function isAuthPath(pathname: string) {
 
 function RouteGateLoader() {
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#070B14] text-white">
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.025)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.025)_1px,transparent_1px)] bg-[size:48px_48px]" />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0C0C10] text-white">
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[size:48px_48px]" />
       <motion.div
         animate={{
           scale: [1, 1.12, 1],
           opacity: [0.35, 0.65, 0.35],
         }}
         transition={{
-          duration: 3,
+          duration: 4,
           repeat: Infinity,
         }}
-        className="absolute h-[360px] w-[360px] rounded-full bg-sky-500/20 blur-[110px]"
+        className="absolute h-[400px] w-[400px] rounded-full bg-[#7C4FF0]/10 blur-[120px]"
       />
 
-      <div className="relative z-10 flex flex-col items-center gap-6">
-        <motion.div
-          animate={{
-            rotate: 360,
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: "linear",
-          }}
-          className="h-16 w-16 rounded-2xl border border-sky-500/30 border-t-sky-300 bg-white/[0.04] shadow-2xl shadow-sky-950/30"
-        />
+      <div className="relative z-10 flex flex-col items-center gap-8">
+        <div className="relative h-20 w-20">
+          <motion.div
+            animate={{
+              rotate: 360,
+            }}
+            transition={{
+              duration: 2.5,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+            className="absolute inset-0 rounded-[22px] border-2 border-[#7C4FF0]/20 border-t-[#7C4FF0]"
+          />
+          <div className="absolute inset-[3px] overflow-hidden rounded-[19px] bg-[#16161D]">
+            <img 
+              src="/logo.jpeg" 
+              alt="" 
+              className="h-full w-full object-cover opacity-80" 
+            />
+          </div>
+        </div>
 
         <div className="text-center">
-          <h1 className="text-xl font-semibold">
-            FlexChat
+          <h1 className="text-[26px] font-extrabold tracking-tight">
+            <span className="text-white">Flex</span>
+            <span className="text-[#7C4FF0]">Chat</span>
           </h1>
-          <p className="mt-2 text-sm text-zinc-400">
+          <p className="mt-3 text-[15px] font-medium text-[#7C4FF0]/60">
             Restoring your secure session
           </p>
         </div>
@@ -93,17 +103,24 @@ function RouteGateLoader() {
 
 function SessionRecoveryScreen() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#070B14] px-6 text-white">
-      <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-white/[0.04] p-7 text-center shadow-2xl shadow-black/30">
-        <div className="mx-auto h-12 w-12 animate-spin rounded-xl border border-amber-300/30 border-t-amber-200" />
-        <h1 className="mt-6 text-xl font-semibold">
+    <div className="flex min-h-screen items-center justify-center bg-[#0C0C10] px-6 text-white">
+      <div className="w-full max-w-sm rounded-[28px] border border-white/[0.06] bg-[#16161D] p-10 text-center shadow-[0_32px_80px_rgba(0,0,0,0.6)]">
+        <div className="relative mx-auto h-16 w-16 mb-8">
+          <div className="absolute inset-0 animate-spin rounded-2xl border-2 border-[#7C4FF0]/20 border-t-[#7C4FF0]" />
+          <div className="absolute inset-[2.5px] rounded-[14px] bg-[#0C0C10] flex items-center justify-center overflow-hidden">
+             <img src="/logo.jpeg" alt="" className="h-full w-full object-cover opacity-50" />
+          </div>
+        </div>
+        
+        <h1 className="text-2xl font-bold tracking-tight text-white">
           Restoring your session
         </h1>
-        <p className="mt-3 text-sm leading-6 text-zinc-400">
+        <p className="mt-4 text-[14.5px] leading-relaxed text-white/40">
           FlexChat cannot reach the API right now. Your sign-in is preserved
           while we reconnect safely.
         </p>
-        <div className="mt-7 flex gap-3">
+        
+        <div className="mt-10 flex flex-col gap-3">
           <button
             type="button"
             onClick={() => {
@@ -111,7 +128,7 @@ function SessionRecoveryScreen() {
                 new Event(SESSION_RETRY_EVENT),
               );
             }}
-            className="flex-1 rounded-xl bg-[#2481CC] px-4 py-3 text-sm font-semibold transition hover:bg-[#2F8ED8]"
+            className="flex h-13 items-center justify-center rounded-[18px] bg-[#7C4FF0] text-[15px] font-bold text-white shadow-xl shadow-[#7C4FF0]/20 transition active:scale-95"
           >
             Retry now
           </button>
@@ -120,7 +137,7 @@ function SessionRecoveryScreen() {
             onClick={() => {
               clearClientSession();
             }}
-            className="flex-1 rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-zinc-200 transition hover:bg-white/[0.06]"
+            className="flex h-13 items-center justify-center rounded-[18px] border border-white/10 bg-white/[0.04] text-[15px] font-bold text-white/80 transition hover:bg-white/[0.06] active:scale-95"
           >
             Sign out
           </button>
