@@ -8,11 +8,8 @@ import {
 
 import {
   Bell,
-  Check,
-  ChevronRight,
   PhoneIncoming,
   PhoneMissed,
-  Trash2,
   UserX,
 } from "lucide-react";
 import {
@@ -25,7 +22,6 @@ import { useShallow } from "zustand/react/shallow";
 import { useNotificationStore } from "@/store/notification-store";
 import type { NotificationItem } from "@/store/notification-store";
 import { formatRelativeTime } from "@/lib/server-time";
-import FlexLogo from "@/components/shared/flex-logo";
 import { cn } from "@/lib/utils";
 import { fetchNotifications } from "@/services/notification.service";
 
@@ -38,7 +34,6 @@ export default function NotificationsPage() {
     setNotifications,
     markAsRead,
     markAllRead,
-    deleteNotification,
     clearNotifications,
   } = useNotificationStore(
     useShallow((state) => ({
@@ -46,7 +41,6 @@ export default function NotificationsPage() {
       setNotifications: state.setNotifications,
       markAsRead: state.markAsRead,
       markAllRead: state.markAllRead,
-      deleteNotification: state.deleteNotification,
       clearNotifications: state.clearNotifications,
     })),
   );
@@ -106,7 +100,7 @@ export default function NotificationsPage() {
       case "block":
         return { icon: UserX, color: "text-amber-400", bg: "bg-amber-500/10", route: "/privacy" };
       default:
-        return { icon: Bell, color: "text-[var(--fc-primary)]", bg: "bg-[var(--fc-primary)]/10", route: "/chat" };
+        return { icon: Bell, color: "text-[#7C4FF0]", bg: "bg-[#7C4FF0]/10", route: "/chat" };
     }
   };
 
@@ -117,139 +111,109 @@ export default function NotificationsPage() {
   };
 
   return (
-    <main className="chat-safe-scroll h-[calc(100dvh-var(--fc-mobile-nav-height,4.75rem))] min-h-[calc(100svh-var(--fc-mobile-nav-height,4.75rem))] overflow-y-auto bg-[var(--fc-app-bg)] px-4 py-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 lg:h-dvh lg:min-h-svh lg:px-8 lg:pb-8 lg:pl-[calc(72px+2rem)]">
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-10">
-        <header className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <FlexLogo size="md" />
-            <h1 className="text-3xl font-bold tracking-tight">Center</h1>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {notifications.length > 0 && (
-              <button
-                onClick={clearNotifications}
-                className="fc-hover flex h-10 w-10 items-center justify-center rounded-xl border border-white/5 bg-white/[0.02] text-zinc-400 transition hover:text-red-400"
-                aria-label="Clear all"
-              >
-                <Trash2 size={18} />
-              </button>
-            )}
-            <button
-              onClick={markAllRead}
-              className="fc-button-soft rounded-full border px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-[var(--fc-text-subtle)] backdrop-blur-3xl"
-            >
-              Mark All Read
-            </button>
-          </div>
-        </header>
-
-        {notifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-32 text-center">
-            <div className="mx-auto mb-6">
-              <FlexLogo size="xl" variant="soft" />
-            </div>
-            <h2 className="text-xl font-bold text-white/90">Quiet for now</h2>
-            <p className="fc-muted mt-2 max-w-xs text-sm">
-              Your communications, security alerts, and system events will appear here.
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-10">
-            {["Today", "Yesterday", "Earlier"].map((group) => {
-              const items = groupedNotifications[group];
-              if (!items.length) return null;
-
-              return (
-                <section key={group} className="grid gap-4">
-                  <div className="px-1">
-                    <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--fc-text-subtle)]">
-                      {group}
-                    </h2>
-                  </div>
-                  <div className="grid gap-2">
-                    <AnimatePresence initial={false}>
-                      {items.map((notification) => {
-                        const meta = getMeta(notification);
-                        const Icon = meta.icon;
-
-                        return (
-                          <motion.div
-                            key={notification.id}
-                            layout
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            className={cn(
-                              "fc-surface group relative flex items-start gap-4 rounded-[24px] border p-4 transition-all hover:bg-white/[0.01]",
-                              !notification.read ? "border-[var(--fc-primary)]/20" : "border-white/5"
-                            )}
-                          >
-                            {!notification.read && (
-                              <div className="absolute right-4 top-4 h-2 w-2 rounded-full bg-[var(--fc-primary)] shadow-[0_0_12px_rgba(var(--fc-primary-rgb),0.5)]" />
-                            )}
-                            
-                            <div className={cn(
-                              "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/5 shadow-sm",
-                              meta.bg,
-                              meta.color
-                            )}>
-                              <Icon size={22} />
-                            </div>
-
-                            <div className="min-w-0 flex-1 pt-0.5">
-                              <div className="flex items-center justify-between gap-2">
-                                <h3 className={cn(
-                                  "truncate text-[15px] font-bold",
-                                  !notification.read ? "text-white" : "text-zinc-400"
-                                )}>
-                                  {notification.title}
-                                </h3>
-                                <span className="shrink-0 text-[11px] font-bold text-[var(--fc-text-subtle)]">
-                                  {formatRelativeTime(notification.createdAt, now)}
-                                </span>
-                              </div>
-                              <p className="mt-1 line-clamp-2 text-[13px] font-medium leading-relaxed text-[var(--fc-text-muted)] group-hover:text-zinc-300">
-                                {notification.message}
-                              </p>
-
-                              <div className="mt-4 flex items-center gap-2">
-                                <button
-                                  onClick={() => handleAction(notification)}
-                                  className="fc-touch flex h-9 items-center gap-2 rounded-xl bg-white/[0.04] px-4 text-[11px] font-black uppercase tracking-widest text-zinc-300 transition hover:bg-white/[0.08] hover:text-white"
-                                >
-                                  View Details
-                                  <ChevronRight size={14} />
-                                </button>
-                                {!notification.read && (
-                                  <button
-                                    onClick={() => markAsRead(notification.id)}
-                                    className="fc-hover flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--fc-primary)]/10 text-[var(--fc-primary)] transition hover:bg-[var(--fc-primary)]/20"
-                                    aria-label="Mark as read"
-                                  >
-                                    <Check size={16} strokeWidth={3} />
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => deleteNotification(notification.id)}
-                                  className="fc-hover flex h-9 w-9 items-center justify-center rounded-xl text-zinc-600 transition hover:text-red-400"
-                                  aria-label="Delete"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
-                              </div>
-                            </div>
-                          </motion.div>
-                        );
-                      })}
-                    </AnimatePresence>
-                  </div>
-                </section>
-              );
-            })}
-          </div>
+    <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-24">
+      <div className="px-5 pt-2 pb-3 flex items-center justify-between">
+        <h1 className="text-[22px] font-extrabold text-white">Notifications</h1>
+        {notifications.length > 0 && (
+          <button
+            onClick={markAllRead}
+            className="text-[12px] font-bold text-[#7C4FF0] hover:opacity-80 transition-opacity"
+          >
+            Mark all as read
+          </button>
         )}
       </div>
+
+      {notifications.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-32 text-center px-10">
+          <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-6">
+            <Bell size={28} className="text-white/10" />
+          </div>
+          <h2 className="text-lg font-bold text-white mb-2">No notifications</h2>
+          <p className="text-white/30 text-sm leading-relaxed">
+            Your missed calls, mentions, and activity will appear here.
+          </p>
+        </div>
+      ) : (
+        <div className="px-5 space-y-6">
+          {["Today", "Yesterday", "Earlier"].map((group) => {
+            const items = groupedNotifications[group];
+            if (!items.length) return null;
+
+            return (
+              <div key={group} className="space-y-3">
+                <div className="px-1">
+                  <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/28">{group}</span>
+                </div>
+                <div className="space-y-2.5">
+                  <AnimatePresence initial={false}>
+                    {items.map((notification) => {
+                      const meta = getMeta(notification);
+                      const Icon = meta.icon;
+
+                      return (
+                        <motion.div
+                          key={notification.id}
+                          layout
+                          initial={{ opacity: 0, scale: 0.98 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, x: -10 }}
+                          onClick={() => handleAction(notification)}
+                          className={cn(
+                            "relative flex items-start gap-3.5 p-4 rounded-2xl cursor-pointer hover:bg-white/[0.06] transition-colors",
+                            notification.read ? "bg-white/[0.04]" : "bg-white/[0.08]"
+                          )}
+                        >
+                          {!notification.read && (
+                            <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1 h-8 rounded-full bg-[#7C4FF0]" />
+                          )}
+                          
+                          <div className={cn(
+                            "w-10 h-10 shrink-0 rounded-[12px] flex items-center justify-center",
+                            meta.bg,
+                            meta.color
+                          )}>
+                            <Icon size={18} />
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2 mb-0.5">
+                              <h3 className={cn(
+                                "text-[14.5px] font-bold truncate",
+                                notification.read ? "text-white/70" : "text-white"
+                              )}>
+                                {notification.title}
+                              </h3>
+                              <span className="shrink-0 text-[10px] font-medium text-white/20">
+                                {formatRelativeTime(notification.createdAt, now)}
+                              </span>
+                            </div>
+                            <p className={cn(
+                              "text-[13px] leading-relaxed line-clamp-2",
+                              notification.read ? "text-white/30" : "text-white/50"
+                            )}>
+                              {notification.message}
+                            </p>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              </div>
+            );
+          })}
+          
+          {notifications.length > 0 && (
+            <button
+              onClick={clearNotifications}
+              className="w-full py-4 text-[13px] font-bold text-white/20 hover:text-red-400/50 transition-colors"
+            >
+              Clear all notifications
+            </button>
+          )}
+        </div>
+      )}
     </main>
   );
 }

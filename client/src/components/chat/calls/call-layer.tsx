@@ -16,6 +16,8 @@ import {
   SwitchCamera,
   Video,
   VideoOff,
+  Bell,
+  MessageCircle,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useShallow } from "zustand/react/shallow";
@@ -152,7 +154,7 @@ function CallErrorModal() {
             initial={{ y: 32, scale: 0.95 }}
             animate={{ y: 0, scale: 1 }}
             exit={{ y: 32, scale: 0.95 }}
-            className="w-full max-w-sm overflow-hidden rounded-[28px] border border-white/10 bg-[var(--fc-modal)] p-8 shadow-[0_64px_160px_rgba(0,0,0,1)]"
+            className="w-full max-w-sm overflow-hidden rounded-[28px] border border-white/10 bg-[#16161D] p-8 shadow-[0_64px_160px_rgba(0,0,0,1)]"
           >
             <div className="flex flex-col items-center text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-[20px] border border-red-500/20 bg-red-500/10 text-red-400">
@@ -161,7 +163,7 @@ function CallErrorModal() {
 
               <div className="mt-6">
                 <h2 className="text-2xl font-bold tracking-tight">Call Error</h2>
-                <p className="fc-muted mt-2 text-[15px] leading-relaxed">
+                <p className="mt-2 text-[15px] leading-relaxed text-white/50">
                   {modalError}
                 </p>
               </div>
@@ -170,7 +172,7 @@ function CallErrorModal() {
             <button
               type="button"
               onClick={dismissCallModal}
-              className="mt-10 h-14 w-full rounded-[18px] bg-[var(--fc-primary)] text-[15px] font-black uppercase tracking-widest text-white shadow-xl shadow-[rgba(var(--fc-primary-rgb),0.3)] transition hover:bg-[var(--fc-primary-hover)] active:scale-95"
+              className="mt-10 h-14 w-full rounded-[18px] bg-[#7C4FF0] text-[15px] font-black uppercase tracking-widest text-white shadow-xl shadow-[#7C4FF0]/30 transition hover:bg-[#8B5CF6] active:scale-95"
             >
               Close
             </button>
@@ -257,69 +259,67 @@ function IncomingCallOverlay({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/98 px-6 text-white backdrop-blur-3xl"
+      className="fixed inset-0 z-[9999] flex flex-col h-full"
+      style={{ background: "#08060F" }}
     >
-      <div className="flex w-full max-w-sm flex-col items-center text-center">
-        <div className="relative">
-          <motion.div
-            aria-hidden
-            animate={{ scale: [1, 1.8], opacity: [0.4, 0] }}
-            transition={{ duration: 2.5, repeat: Infinity, ease: "easeOut" }}
-            className="absolute inset-0 rounded-full border-2 border-[var(--fc-primary)]/50"
-          />
-          <motion.div
-            aria-hidden
-            animate={{ scale: [1, 1.4], opacity: [0.2, 0] }}
-            transition={{ duration: 2.5, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
-            className="absolute inset-0 rounded-full border-2 border-[var(--fc-primary)]/30"
-          />
-          <FlexAvatar
-            src={avatar}
-            name={name}
-            className="relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-[32px] bg-[var(--fc-primary)] text-4xl font-black shadow-[0_48px_100px_rgba(var(--fc-primary-rgb),0.5)]"
-          />
-        </div>
-
-        <h2 className="mt-12 text-4xl font-bold tracking-tight">{name}</h2>
-        <p className="mt-4 text-[13px] font-black uppercase tracking-[0.2em] text-[var(--fc-accent-text)] opacity-90">
-          Incoming {isVideoCall ? "Video" : "Audio"} Call
+      <div className="flex flex-col items-center flex-1 pt-14 px-6">
+        <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-white/35 mb-10">
+          Incoming call
         </p>
-
-        <div className="mt-20 flex w-full items-center justify-center gap-12">
-          <div className="flex flex-col items-center gap-4">
-             <button
-               type="button"
-               onClick={onDecline}
-               className="flex h-18 w-18 items-center justify-center rounded-full bg-red-500 text-white shadow-[0_16px_48px_rgba(239,68,68,0.4)] transition hover:scale-110 active:scale-90"
-               aria-label="Decline call"
-             >
-               <PhoneOff size={32} />
-             </button>
-             <span className="text-[11px] font-black uppercase tracking-[0.15em] text-red-400">Decline</span>
-          </div>
-
-          <div className="flex flex-col items-center gap-4">
-             <button
-               type="button"
-               onClick={onAccept}
-               className="flex h-18 w-18 items-center justify-center rounded-full bg-[var(--fc-primary)] text-white shadow-[0_16px_48px_rgba(var(--fc-primary-rgb),0.4)] transition hover:scale-110 active:scale-90"
-               aria-label="Accept call"
-             >
-               {isVideoCall ? <Video size={32} /> : <Phone size={32} />}
-             </button>
-             <span className="text-[11px] font-black uppercase tracking-[0.15em] text-[var(--fc-accent-text)]">Accept</span>
+        
+        <div className="relative flex items-center justify-center mb-7">
+          <motion.div 
+            animate={{ scale: [1, 1.4], opacity: [0.1, 0] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
+            className="absolute rounded-full" 
+            style={{ width: 148, height: 148, background: "rgba(124,79,240,0.4)" }} 
+          />
+          <div className="absolute rounded-full" style={{ width: 126, height: 126, background: "rgba(124,79,240,0.12)" }} />
+          <div className="absolute rounded-full" style={{ width: 108, height: 108, background: "rgba(124,79,240,0.18)" }} />
+          
+          <div className="relative z-10 w-24 h-24 rounded-full overflow-hidden border-2 border-[#7C4FF0]/50 shadow-2xl">
+            <FlexAvatar
+              src={avatar}
+              name={name}
+              className="h-full w-full text-[30px] font-black"
+            />
           </div>
         </div>
 
-        {isVideoCall ? (
-          <button
-            type="button"
-            onClick={onAcceptAudioOnly}
-            className="mt-14 rounded-[18px] bg-white/[0.08] px-8 py-4 text-[13px] font-black uppercase tracking-widest text-white transition hover:bg-white/[0.12] active:scale-95"
-          >
-            Voice Only
+        <h2 className="text-[28px] font-extrabold text-white mb-1.5">{name}</h2>
+        <p className="text-[13.5px] text-white/38 font-medium">FlexChat {isVideoCall ? "Video" : "Audio"} Call</p>
+
+        <div className="flex flex-col items-center gap-2.5 mt-9">
+          <button className="flex items-center gap-2 rounded-full px-5 py-2.5 bg-white/[0.07] active:scale-95 transition-transform">
+            <Bell size={14} className="text-white/45" />
+            <span className="text-[12.5px] font-semibold text-white/45">Remind me</span>
           </button>
-        ) : null}
+          <button className="flex items-center gap-2 rounded-full px-5 py-2.5 bg-white/[0.07] active:scale-95 transition-transform">
+            <MessageCircle size={14} className="text-white/45" />
+            <span className="text-[12.5px] font-semibold text-white/45">Send message</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-end justify-center gap-16 pb-14">
+        <div className="flex flex-col items-center gap-3">
+          <button
+            onClick={onDecline}
+            className="w-16 h-16 rounded-full flex items-center justify-center bg-[#EF4444] shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-90 transition-transform"
+          >
+            <PhoneOff size={26} className="text-white" />
+          </button>
+          <span className="text-[11.5px] font-semibold text-white/35">Decline</span>
+        </div>
+        <div className="flex flex-col items-center gap-3">
+          <button
+            onClick={onAccept}
+            className="w-16 h-16 rounded-full flex items-center justify-center bg-[#22C55E] shadow-[0_0_20px_rgba(34,197,94,0.3)] active:scale-90 transition-transform"
+          >
+            {isVideoCall ? <Video size={26} className="text-white" /> : <Phone size={26} className="text-white" />}
+          </button>
+          <span className="text-[11.5px] font-semibold text-white/35">Accept</span>
+        </div>
       </div>
     </motion.div>
   );
@@ -482,9 +482,6 @@ function CallScreen({
     dragRef.current = null;
   }
 
-  const controlClass =
-    "flex h-15 w-15 items-center justify-center rounded-full text-white shadow-2xl transition hover:scale-110 active:scale-90 backdrop-blur-3xl";
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -498,22 +495,24 @@ function CallScreen({
           className="fixed inset-0 h-full w-full bg-black object-cover"
         />
       ) : (
-        <div className="fixed inset-0 flex flex-col items-center justify-center bg-black">
-          <div className="relative">
+        <div className="fixed inset-0 flex flex-col items-center justify-center bg-[#08060F]">
+          <div className="relative mb-10">
              <motion.div
-               animate={{ scale: [1, 1.3], opacity: [0.2, 0] }}
+               animate={{ scale: [1, 1.3], opacity: [0.15, 0] }}
                transition={{ duration: 3, repeat: Infinity }}
-               className="absolute inset-0 rounded-[36px] bg-[var(--fc-primary)]/20"
+               className="absolute inset-0 rounded-full bg-[#7C4FF0]/20 scale-150"
              />
-             <FlexAvatar
-               src={avatar}
-               name={name}
-               className="relative flex h-36 w-36 items-center justify-center overflow-hidden rounded-[36px] bg-[var(--fc-primary)] text-6xl font-black shadow-[0_64px_160px_rgba(0,0,0,1)]"
-             />
+             <div className="relative z-10 w-32 h-32 rounded-full overflow-hidden border-2 border-[#7C4FF0]/30 shadow-2xl">
+              <FlexAvatar
+                src={avatar}
+                name={name}
+                className="h-full w-full text-5xl font-black"
+              />
+             </div>
           </div>
-          <h2 className="mt-12 text-4xl font-bold tracking-tight">{name}</h2>
-          <p className="mt-4 text-[13px] font-black uppercase tracking-[0.2em] text-[var(--fc-accent-text)] opacity-90">
-            {phase === "outgoing" ? "Ringing..." : "Audio Call"}
+          <h2 className="text-[32px] font-extrabold text-white mb-2">{name}</h2>
+          <p className="text-[14px] text-[#7C4FF0] font-bold tracking-widest uppercase">
+            {phase === "outgoing" ? "Calling..." : formatElapsed(elapsedSeconds)}
           </p>
         </div>
       )}
@@ -533,9 +532,9 @@ function CallScreen({
           style={{
             left: selfPosition.x,
             top: selfPosition.y,
-            width: 120,
-            height: 190,
-            borderRadius: 24,
+            width: 110,
+            height: 180,
+            borderRadius: 20,
           }}
         >
           <StreamVideo
@@ -546,46 +545,15 @@ function CallScreen({
         </div>
       ) : null}
 
-      <div className="fixed inset-x-0 top-0 z-30 bg-gradient-to-b from-black/80 via-black/40 to-transparent px-6 pb-20 pt-[calc(1.5rem+env(safe-area-inset-top))]">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
-          <div className="min-w-0">
-            <h2 className="truncate text-2xl font-bold tracking-tight">{name}</h2>
-            <div className="mt-1 flex items-center gap-2">
-              <p className="text-[14px] font-bold text-white/70">
-                {phase === "active"
-                  ? formatElapsed(elapsedSeconds)
-                  : phase === "outgoing"
-                    ? "Ringing"
-                    : networkState === "reconnecting"
-                      ? "Reconnecting"
-                      : "Connecting"}
-              </p>
-              {phase === "active" && (
-                <div className="h-1 w-1 rounded-full bg-white/30" />
-              )}
-              {phase === "active" && (
-                <p className="text-[14px] font-bold text-[var(--fc-accent-text)]">
-                  Active
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 rounded-full bg-white/[0.08] px-4 py-2 text-[11px] font-black uppercase tracking-[0.15em] text-white/90 backdrop-blur-3xl border border-white/5">
-            <div className={`h-1.5 w-1.5 rounded-full ${networkState === "reconnecting" ? "bg-red-500 animate-pulse" : "bg-[var(--fc-success)]"}`} />
-            {networkState === "reconnecting" ? "Network Issue" : "Secure Line"}
-          </div>
-        </div>
-      </div>
-
-      <div className="fixed inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/95 via-black/40 to-transparent px-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))] pt-28">
-        <div className="mx-auto flex max-w-md items-center justify-center gap-6">
+      {/* Dynamic Call Controls */}
+      <div className="fixed inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black via-black/40 to-transparent px-6 pb-12 pt-24">
+        <div className="mx-auto flex items-center justify-center gap-6">
           <button
             type="button"
             onClick={toggleMute}
-            className={`${controlClass} h-16 w-16 ${isMuted ? "bg-red-500" : "bg-white/[0.08] hover:bg-white/[0.12] border border-white/5"}`}
-            aria-label={isMuted ? "Unmute" : "Mute"}
+            className={`w-15 h-15 rounded-full flex items-center justify-center backdrop-blur-xl transition-all active:scale-90 ${isMuted ? "bg-[#EF4444] text-white" : "bg-white/10 text-white hover:bg-white/20"}`}
           >
-            {isMuted ? <MicOff size={26} /> : <Mic size={26} />}
+            {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
           </button>
 
           {isVideoCall ? (
@@ -593,22 +561,16 @@ function CallScreen({
               <button
                 type="button"
                 onClick={toggleVideo}
-                className={`${controlClass} h-16 w-16 ${
-                  isVideoEnabled ? "bg-white/[0.08] hover:bg-white/[0.12] border border-white/5" : "bg-red-500"
-                }`}
-                aria-label={isVideoEnabled ? "Turn camera off" : "Turn camera on"}
+                className={`w-15 h-15 rounded-full flex items-center justify-center backdrop-blur-xl transition-all active:scale-90 ${isVideoEnabled ? "bg-white/10 text-white hover:bg-white/20" : "bg-[#EF4444] text-white"}`}
               >
-                {isVideoEnabled ? <Video size={26} /> : <VideoOff size={26} />}
+                {isVideoEnabled ? <Video size={24} /> : <VideoOff size={24} />}
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  void switchCamera();
-                }}
-                className={`${controlClass} h-16 w-16 bg-white/[0.08] hover:bg-white/[0.12] border border-white/5`}
-                aria-label="Flip camera"
+                onClick={() => { void switchCamera(); }}
+                className="w-15 h-15 rounded-full flex items-center justify-center bg-white/10 text-white backdrop-blur-xl hover:bg-white/20 transition-all active:scale-90"
               >
-                <SwitchCamera size={26} />
+                <SwitchCamera size={24} />
               </button>
             </>
           ) : null}
@@ -616,13 +578,20 @@ function CallScreen({
           <button
             type="button"
             onClick={phase === "outgoing" ? cancelOutgoingCall : endCall}
-            className="flex h-20 w-20 items-center justify-center rounded-full bg-red-500 text-white shadow-[0_20px_60px_rgba(239,68,68,0.5)] transition hover:scale-110 active:scale-90"
-            aria-label="End call"
+            className="w-18 h-18 rounded-full flex items-center justify-center bg-[#EF4444] text-white shadow-[0_0_30px_rgba(239,68,68,0.4)] hover:bg-[#F87171] transition-all active:scale-90"
           >
-            <PhoneOff size={32} />
+            <PhoneOff size={30} />
           </button>
         </div>
       </div>
+
+      {/* Connection Quality Indicator */}
+      {networkState === "reconnecting" && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-40 bg-[#EF4444] px-4 py-2 rounded-full flex items-center gap-2 shadow-2xl">
+          <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+          <span className="text-[12px] font-bold text-white uppercase tracking-wider">Reconnecting...</span>
+        </div>
+      )}
     </motion.div>
   );
 }

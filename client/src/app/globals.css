@@ -2,69 +2,125 @@
 
 :root {
   color-scheme: dark;
-  --flexchat-bg: #000000;
-  --flexchat-panel: #0A0A0A;
-  --flexchat-border: #161616;
-  --fc-primary: #7C3AED;
-  --fc-primary-rgb: 124 58 237;
+  
+  /* Authorized Colors */
+  --background: #0C0C10;
+  --foreground: #F0EEF8;
+  --card: #16161D;
+  --card-foreground: #F0EEF8;
+  --popover: #16161D;
+  --popover-foreground: #F0EEF8;
+  --primary: #7C4FF0;
+  --primary-foreground: #ffffff;
+  --secondary: #1E1E27;
+  --secondary-foreground: #F0EEF8;
+  --muted: #1A1A22;
+  --muted-foreground: #6B6880;
+  --accent: #7C4FF0;
+  --accent-foreground: #ffffff;
+  --destructive: #EF4444;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.07);
+  --input: transparent;
+  --input-background: #1E1E27;
+  --switch-background: #2D2D3A;
+  
+  /* Legacy FC Variables (Remapped for compatibility during migration) */
+  --fc-primary: var(--primary);
+  --fc-primary-rgb: 124 79 240;
   --fc-primary-hover: #8B5CF6;
-  --fc-accent: #7C3AED;
-  --fc-accent-rgb: 124 58 237;
-  --fc-accent-soft: rgba(124, 58, 237, 0.1);
-  --fc-accent-muted: rgba(124, 58, 237, 0.2);
+  --fc-accent: var(--primary);
+  --fc-accent-rgb: 124 79 240;
+  --fc-accent-soft: rgba(124, 79, 240, 0.1);
+  --fc-accent-muted: rgba(124, 79, 240, 0.2);
   --fc-accent-text: #A78BFA;
-  --fc-chat-bg: #000000;
-  --fc-chat-header: rgba(10, 10, 10, 0.96);
-  --fc-chat-composer: rgba(10, 10, 10, 0.95);
-  --fc-own-bubble: #7C3AED;
+  --fc-chat-bg: var(--background);
+  --fc-chat-header: rgba(12, 12, 16, 0.96);
+  --fc-chat-composer: rgba(12, 12, 16, 0.95);
+  --fc-own-bubble: var(--primary);
   --fc-own-bubble-text: #ffffff;
-  --fc-their-bubble: #111111;
+  --fc-their-bubble: #1E1E27;
   --fc-their-bubble-text: #ffffff;
-  --fc-theme-accent: #7C3AED;
-  --fc-theme-text: #ffffff;
-  --fc-theme-muted: #888888;
-  --fc-text: #ffffff;
-  --fc-text-muted: #888888;
+  --fc-theme-accent: var(--primary);
+  --fc-theme-text: var(--foreground);
+  --fc-theme-muted: var(--muted-foreground);
+  --fc-text: var(--foreground);
+  --fc-text-muted: var(--muted-foreground);
   --fc-text-subtle: #444444;
-  --fc-app-bg: #000000;
-  --fc-app-panel: #0A0A0A;
-  --fc-app-panel-strong: #111111;
-  --fc-app-surface: #0A0A0A;
-  --fc-app-surface-hover: #111111;
-  --fc-app-surface-active: #7C3AED;
-  --fc-app-elevated: #161616;
-  --fc-app-border: #161616;
-  --fc-app-border-strong: rgba(124, 58, 237, 0.2);
-  --fc-input-bg: #0A0A0A;
-  --fc-input-focus: rgba(124, 58, 237, 0.05);
+  --fc-app-bg: var(--background);
+  --fc-app-panel: var(--card);
+  --fc-app-panel-strong: #1E1E27;
+  --fc-app-surface: var(--card);
+  --fc-app-surface-hover: rgba(255, 255, 255, 0.05);
+  --fc-app-surface-active: var(--primary);
+  --fc-app-elevated: #1E1E27;
+  --fc-app-border: var(--border);
+  --fc-app-border-strong: rgba(124, 79, 240, 0.2);
+  --fc-input-bg: var(--input-background);
+  --fc-input-focus: rgba(124, 79, 240, 0.05);
   --fc-overlay: rgba(0, 0, 0, 0.8);
   --fc-overlay-strong: rgba(0, 0, 0, 0.9);
-  --fc-modal: #0A0A0A;
+  --fc-modal: var(--card);
   --fc-skeleton: rgba(255, 255, 255, 0.03);
-  --fc-selection: rgba(124, 58, 237, 0.3);
-  --fc-focus-ring: rgba(124, 58, 237, 0.2);
-  --fc-story-gradient: conic-gradient(from 210deg, #7C3AED, #A78BFA, #7C3AED);
-  --fc-brand-gradient: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%);
-  --fc-avatar-bg: #111111;
+  --fc-selection: rgba(124, 79, 240, 0.3);
+  --fc-focus-ring: rgba(124, 79, 240, 0.2);
+  --fc-story-gradient: conic-gradient(from 210deg, #7C4FF0, #A78BFA, #7C4FF0);
+  --fc-brand-gradient: linear-gradient(135deg, #7C4FF0 0%, #6D28D9 100%);
+  --fc-avatar-bg: #1E1E27;
   --fc-shadow-color: rgba(0, 0, 0, 0.6);
   --fc-scrollbar: rgba(255, 255, 255, 0.1);
-  --fc-divider: #161616;
-  --fc-success: #10B981;
+  --fc-divider: var(--border);
+  --fc-success: #22C55E;
   --fc-warning: #F59E0B;
   --fc-danger: #EF4444;
+  
+  /* Motion & Radius */
   --fc-motion-fast: 150ms;
   --fc-motion-base: 200ms;
   --fc-motion-slow: 250ms;
-  --fc-mobile-nav-height: calc(56px + env(safe-area-inset-bottom));
-  --fc-keyboard-inset: env(keyboard-inset-height, 0px);
-  --fc-safe-bottom: env(safe-area-inset-bottom);
   --fc-radius: 10px;
   --fc-radius-lg: 14px;
   --fc-radius-xl: 18px;
+  
+  /* Layout Safe Areas */
+  --fc-mobile-nav-height: calc(56px + env(safe-area-inset-bottom));
+  --fc-keyboard-inset: env(keyboard-inset-height, 0px);
+  --fc-safe-bottom: env(safe-area-inset-bottom);
 }
 
-html[data-flexchat-theme-mode="light"] {
-  color-scheme: light;
+@theme {
+  --font-sans: var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, sans-serif;
+  
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --radius-lg: var(--fc-radius-lg);
+  --radius-md: var(--fc-radius);
+  --radius-sm: calc(var(--fc-radius) - 2px);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
 }
 
 .fc-gpu-accelerated {
@@ -313,10 +369,8 @@ body {
   min-height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
-  background: var(--fc-chat-bg);
-  font-family:
-    Inter,
-    sans-serif;
+  background: var(--background);
+  font-family: var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, sans-serif;
   overscroll-behavior: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -329,17 +383,6 @@ body {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: var(--fc-scrollbar) transparent;
-}
-
-body {
-  background:
-    var(--fc-app-bg);
-  color: var(--fc-theme-text);
-  font-family:
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
 }
 
 ::-webkit-scrollbar {

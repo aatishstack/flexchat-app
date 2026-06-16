@@ -41,18 +41,18 @@ const StoryAvatar = memo(function StoryAvatar({
     : group?.user.username;
 
   return (
-    <div className="flex w-14 shrink-0 flex-col items-center gap-1.5 text-center">
+    <div className="flex w-[72px] shrink-0 flex-col items-center gap-2 text-center">
       <button
         type="button"
         onClick={onOpen}
         disabled={isLoading || (!isCurrentUser && !group)}
         className={cn(
-          "fc-telegram-touch relative flex h-12 w-12 items-center justify-center rounded-full p-[1.5px] transition-transform duration-150 active:scale-[0.96] disabled:cursor-default disabled:opacity-60",
+          "relative flex h-14 w-14 items-center justify-center rounded-full transition-transform duration-150 active:scale-[0.96] disabled:cursor-default disabled:opacity-60",
           group?.hasUnseen
-            ? "bg-[#7C3AED]"
+            ? "p-[2.5px] bg-[#7C4FF0]"
             : group
-              ? "bg-white/15"
-              : "bg-white/[0.08]",
+              ? "p-[2.5px] bg-white/10"
+              : "p-[2px] bg-white/[0.05]",
         )}
         aria-label={
           isCurrentUser
@@ -62,11 +62,19 @@ const StoryAvatar = memo(function StoryAvatar({
             : `View ${formatDisplayName(name ?? "")}'s status`
         }
       >
-        <FlexAvatar
-          src={isCurrentUser ? avatar : group?.user.avatar}
-          name={name}
-          className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#111111] text-sm font-semibold text-white ring-2 ring-black"
-        />
+        <div className="h-full w-full rounded-full ring-2 ring-black overflow-hidden bg-[#111111]">
+          <FlexAvatar
+            src={isCurrentUser ? avatar : group?.user.avatar}
+            name={name}
+            className="h-full w-full text-[13px] font-bold"
+          />
+        </div>
+
+        {isCurrentUser && !group && (
+          <div className="absolute bottom-0 right-0 h-4.5 w-4.5 rounded-full bg-[#7C4FF0] border-2 border-black flex items-center justify-center text-white">
+            <Plus size={10} strokeWidth={4} />
+          </div>
+        )}
 
         {isLoading ? (
           <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/65">
@@ -78,9 +86,12 @@ const StoryAvatar = memo(function StoryAvatar({
         ) : null}
       </button>
 
-      <span className="w-full truncate text-[11px] font-medium text-zinc-400">
+      <span className={cn(
+        "w-full truncate text-[11px] font-medium transition-colors",
+        group?.hasUnseen ? "text-white" : "text-white/40"
+      )}>
         {isCurrentUser
-          ? "Your status"
+          ? "My status"
           : formatDisplayName(name ?? "")}
       </span>
     </div>
@@ -139,34 +150,23 @@ function StoryTray() {
   }, [expiryCheckAt, storiesQuery.data]);
 
   return (
-    <section className="mt-3" aria-label="Status updates">
-      <div className="flex min-h-[72px] items-start gap-2.5 overflow-x-auto pb-1 overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="relative shrink-0">
-          <StoryAvatar
-            isCurrentUser
-            group={currentUserGroup}
-            avatar={currentUser?.avatar}
-            username={currentUser?.username}
-            isLoading={storiesQuery.isLoading && !storiesQuery.data}
-            onOpen={() => {
-              if (currentUserGroupIndex >= 0) {
-                setViewerGroupIndex(currentUserGroupIndex);
-                return;
-              }
+    <section className="py-2" aria-label="Status updates">
+      <div className="flex min-h-[82px] items-start gap-2.5 overflow-x-auto px-4 pb-1 overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <StoryAvatar
+          isCurrentUser
+          group={currentUserGroup}
+          avatar={currentUser?.avatar}
+          username={currentUser?.username}
+          isLoading={storiesQuery.isLoading && !storiesQuery.data}
+          onOpen={() => {
+            if (currentUserGroupIndex >= 0) {
+              setViewerGroupIndex(currentUserGroupIndex);
+              return;
+            }
 
-              setIsCreatorOpen(true);
-            }}
-          />
-
-          <button
-            type="button"
-            onClick={() => setIsCreatorOpen(true)}
-            className="fc-telegram-touch absolute right-0 top-8 flex h-5 w-5 items-center justify-center rounded-full border-2 border-black bg-[#7C3AED] text-white transition-colors duration-150 hover:bg-[#8B5CF6] active:bg-[#6D28D9]"
-            aria-label="Create status"
-          >
-            <Plus size={11} strokeWidth={3} />
-          </button>
-        </div>
+            setIsCreatorOpen(true);
+          }}
+        />
 
         {contactGroups.map((group) => {
           const groupIndex = storyGroups.findIndex(
@@ -182,24 +182,14 @@ function StoryTray() {
           );
         })}
 
-        {!storiesQuery.isLoading &&
-        !storiesQuery.isError &&
-        contactGroups.length === 0 ? (
-          <div className="flex h-12 min-w-36 items-center rounded-xl border border-white/[0.06] bg-[#0A0A0A] px-3">
-            <p className="text-xs leading-5 text-zinc-500">
-              No recent updates
-            </p>
-          </div>
-        ) : null}
-
         {storiesQuery.isError ? (
           <button
             type="button"
             onClick={() => void storiesQuery.refetch()}
-            className="flex h-12 min-w-40 items-center gap-2 rounded-xl border border-white/[0.08] bg-[#0A0A0A] px-3 text-left text-xs text-zinc-400 transition-colors hover:bg-[#111111]"
+            className="flex h-14 min-w-40 items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/5 px-4 text-left text-xs text-zinc-400 transition-colors hover:bg-white/10"
           >
             <AlertCircle size={15} className="text-zinc-500" />
-            <span className="flex-1">Updates unavailable</span>
+            <span className="flex-1">Status failed</span>
             <RotateCcw size={14} />
           </button>
         ) : null}

@@ -1,527 +1,133 @@
-# FlexChat Engineering Master Context
+# FlexChat Master Engineering Context
 
-## Project Overview
+## Project Status
 
-FlexChat is a production-focused realtime messaging platform.
+FlexChat is currently in the final productization phase.
 
-Primary objective:
+Core infrastructure is considered complete.
 
-Build a stable, scalable, production-grade messaging platform before final UI polish.
+Completed:
 
-UI redesign is intentionally deferred until infrastructure, reliability, performance, deployment readiness, and core functionality are complete.
+- Authentication
+- JWT Refresh Flow
+- Route Protection
+- Socket.IO Messaging
+- Presence System
+- Typing System
+- Notification Persistence
+- Notification Realtime Sync
+- Firebase FCM Integration
+- Cloudinary Integration
+- Cloudflare Turnstile Integration
+- Error Boundaries
+- Health Checks
+- Readiness Checks
+- Environment Validation
+- Message Virtualization
+- Conversation Virtualization
+- Mobile Safe Areas
+- APK Preparation
+- Production Cleanup
+- Media Upload Pipeline
+- Story System Foundation
+- Call Signaling Foundation
+- Dynamic TURN Credential Integration
 
-Current development philosophy:
+Current Metrics:
 
-Infrastructure First
-Reliability First
-Performance First
-Feature Completeness First
-UI Last
-
----
-
-# Current Project Status
-
-## Completed
-
-### Security & Infrastructure
-
-- Cloudinary integration complete
-- Sentry integration complete
-- Cloudflare Turnstile complete
-- Web FCM complete
-- Deployment hardening complete
-- Environment validation hardening complete
-
-### Reliability
-
-- Global Error Boundary complete
-- Readiness probes complete
-- Health checks complete
-- FCM token management complete
-- Invalid token cleanup complete
-
-### Performance
-
-- Zustand selector hardening complete
-- Presence batching complete
-- Typing batching complete
-- Socket optimization complete
-- Image pipeline optimization complete
-- Foreground sync sequencing complete
-- Cache lifecycle optimization complete
-
-### Virtualization
-
-- Message list virtualization complete
-- Conversation list virtualization complete
-- TanStack React Virtual integration complete
-
-### APK Preparation
-
-- Manifest configured
-- Asset Links foundation configured
-- Safe-area support implemented
-- Dynamic status bar synchronization implemented
-- Foreground socket recovery implemented
-- PWA groundwork complete
-
-### Production Bug Sweep
-
-- Missing routes fixed
-- Navigation consistency fixed
-- Register redirect fixed
-- Skeleton loaders added
-- Safe-area issues addressed
-
-### Notification Foundation
-
-- Notifications schema implemented
-- Notification APIs implemented
-- Missed call notifications implemented
-- Message reaction notifications implemented
+Infrastructure Readiness: 99%
+Production Stability: 98%
+UI Completion: 65%
+APK Readiness: 92%
+Call Reliability: Pending Coturn Deployment
 
 ---
 
-# Current Metrics
+# Instruction Priority
 
-Infrastructure Readiness:
-99%
+If instructions conflict:
 
-Runtime Performance:
-98%
+1. Runtime Stability
+2. Production Functionality
+3. Existing Architecture
+4. Approved Prototype
+5. Visual Improvements
 
-Production Stability:
-98%
-
-APK Readiness:
-92%
-
-Call Reliability:
-65% (until Coturn deployment)
-
-Expected Call Reliability After Coturn:
-99%+
+Higher priorities always win.
 
 ---
 
-# Current Development Phase
+# Current Project Phase
 
-Production deployment readiness and infrastructure completion.
+Current Phase:
 
-Optimization phase is maintenance-only unless measurable bottlenecks are found.
+UI Migration
+UX Polish
+Production Verification
 
-Current highest priority:
+The approved FlexChat prototype package is the official visual source of truth.
 
-1. Oracle Cloud account setup
-2. Oracle VM deployment
-3. Coturn deployment
-4. Dynamic TURN credentials
-5. Real device call testing
-6. Capacitor APK phase
-7. Final production bug sweep
-8. Final premium UI transformation
+The existing FlexChat application is the official functional source of truth.
 
 ---
 
-# Oracle / Coturn Roadmap
+# Mission
 
-Current Status
-
-- WebRTC architecture ready
-- Signaling architecture ready
-- Multi-tab call handling ready
-- ICE abstraction preparation in progress
-
-Target
-
-- Oracle VM
-- Coturn
-- TURN UDP
-- TURN TCP
-- TURN TLS (443)
-- Dynamic HMAC-SHA1 credentials
-- No static TURN credentials
-
-Expected Result
-
-- LTE reliability
-- Corporate firewall compatibility
-- Symmetric NAT compatibility
-- Production-grade call reliability
-
----
-
-# Architecture Rules
-
-Core priorities:
-
-- production-safe architecture
-- smooth Android runtime
-- realtime stability
-- APK/WebView readiness
-- Telegram-quality UX polish
-- low-risk optimizations only
-- predictable behavior
-- maintainable code
-- deployment readiness
-- operational visibility
-
-Avoid:
-
-- speculative optimization
-- architecture rewrites
-- unnecessary refactors
-- fake/demo UI
-- blind memoization
-- over-engineering
-- cosmetic-only rewrites
-- unnecessary dependency additions
-- duplicate abstractions
-- duplicate services
-- duplicate state stores
-- duplicate API layers
-- creating new systems when existing systems can be extended
-
-Always:
-
-- preserve runtime stability
-- preserve maintainability
-- avoid breaking realtime lifecycle
-- avoid giant state subscriptions
-- prefer measurable improvements
-- maintain smooth mobile UX
-- verify before claiming success
-- prefer incremental improvements
-- preserve existing product direction
-- preserve existing architecture
-
----
-
-# Realtime Rules
-
-Socket.IO is a critical subsystem.
-
-Do not:
-
-- duplicate socket connections
-- create multiple socket instances
-- create duplicate listeners
-- create competing presence systems
-- create competing typing systems
-
-Always:
-
-- clean up listeners
-- clean up subscriptions
-- validate reconnect behavior
-- validate multi-tab behavior
-- validate offline recovery
-- validate message synchronization
-
----
-
-# State Management Rules
-
-Prefer:
-
-- small Zustand selectors
-- localized subscriptions
-- minimal rerenders
-
-Avoid:
-
-- giant global subscriptions
-- unnecessary store mutations
-- duplicate state ownership
-
-A piece of state should have one clear owner.
-
----
-
-# Mobile Rules
+Transform FlexChat into a premium production-grade messaging platform.
 
 Target:
 
-- Telegram smoothness
-- native Android responsiveness
-- native iOS responsiveness
-
-Prioritize:
-
-- scroll performance
-- touch responsiveness
-- layout stability
-- low memory usage
-
-Avoid:
-
-- animation spam
-- excessive blur effects
-- unnecessary rerenders
-- heavy components inside message lists
+- Telegram usability
+- Telegram responsiveness
+- Apple-level polish
+- Linear-level cleanliness
+- Android-native feel
 
 ---
 
-# Performance Rules
+# Core Philosophy
 
-Do not optimize blindly.
+Functionality First
 
-Before optimization:
+Reliability First
 
-- identify bottleneck
-- measure impact
-- verify improvement
+Visual Quality Second
 
-Prefer:
+Never sacrifice:
 
-- reducing rerenders
-- reducing network traffic
-- reducing memory growth
-- reducing unnecessary effects
+- stability
+- messaging reliability
+- call reliability
+- notification reliability
+- mobile performance
 
----
-
-# Security Rules
-
-Never:
-
-- expose secrets
-- trust client-provided ownership
-- trust client-provided permissions
-- trust client-provided roles
-
-Always:
-
-- validate on server
-- authorize on server
-- rate limit sensitive endpoints
-- sanitize user input
-
----
-
-# Media Rules
-
-Cloudinary is the media source of truth.
-
-Do not:
-
-- reintroduce local media storage
-- duplicate upload pipelines
-- duplicate media ownership systems
-
-Always:
-
-- validate media uploads
-- validate ownership
-- validate deletions
-- clean up orphaned assets
-
----
-
-# Production Verification Rules
-
-Do not claim a feature is complete unless:
-
-- source code exists
-- build succeeds
-- runtime path exists
-- validation succeeds
-
-If verification is not performed:
-
-UNVERIFIED
-
----
-
-# Cleanup Rules
-
-Continuously remove:
-
-- dead code
-- obsolete code
-- unused hooks
-- unused components
-- unused utilities
-- unused dependencies
-- abandoned experiments
-- duplicate logic
-
-Before deletion:
-
-- verify references
-- verify build
-- verify runtime behavior
-
----
-
-# Reporting Rules
-
-Do not exaggerate progress.
-
-Do not generate fake completion reports.
-
-Do not claim production readiness without verification.
-
-Do not count unverified features as completed.
-
-When uncertain:
-
-UNVERIFIED
-
-Always report:
-
-- Verified Changes
-- Remaining Risks
-- Readiness Percentage
-- Recommended Next Step
-
----
-
-# Next Session Starting Point
-
-Current focus:
-
-Oracle VM + Coturn preparation.
-
-Do not start UI redesign.
-
-Do not introduce major new features.
-
-Do not perform architecture rewrites.
-
-If Oracle becomes available:
-
-Immediate priority is Coturn deployment and production call reliability validation.
-
-# UI Vision (Locked)
-
-IMPORTANT
-
-UI redesign remains a late-stage priority.
-
-Core functionality, infrastructure, deployment readiness, reliability, security, and call stability remain higher priority than visual redesign.
-
-However, the final visual direction has been intentionally locked to prevent future design drift.
-
-Future UI work must follow the specifications below.
-
----
-
-# FlexChat Design Direction
-
-FlexChat should feel like:
-
-- Telegram's usability
-- Linear's cleanliness
-- Apple's polish
-- Notion's restraint
-
-It should NOT feel like:
-
-- Discord
-- Snapchat
-- Instagram
-- Gaming interfaces
-- Neon cyberpunk interfaces
-- Overdesigned concept apps
-
-The product should feel:
-
-- Professional
-- Premium
-- Fast
-- Minimal
-- Modern
-- Trustworthy
+for visual improvements.
 
 ---
 
 # Approved Visual Identity
 
-Primary Brand Color:
+Primary:
 
-Premium Purple
+#7C4FF0
 
-Primary Background:
+Background:
 
-#000000
+#0C0C10
 
-Surface Levels:
+Surface:
 
-#0A0A0A
-#111111
-#161616
+#16161D
 
-Color Philosophy:
+Secondary Surface:
 
-90% Black
-10% Purple
+#1E1E27
 
-Purple is reserved for:
+Typography:
 
-- Active states
-- Selected states
-- Unread indicators
-- Primary actions
-- Important status indicators
+Plus Jakarta Sans
 
-Purple should never dominate the interface.
-
----
-
-# Figma Reference Pack Rules
-
-A FlexChat Figma reference pack has been approved.
-
-The reference pack should be treated as:
-
-- visual inspiration
-- spacing inspiration
-- typography inspiration
-- layout inspiration
-
-The reference pack should NOT be treated as:
-
-- production architecture
-- state management guidance
-- component architecture guidance
-- frontend engineering guidance
-
-Designs may be improved, but should remain visually aligned with the approved Figma direction.
-
----
-
-# Design Philosophy
-
-Content First
-
-The user should notice:
-
-1. Conversations
-2. People
-3. Messages
-
-before noticing UI chrome.
-
-Avoid:
-
-- decorative clutter
-- excessive gradients
-- excessive glassmorphism
-- unnecessary shadows
-- oversized controls
-- animation spam
-
-Every visual element must justify its existence.
-
----
-
-# Spacing System
-
-Use consistent 8pt spacing.
-
-Approved scale:
+Spacing Scale:
 
 4
 8
@@ -533,147 +139,154 @@ Approved scale:
 40
 48
 
-No arbitrary spacing values unless justified.
+Radius Scale:
 
-Goal:
+10
+14
+18
 
-Telegram-level density with improved breathing room.
+Motion:
 
----
-
-# Radius System
-
-Small:
-10px
-
-Medium:
-14px
-
-Large:
-18px
-
-Cards:
-16px
-
-Message Bubbles:
-18px
-
-Avoid extreme rounding.
+150ms–300ms
 
 ---
 
-# Typography System
+# Prototype Rules
 
-Priorities:
+The approved prototype is the visual source of truth.
 
-- Readability
-- Hierarchy
-- Density
+Use it for:
 
-Hierarchy:
+- spacing
+- hierarchy
+- typography
+- navigation
+- stories
+- calls
+- settings
+- profile
+- motion
 
-Display:
-32-36
+Do not use it for:
 
-Screen Titles:
-24-28
-
-Section Titles:
-18-20
-
-Body:
-15-16
-
-Caption:
-12-13
-
-Typography should feel closer to Telegram and Linear than modern social apps.
+- backend architecture
+- state management
+- socket architecture
+- API architecture
 
 ---
 
-# Motion System
+# UI Migration Rules
 
-Animation Philosophy:
+DO NOT:
 
-Fast > Fancy
+- rewrite backend
+- rewrite auth
+- rewrite sockets
+- rewrite notifications
+- rewrite stories backend
+- rewrite media backend
+- rewrite WebRTC
+- rewrite TURN integration
+- rewrite database logic
+- rewrite providers
+- rewrite Zustand ownership
 
-Preferred durations:
+Preserve all working production systems.
 
-150ms–250ms
+Replace presentation only.
 
-Animations should:
+---
 
-- improve usability
-- communicate state changes
-- reinforce hierarchy
+# Architecture Rules
+
+Preserve:
+
+- Socket.IO lifecycle
+- Zustand ownership
+- Existing APIs
+- Existing routes
+- Existing business logic
+- Existing media pipeline
+- Existing notification pipeline
 
 Avoid:
 
-- large bounce effects
-- excessive scaling
-- flashy transitions
-- attention-seeking motion
+- duplicate stores
+- duplicate listeners
+- duplicate services
+- competing systems
 
 ---
 
-# Chat Experience Vision
+# Realtime Rules
 
-Conversation screens are the most important screens in the product.
+Always:
 
-Design priorities:
+- cleanup listeners
+- cleanup subscriptions
+- validate reconnect behavior
+- validate offline recovery
+- validate multi-tab behavior
+
+Never:
+
+- create competing presence systems
+- create competing typing systems
+- create duplicate socket instances
+
+---
+
+# Stories Vision
+
+Stories are a flagship feature.
+
+Requirements:
+
+- immersive viewer
+- premium transitions
+- viewer lists
+- story analytics
+- reactions
+- replies
+
+Story close must always return to previous route.
+
+Never redirect unexpectedly.
+
+---
+
+# Messaging Vision
+
+Priorities:
 
 1. Readability
 2. Density
 3. Speed
-4. Message hierarchy
-5. Touch ergonomics
+4. Touch Ergonomics
 
 Requirements:
 
-- Telegram-like message density
-- Clean message grouping
-- Minimal reactions UI
-- Lightweight reply UI
-- Floating modern composer
-- Elegant unread indicators
-- Smooth scrolling
-- Excellent one-handed usage
+- clean grouping
+- visible typing indicators
+- premium composer
+- lightweight reactions
+- smooth scrolling
+- one-handed usability
 
 ---
 
-# Navigation Vision
-
-Mobile-first.
-
-Primary tabs:
-
-- Chats
-- Calls
-- Discover
-- Notifications
-- Profile
+# Calls Vision
 
 Requirements:
 
-- excellent thumb reach
-- clear active states
-- minimal visual noise
-- smooth transitions
+- premium incoming call screen
+- premium voice call screen
+- premium video call screen
+- network indicators
+- connection indicators
 
----
-
-# Profile Vision
-
-Profile pages should feel premium and structured.
-
-Focus on:
-
-- identity
-- media
-- shared activity
-- privacy controls
-
-Avoid social-media-style clutter.
+The UI should inspire confidence.
 
 ---
 
@@ -681,72 +294,159 @@ Avoid social-media-style clutter.
 
 Settings should feel like a premium operating system.
 
-Focus on:
+Focus:
 
-- clarity
-- grouping
 - hierarchy
+- grouping
+- discoverability
 - accessibility
 
-Not endless lists.
+Avoid endless settings lists.
 
 ---
 
-# Call UI Vision
+# Mobile Rules
 
-Calls should feel flagship quality.
+Primary Target:
 
-Requirements:
+Android
 
-- minimal distractions
-- clear controls
-- excellent readability
-- network indicators
-- connection indicators
-- premium incoming call experience
+Widths:
 
-The experience should prioritize reliability perception.
+360
+390
+412
+430
+
+Support:
+
+- Browser
+- PWA
+- Android WebView
+- Capacitor
+- Trusted Web Activity
+
+Desktop is secondary.
 
 ---
 
-# Engineering Rule For UI Work
+# Performance Rules
 
-When UI redesign begins:
+Never optimize blindly.
 
-DO NOT rewrite screens from scratch unless necessary.
+Before optimization:
+
+- identify bottleneck
+- measure impact
+- verify improvement
 
 Prefer:
 
-- refactoring existing components
-- replacing styles
-- improving spacing
-- improving hierarchy
-- improving interaction quality
+- fewer rerenders
+- lower memory usage
+- smoother scrolling
+- lower network traffic
 
-Preserve:
+---
 
-- realtime architecture
-- Socket.IO lifecycle
-- Zustand stores
-- API integrations
-- WebRTC integrations
-- existing business logic
+# Security Rules
 
-UI work must not introduce regressions.
+Always:
 
-Functionality always takes priority over visuals.
+- validate server-side
+- authorize server-side
+- sanitize inputs
+- rate limit sensitive actions
+
+Never trust client state.
+
+---
+
+# Verification Rules
+
+Nothing is complete until verified.
+
+Required:
+
+- build passes
+- typecheck passes
+- runtime path verified
+- mobile viewport verified
+
+If not tested:
+
+UNVERIFIED
+
+---
+
+# Mandatory Regression Verification
+
+After every major change verify:
+
+- login
+- register
+- refresh token
+- messaging
+- typing indicator
+- presence
+- notifications
+- stories
+- media uploads
+- calls
+- push notifications
+
+---
+
+# Reporting Rules
+
+Always report:
+
+# VERIFIED CHANGES
+
+# REMAINING RISKS
+
+# REGRESSIONS
+
+# READINESS PERCENTAGE
+
+# NEXT RECOMMENDED STEP
+
+Never exaggerate progress.
+
+Never mark unverified work as complete.
+
+---
+
+# Current Priority Order
+
+1. UI Migration
+2. UX Polish
+3. Story Experience
+4. Call Experience
+5. Notification Experience
+6. Mobile APK Validation
+7. Coturn Deployment
+8. Real Device Testing
+9. Production Launch
 
 ---
 
 # Final Product Goal
 
-FlexChat should launch as a production-grade messaging platform that combines:
+FlexChat should launch as:
 
-- Telegram-level usability
-- Telegram-level responsiveness
-- Premium black-and-purple visual identity
+- production-grade
+- premium
+- mobile-first
+- reliable
+- secure
+- scalable
+
+Combining:
+
+- Telegram usability
+- Telegram responsiveness
+- Premium black-and-purple identity
 - Modern minimalist design
-- Production-grade reliability
 - Native-quality mobile experience
-
-Visual polish is the final layer applied after infrastructure and reliability objectives are complete.
+- Production-grade reliability

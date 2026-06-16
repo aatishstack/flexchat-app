@@ -154,43 +154,6 @@ function ToggleSwitch({
   );
 }
 
-function SettingRow({
-  icon: Icon,
-  title,
-  detail,
-  checked,
-  onToggle,
-}: {
-  icon: LucideIcon;
-  title: string;
-  detail: string;
-  checked: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="flex min-h-[72px] items-center gap-4 border-b border-white/[0.03] px-5 py-3 last:border-b-0">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--fc-primary)]/10 bg-[var(--fc-primary)]/5 text-[var(--fc-primary)]">
-        <Icon size={19} />
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <h3 className="truncate text-[15px] font-bold text-white/90">
-          {title}
-        </h3>
-        <p className="mt-0.5 line-clamp-1 text-xs font-medium leading-snug text-[var(--fc-text-subtle)]">
-          {detail}
-        </p>
-      </div>
-
-      <ToggleSwitch
-        checked={checked}
-        onChange={onToggle}
-        label={title}
-      />
-    </div>
-  );
-}
-
 function Section({
   title,
   children,
@@ -199,14 +162,51 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section>
-      <h2 className="mb-2 px-5 text-[11px] font-black uppercase tracking-[0.15em] text-[var(--fc-text-subtle)]">
-        {title}
-      </h2>
-      <div className="fc-surface overflow-hidden rounded-[24px] border border-white/10 bg-[var(--fc-app-surface)] shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
+    <div className="mb-5">
+      <div className="px-5 mb-2">
+        <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/28">{title}</span>
+      </div>
+      <div className="mx-5 rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.04)" }}>
         {children}
       </div>
-    </section>
+    </div>
+  );
+}
+
+function SettingRow({
+  icon: Icon,
+  label,
+  sub,
+  checked,
+  onToggle,
+  isLast = false,
+}: {
+  icon: LucideIcon;
+  label: string;
+  sub?: string;
+  checked?: boolean;
+  onToggle?: () => void;
+  isLast?: boolean;
+}) {
+  return (
+    <div className={`flex items-center gap-3.5 px-4 py-3.5 w-full hover:bg-white/[0.04] transition-colors ${!isLast ? "border-t border-white/[0.05]" : ""}`}>
+      <div className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0" style={{ background: "rgba(124,79,240,0.14)" }}>
+        <Icon size={15} style={{ color: "#7C4FF0" }} />
+      </div>
+      <div className="flex-1 text-left min-w-0">
+        <div className="text-[13.5px] font-semibold text-white">{label}</div>
+        {sub && <div className="text-[11.5px] text-white/32 font-medium mt-0.5 truncate">{sub}</div>}
+      </div>
+      {onToggle !== undefined ? (
+        <ToggleSwitch
+          checked={!!checked}
+          onChange={onToggle}
+          label={label}
+        />
+      ) : (
+        <ChevronRight size={15} className="text-white/22 flex-shrink-0" />
+      )}
+    </div>
   );
 }
 
@@ -301,69 +301,6 @@ export default function SettingsPage() {
     settings,
   ]);
 
-  const sections = useMemo(
-    () => [
-      {
-        title: "Communications",
-        rows: [
-          {
-            key: "messagePreviews" as const,
-            icon: Bell,
-            title: "Visual Previews",
-            detail:
-              "Include message snippets in push notification cards.",
-          },
-          {
-            key: "soundAlerts" as const,
-            icon: Headphones,
-            title: "Audio Feedback",
-            detail:
-              "Play high-fidelity alerts for incoming messages.",
-          },
-        ],
-      },
-      {
-        title: "Experience",
-        rows: [
-          {
-            key: "compactLists" as const,
-            icon: Palette,
-            title: "High Density Mode",
-            detail:
-              "Use tighter information density for navigation lists.",
-          },
-          {
-            key: "reducedMotion" as const,
-            icon: Palette,
-            title: "Motion Optimization",
-            detail:
-              "Prefer subtle, high-performance transitions.",
-          },
-        ],
-      },
-      {
-        title: "Advanced",
-        rows: [
-          {
-            key: "deviceSync" as const,
-            icon: Smartphone,
-            title: "Cloud Sync",
-            detail:
-              "Keep multiple active sessions synchronized globally.",
-          },
-          {
-            key: "hdCalls" as const,
-            icon: Video,
-            title: "HD Video Quality",
-            detail:
-              "Optimize for maximum bitrate during video calls.",
-          },
-        ],
-      },
-    ],
-    []
-  );
-
   const toggleSetting =
     useCallback((key: SettingKey) => {
       setSettings((current) => ({
@@ -423,179 +360,107 @@ export default function SettingsPage() {
 
   if (!user) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-black px-6 text-white">
-        <div className="h-12 w-12 animate-spin rounded-2xl border border-[var(--fc-primary)]/25 border-t-[var(--fc-primary)]" />
+      <main className="flex min-h-dvh items-center justify-center bg-[#0C0C10] px-6 text-white">
+        <div className="h-12 w-12 animate-spin rounded-2xl border border-[#7C4FF0]/25 border-t-[#7C4FF0]" />
       </main>
     );
   }
 
   return (
     <>
-      <main className="chat-safe-scroll h-[calc(100dvh-var(--fc-mobile-nav-height,4.75rem))] min-h-[calc(100svh-var(--fc-mobile-nav-height,4.75rem))] overflow-y-auto bg-[var(--fc-app-bg)] px-4 py-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 lg:h-dvh lg:min-h-svh lg:px-8 lg:pb-8 lg:pl-[calc(72px+2rem)]">
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-10">
-          <header className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={() => router.replace("/chat")}
-                className="fc-hover flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--fc-app-border)] text-zinc-300 transition hover:bg-white/[0.04]"
-                aria-label="Back to chat"
-              >
-                <ArrowLeft size={20} />
-              </button>
-              <FlexLogo size="sm" />
-              <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+      <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-24">
+        <div className="px-5 pt-2 pb-3">
+          <h1 className="text-[22px] font-extrabold text-white">Settings</h1>
+        </div>
+
+        <button
+          onClick={() => router.push("/profile")}
+          className="flex items-center gap-4 mx-5 mb-5 p-4 rounded-2xl hover:bg-white/[0.06] transition-colors w-[calc(100%-40px)]"
+          style={{ background: "rgba(255,255,255,0.05)" }}
+        >
+          <div
+            className="w-14 h-14 rounded-full flex items-center justify-center text-[18px] font-black text-white flex-shrink-0"
+            style={{ background: "#7C4FF0" }}
+          >
+            {user.avatar ? (
+              <img src={user.avatar} alt="" className="h-full w-full rounded-full object-cover" />
+            ) : (
+              getAvatarInitial(user.username)
+            )}
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <div className="text-[15.5px] font-bold text-white">{user.username}</div>
+            <div className="text-[12.5px] text-white/38 font-medium mt-0.5">
+              {formatHandle(user.username)} · {isConnected ? "Online" : "Syncing"}
             </div>
-            <div className="rounded-full border border-white/5 bg-white/[0.03] px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-[var(--fc-text-subtle)] backdrop-blur-3xl">
-              v1.2.0 Stable
-            </div>
-          </header>
+          </div>
+          <ChevronRight size={17} className="text-white/28 flex-shrink-0" />
+        </button>
 
-          <section className="flex flex-col gap-8">
-            <div className="fc-surface overflow-hidden rounded-[28px] border border-white/10 bg-[var(--fc-app-surface)] shadow-[0_32px_96px_rgba(0,0,0,0.6)]">
-              <div className="flex items-center gap-5 p-6 sm:p-8">
-                <div className="fc-avatar relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[24px] border border-white/10 bg-black text-3xl font-black shadow-2xl">
-                  {user.avatar ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={user.avatar}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    getAvatarInitial(user.username)
-                  )}
-                </div>
+        <div className="grid gap-2">
+          <Section title="Account & Privacy">
+            <SettingRow icon={UserRound} label="Account" sub="Email, password, security" />
+            <SettingRow icon={LockKeyhole} label="Privacy" sub="Visibility, blocked users" />
+            <SettingRow icon={ShieldCheck} label="Security" sub="Face ID, Passkeys" isLast />
+          </Section>
 
-                <div className="min-w-0 flex-1">
-                  <h2 className="truncate text-2xl font-bold tracking-tight">
-                    {user.username}
-                  </h2>
-                  <p className="mt-1 truncate text-[14px] font-bold text-[var(--fc-accent-text)] opacity-80">
-                    {formatHandle(user.username)}
-                  </p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <div className={`h-1.5 w-1.5 rounded-full ${isConnected ? "bg-[var(--fc-success)]" : "bg-amber-400 animate-pulse"}`} />
-                    <span className="text-[11px] font-black uppercase tracking-wider text-[var(--fc-text-subtle)]">
-                      {isConnected ? "Synced" : "Syncing"}
-                    </span>
-                  </div>
-                </div>
+          <Section title="Features">
+            <SettingRow 
+              icon={Bell} 
+              label="Visual Previews" 
+              sub="Include message snippets in push notification cards" 
+              checked={settings.messagePreviews}
+              onToggle={() => toggleSetting("messagePreviews")}
+            />
+            <SettingRow 
+              icon={Headphones} 
+              label="Audio Feedback" 
+              sub="Play high-fidelity alerts for incoming messages" 
+              checked={settings.soundAlerts}
+              onToggle={() => toggleSetting("soundAlerts")}
+            />
+            <SettingRow icon={Video} label="Calls" sub="Data usage, call recording" isLast />
+          </Section>
 
-                <Link
-                  href="/profile"
-                  className="fc-hover flex h-12 w-12 items-center justify-center rounded-2xl border border-white/5 bg-white/[0.03] text-[var(--fc-primary)] transition hover:bg-white/[0.06]"
-                  aria-label="Edit Profile"
-                >
-                  <UserRound size={22} />
-                </Link>
-              </div>
+          <Section title="App Settings">
+            <SettingRow 
+              icon={Moon} 
+              label="Appearance" 
+              sub={lightMode ? "Light mode active" : "Dark mode active"} 
+              checked={lightMode}
+              onToggle={toggleThemeMode}
+            />
+            <SettingRow icon={Database} label="Data Usage" sub="Manage network and storage" />
+            <SettingRow icon={Palette} label="Accessibility" sub="Text size, animations" isLast />
+          </Section>
 
-              <div className="grid grid-cols-2 border-t border-white/5">
-                <button
-                  type="button"
-                  onClick={() => setLogoutConfirmOpen(true)}
-                  className="fc-touch flex h-14 items-center justify-center gap-2.5 text-[13px] font-black uppercase tracking-widest text-zinc-300 transition hover:bg-white/[0.03] hover:text-white"
-                >
-                  <LogOut size={16} />
-                  Sign Out
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDeleteConfirmation("");
-                    setDeleteConfirmOpen(true);
-                  }}
-                  className="fc-touch border-l border-white/5 flex h-14 items-center justify-center gap-2.5 text-[13px] font-black uppercase tracking-widest text-red-400 transition hover:bg-red-500/[0.02]"
-                >
-                  <Trash2 size={16} />
-                  Terminate
-                </button>
-              </div>
-            </div>
+          <Section title="Support">
+            <SettingRow icon={AlertTriangle} label="Report a Bug" sub="Help us improve FlexChat" />
+            <SettingRow icon={Headphones} label="Help Center" sub="Contact us, FAQ" isLast />
+          </Section>
 
-            <div className="grid gap-10">
-              <Section title="Privacy Center">
-                 <Link
-                   href="/privacy"
-                   className="flex min-h-[72px] items-center gap-4 px-5 py-3 transition-colors hover:bg-white/[0.01]"
-                 >
-                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--fc-primary)]/10 bg-[var(--fc-primary)]/5 text-[var(--fc-primary)]">
-                      <ShieldCheck size={19} />
-                   </div>
-                   <div className="min-w-0 flex-1">
-                     <h3 className="text-[15px] font-bold text-white/90">Privacy Center</h3>
-                     <p className="mt-0.5 text-xs font-medium text-[var(--fc-text-subtle)]">Visibility, read receipts, and security</p>
-                   </div>
-                   <ChevronRight size={18} className="text-[var(--fc-text-subtle)]" />
-                 </Link>
-              </Section>
-
-              {sections.map((section) => (
-
-                <Section
-                  key={section.title}
-                  title={section.title}
-                >
-                  {section.title === "Experience" ? (
-                    <ThemeModeRow
-                      lightMode={lightMode}
-                      onToggle={toggleThemeMode}
-                    />
-                  ) : null}
-
-                  {section.rows.map((row) => (
-                    <SettingRow
-                      key={row.key}
-                      icon={row.icon}
-                      title={row.title}
-                      detail={row.detail}
-                      checked={settings[row.key]}
-                      onToggle={() => toggleSetting(row.key)}
-                    />
-                  ))}
-                </Section>
-              ))}
-
-              <Section title="Account & Data">
-                 <div className="flex min-h-[72px] items-center gap-4 border-b border-white/[0.03] px-5 py-3 transition-colors hover:bg-white/[0.01]">
-                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/5 bg-white/[0.04] text-[var(--fc-text-subtle)]">
-                      <LockKeyhole size={19} />
-                   </div>
-                   <div className="min-w-0 flex-1">
-                     <h3 className="text-[15px] font-bold text-white/90">Passcode Lock</h3>
-                     <p className="mt-0.5 text-xs font-medium text-[var(--fc-text-subtle)]">Secure your conversations</p>
-                   </div>
-                   <ChevronRight size={18} className="text-[var(--fc-text-subtle)]" />
-                 </div>
-                 <div className="flex min-h-[72px] items-center gap-4 border-b border-white/[0.03] px-5 py-3 transition-colors hover:bg-white/[0.01]">
-                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/5 bg-white/[0.04] text-[var(--fc-text-subtle)]">
-                      <Database size={19} />
-                   </div>
-                   <div className="min-w-0 flex-1">
-                     <h3 className="text-[15px] font-bold text-white/90">Data Usage</h3>
-                     <p className="mt-0.5 text-xs font-medium text-[var(--fc-text-subtle)]">Manage network and storage</p>
-                   </div>
-                   <ChevronRight size={18} className="text-[var(--fc-text-subtle)]" />
-                 </div>
-              </Section>
-
-              <Section title="Support">
-                 <div className="flex min-h-[72px] items-center gap-4 border-b border-white/[0.03] px-5 py-3 transition-colors hover:bg-white/[0.01]">
-                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/5 bg-white/[0.04] text-[var(--fc-text-subtle)]">
-                      <AlertTriangle size={19} />
-                   </div>
-                   <div className="min-w-0 flex-1">
-                     <h3 className="text-[15px] font-bold text-white/90">Report a Bug</h3>
-                     <p className="mt-0.5 text-xs font-medium text-[var(--fc-text-subtle)]">Help us improve FlexChat</p>
-                   </div>
-                   <ChevronRight size={18} className="text-[var(--fc-text-subtle)]" />
-                 </div>
-              </Section>
-            </div>
-          </section>
+          <div className="mx-5 mt-2 mb-5">
+            <button 
+              onClick={() => setLogoutConfirmOpen(true)}
+              className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl hover:bg-red-500/[0.12] transition-colors" 
+              style={{ background: "rgba(239,68,68,0.08)" }}
+            >
+              <LogOut size={17} className="text-red-400" />
+              <span className="text-[13.5px] font-bold text-red-400">Sign Out</span>
+            </button>
+            <button 
+              onClick={() => {
+                setDeleteConfirmation("");
+                setDeleteConfirmOpen(true);
+              }}
+              className="mt-3 flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl hover:bg-red-500/[0.12] transition-colors opacity-60"
+            >
+              <Trash2 size={15} className="text-red-400/80" />
+              <span className="text-[12px] font-bold text-red-400/80">Terminate Account</span>
+            </button>
+          </div>
+          
+          <p className="text-center text-[10.5px] text-white/18 pb-10">FlexChat 1.2.0 · © 2026 FlexCorp Ltd.</p>
         </div>
       </main>
 

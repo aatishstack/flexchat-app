@@ -473,8 +473,10 @@ async function makePeerConnection(
 ) {
   closePeerConnection();
 
+  const dynamicIceServers = await fetchIceServers();
+
   const pc = new RTCPeerConnection({
-    iceServers: getIceServers(),
+    iceServers: getIceServers(dynamicIceServers || undefined),
     iceTransportPolicy: getIceTransportPolicy(),
     iceCandidatePoolSize: 10,
     bundlePolicy: "max-bundle",

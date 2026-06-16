@@ -461,6 +461,10 @@ function getUrlOrMediaUrl(value?: string | null) {
   }
 }
 
+function isAudioAttachment(url: string) {
+  return /\.(mp3|wav|ogg|m4a|aac|flac)(\?|$)/i.test(url);
+}
+
 function getMediaFromMessage(message: Message) {
   const typedMediaId = message.mediaId?.trim();
 
@@ -511,6 +515,15 @@ function getMediaFromMessage(message: Message) {
         type: "video" as const,
         url,
         label: getAttachmentLabel(url),
+        size: message.fileSize ?? null,
+      };
+    }
+
+    if (isAudioAttachment(url)) {
+      return {
+        type: "audio" as const,
+        url,
+        label: message.fileName ?? getAttachmentLabel(url),
         size: message.fileSize ?? null,
       };
     }
@@ -1293,14 +1306,26 @@ function MessageMediaAttachment({
   return (
     <>
       <div className="mb-3 overflow-hidden rounded-2xl border border-white/10 bg-black/[0.18]">
-        <button
-          type="button"
-          onClick={() => setViewerOpen(true)}
-          className="block w-full text-left"
-          aria-label={`Open ${type}`}
-        >
-          {preview}
-        </button>
+        {type === "image" ? (
+          <button
+            type="button"
+            onClick={() => setViewerOpen(true)}
+            className="block w-full text-left"
+            aria-label="Open image"
+          >
+            {preview}
+          </button>
+        ) : (
+          <div className="relative bg-black">
+            <video
+              src={url}
+              preload="metadata"
+              playsInline
+              controls
+              className="aspect-video max-h-80 max-w-full cursor-pointer object-contain"
+            />
+          </div>
+        )}
 
         <div className="flex items-center justify-between gap-3 border-t border-white/10 px-3 py-2.5">
           <div className="min-w-0">
@@ -2094,6 +2119,8 @@ const ChatMessageRow = memo(function ChatMessageRow({
                 type="video"
                 label={media.label}
               />
+            ) : media.type === "audio" ? (
+              <MessageVoiceAttachment url={media.url} />
             ) : (
               <MessageFileAttachment
                 url={media.url}
@@ -3661,7 +3688,7 @@ export default function ChatConversation() {
       }
 
       isNearBottomRef.current =
-        element.scrollHeight - element.scrollTop - element.clientHeight < 180;
+        element.scrollHeight - element.scrollTop - element.clientHeight < 80;
       scrollMeasureFrameRef.current = null;
     });
   }
@@ -4767,7 +4794,7 @@ export default function ChatConversation() {
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="chat-safe-scroll relative z-10 min-h-0 flex-1 touch-pan-y overscroll-contain overflow-y-auto px-2.5 py-3 pb-32 sm:px-5 sm:py-5"
+        className="chat-safe-scroll relative z-10 min-h-0 flex-1 touch-pan-y overscroll-contain overflow-y-auto px-2.5 py-3 pb-32 sm:px-5 sm:pt-5 sm:pb-32"
       >
         {showInitialMessageSkeleton ? (
           <MessageSkeleton />

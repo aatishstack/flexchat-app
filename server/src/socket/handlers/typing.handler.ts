@@ -226,6 +226,42 @@ async function canAccessConversation(
   }
 }
 
+export function clearUserTyping(
+  io: Server,
+  conversationId: string,
+  userId: string
+) {
+  const roomTyping =
+    typingMap.get(conversationId);
+
+  if (!roomTyping) {
+    return;
+  }
+
+  const userSockets =
+    roomTyping.get(userId);
+
+  if (!userSockets) {
+    return;
+  }
+
+  userSockets.forEach((socketId) => {
+    clearTypingExpiry(
+      conversationId,
+      userId,
+      socketId
+    );
+  });
+
+  roomTyping.delete(userId);
+
+  if (!roomTyping.size) {
+    typingMap.delete(conversationId);
+  }
+
+  emitTypingUsers(io, conversationId);
+}
+
 export function registerTypingHandlers(
   io: Server,
   socket: Socket

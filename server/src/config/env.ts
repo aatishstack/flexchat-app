@@ -3,7 +3,12 @@ import "dotenv/config";
 import { z } from "zod";
 
 const envSchema = z.object({
-  DATABASE_URL: z.string().min(1),
+  DATABASE_URL: z.string().min(1).refine(
+    (url) => !url.includes("@host:"),
+    {
+      message: "DATABASE_URL contains placeholder '@host:'. Please provide a valid database host.",
+    }
+  ),
   JWT_SECRET:
     z.string()
       .min(1)

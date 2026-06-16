@@ -1,19 +1,11 @@
-import "dotenv/config";
-
 import { drizzle } from "drizzle-orm/postgres-js";
-
 import postgres from "postgres";
 
-const connectionString =
-  process.env.DATABASE_URL!;
+import { env } from "../config/env.js";
 
-const client =
-  postgres(
-    connectionString
-  );
+const client = postgres(env.DATABASE_URL);
 
-export const db =
-  drizzle(client);
+export const db = drizzle(client);
 
 export async function closeDb() {
   await client.end();

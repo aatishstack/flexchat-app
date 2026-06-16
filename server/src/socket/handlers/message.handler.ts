@@ -15,6 +15,7 @@ import {
   releaseClaimedMediaAsset,
 } from "../../services/media.service.js";
 import { FcmService } from "../../services/fcm.service.js";
+import { clearUserTyping } from "./typing.handler.js";
 import { getOnlineUserIds } from "../socket-store.js";
 import { users } from "../../db/schema/users.js";
 import { eq } from "drizzle-orm";
@@ -593,11 +594,11 @@ async function sendPushToOfflineMembers(
     
     const senderName = senderRows[0]?.username || "Someone";
     
-    const offlineUserIds = members
+    const targetUserIds = members
       .map(m => m.userId)
-      .filter(id => id !== senderId && !onlineUserIds.has(id));
+      .filter(id => id !== senderId);
 
-    if (offlineUserIds.length === 0) return;
+    if (targetUserIds.length === 0) return;
 
     const pushPayload = {
       title: senderName,
@@ -610,8 +611,9 @@ async function sendPushToOfflineMembers(
     };
 
     await Promise.all(
-      offlineUserIds.map(userId => FcmService.sendToUser(userId, pushPayload))
+      targetUserIds.map(userId => FcmService.sendToUser(userId, pushPayload))
     );
+
   } catch (error) {
     console.error("[FCM] Failed to send offline push notifications:", error);
   }
@@ -794,6 +796,8 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
       rememberClientMessage(dedupeKey, socketMessage);
 
       if (ownsPersistence) {
+        clearUserTyping(io, messageData.conversationId, userId);
+
         io.to(messageData.conversationId).emit(
           SOCKET_EVENTS.RECEIVE_MESSAGE,
           socketMessage,

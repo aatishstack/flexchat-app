@@ -16,10 +16,13 @@ import {
   ChevronRight,
   Loader2,
   Lock,
+  MoreVertical,
   ShieldCheck,
   Trash2,
   Users,
   X,
+  Heart,
+  Send,
 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -72,10 +75,13 @@ const StoryMedia = memo(function StoryMedia({
 }: StoryMediaProps) {
   if (story.mediaType === "text") {
     return (
-      <div className="flex h-full items-center justify-center bg-[#111111] px-7">
-        <p className="max-w-xl whitespace-pre-wrap break-words text-center text-2xl font-semibold leading-snug text-white sm:text-3xl">
+      <div 
+        className="flex h-full w-full items-center justify-center px-8" 
+        style={{ background: "#7C4FF0" }}
+      >
+        <h2 className="text-white text-3xl font-bold px-8 text-center leading-snug drop-shadow-lg">
           {story.caption}
-        </p>
+        </h2>
       </div>
     );
   }
@@ -101,7 +107,7 @@ const StoryMedia = memo(function StoryMedia({
         onCanPlay={() => onLoaded(story.id)}
         onEnded={onVideoEnded}
         onError={onError}
-        className="h-full w-full bg-black object-contain"
+        className="h-full w-full bg-black object-cover"
       />
     );
   }
@@ -116,7 +122,7 @@ const StoryMedia = memo(function StoryMedia({
       decoding="async"
       onLoad={() => onLoaded(story.id)}
       onError={onError}
-      className="h-full w-full bg-black object-contain"
+      className="h-full w-full bg-black object-cover"
     />
   );
 });
@@ -471,7 +477,7 @@ export default function StoryViewer({
       group?.stories.map((story, index) => (
         <div
           key={story.id}
-          className="h-0.5 flex-1 overflow-hidden rounded-full bg-white/20"
+          className="h-1 flex-1 overflow-hidden rounded-full bg-white/30"
         >
           <div
             ref={(element) => {
@@ -498,138 +504,15 @@ export default function StoryViewer({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[260] flex items-center justify-center bg-black text-white">
-      <div
-        className="relative h-[100dvh] w-full max-w-[min(100vw,calc(100dvh*9/16))] overflow-hidden bg-black sm:h-[min(100dvh,900px)] sm:rounded-2xl sm:border sm:border-white/[0.08]"
+    <div className="fixed inset-0 z-[260] flex flex-col h-full bg-black text-white">
+      {/* Background Media */}
+      <div 
+        className="absolute inset-0"
         onPointerDown={() => setIsHolding(true)}
         onPointerUp={() => setIsHolding(false)}
         onPointerCancel={() => setIsHolding(false)}
         onPointerLeave={() => setIsHolding(false)}
       >
-        <div className="absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/80 via-black/35 to-transparent px-4 pb-10 pt-[max(env(safe-area-inset-top),0.75rem)]">
-          <div className="flex gap-1">{progressBars}</div>
-
-          <div className="mt-4 flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <FlexAvatar
-                src={group.user.avatar}
-                name={group.user.username}
-                className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#161616] text-sm font-semibold"
-              />
-              <div className="min-w-0">
-                <h2 className="truncate text-sm font-semibold">
-                  {isOwnStory
-                    ? "Your status"
-                    : formatDisplayName(group.user.username)}
-                </h2>
-                <p className="mt-0.5 text-xs text-white/60">
-                  {formatStoryAge(currentStory.createdAt, now)}
-                  {isOwnStory
-                    ? ` · ${visibilityLabel(currentStory.visibility)}`
-                    : ""}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1">
-              {isOwnStory ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setPrivacyOpen((open) => !open);
-                    }}
-                    className="fc-telegram-touch flex h-9 w-9 items-center justify-center rounded-xl bg-black/35 text-white/80 hover:bg-black/60"
-                    aria-label="Change status privacy"
-                  >
-                    <ShieldCheck size={17} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setDeleteConfirmOpen(true);
-                    }}
-                    className="fc-telegram-touch flex h-9 w-9 items-center justify-center rounded-xl bg-black/35 text-white/80 hover:bg-black/60"
-                    aria-label="Delete status"
-                  >
-                    <Trash2 size={17} />
-                  </button>
-                </>
-              ) : null}
-
-              <button
-                type="button"
-                onClick={closeViewer}
-                className="fc-telegram-touch flex h-9 w-9 items-center justify-center rounded-xl bg-black/35 text-white/80 hover:bg-black/60"
-                aria-label="Close status"
-              >
-                <X size={18} />
-              </button>
-            </div>
-          </div>
-
-          {privacyOpen && isOwnStory ? (
-            <div
-              className="ml-auto mt-3 w-56 rounded-xl border border-white/[0.08] bg-[#111111] p-1.5 shadow-2xl"
-              onPointerDown={(event) => event.stopPropagation()}
-              onPointerUp={(event) => event.stopPropagation()}
-            >
-              {(["contacts", "only_me"] as const).map((visibility) => {
-                const selected = currentStory.visibility === visibility;
-                const Icon = visibility === "contacts" ? Users : Lock;
-
-                return (
-                  <button
-                    key={visibility}
-                    type="button"
-                    onClick={() =>
-                      privacyMutation.mutate({
-                        storyId: currentStory.id,
-                        visibility,
-                      })
-                    }
-                    disabled={
-                      selected || privacyMutation.isPending
-                    }
-                    className={`flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition-colors ${
-                      selected
-                        ? "bg-[#7C3AED]/15 text-[#C4B5FD]"
-                        : "text-zinc-300 hover:bg-white/[0.05]"
-                    }`}
-                  >
-                    <Icon size={15} />
-                    <span className="flex-1">
-                      {visibilityLabel(visibility)}
-                    </span>
-                    {privacyMutation.isPending &&
-                    !selected ? (
-                      <Loader2
-                        size={14}
-                        className="motion-safe:animate-spin"
-                      />
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
-
-        <button
-          type="button"
-          onClick={goPrevious}
-          className="absolute inset-y-0 left-0 z-10 w-1/3"
-          aria-label="Previous status"
-        />
-        <button
-          type="button"
-          onClick={advanceOnce}
-          className="absolute inset-y-0 right-0 z-10 w-1/3"
-          aria-label="Next status"
-        />
-
         <StoryMedia
           story={currentStory}
           videoRef={videoRef}
@@ -643,37 +526,134 @@ export default function StoryViewer({
             })
           }
         />
+        
+        {/* Overlay gradient top & bottom */}
+        <div className="absolute inset-0 pointer-events-none flex flex-col justify-between">
+          <div className="h-32 bg-gradient-to-b from-black/60 to-transparent" />
+          <div className="h-40 bg-gradient-to-t from-black/80 to-transparent" />
+        </div>
+      </div>
 
-        {mediaLoading ? (
-          <div className="absolute inset-0 z-[15] flex items-center justify-center bg-black">
-            <Loader2
-              size={24}
-              className="text-white/65 motion-safe:animate-spin"
+      <div className="relative z-10 flex flex-col h-full pointer-events-none">
+        {/* Progress Bar */}
+        <div className="pt-[14px] px-2 flex gap-1 pointer-events-auto">
+          {progressBars}
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 pt-3 pb-2 pointer-events-auto">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <FlexAvatar
+              src={group.user.avatar}
+              name={group.user.username}
+              className="flex h-[34px] w-[34px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#161616] text-[12px] font-bold"
+            />
+            <div className="flex flex-col min-w-0">
+              <span className="text-[13.5px] font-bold text-white shadow-black drop-shadow-md truncate">
+                {isOwnStory ? "Your status" : formatDisplayName(group.user.username)}
+              </span>
+              <span className="text-[11px] text-white/80 font-medium shadow-black drop-shadow-md">
+                {formatStoryAge(currentStory.createdAt, now)}
+                {isOwnStory ? ` · ${visibilityLabel(currentStory.visibility)}` : ""}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            {isOwnStory && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); setPrivacyOpen(!privacyOpen); }}
+                className="p-2"
+              >
+                <MoreVertical size={20} className="text-white drop-shadow-md" />
+              </button>
+            )}
+            <button onClick={closeViewer} className="p-2">
+              <X size={24} className="text-white drop-shadow-md" />
+            </button>
+          </div>
+        </div>
+
+        {/* Interactive Areas */}
+        <div className="flex-1 flex pointer-events-auto">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); goPrevious(); }}
+            className="flex-1"
+            aria-label="Previous status"
+          />
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); advanceOnce(); }}
+            className="flex-1"
+            aria-label="Next status"
+          />
+        </div>
+
+        {/* Footer actions */}
+        <div className="flex items-center gap-3 px-4 pb-8 pt-4 pointer-events-auto">
+          <div className="flex-1 flex items-center gap-2 bg-black/40 backdrop-blur-md rounded-full px-4 py-3 border border-white/20">
+            <input
+              className="flex-1 bg-transparent text-[14px] text-white placeholder-white/60 outline-none"
+              placeholder="Send message"
             />
           </div>
-        ) : null}
-
-        {currentStory.caption &&
-        currentStory.mediaType !== "text" ? (
-          <div className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] pt-16">
-            <p className="text-center text-sm leading-6 text-white/90">
-              {currentStory.caption}
-            </p>
-          </div>
-        ) : null}
-
-        <div className="pointer-events-none absolute inset-y-0 left-3 z-20 hidden items-center text-white/25 sm:flex">
-          <ChevronLeft size={18} />
-        </div>
-        <div className="pointer-events-none absolute inset-y-0 right-3 z-20 hidden items-center text-white/25 sm:flex">
-          <ChevronRight size={18} />
+          <button className="w-11 h-11 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/20 active:scale-95 transition-transform">
+            <Heart size={20} className="text-white" />
+          </button>
+          <button className="w-11 h-11 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/20 active:scale-95 transition-transform">
+            <Send size={18} className="text-white" />
+          </button>
         </div>
 
-        {deleteConfirmOpen ? (
+        {/* Privacy Popover */}
+        {privacyOpen && isOwnStory && (
           <div
-            className="absolute inset-0 z-40 flex items-center justify-center bg-black/80 p-5"
-            onPointerDown={(event) => event.stopPropagation()}
-            onPointerUp={(event) => event.stopPropagation()}
+            className="absolute right-4 top-16 w-56 rounded-xl border border-white/[0.08] bg-[#111111] p-1.5 shadow-2xl pointer-events-auto"
+          >
+            {(["contacts", "only_me"] as const).map((visibility) => {
+              const selected = currentStory.visibility === visibility;
+              const Icon = visibility === "contacts" ? Users : Lock;
+
+              return (
+                <button
+                  key={visibility}
+                  type="button"
+                  onClick={() =>
+                    privacyMutation.mutate({
+                      storyId: currentStory.id,
+                      visibility,
+                    })
+                  }
+                  disabled={selected || privacyMutation.isPending}
+                  className={`flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition-colors ${
+                    selected
+                      ? "bg-[#7C4FF0]/15 text-[#C4B5FD]"
+                      : "text-zinc-300 hover:bg-white/[0.05]"
+                  }`}
+                >
+                  <Icon size={15} />
+                  <span className="flex-1">{visibilityLabel(visibility)}</span>
+                  {privacyMutation.isPending && !selected && (
+                    <Loader2 size={14} className="motion-safe:animate-spin" />
+                  )}
+                </button>
+              );
+            })}
+            <div className="h-px bg-white/5 my-1" />
+            <button
+              onClick={() => { setDeleteConfirmOpen(true); setPrivacyOpen(false); }}
+              className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+            >
+              <Trash2 size={15} />
+              <span>Delete status</span>
+            </button>
+          </div>
+        )}
+
+        {/* Delete Confirmation Overlay */}
+        {deleteConfirmOpen && (
+          <div
+            className="absolute inset-0 z-40 flex items-center justify-center bg-black/80 p-5 pointer-events-auto"
           >
             <div className="w-full max-w-sm rounded-2xl border border-white/[0.08] bg-[#111111] p-5">
               <div className="flex items-start gap-3">
@@ -692,24 +672,18 @@ export default function StoryViewer({
                 <button
                   type="button"
                   onClick={() => setDeleteConfirmOpen(false)}
-                  disabled={deleteMutation.isPending}
                   className="h-11 rounded-xl border border-white/[0.08] bg-[#161616] text-sm text-zinc-300"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  onClick={() =>
-                    deleteMutation.mutate(currentStory.id)
-                  }
+                  onClick={() => deleteMutation.mutate(currentStory.id)}
                   disabled={deleteMutation.isPending}
                   className="flex h-11 items-center justify-center rounded-xl bg-red-500 text-sm font-semibold text-white disabled:opacity-50"
                 >
                   {deleteMutation.isPending ? (
-                    <Loader2
-                      size={17}
-                      className="motion-safe:animate-spin"
-                    />
+                    <Loader2 size={17} className="motion-safe:animate-spin" />
                   ) : (
                     "Delete"
                   )}
@@ -717,8 +691,15 @@ export default function StoryViewer({
               </div>
             </div>
           </div>
-        ) : null}
+        )}
       </div>
+
+      {/* Loading Indicator Overlay */}
+      {mediaLoading && (
+        <div className="absolute inset-0 z-[5] flex items-center justify-center bg-black/20">
+          <Loader2 size={24} className="text-white/65 motion-safe:animate-spin" />
+        </div>
+      )}
     </div>,
     document.body,
   );

@@ -389,197 +389,127 @@ export default function ProfilePage() {
 
   if (!user || !profile) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-[#070B14] px-6 text-white">
-        <div className="h-12 w-12 animate-spin rounded-2xl border border-[#2481CC]/25 border-t-[#7CC5FF]" />
+      <main className="flex min-h-dvh items-center justify-center bg-[#0C0C10] px-6 text-white">
+        <div className="h-12 w-12 animate-spin rounded-2xl border border-[#7C4FF0]/25 border-t-[#7C4FF0]" />
       </main>
     );
   }
 
   const avatar =
     profile.avatar ?? user.avatar;
-  const joinedDate = user.createdAt
-    ? new Date(user.createdAt).toLocaleDateString("en", {
-      month: "long",
-      year: "numeric",
-      timeZone: "UTC",
-    })
-    : "";
 
   return (
     <>
-      <main className="chat-safe-scroll h-[calc(100dvh-var(--fc-mobile-nav-height,4.75rem))] min-h-[calc(100svh-var(--fc-mobile-nav-height,4.75rem))] overflow-y-auto bg-[var(--fc-app-bg)] px-4 py-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(7rem+env(safe-area-inset-bottom))] text-[var(--fc-theme-text)] sm:px-6 lg:h-dvh lg:min-h-svh lg:px-8 lg:pb-8 lg:pl-[calc(72px+2rem)]">
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-10">
-          <header className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={() => router.replace("/chat")}
-                className="fc-hover flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--fc-app-border)] text-zinc-300 transition hover:bg-white/[0.04]"
-                aria-label="Back to chat"
-              >
-                <ArrowLeft size={20} />
-              </button>
-              <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
-            </div>
-
-            <Link
-              href="/settings"
-              className="fc-hover flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--fc-app-border)] text-zinc-300 transition hover:bg-white/[0.04]"
-              aria-label="Open settings"
-            >
-              <Settings size={20} />
-            </Link>
-          </header>
-
-          <section className="flex flex-col items-center text-center">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setPhotoPreviewOpen(true)}
-                className="fc-touch group relative flex h-36 w-36 items-center justify-center overflow-hidden rounded-[32px] bg-[var(--fc-app-surface)] text-5xl font-black text-white shadow-[0_48px_100px_rgba(0,0,0,0.5)] border border-white/10"
-                aria-label="View profile photo"
-              >
-                {avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={avatar}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    className="h-full w-full object-cover transition duration-300 group-hover:scale-110"
-                  />
-                ) : (
-                  getAvatarInitial(profile.displayName)
-                )}
-              </button>
-              <div className="absolute -bottom-1 -right-1 h-8 w-8 rounded-2xl border-4 border-[var(--fc-app-bg)] bg-[var(--fc-success)] shadow-xl" />
-            </div>
-
-            <div className="mt-8">
-              <h2 className="text-4xl font-black tracking-tight">
-                {formatDisplayName(profile.displayName)}
-              </h2>
-              <div className="mt-2 flex items-center justify-center gap-2 text-[15px] font-bold text-[var(--fc-accent-text)]">
-                <span>{formatHandle(user.username)}</span>
-                <div className="h-1 w-1 rounded-full bg-[var(--fc-accent-text)]/40" />
-                <span className="opacity-70">
-                  {isConnected ? "Connected" : "Syncing..."}
-                </span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={openEditModal}
-              className="fc-touch mt-10 flex h-13 items-center justify-center gap-3 rounded-2xl bg-[var(--fc-primary)] px-10 text-[15px] font-black uppercase tracking-widest text-white shadow-xl shadow-[rgba(var(--fc-primary-rgb),0.3)] transition hover:bg-[var(--fc-primary-hover)] active:scale-95"
-            >
-              <PenLine size={18} />
-              Edit Profile
+      <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-24">
+        {/* Header with Back Button */}
+        <div className="flex items-center justify-between px-3 py-2">
+          <button
+            onClick={() => router.replace("/settings")}
+            className="p-2"
+          >
+            <ArrowLeft size={24} className="text-white" />
+          </button>
+          <div className="flex items-center gap-1">
+            <button onClick={openEditModal} className="p-2">
+              <PenLine size={20} className="text-white" />
             </button>
-          </section>
+          </div>
+        </div>
 
-          <section className="grid gap-4">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="text-[13px] font-black uppercase tracking-[0.15em] text-[var(--fc-text-subtle)]">
-                Bio
-              </h3>
-            </div>
-            <div className="fc-surface rounded-[24px] border p-6">
-              <p className="text-[15px] font-medium leading-relaxed text-zinc-300">
-                {profile.about || "No biography provided."}
-              </p>
-            </div>
-          </section>
-
-          <section className="grid gap-4">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="text-[13px] font-black uppercase tracking-[0.15em] text-[var(--fc-text-subtle)]">
-                Statistics
-              </h3>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="fc-surface flex flex-col items-center justify-center gap-2 rounded-[24px] border p-6 text-center">
-                <CalendarDays size={24} className="text-[var(--fc-primary)]" />
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-widest text-[var(--fc-text-subtle)]">
-                    Member Since
-                  </p>
-                  <p className="mt-1 text-sm font-bold">
-                    {joinedDate || "Recent"}
-                  </p>
+        {/* Identity Presentation */}
+        <div className="flex flex-col items-center pt-4 pb-8">
+          <div className="relative mb-5">
+            <button
+              onClick={() => setPhotoPreviewOpen(true)}
+              className="w-[120px] h-[120px] rounded-full overflow-hidden border-2 border-white/10"
+            >
+              {avatar ? (
+                <img src={avatar} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div 
+                  className="w-full h-full flex items-center justify-center text-[40px] font-black text-white"
+                  style={{ background: "#7C4FF0" }}
+                >
+                  {getAvatarInitial(profile.displayName)}
                 </div>
+              )}
+            </button>
+            <div className="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-[#22C55E] border-2 border-[#0C0C10]" />
+          </div>
+          
+          <h2 className="text-[28px] font-extrabold text-white mb-1">
+            {formatDisplayName(profile.displayName)}
+          </h2>
+          <p className="text-[13.5px] text-white/38 font-medium">
+            {formatHandle(user.username)} · {isConnected ? "Online" : "Syncing"}
+          </p>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center justify-center gap-12 mb-9">
+          <div className="flex flex-col items-center gap-2">
+            <button className="w-12 h-12 rounded-full flex items-center justify-center bg-white/5 text-white">
+              <Phone size={20} />
+            </button>
+            <span className="text-[11px] font-semibold text-white/40">Call</span>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <button className="w-12 h-12 rounded-full flex items-center justify-center bg-white/5 text-white">
+              <Camera size={20} />
+            </button>
+            <span className="text-[11px] font-semibold text-white/40">Video</span>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <button className="w-12 h-12 rounded-full flex items-center justify-center bg-white/5 text-white">
+              <ShieldCheck size={20} />
+            </button>
+            <span className="text-[11px] font-semibold text-white/40">Secure</span>
+          </div>
+        </div>
+
+        {/* Bio & Details Section */}
+        <div className="mx-5 mb-5 p-4 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)" }}>
+          <div className="mb-4">
+            <span className="text-[10px] font-bold tracking-[0.14em] uppercase text-white/28 block mb-1">About</span>
+            <p className="text-[14px] text-white leading-relaxed">
+              {profile.about || "Hey there! I am using FlexChat."}
+            </p>
+          </div>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-[10px] flex items-center justify-center bg-white/5">
+                <Mail size={15} className="text-white/40" />
               </div>
-              <div className="fc-surface flex flex-col items-center justify-center gap-2 rounded-[24px] border p-6 text-center">
-                <ShieldCheck size={24} className="text-[var(--fc-success)]" />
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-widest text-[var(--fc-text-subtle)]">
-                    Security
-                  </p>
-                  <p className="mt-1 text-sm font-bold">Verified Line</p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="grid gap-4">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="text-[13px] font-black uppercase tracking-[0.15em] text-[var(--fc-text-subtle)]">
-                Identity & Contact
-              </h3>
-            </div>
-            <div className="fc-surface flex flex-col gap-1 rounded-[24px] border p-2">
-              {[
-                {
-                  icon: Mail,
-                  label: "Email",
-                  value: user.email,
-                },
-                {
-                  icon: Phone,
-                  label: "Phone",
-                  value: user.phoneNumber || profile.phone || "Not set",
-                },
-              ].map((item) => {
-                const Icon = item.icon;
-                return (
-                  <div
-                    key={item.label}
-                    className="flex items-center gap-4 rounded-2xl px-4 py-3.5 transition-colors hover:bg-white/[0.02]"
-                  >
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/5 bg-white/[0.04] text-[var(--fc-primary)]">
-                      <Icon size={19} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-black uppercase tracking-widest text-[var(--fc-text-subtle)]">
-                        {item.label}
-                      </p>
-                      <p className="mt-0.5 truncate text-[15px] font-bold">
-                        {item.value}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="grid gap-4">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="text-[13px] font-black uppercase tracking-[0.15em] text-[var(--fc-text-subtle)]">
-                Shared Assets
-              </h3>
-            </div>
-            <div className="fc-surface flex items-center justify-center rounded-[24px] border border-dashed p-10 text-center">
-              <div>
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.03] text-[var(--fc-text-subtle)]">
-                   <User size={28} />
-                </div>
-                <p className="mt-4 text-sm font-bold text-zinc-400">
-                  Shared media and groups will appear here.
-                </p>
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] text-white/30 font-medium">Email</div>
+                <div className="text-[13.5px] font-semibold text-white truncate">{user.email}</div>
               </div>
             </div>
-          </section>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-[10px] flex items-center justify-center bg-white/5">
+                <Phone size={15} className="text-white/40" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] text-white/30 font-medium">Phone</div>
+                <div className="text-[13.5px] font-semibold text-white truncate">
+                  {user.phoneNumber || profile.phone || "Not set"}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Shared Assets Section */}
+        <div className="mx-5">
+          <div className="mb-3 px-1">
+            <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/28">Shared Assets</span>
+          </div>
+          <div className="flex flex-col items-center justify-center py-12 rounded-2xl border border-dashed border-white/5">
+            <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mb-4">
+              <User size={28} className="text-white/10" />
+            </div>
+            <p className="text-[13px] font-bold text-white/20">Media will appear here</p>
+          </div>
         </div>
       </main>
 

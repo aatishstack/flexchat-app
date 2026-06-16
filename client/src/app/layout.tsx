@@ -1,6 +1,12 @@
 import type { Metadata, Viewport } from "next";
 
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-plus-jakarta-sans",
+});
 
 import AuthRouteGate from "@/components/auth/auth-route-gate";
 
@@ -48,7 +54,7 @@ export default function RootLayout({
       <head>
         <meta name="theme-color" content="#17212b" />
       </head>
-      <body className="fc-theme-transition bg-[var(--fc-app-bg)] text-[var(--fc-theme-text)] antialiased">
+      <body className={`${plusJakartaSans.variable} font-sans fc-theme-transition bg-[var(--fc-app-bg)] text-[var(--fc-theme-text)] antialiased`}>
         <GlobalErrorBoundary>
           <QueryProvider>
             <ServerTimeProvider>
