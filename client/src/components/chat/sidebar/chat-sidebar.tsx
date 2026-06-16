@@ -424,59 +424,59 @@ const ConversationListButton = memo(
             event.currentTarget.getBoundingClientRect()
           );
         }}
-        className={`group fc-touch flex h-[72px] w-full items-center gap-3 rounded-xl border px-4 py-0 text-left transition-[background-color,border-color,transform] duration-200 ease-out ${
+        className={`group w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-colors ${
           active
-            ? "fc-active shadow-lg shadow-[rgba(var(--fc-primary-rgb),0.15)]"
-            : "border-transparent hover:bg-[var(--fc-app-surface-hover)]"
-        } ${isPressed ? "bg-[var(--fc-app-surface-active)]/10 scale-[0.98] border-[var(--fc-primary)]/10" : ""}`}
+            ? "bg-[#7C4FF0] text-white"
+            : "hover:bg-white/[0.04] text-white"
+        } ${isPressed ? "scale-[0.98] opacity-80" : ""}`}
       >
         <div className="relative shrink-0">
           <FlexAvatar
             src={avatar}
             name={conversation.name}
-            className="fc-avatar flex h-[56px] w-[56px] items-center justify-center overflow-hidden rounded-[18px] text-lg font-bold"
+            className={`flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-lg font-bold ${active ? "bg-white/20" : "bg-[#16161D]"}`}
           />
 
           {isOnline ? (
-            <div className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[var(--fc-app-panel)] bg-[var(--fc-success)] shadow-sm" />
+            <div className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 ${active ? "border-[#7C4FF0]" : "border-[#0C0C10]"} bg-[#22C55E] shadow-sm`} />
           ) : null}
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-1.5">
-              <h3 className="truncate text-[16px] font-bold leading-tight text-[var(--fc-theme-text)]">
+              <h3 className={`truncate text-[15px] font-bold leading-none ${active ? "text-white" : "text-white"}`}>
                 {displayName}
               </h3>
 
               {conversation.pinned ? (
                 <Pin
-                  size={13}
-                  className="shrink-0 text-[var(--fc-primary)]"
+                  size={12}
+                  className={`shrink-0 ${active ? "text-white/80" : "text-[#7C4FF0]"}`}
                 />
               ) : null}
 
               {conversation.muted ? (
                 <BellOff
-                  size={13}
-                  className="shrink-0 text-[var(--fc-text-subtle)]"
+                  size={12}
+                  className={`shrink-0 ${active ? "text-white/60" : "text-white/30"}`}
                 />
               ) : null}
             </div>
 
-            <span suppressHydrationWarning className="mt-0.5 shrink-0 text-[11px] font-semibold text-[var(--fc-text-muted)]">
+            <span suppressHydrationWarning className={`mt-0.5 shrink-0 text-[11px] font-semibold ${active ? "text-white/70" : "text-white/40"}`}>
               {lastActivityLabel}
             </span>
           </div>
 
           <div className="mt-1 flex items-center justify-between gap-2.5">
-            <p className="truncate text-[14px] leading-snug text-[var(--fc-text-muted)] group-hover:text-[var(--fc-text-subtle)]">
+            <p className={`truncate text-[13.5px] leading-snug ${active ? "text-white/80" : "text-white/50"}`}>
               {conversation.latestMessage ||
                 "No messages yet"}
             </p>
 
             {conversation.unreadCount ? (
-              <div className="fc-badge flex h-[20px] min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-bold leading-none">
+              <div className={`flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none ${active ? "bg-white text-[#7C4FF0]" : "bg-[#7C4FF0] text-white"}`}>
                 {conversation.unreadCount}
               </div>
             ) : null}
@@ -695,11 +695,10 @@ export default function ChatSidebar() {
     activeFolder,
   ]);
 
-  // eslint-disable-next-line react-hooks/incompatible-library
   const conversationVirtualizer = useVirtualizer({
     count: filteredConversations.length,
     getScrollElement: () => listRef.current,
-    estimateSize: () => 64,
+    estimateSize: () => 68,
     getItemKey: (index) =>
       filteredConversations[index]?.id ?? index,
     overscan: CONVERSATION_ROW_OVERSCAN,
@@ -954,7 +953,6 @@ export default function ChatSidebar() {
         return;
       }
 
-      // Non-linear resistance curve for Telegram-like tension
       const tension = 220;
       const maxPull = 100;
       const easedDistance =
@@ -1350,47 +1348,27 @@ export default function ChatSidebar() {
   ]);
 
   return (
-    <aside className="fc-panel fc-gpu-accelerated flex h-full w-full border-r border-[var(--fc-app-border)] lg:w-[360px]">
+    <aside className="fc-panel fc-gpu-accelerated flex h-full w-full border-r border-white/5 lg:w-[360px] bg-[#0C0C10]">
       <div className="flex w-full flex-col">
-        <div className="fc-panel-strong relative border-b border-[var(--fc-app-border)] px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))]">
-          <div className="flex items-center justify-between gap-3">
+        <div className="px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))]">
+          <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-3">
-              <div className="fc-button-primary flex h-9 w-9 items-center justify-center rounded-lg shadow-sm">
-                <MessageCircle
-                  size={19}
-                />
-              </div>
-
-              <div>
-                <h1 className="text-xl font-bold tracking-tight text-[var(--fc-theme-text)]">
-                  FlexChat
-                </h1>
-              </div>
+              <h1 className="text-[28px] font-extrabold tracking-tight text-white">
+                Chats
+              </h1>
             </div>
 
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic(10);
-                  setSearchOpen((open) => !open);
-                }}
-                className="fc-hover flex h-9 w-9 items-center justify-center rounded-full text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
-                aria-label="Search conversations"
-              >
-                <Search size={18} />
-              </button>
-
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
                   triggerHaptic(10);
                   router.push("/contacts");
                 }}
-                className="fc-hover flex h-9 w-9 items-center justify-center rounded-full text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.05] text-white hover:bg-white/[0.1] transition-colors"
                 aria-label="New Chat"
               >
-                <Plus size={19} strokeWidth={2.5} />
+                <Plus size={20} strokeWidth={2.5} />
               </button>
             </div>
           </div>
@@ -1416,10 +1394,10 @@ export default function ChatSidebar() {
                 }}
                 className="overflow-hidden"
               >
-                <div className="relative mt-3">
+                <div className="relative mb-3">
                   <Search
-                    size={16}
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--fc-text-subtle)]"
+                    size={18}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30"
                   />
 
                   <input
@@ -1427,46 +1405,13 @@ export default function ChatSidebar() {
                     onChange={(event) =>
                       setSearch(event.target.value)
                     }
-                    placeholder="Search"
-                    className="fc-input h-10 w-full rounded-xl border pl-10 pr-4 text-sm outline-none transition-all placeholder:text-[var(--fc-text-subtle)]"
+                    placeholder="Ask AI or Search"
+                    className="h-11 w-full rounded-[18px] bg-white/[0.04] pl-11 pr-4 text-[15px] font-medium text-white outline-none transition-all placeholder:text-white/30 focus:bg-white/[0.06] border border-transparent focus:border-[#7C4FF0]/30"
                   />
                 </div>
               </motion.div>
             ) : null}
           </AnimatePresence>
-
-          <div className="fc-no-scrollbar mt-3 flex items-center gap-1.5 overflow-x-auto pb-0.5">
-            {SIDEBAR_FILTERS.map((folder) => (
-              <button
-                key={folder.id}
-                type="button"
-                onClick={() => {
-                  triggerHaptic(10);
-                  setActiveFolder(folder.id);
-                }}
-                className={`relative shrink-0 overflow-hidden rounded-xl px-3.5 py-1.5 text-[13px] font-bold transition-all ${
-                  activeFolder === folder.id
-                    ? "text-white"
-                    : "fc-surface text-[var(--fc-text-muted)] hover:bg-[var(--fc-app-surface-hover)] hover:text-[var(--fc-theme-text)]"
-                }`}
-              >
-                {activeFolder === folder.id ? (
-                  <motion.span
-                    layoutId="sidebar-folder-active"
-                    className="absolute inset-0 rounded-xl bg-[var(--fc-primary)] shadow-md shadow-[rgba(var(--fc-primary-rgb),0.2)]"
-                    transition={{
-                      type: "spring",
-                      stiffness: 360,
-                      damping: 32,
-                    }}
-                  />
-                ) : null}
-                <span className="relative z-10">
-                  {folder.label}
-                </span>
-              </button>
-            ))}
-          </div>
 
           {deferredSearch.trim() ? null : <StoryTray />}
         </div>
@@ -1477,7 +1422,7 @@ export default function ChatSidebar() {
           onTouchMove={handlePullMove}
           onTouchEnd={handlePullEnd}
           onTouchCancel={handlePullEnd}
-          className="chat-safe-scroll relative flex-1 overflow-y-auto px-1.5 py-1 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+          className="chat-safe-scroll relative flex-1 overflow-y-auto px-2 py-1 pb-[calc(6.5rem+env(safe-area-inset-bottom))]"
         >
           <div
             className="pointer-events-none sticky top-0 z-10 flex justify-center overflow-hidden transition-[height]"
@@ -1486,7 +1431,7 @@ export default function ChatSidebar() {
             }}
           >
             <div
-              className={`mt-1.5 flex h-9 min-w-9 items-center justify-center rounded-full border border-[rgba(var(--fc-primary-rgb),0.24)] bg-[var(--fc-app-elevated)] text-[var(--fc-accent-text)] shadow-lg ${
+              className={`mt-1.5 flex h-9 min-w-9 items-center justify-center rounded-full bg-[#16161D] text-[#7C4FF0] shadow-lg ${
                 isPullRefreshing ? "animate-spin" : ""
               }`}
               style={{
@@ -1504,7 +1449,7 @@ export default function ChatSidebar() {
                 length: 12,
               }).map((_, index) => (
                 <div key={index} className="flex items-center gap-3 py-2">
-                  <div className="h-14 w-14 animate-pulse rounded-2xl bg-white/5" />
+                  <div className="h-12 w-12 animate-pulse rounded-full bg-white/5" />
                   <div className="flex-1 space-y-2">
                     <div className="h-4 w-1/3 animate-pulse rounded-full bg-white/5" />
                     <div className="h-3 w-3/4 animate-pulse rounded-full bg-white/5" />
@@ -1516,7 +1461,7 @@ export default function ChatSidebar() {
 
 
           {conversationsQuery.isError ? (
-            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100 mx-2 mt-2">
               Unable to load conversations
             </div>
           ) : null}
@@ -1588,11 +1533,11 @@ export default function ChatSidebar() {
               disabled={
                 conversationsQuery.isFetchingNextPage
               }
-              className="fc-surface fc-hover mt-3 w-full rounded-xl border px-4 py-2 text-sm font-medium text-[var(--fc-text-muted)] transition hover:border-[rgba(var(--fc-primary-rgb),0.35)] hover:text-[var(--fc-theme-text)] disabled:cursor-wait disabled:opacity-60"
+              className="mt-3 mx-2 w-[calc(100%-16px)] rounded-xl border border-white/5 bg-white/[0.02] px-4 py-2.5 text-[14px] font-bold text-white/50 transition hover:bg-white/[0.04] hover:text-white disabled:cursor-wait disabled:opacity-60"
             >
               {conversationsQuery.isFetchingNextPage
                 ? "Loading..."
-                : "Load more"}
+                : "Load older chats"}
             </button>
           ) : null}
         </div>
@@ -1649,7 +1594,7 @@ export default function ChatSidebar() {
                     width:
                       CONVERSATION_ACTION_MENU_WIDTH,
                   }}
-                  className="fixed overflow-hidden rounded-[20px] border border-white/10 bg-[var(--fc-modal)] py-2 text-white shadow-[0_32px_96px_rgba(0,0,0,0.6)] backdrop-blur-3xl"
+                  className="fixed overflow-hidden rounded-[20px] border border-white/10 bg-[#16161D] py-2 text-white shadow-[0_32px_96px_rgba(0,0,0,0.6)] backdrop-blur-3xl"
                   onPointerDown={(event) =>
                     event.stopPropagation()
                   }
@@ -1663,7 +1608,7 @@ export default function ChatSidebar() {
                   >
                     <Pin
                       size={18}
-                      className="text-[var(--fc-primary)]"
+                      className="text-[#7C4FF0]"
                     />
                     {actionConversation.pinned
                       ? "Unpin"
@@ -1677,7 +1622,7 @@ export default function ChatSidebar() {
                   >
                     <Folder
                       size={18}
-                      className="text-[var(--fc-primary)]"
+                      className="text-[#7C4FF0]"
                     />
                     Add to Folder
                   </button>
@@ -1690,12 +1635,12 @@ export default function ChatSidebar() {
                     {actionConversation.unreadCount ? (
                       <MailOpen
                         size={18}
-                        className="text-[var(--fc-primary)]"
+                        className="text-[#7C4FF0]"
                       />
                     ) : (
                       <Mail
                         size={18}
-                        className="text-[var(--fc-primary)]"
+                        className="text-[#7C4FF0]"
                       />
                     )}
                     {actionConversation.unreadCount
@@ -1713,12 +1658,12 @@ export default function ChatSidebar() {
                     {actionConversation.muted ? (
                       <Bell
                         size={18}
-                        className="text-[var(--fc-primary)]"
+                        className="text-[#7C4FF0]"
                       />
                     ) : (
                       <BellOff
                         size={18}
-                        className="text-[var(--fc-primary)]"
+                        className="text-[#7C4FF0]"
                       />
                     )}
                     {actionConversation.muted
@@ -1733,7 +1678,7 @@ export default function ChatSidebar() {
                   >
                     <Ban
                       size={18}
-                      className="text-[var(--fc-primary)]"
+                      className="text-[#7C4FF0]"
                     />
                     {blockedConversationSet.has(
                       actionConversation.id
@@ -1851,12 +1796,12 @@ export default function ChatSidebar() {
                         );
                       }}
                       className={`fc-hover flex h-[56px] items-center gap-4 rounded-2xl px-4 text-left text-[15px] font-bold transition ${
-                        selected ? "bg-[var(--fc-primary)]/10 text-[var(--fc-primary)]" : "text-[var(--fc-theme-text)]"
+                        selected ? "bg-[#7C4FF0]/10 text-[#7C4FF0]" : "text-white"
                       }`}
                     >
                       <Folder
                         size={20}
-                        className={selected ? "text-[var(--fc-primary)]" : "text-[var(--fc-text-muted)]"}
+                        className={selected ? "text-[#7C4FF0]" : "text-white/40"}
                       />
                       <span className="flex-1">
                         {folder.label}
@@ -1888,7 +1833,7 @@ export default function ChatSidebar() {
                 <button
                   type="button"
                   onClick={handleCreateFolder}
-                  className="fc-hover flex h-[56px] items-center gap-4 rounded-2xl px-4 text-left text-[15px] font-bold text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
+                  className="fc-hover flex h-[56px] items-center gap-4 rounded-2xl px-4 text-left text-[15px] font-bold text-white/50 transition hover:text-white"
                 >
                   <Plus
                     size={20}
@@ -1968,7 +1913,7 @@ export default function ChatSidebar() {
                     clearPendingConversationId ===
                     deleteConfirmConversation.id
                   }
-                  className="fc-surface fc-hover h-[52px] rounded-2xl border border-[var(--fc-app-border)] text-[15px] font-bold text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)] disabled:cursor-wait disabled:opacity-60"
+                  className="fc-surface fc-hover h-[52px] rounded-2xl border border-[var(--fc-app-border)] text-[15px] font-bold text-white/50 transition hover:text-white disabled:cursor-wait disabled:opacity-60"
                 >
                   Cancel
                 </button>
@@ -2031,7 +1976,7 @@ export default function ChatSidebar() {
               className="fc-modal w-full max-w-[400px] overflow-hidden rounded-[24px] border border-white/10 p-7 shadow-[0_48px_128px_rgba(0,0,0,1)]"
             >
               <div className="flex flex-col items-center text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-[20px] border border-[var(--fc-primary)]/10 bg-[var(--fc-primary)]/5 text-[var(--fc-primary)]">
+                <div className="flex h-16 w-16 items-center justify-center rounded-[20px] border border-[#7C4FF0]/10 bg-[#7C4FF0]/5 text-[#7C4FF0]">
                   <LogOut size={28} />
                 </div>
 
@@ -2051,7 +1996,7 @@ export default function ChatSidebar() {
                   onClick={() =>
                     setLogoutConfirmOpen(false)
                   }
-                  className="fc-surface fc-hover h-[52px] rounded-2xl border border-[var(--fc-app-border)] text-[15px] font-bold text-[var(--fc-text-muted)] transition hover:text-[var(--fc-theme-text)]"
+                  className="fc-surface fc-hover h-[52px] rounded-2xl border border-[var(--fc-app-border)] text-[15px] font-bold text-white/50 transition hover:text-white"
                 >
                   Cancel
                 </button>
@@ -2059,7 +2004,7 @@ export default function ChatSidebar() {
                 <button
                   type="button"
                   onClick={confirmLogout}
-                  className="h-[52px] rounded-2xl bg-[var(--fc-primary)] text-[15px] font-bold text-white shadow-lg shadow-[rgba(var(--fc-primary-rgb),0.2)] transition hover:bg-[var(--fc-primary-hover)]"
+                  className="h-[52px] rounded-2xl bg-[#7C4FF0] text-[15px] font-bold text-white shadow-lg shadow-[#7C4FF0]/20 transition hover:bg-[#8B5CF6]"
                 >
                   Sign Out
                 </button>

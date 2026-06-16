@@ -140,7 +140,7 @@ export default function CallsPage() {
   };
 
   return (
-    <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-24">
+    <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
       <div className="px-5 pt-2 pb-3">
         <h1 className="text-[22px] font-extrabold text-white">Calls</h1>
       </div>

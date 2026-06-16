@@ -21,9 +21,9 @@ export default function ProtectedLayout({
   useAppLifecycle();
 
   return (
-    <div className="min-h-dvh bg-[var(--fc-app-bg)] text-[var(--fc-theme-text)]">
+    <div className="min-h-dvh bg-[#0C0C10] text-[#F0EEF8]">
       <AppNavigation />
-      <div className="min-h-dvh lg:pl-[72px]">
+      <div className="min-h-dvh w-full max-w-screen-xl mx-auto">
         {children}
       </div>
       <CallLayer />

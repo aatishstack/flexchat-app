@@ -400,7 +400,7 @@ export default function ProfilePage() {
 
   return (
     <>
-      <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-24">
+      <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
         {/* Header with Back Button */}
         <div className="flex items-center justify-between px-3 py-2">
           <button

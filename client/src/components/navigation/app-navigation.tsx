@@ -104,8 +104,15 @@ function MobileNavigation({
   }
 
   return (
-    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-[190] flex justify-center pb-[calc(1rem+env(safe-area-inset-bottom))] lg:hidden">
-      <div className="pointer-events-auto flex h-[64px] items-center gap-1 rounded-[24px] border border-white/10 bg-[rgba(10,10,10,0.85)] px-2 shadow-[0_20px_60px_rgba(0,0,0,0.5)] backdrop-blur-3xl">
+    <nav className="fixed inset-x-0 bottom-4 z-[190] flex justify-center lg:hidden pointer-events-none pb-[env(safe-area-inset-bottom)]">
+      <div 
+        className="pointer-events-auto flex h-[64px] items-center gap-1 rounded-[24px] border border-white/[0.06] px-2 shadow-[0_20px_40px_rgba(0,0,0,0.6)]"
+        style={{
+          background: "rgba(12, 12, 16, 0.75)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+        }}
+      >
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = isActivePath(pathname, item.href);
@@ -118,12 +125,12 @@ function MobileNavigation({
               aria-current={active ? "page" : undefined}
               className={cn(
                 "fc-touch relative flex h-[48px] min-w-[56px] flex-col items-center justify-center rounded-2xl transition-all duration-200",
-                active ? "text-[var(--fc-primary)]" : "text-[var(--fc-text-subtle)] hover:text-white",
+                active ? "text-[#7C4FF0]" : "text-white/40 hover:text-white",
               )}
             >
               <div className={cn(
                 "flex h-9 w-12 items-center justify-center rounded-full transition-colors",
-                active && "bg-[var(--fc-primary)]/10"
+                active && "bg-[#7C4FF0]/10"
               )}>
                 <Icon
                   size={20}
@@ -152,7 +159,6 @@ export default function AppNavigation() {
 
   return (
     <>
-      <DesktopNavigation pathname={pathname} />
       <MobileNavigation
         pathname={pathname}
         hidden={hideMobileNavigation}
