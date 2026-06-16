@@ -158,13 +158,13 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       <div className="px-1">
         <h2 className="text-[12px] font-black uppercase tracking-[0.15em] text-white/25">
           {title}
         </h2>
       </div>
-      <div className="overflow-hidden rounded-[28px] bg-[#16161D] border border-white/[0.03] shadow-sm">
+      <div className="min-w-0 overflow-hidden rounded-[28px] bg-[#16161D] border border-white/[0.03] shadow-sm">
         {children}
       </div>
     </section>
@@ -188,7 +188,7 @@ function SettingRow({
 }) {
   return (
     <div className={cn(
-      "flex items-center gap-4 px-5 py-4 w-full hover:bg-white/[0.02] transition-colors",
+      "flex min-w-0 items-center gap-4 px-5 py-4 w-full hover:bg-white/[0.02] transition-colors",
       !isLast && "border-b border-white/[0.03]"
     )}>
       <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-[#7C4FF0]/10">
@@ -370,17 +370,17 @@ export default function SettingsPage() {
   return (
     <>
       <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(0.5rem+env(safe-area-inset-top))]">
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+        <div className="mx-auto flex min-w-0 w-full max-w-2xl flex-col gap-6">
           <header className="px-5 mb-2">
             <h1 className="text-[28px] font-extrabold tracking-tight text-white">
               Settings
             </h1>
           </header>
 
-          <div className="grid gap-8 px-4">
+          <div className="grid min-w-0 gap-8 px-4">
             <button
               onClick={() => router.push("/profile")}
-              className="group flex w-full items-center gap-5 rounded-[32px] bg-[#16161D] p-5 border border-white/[0.03] transition-all hover:bg-[#1E1E27] active:scale-[0.99] shadow-sm"
+              className="group flex min-w-0 w-full items-center gap-5 rounded-[32px] bg-[#16161D] p-5 border border-white/[0.03] transition-all hover:bg-[#1E1E27] active:scale-[0.99] shadow-sm"
             >
               <div className="relative shrink-0">
                 <div
@@ -444,7 +444,7 @@ export default function SettingsPage() {
               <SettingRow icon={AlertTriangle} label="Report Bug" sub="Help us improve the experience" isLast />
             </Section>
 
-            <div className="flex flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-3">
               <button 
                 onClick={() => setLogoutConfirmOpen(true)}
                 className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/15 active:scale-[0.99]"
@@ -465,7 +465,7 @@ export default function SettingsPage() {
               </button>
             </div>
             
-            <footer className="py-6 text-center">
+            <footer className="min-w-0 py-6 text-center">
               <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/10">
                 FlexChat v1.2.0 · 2026
               </p>
