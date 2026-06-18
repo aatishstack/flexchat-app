@@ -152,17 +152,17 @@ export default function NewChatPanel({
           >
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-2xl font-bold tracking-tight">New Message</h1>
+          <h1 className="text-[22px] font-extrabold text-white">New Message</h1>
         </div>
 
         <div className="relative mt-6">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--fc-text-subtle)]" />
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
           <input
             autoFocus
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search contacts or usernames"
-            className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.03] pl-12 pr-4 text-[15px] font-bold text-white outline-none transition focus:border-[var(--fc-primary)]/40 focus:bg-white/[0.05]"
+            className="h-11 w-full rounded-full border border-white/10 bg-white/[0.03] pl-11 pr-4 text-[14px] text-white outline-none transition focus:border-[var(--fc-primary)]/40 focus:bg-white/[0.05] placeholder:text-white/20"
           />
         </div>
       </header>
@@ -211,7 +211,7 @@ export default function NewChatPanel({
                     <FlexAvatar
                       src={contact.avatar}
                       name={contact.username}
-                      className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-[var(--fc-app-panel-strong)] text-lg font-black text-white border border-white/10"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--fc-app-panel-strong)] text-base font-black text-white"
                     />
                     <div className="min-w-0 flex-1">
                       <h3 className="truncate text-[15px] font-bold text-white/90">
@@ -257,7 +257,7 @@ export default function NewChatPanel({
                       <FlexAvatar
                         src={contact.avatar}
                         name={contact.username}
-                        className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-[var(--fc-app-panel-strong)] text-lg font-black text-white border border-white/10"
+                        className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--fc-app-panel-strong)] text-base font-black text-white"
                       />
                       <div className="min-w-0 flex-1">
                         <h3 className="truncate text-[15px] font-bold text-white/90">
@@ -298,7 +298,7 @@ export default function NewChatPanel({
                           <FlexAvatar
                             src={user.avatar}
                             name={user.username}
-                            className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-gradient-to-br from-[var(--fc-primary)] to-[#6D28D9] text-lg font-black text-white shadow-md"
+                            className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[var(--fc-primary)] to-[#6D28D9] text-base font-black text-white shadow-md"
                           />
                           <div className="min-w-0">
                             <h3 className="truncate text-[15px] font-bold text-white/90">
