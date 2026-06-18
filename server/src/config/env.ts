@@ -70,6 +70,12 @@ const envSchema = z.object({
     z.string().trim().optional(),
   FIREBASE_SERVICE_ACCOUNT_JSON:
     z.string().trim().optional(),
+  WEBRTC_CALLING_ENABLED:
+    z.string()
+      .trim()
+      .toLowerCase()
+      .optional()
+      .transform((value) => value === "true" || value === "1"),
   TURN_SERVER_URLS:
     z.string().trim().optional(),
   TURN_AUTH_SECRET:
@@ -211,6 +217,7 @@ const envSchema = z.object({
 
   if (
     env.NODE_ENV === "production" &&
+    env.WEBRTC_CALLING_ENABLED &&
     (!env.TURN_SERVER_URLS || !env.TURN_AUTH_SECRET)
   ) {
     context.addIssue({
