@@ -2070,7 +2070,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
           }`}
         >
           {message.replyTo ? (
-            <div className="mb-2 rounded-xl border border-white/[0.05] border-l-[3px] border-l-[#7C4FF0] bg-white/[0.03] px-3 py-2 text-[12px] text-white/50">
+            <div className="mb-2 rounded-xl border border-white/[0.05] border-l-[3px] border-l-[#7C4FF0] bg-white/[0.03] px-3 py-2 text-[12px] text-white/85">
               <p className="font-bold text-[#7C4FF0]">Reply</p>
               <p className="mt-0.5 line-clamp-2">
                 {highlightedReplyText}
@@ -4696,106 +4696,14 @@ export default function ChatConversation() {
 
           <button
             type="button"
-            onClick={() => setProfileOpen(true)}
+            onClick={() => setChatSettingsOpen(true)}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/[0.06] hover:text-white"
-            aria-label="Chat menu"
-          >
-            <MoreVertical size={20} />
-          </button>
-        </div>
-      </div>
-        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-          <button
-            type="button"
-            onClick={returnToConversationList}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/5 hover:text-white lg:hidden"
-            aria-label="Back to conversations"
-          >
-            <ArrowLeft size={20} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (isConversationBlocked) {
-                showBlockedInteractionToast();
-                return;
-              }
-
-              setProfileOpen(true);
-            }}
-            className="shrink-0 outline-none transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={isConversationBlocked}
-            aria-label="Open profile"
-          >
-            <FlexAvatar
-              src={activeConversationAvatar}
-              name={activeConversation.name}
-              className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-[#16161D] text-[13.5px] font-bold sm:h-10 sm:w-10 sm:text-base border border-white/5"
-            />
-          </button>
-
-          <div className="min-w-0 flex-1 ml-1">
-            <h2
-              className="truncate text-[15.5px] font-bold leading-tight text-white sm:text-[17px]"
-            >
-              {activeConversationDisplayName}
-            </h2>
-
-            <p
-              className={`truncate text-[11px] font-medium leading-tight sm:text-[12.5px] ${
-                !isConnected && isConnecting
-                  ? "text-[#7C4FF0]"
-                  : !isConnected
-                    ? "text-white/40"
-                    : isConversationBlocked
-                  ? "text-white/40"
-                  : remoteTypingUsers.length
-                  ? "text-[#7C4FF0]"
-                  : isOnline
-                    ? "text-[#7C4FF0]"
-                    : "text-white/40"
-              }`}
-            >
-              {connectionStatusLabel}
-            </p>
-          </div>
-        </div>
-
-        <div
-          className="flex shrink-0 items-center gap-1"
-        >
-          <button
-            type="button"
-            onClick={() => handleStartCall("voice")}
-            disabled={!callTargetUserId || isConversationBlocked}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/5 hover:text-white disabled:opacity-40 disabled:hover:bg-transparent"
-            aria-label="Start voice call"
-          >
-            <Phone size={19} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleStartCall("video")}
-            disabled={!callTargetUserId || isConversationBlocked}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/5 hover:text-white disabled:opacity-40 disabled:hover:bg-transparent"
-            aria-label="Start video call"
-          >
-            <Video size={20} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() =>
-              setChatSettingsOpen(true)
-            }
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/5 hover:text-white"
             aria-label="Open chat settings"
           >
             <MoreVertical size={20} />
           </button>
         </div>
+      </div>
       <AnimatePresence initial={false}>
         {messageSearchOpen ? (
           <motion.div
