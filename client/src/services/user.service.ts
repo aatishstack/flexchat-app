@@ -4,6 +4,10 @@ import { isAxiosError } from "axios";
 
 import type { PublicUser } from "@/types/user";
 
+export type DiscoverUsersScope =
+  | "discover"
+  | "search";
+
 export type CurrentUser = {
   id: string;
   username: string;
@@ -41,7 +45,10 @@ function getApiErrorMessage(error: unknown, fallback: string) {
 }
 
 export async function getDiscoverUsers(
-  query = ""
+  query = "",
+  options: {
+    scope?: DiscoverUsersScope;
+  } = {}
 ) {
   const response =
     await api.get<PublicUser[]>(
@@ -50,7 +57,9 @@ export async function getDiscoverUsers(
         params: {
           q:
             query.trim() || undefined,
-          limit: 60,
+          limit: 40,
+          scope:
+            options.scope,
         },
       }
     );

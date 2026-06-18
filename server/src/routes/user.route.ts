@@ -20,10 +20,12 @@ import {
 } from "../services/media.service.js";
 import { getSocketServer } from "../socket/socket-hub.js";
 import { SOCKET_EVENTS } from "../socket/socket-events.js";
+import { getOnlineUserIds } from "../socket/socket-store.js";
 
 const discoverUsersQuerySchema = z.object({
   q: z.string().trim().max(80).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(40),
+  limit: z.coerce.number().int().min(1).max(50).default(40),
+  scope: z.enum(["discover", "search"]).default("discover"),
 });
 
 const lookupUsersQuerySchema = z.object({
@@ -57,35 +59,67 @@ const PHONE_NUMBER_IN_USE_MESSAGE =
 function publicUser(user: {
   id: string;
   username: string;
+  displayName?: string | null;
+  fullName?: string | null;
   email?: string;
   avatar?: string | null;
   phoneNumber?: string | null;
   lastSeenAt?: Date | string | null;
   createdAt?: Date | string | null;
+  online?: boolean;
 }) {
-  return {
+  const serializedUser: {
+    id: string;
+    username: string;
+    displayName: string;
+    email?: string;
+    avatar: string | null;
+    phoneNumber?: string | null;
+    lastSeenAt?: string | null;
+    createdAt?: string | null;
+    online?: boolean;
+  } = {
     id: user.id,
     username: user.username,
-    ...(user.email
-      ? {
-          email: user.email,
-        }
-      : {}),
+    displayName: user.displayName ?? user.fullName ?? user.username,
     avatar: user.avatar ?? null,
-    phoneNumber: user.phoneNumber ?? null,
-    lastSeenAt:
+  };
+
+  if (user.email) {
+    serializedUser.email = user.email;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(user, "phoneNumber")) {
+    serializedUser.phoneNumber = user.phoneNumber ?? null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(user, "lastSeenAt")) {
+    serializedUser.lastSeenAt =
       user.lastSeenAt instanceof Date
         ? user.lastSeenAt.toISOString()
-        : (user.lastSeenAt ?? null),
-    createdAt:
+        : (user.lastSeenAt ?? null);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(user, "createdAt")) {
+    serializedUser.createdAt =
       user.createdAt instanceof Date
         ? user.createdAt.toISOString()
-        : (user.createdAt ?? null),
-  };
+        : (user.createdAt ?? null);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(user, "online")) {
+    serializedUser.online = Boolean(user.online);
+  }
+
+  return serializedUser;
 }
 
 function normalizePhoneDigits(value?: string | null) {
   return value?.replace(/\D/g, "") ?? "";
+}
+
+function compactSearchText(value?: string | null) {
+  return value?.replace(/[^a-zA-Z0-9]/g, "") ?? "";
 }
 
 function normalizePhoneNumber(value?: string | null) {
@@ -627,29 +661,74 @@ export async function userRoutes(app: FastifyInstance) {
         });
       }
 
-      const { q, limit } = parsedQuery.data;
+      const { q, limit, scope } = parsedQuery.data;
       const normalizedQuery = q?.trim();
       const normalizedPhoneQuery = normalizePhoneDigits(normalizedQuery);
-      const canSearchPhone = normalizedPhoneQuery.length >= 5;
+      const compactQuery = compactSearchText(normalizedQuery);
+      const canSearchPhone = normalizedPhoneQuery.length >= 3;
+      const phoneSearchPattern = `%${normalizedPhoneQuery}%`;
+      const textSearchPattern = normalizedQuery
+        ? `%${normalizedQuery}%`
+        : "";
+      const compactSearchPattern = compactQuery ? `%${compactQuery}%` : "";
       const generatedUserPrefix = ["du", "mmy"].join("");
+      const displayNameSql = sql`coalesce(
+        nullif(to_jsonb(users)->>'displayName', ''),
+        nullif(to_jsonb(users)->>'display_name', ''),
+        nullif(to_jsonb(users)->>'fullName', ''),
+        nullif(to_jsonb(users)->>'full_name', ''),
+        username
+      )`;
+      const fullNameSql = sql`coalesce(
+        nullif(to_jsonb(users)->>'fullName', ''),
+        nullif(to_jsonb(users)->>'full_name', ''),
+        ''
+      )`;
+      const phoneDigitsSql = sql`regexp_replace(
+        coalesce(phone_number_normalized, phone_number, ''),
+        '[^0-9]',
+        '',
+        'g'
+      )`;
       const searchFilter = normalizedQuery
         ? sql`and (
-            username ilike ${`%${normalizedQuery}%`}
+            username ilike ${textSearchPattern}
+            or ${displayNameSql} ilike ${textSearchPattern}
+            or ${fullNameSql} ilike ${textSearchPattern}
+            ${
+              compactQuery
+                ? sql`or regexp_replace(username, '[^a-zA-Z0-9]', '', 'g') ilike ${compactSearchPattern}
+                    or regexp_replace(${displayNameSql}, '[^a-zA-Z0-9]', '', 'g') ilike ${compactSearchPattern}
+                    or regexp_replace(${fullNameSql}, '[^a-zA-Z0-9]', '', 'g') ilike ${compactSearchPattern}`
+                : sql``
+            }
             ${
               canSearchPhone
-                ? sql`or phone_number_normalized = ${normalizedPhoneQuery}
-                    or phone_number_normalized like ${`%${normalizedPhoneQuery}`}`
+                ? sql`or ${phoneDigitsSql} = ${normalizedPhoneQuery}
+                    or ${phoneDigitsSql} like ${phoneSearchPattern}`
                 : sql``
             }
           )`
         : sql``;
       const searchOrder = normalizedQuery
         ? sql`
+            case
+              when username ilike ${normalizedQuery} then 0
+              when ${displayNameSql} ilike ${normalizedQuery} then 0
+              ${
+                canSearchPhone
+                  ? sql`when ${phoneDigitsSql} = ${normalizedPhoneQuery} then 0`
+                  : sql``
+              }
+              when username ilike ${`${normalizedQuery}%`} then 1
+              when ${displayNameSql} ilike ${`${normalizedQuery}%`} then 1
+              else 2
+            end,
             ${
               canSearchPhone
                 ? sql`case
-                    when phone_number_normalized = ${normalizedPhoneQuery}
-                      or phone_number_normalized like ${`%${normalizedPhoneQuery}`}
+                    when ${phoneDigitsSql} = ${normalizedPhoneQuery}
+                      or ${phoneDigitsSql} like ${phoneSearchPattern}
                     then 0
                     else 1
                   end,`
@@ -662,23 +741,9 @@ export async function userRoutes(app: FastifyInstance) {
             created_at desc,
             id desc
           `;
-
-      const discoveredUsers = await db.execute<{
-        id: string;
-        username: string;
-        avatar: string | null;
-        phoneNumber: string | null;
-        lastSeenAt: Date | string | null;
-      }>(sql`
-          select
-            id,
-            username,
-            avatar,
-            phone_number as "phoneNumber",
-            last_seen_at as "lastSeenAt"
-          from users
-          where id <> ${userId}
-            and is_deleted = false
+      const discoverVisibilityFilter =
+        scope === "discover"
+          ? sql`
             and not exists (
               select 1
               from discover_dismissals dd
@@ -696,13 +761,38 @@ export async function userRoutes(app: FastifyInstance) {
             and email not ilike '%@flexchat.local'
             and email not ilike '%@example.com'
             and email not ilike '%@test.com'
+          `
+          : sql``;
+
+      const discoveredUsers = await db.execute<{
+        id: string;
+        username: string;
+        displayName: string | null;
+        avatar: string | null;
+      }>(sql`
+          select
+            id,
+            username,
+            ${displayNameSql} as "displayName",
+            avatar
+          from users
+          where id <> ${userId}
+            and is_deleted = false
+          ${discoverVisibilityFilter}
           ${searchFilter}
           order by
             ${searchOrder}
           limit ${limit}
         `);
 
-      return discoveredUsers.map(publicUser);
+      const onlineUserIds = new Set(getOnlineUserIds());
+
+      return discoveredUsers.map((user) =>
+        publicUser({
+          ...user,
+          online: onlineUserIds.has(user.id),
+        }),
+      );
     },
   );
 

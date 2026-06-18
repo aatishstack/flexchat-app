@@ -21,10 +21,14 @@ export const queryKeys = {
     all: ["stories"] as const,
   },
   users: {
-    discover: (query: string) =>
+    discover: (
+      query: string,
+      scope = "discover"
+    ) =>
       [
         "users",
         "discover",
+        scope,
         query,
       ] as const,
     lookup: (ids: string[]) =>
