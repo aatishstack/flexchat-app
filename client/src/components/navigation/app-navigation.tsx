@@ -124,13 +124,13 @@ function MobileNavigation({
   }
 
   return (
-    <nav className="fixed inset-x-0 bottom-6 z-[190] flex justify-center lg:hidden pointer-events-none pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed inset-x-0 bottom-8 z-[190] flex justify-center lg:hidden pointer-events-none pb-[env(safe-area-inset-bottom)] px-6">
       <div
-        className="pointer-events-auto flex h-[68px] items-center gap-1 rounded-[28px] border border-white/[0.08] px-2 shadow-[0_32px_64px_rgba(0,0,0,0.8)]"
+        className="pointer-events-auto flex h-[72px] w-full max-w-[420px] items-center justify-around gap-1 rounded-full border border-white/[0.05] px-2 shadow-[0_40px_100px_rgba(0,0,0,1)]"
         style={{
-          background: "rgba(12, 12, 16, 0.85)",
-          backdropFilter: "blur(24px)",
-          WebkitBackdropFilter: "blur(24px)",
+          background: "rgba(0, 0, 0, 0.45)",
+          backdropFilter: "blur(40px)",
+          WebkitBackdropFilter: "blur(40px)",
         }}
       >
         {NAV_ITEMS.map((item) => {
@@ -141,31 +141,31 @@ function MobileNavigation({
             <Link
               key={item.href}
               href={item.href}
-              onClick={() => triggerHaptic(10)}
+              onClick={() => triggerHaptic(15)}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "relative flex h-[52px] min-w-[64px] flex-col items-center justify-center rounded-[22px] transition-all duration-300",
-                active ? "text-[#7C4FF0]" : "text-white/25 hover:text-white/60",
+                "relative flex h-full flex-1 flex-col items-center justify-center transition-all duration-300",
+                active ? "text-[#7C4FF0]" : "text-white/30 hover:text-white/60",
               )}
             >
               <div className={cn(
-                "flex h-9 w-12 items-center justify-center rounded-full transition-all duration-300",
-                active && "bg-[#7C4FF0]/15"
+                "flex h-[44px] w-[44px] items-center justify-center rounded-2xl transition-all duration-300",
+                active && "bg-[#7C4FF0]/10"
               )}>
                 <Icon
-                  size={21}
+                  size={24}
                   className={cn(
                     "transition-all duration-300",
-                    active && "scale-110 rotate-0",
+                    active && "scale-110",
                   )}
                 />
               </div>
-              <span className={cn(
-                "mt-0.5 text-[10px] font-black uppercase tracking-widest transition-opacity duration-300",
-                active ? "opacity-100" : "opacity-40"
-              )}>
-                {item.label}
-              </span>
+              {active && (
+                <motion.div
+                  layoutId="mobile-nav-indicator"
+                  className="absolute bottom-2 h-1 w-1 rounded-full bg-[#7C4FF0] shadow-[0_0_8px_#7C4FF0]"
+                />
+              )}
             </Link>
           );
         })}

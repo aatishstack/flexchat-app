@@ -424,59 +424,60 @@ const ConversationListButton = memo(
             event.currentTarget.getBoundingClientRect()
           );
         }}
-        className={`group w-full flex items-center gap-3.5 px-3 py-2.5 rounded-2xl transition-colors ${
+        className={`group relative w-full flex items-center gap-4 px-4 py-3.5 transition-all duration-200 ${
           active
-            ? "bg-[#7C4FF0] text-white"
-            : "hover:bg-white/[0.04] text-white"
-        } ${isPressed ? "scale-[0.98] opacity-80" : ""}`}
+            ? "bg-white/[0.05]"
+            : "hover:bg-white/[0.03] text-white"
+        } ${isPressed ? "scale-[0.98] brightness-110" : ""}`}
       >
+        {active && (
+          <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#7C4FF0] shadow-[2px_0_12px_rgba(124,79,240,0.4)]" />
+        )}
+
         <div className="relative shrink-0">
           <FlexAvatar
             src={avatar}
             name={conversation.name}
-            className={`flex h-[56px] w-[56px] items-center justify-center overflow-hidden rounded-full text-[19px] font-bold ${active ? "bg-white/20" : "bg-[#16161D] border border-white/5 shadow-sm"}`}
+            presence={isOnline ? "online" : null}
+            className="h-[58px] w-[58px]"
           />
-
-          {isOnline ? (
-            <div className={`absolute bottom-[2px] right-[2px] h-[13px] w-[13px] rounded-full border-[2.5px] ${active ? "border-[#7C4FF0]" : "border-[#0C0C10]"} bg-[#22C55E]`} />
-          ) : null}
         </div>
 
         <div className="min-w-0 flex-1 py-1">
           <div className="flex items-center justify-between gap-2 mb-0.5">
             <div className="flex min-w-0 items-center gap-1.5">
-              <h3 className={`truncate text-[16.5px] font-bold tracking-tight ${active ? "text-white" : "text-white/95"}`}>
+              <h3 className={`truncate text-[17px] font-bold tracking-tight text-white`}>
                 {displayName}
               </h3>
 
               {conversation.pinned ? (
                 <Pin
-                  size={12}
-                  className={`shrink-0 ml-0.5 ${active ? "text-white/80" : "text-[#7C4FF0]"}`}
+                  size={13}
+                  className={`shrink-0 ml-0.5 text-[#7C4FF0] opacity-80`}
                 />
               ) : null}
 
               {conversation.muted ? (
                 <BellOff
-                  size={12}
-                  className={`shrink-0 ml-0.5 ${active ? "text-white/60" : "text-white/30"}`}
+                  size={13}
+                  className={`shrink-0 ml-0.5 text-white/20`}
                 />
               ) : null}
             </div>
 
-            <span suppressHydrationWarning className={`shrink-0 text-[11px] font-bold tracking-wide ${active ? "text-white/70" : "text-white/25"}`}>
+            <span suppressHydrationWarning className={`shrink-0 text-[11.5px] font-bold tracking-wide text-white/25`}>
               {lastActivityLabel}
             </span>
           </div>
 
           <div className="flex items-center justify-between gap-3">
-            <p className={`truncate text-[14.5px] leading-snug ${active ? "text-white/85 font-medium" : conversation.unreadCount ? "text-white/90 font-semibold" : "text-white/45 font-medium"}`}>
+            <p className={`truncate text-[14.5px] leading-snug ${conversation.unreadCount ? "text-white/90 font-semibold" : "text-white/40 font-medium"}`}>
               {conversation.latestMessage ||
                 "No messages yet"}
             </p>
 
             {conversation.unreadCount ? (
-              <div className={`flex h-[20px] min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10.5px] font-black leading-none ${active ? "bg-white text-[#7C4FF0]" : "bg-[#7C4FF0] text-white shadow-lg shadow-[#7C4FF0]/20"}`}>
+              <div className={`flex h-[20px] min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-black leading-none bg-[#7C4FF0] text-white shadow-[0_0_12px_rgba(124,79,240,0.5)]`}>
                 {conversation.unreadCount}
               </div>
             ) : null}
@@ -484,6 +485,8 @@ const ConversationListButton = memo(
         </div>
       </button>
     );
+  }
+);
   }
 );
 
@@ -1348,12 +1351,13 @@ export default function ChatSidebar() {
   ]);
 
   return (
-    <aside className="fc-panel fc-gpu-accelerated flex h-full w-full border-r border-white/5 lg:w-[360px] bg-[#0C0C10]">
-      <div className="flex w-full flex-col">
-        <div className="px-4 pb-2 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+    <aside className="fc-panel fc-gpu-accelerated flex h-full w-full lg:w-[360px] bg-[#0C0C10]">
+      <div className="flex w-full flex-col relative">
+        {/* Sticky Glassmorphic Header */}
+        <div className="sticky top-0 z-20 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur-2xl bg-[#0C0C10]/60 border-b border-white/[0.03]">
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-3">
-              <h1 className="text-[26px] font-black tracking-tighter leading-none">
+              <h1 className="text-[24px] font-black tracking-tighter leading-none">
                 <span className="text-white">Flex</span>
                 <span className="text-[#7C4FF0]">Chat</span>
               </h1>
@@ -1366,18 +1370,18 @@ export default function ChatSidebar() {
                   triggerHaptic(10);
                   router.push("/contacts");
                 }}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white transition-all shadow-sm"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white transition-all"
                 aria-label="New Chat"
               >
-                <Plus size={20} strokeWidth={2.5} />
+                <Plus size={22} strokeWidth={2.5} />
               </button>
             </div>
           </div>
 
-          <div className="relative mb-2">
+          <div className="relative">
             <Search
-              size={17}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20"
+              size={16}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30"
             />
 
             <input
@@ -1385,12 +1389,10 @@ export default function ChatSidebar() {
               onChange={(event) =>
                 setSearch(event.target.value)
               }
-              placeholder="Search conversations"
-              className="h-10 w-full rounded-[14px] bg-white/[0.03] pl-10 pr-4 text-[14.5px] font-medium text-white outline-none transition-all placeholder:text-white/20 focus:bg-white/[0.05] border border-white/[0.02] focus:border-[#7C4FF0]/20"
+              placeholder="Search conversations..."
+              className="h-10 w-full rounded-full bg-white/[0.04] pl-11 pr-4 text-[14.5px] font-medium text-white outline-none transition-all placeholder:text-white/20 focus:bg-white/[0.07] border-none"
             />
           </div>
-
-          {/* StoryTray removed - Migrated to dedicated Status screen */}
         </div>
 
         <div
@@ -1399,7 +1401,7 @@ export default function ChatSidebar() {
           onTouchMove={handlePullMove}
           onTouchEnd={handlePullEnd}
           onTouchCancel={handlePullEnd}
-          className="chat-safe-scroll relative flex-1 overflow-y-auto px-2 py-1 pb-[calc(6.5rem+env(safe-area-inset-bottom))]"
+          className="chat-safe-scroll relative flex-1 overflow-y-auto pb-[calc(6.5rem+env(safe-area-inset-bottom))]"
         >
           <div
             className="pointer-events-none sticky top-0 z-10 flex justify-center overflow-hidden transition-[height]"
@@ -1421,13 +1423,13 @@ export default function ChatSidebar() {
           </div>
 
           {conversationsQuery.isLoading ? (
-            <div className="space-y-3 px-3">
+            <div className="space-y-0 px-0">
               {Array.from({
                 length: 12,
               }).map((_, index) => (
-                <div key={index} className="flex items-center gap-3 py-2">
-                  <div className="h-12 w-12 animate-pulse rounded-full bg-white/5" />
-                  <div className="flex-1 space-y-2">
+                <div key={index} className="flex items-center gap-4 px-4 py-3">
+                  <div className="h-[56px] w-[56px] animate-pulse rounded-full bg-white/5" />
+                  <div className="flex-1 space-y-2.5">
                     <div className="h-4 w-1/3 animate-pulse rounded-full bg-white/5" />
                     <div className="h-3 w-3/4 animate-pulse rounded-full bg-white/5" />
                   </div>
@@ -1438,7 +1440,7 @@ export default function ChatSidebar() {
 
 
           {conversationsQuery.isError ? (
-            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100 mx-2 mt-2">
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100 mx-4 mt-4">
               Unable to load conversations
             </div>
           ) : null}
@@ -1502,20 +1504,22 @@ export default function ChatSidebar() {
           </div>
 
           {conversationsQuery.hasNextPage ? (
-            <button
-              type="button"
-              onClick={() => {
-                void conversationsQuery.fetchNextPage();
-              }}
-              disabled={
-                conversationsQuery.isFetchingNextPage
-              }
-              className="mt-3 mx-2 w-[calc(100%-16px)] rounded-xl border border-white/5 bg-white/[0.02] px-4 py-2.5 text-[14px] font-bold text-white/50 transition hover:bg-white/[0.04] hover:text-white disabled:cursor-wait disabled:opacity-60"
-            >
-              {conversationsQuery.isFetchingNextPage
-                ? "Loading..."
-                : "Load older chats"}
-            </button>
+            <div className="px-4 mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  void conversationsQuery.fetchNextPage();
+                }}
+                disabled={
+                  conversationsQuery.isFetchingNextPage
+                }
+                className="w-full rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3.5 text-[14px] font-bold text-white/50 transition hover:bg-white/[0.04] hover:text-white disabled:cursor-wait disabled:opacity-60"
+              >
+                {conversationsQuery.isFetchingNextPage
+                  ? "Loading..."
+                  : "Load older chats"}
+              </button>
+            </div>
           ) : null}
         </div>
       </div>

@@ -98,6 +98,48 @@
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight;
+  }
+
+  .text-xs {
+    @apply tracking-wide;
+  }
+}
+
+@layer utilities {
+  .fc-gpu-accelerated {
+    @apply transform-gpu backface-hidden;
+  }
+
+  .fc-glass {
+    @apply backdrop-blur-2xl bg-black/40;
+  }
+
+  .fc-shadow-premium {
+    @apply shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)];
+  }
+
+  .fc-glow-purple {
+    @apply shadow-[0_0_20px_rgba(124,79,240,0.3)];
+  }
+}
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);

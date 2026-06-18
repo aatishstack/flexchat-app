@@ -4602,8 +4602,109 @@ export default function ChatConversation() {
       onTouchCancel={handleConversationTouchEnd}
     >
       <div
-        className="relative z-10 flex h-[56px] shrink-0 items-center justify-between gap-2 bg-[#0C0C10]/95 px-3 backdrop-blur-3xl pt-[env(safe-area-inset-top)] sm:h-[64px] sm:px-5"
+        className="relative z-20 flex h-[64px] shrink-0 items-center justify-between gap-3 border-b border-white/[0.03] bg-black/40 px-3 backdrop-blur-3xl pt-[env(safe-area-inset-top)] sm:h-[72px] sm:px-5"
       >
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <button
+            type="button"
+            onClick={returnToConversationList}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/[0.06] hover:text-white lg:hidden"
+            aria-label="Back to conversations"
+          >
+            <ArrowLeft size={24} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (isConversationBlocked) {
+                showBlockedInteractionToast();
+                return;
+              }
+
+              setProfileOpen(true);
+            }}
+            className="flex min-w-0 items-center gap-3 text-left outline-none transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isConversationBlocked}
+            aria-label="Open profile"
+          >
+            <FlexAvatar
+              src={activeConversationAvatar}
+              name={activeConversation.name}
+              presence={isOnline ? "online" : null}
+              className="h-10 w-10 shrink-0"
+            />
+
+            <div className="min-w-0 flex-1">
+              <h2
+                className="truncate text-[16.5px] font-bold tracking-tight text-white leading-none mb-1"
+              >
+                {activeConversationDisplayName}
+              </h2>
+
+              <p
+                className={`truncate text-[12px] font-bold tracking-wide leading-none ${
+                  !isConnected && isConnecting
+                    ? "text-[#7C4FF0]"
+                    : !isConnected
+                      ? "text-white/40"
+                      : isConversationBlocked
+                    ? "text-white/40"
+                    : remoteTypingUsers.length
+                    ? "text-[#7C4FF0]"
+                    : isOnline
+                      ? "text-[#7C4FF0]/80"
+                      : "text-white/20"
+                }`}
+              >
+                {connectionStatusLabel}
+              </p>
+            </div>
+          </button>
+        </div>
+
+        <div
+          className="flex shrink-0 items-center gap-1 sm:gap-2"
+        >
+          <button
+            type="button"
+            onClick={() => handleStartCall("voice")}
+            disabled={!callTargetUserId || isConversationBlocked}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40 disabled:hover:bg-transparent"
+            aria-label="Start voice call"
+          >
+            <Phone size={20} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleStartCall("video")}
+            disabled={!callTargetUserId || isConversationBlocked}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40 disabled:hover:bg-transparent"
+            aria-label="Start video call"
+          >
+            <Video size={20} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMessageSearchOpen(true)}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/[0.06] hover:text-white"
+            aria-label="Search messages"
+          >
+            <Search size={20} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setProfileOpen(true)}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/[0.06] hover:text-white"
+            aria-label="Chat menu"
+          >
+            <MoreVertical size={20} />
+          </button>
+        </div>
+      </div>
         <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
           <button
             type="button"
