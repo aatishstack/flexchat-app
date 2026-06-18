@@ -1,7 +1,9 @@
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
-import Fastify from "fastify";
+import Fastify, {
+  type FastifyInstance,
+} from "fastify";
 import { sql } from "drizzle-orm";
 import * as Sentry from "@sentry/node";
 
@@ -19,6 +21,46 @@ import { uploadRoutes } from "./routes/upload.route.js";
 import { userRoutes } from "./routes/user.route.js";
 
 const READINESS_TIMEOUT_MS = 4_000;
+
+async function runBuildStage<T>(
+  app: FastifyInstance,
+  stage: string,
+  action: () => Promise<T> | T,
+) {
+  const startedAt = Date.now();
+
+  app.log.info(
+    {
+      stage,
+    },
+    "FlexChat buildApp stage started",
+  );
+
+  try {
+    const result = await action();
+
+    app.log.info(
+      {
+        stage,
+        durationMs: Date.now() - startedAt,
+      },
+      "FlexChat buildApp stage completed",
+    );
+
+    return result;
+  } catch (error) {
+    app.log.error(
+      {
+        stage,
+        durationMs: Date.now() - startedAt,
+        err: error,
+      },
+      "FlexChat buildApp stage failed",
+    );
+
+    throw error;
+  }
+}
 
 function buildCorsOrigin() {
   if (env.NODE_ENV !== "production") {
@@ -88,6 +130,33 @@ export async function buildApp() {
   });
   const corsOrigin = buildCorsOrigin();
 
+  app.log.info(
+    {
+      stage: "fastify:create",
+      nodeEnv: env.NODE_ENV,
+      trustProxy: env.NODE_ENV === "production" ? 1 : false,
+    },
+    "FlexChat Fastify instance created",
+  );
+
+  app.log.info(
+    {
+      stage: "cors:origin",
+      allowAllOrigins: corsOrigin === true,
+      allowedOriginCount: Array.isArray(corsOrigin)
+        ? corsOrigin.length
+        : undefined,
+    },
+    "FlexChat CORS configuration built",
+  );
+
+  app.log.info(
+    {
+      stage: "routes:health",
+    },
+    "FlexChat health route registration started",
+  );
+
   app.get(
     "/health",
     {
@@ -105,6 +174,20 @@ export async function buildApp() {
           sentry: env.SENTRY_DSN ? "enabled" : "disabled",
         });
     },
+  );
+
+  app.log.info(
+    {
+      stage: "routes:health",
+    },
+    "FlexChat health route registration completed",
+  );
+
+  app.log.info(
+    {
+      stage: "hooks:request",
+    },
+    "FlexChat request hook registration started",
   );
 
   app.addHook("onRequest", async (request) => {
@@ -210,31 +293,61 @@ export async function buildApp() {
     return payload;
   });
 
-  await app.register(cors, {
-    origin: corsOrigin,
-    credentials: false,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  });
-
-  await app.register(rateLimit, {
-    max: env.RATE_LIMIT_MAX,
-    timeWindow: env.RATE_LIMIT_WINDOW,
-  });
-
-  await app.register(multipart, {
-    limits: {
-      fileSize: 50 * 1024 * 1024,
+  app.log.info(
+    {
+      stage: "hooks:request",
     },
-  });
+    "FlexChat request hook registration completed",
+  );
 
-  await app.register(authRoutes);
-  await app.register(userRoutes);
-  await app.register(messageRoutes);
-  await app.register(notificationRoutes);
-  await app.register(conversationRoutes);
-  await app.register(storyRoutes);
-  await app.register(uploadRoutes);
+  await runBuildStage(app, "plugin:cors", () =>
+    app.register(cors, {
+      origin: corsOrigin,
+      credentials: false,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+    }),
+  );
+
+  await runBuildStage(app, "plugin:rateLimit", () =>
+    app.register(rateLimit, {
+      max: env.RATE_LIMIT_MAX,
+      timeWindow: env.RATE_LIMIT_WINDOW,
+    }),
+  );
+
+  await runBuildStage(app, "plugin:multipart", () =>
+    app.register(multipart, {
+      limits: {
+        fileSize: 50 * 1024 * 1024,
+      },
+    }),
+  );
+
+  await runBuildStage(app, "routes:auth", () => app.register(authRoutes));
+  await runBuildStage(app, "routes:user", () => app.register(userRoutes));
+  await runBuildStage(app, "routes:messages", () =>
+    app.register(messageRoutes),
+  );
+  await runBuildStage(app, "routes:notifications", () =>
+    app.register(notificationRoutes),
+  );
+  await runBuildStage(app, "routes:conversations", () =>
+    app.register(conversationRoutes),
+  );
+  await runBuildStage(app, "routes:stories", () =>
+    app.register(storyRoutes),
+  );
+  await runBuildStage(app, "routes:upload", () =>
+    app.register(uploadRoutes),
+  );
+
+  app.log.info(
+    {
+      stage: "routes:root-ready",
+    },
+    "FlexChat root/readiness route registration started",
+  );
 
   app.get("/", async () => {
     return {
@@ -298,6 +411,13 @@ export async function buildApp() {
       };
     }
   });
+
+  app.log.info(
+    {
+      stage: "routes:root-ready",
+    },
+    "FlexChat root/readiness route registration completed",
+  );
 
   return app;
 }
