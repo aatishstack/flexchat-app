@@ -53,7 +53,7 @@ export default function MessageStatus({
     return (
       <Check
         size={iconSize}
-        className={cn("text-white/20", className)}
+        className={cn("text-[rgba(255,255,255,0.38)]", className)}
       />
     );
   }
@@ -62,7 +62,7 @@ export default function MessageStatus({
     return (
       <CheckCheck
         size={iconSize}
-        className={cn("text-white/20", className)}
+        className={cn("text-[rgba(255,255,255,0.38)]", className)}
       />
     );
   }
@@ -79,7 +79,7 @@ export default function MessageStatus({
   return (
     <CheckCheck
       size={iconSize}
-      className={cn("text-[#7C4FF0]", className)}
+      className={cn("text-[#60A5FA]", className)}
     />
   );
 }

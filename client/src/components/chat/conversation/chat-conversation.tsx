@@ -1993,12 +1993,10 @@ const ChatMessageRow = memo(function ChatMessageRow({
   return (
     <Fragment>
       {dateDividerLabel !== null ? (
-        <div className="my-2.5 flex items-center gap-3">
-          <div className="h-px flex-1 bg-[var(--fc-divider)]" />
-          <span className="fc-surface rounded-full border px-3 py-0.5 text-[11px] font-medium text-[var(--fc-text-muted)] sm:backdrop-blur-xl">
+        <div className="my-2.5 flex justify-center">
+          <span className="bg-white/[0.05] rounded-full px-3 py-1 text-[11px] font-semibold text-white/28">
             {dateDividerLabel}
           </span>
-          <div className="h-px flex-1 bg-[var(--fc-divider)]" />
         </div>
       ) : null}
 
@@ -2043,24 +2041,23 @@ const ChatMessageRow = memo(function ChatMessageRow({
 
         <div
           ref={bubbleRef}
-          style={
-            !isDeleted
-              ? {
-                  background: mine
-                    ? "var(--fc-own-bubble)"
-                    : "var(--fc-their-bubble)",
-                  color: mine
-                    ? "var(--fc-own-bubble-text)"
-                    : "var(--fc-their-bubble-text)",
-                }
-              : undefined
-          }
-          className={`fc-message-bubble relative max-w-[85%] px-3.5 py-2 text-white shadow-md sm:max-w-[70%] sm:px-4 sm:py-2.5 ${
-            mine
-              ? "rounded-2xl rounded-tr-none"
-              : "rounded-2xl rounded-tl-none border border-white/[0.05]"
-          } ${
-            grouped ? (mine ? "!rounded-tr-2xl" : "!rounded-tl-2xl") : ""
+          style={{
+            background: !isDeleted
+              ? mine
+                ? "var(--fc-own-bubble)"
+                : "var(--fc-their-bubble)"
+              : undefined,
+            color: !isDeleted
+              ? mine
+                ? "var(--fc-own-bubble-text)"
+                : "var(--fc-their-bubble-text)"
+              : undefined,
+            borderRadius: mine
+              ? "18px 18px 5px 18px"
+              : "18px 18px 18px 5px",
+          }}
+          className={`fc-message-bubble relative max-w-[74%] px-3.5 py-2 text-white shadow-md sm:max-w-[70%] sm:px-4 sm:py-2.5 ${
+            !mine && !isDeleted ? "border border-white/[0.05]" : ""
           } ${message.status === "failed" ? "ring-1 ring-red-400/35" : ""} ${
             activeSearchMatch ? "ring-2 ring-[#FDE047]/70" : ""
           } ${
@@ -2179,7 +2176,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
             </div>
           ) : !isDeleted && message.text && !media ? (
             <div className="relative pb-0.5">
-              <p className="whitespace-pre-wrap break-words pr-14 text-[15px] leading-relaxed">
+              <p className="whitespace-pre-wrap break-words pr-14 text-[13.5px] leading-relaxed">
                 {highlightedMessageText}
               </p>
               <div className={`absolute bottom-[-2px] right-[-4px] flex items-center gap-1 text-[10px] font-bold tracking-tight ${mine ? "text-white/45" : "text-white/25"}`}>
@@ -4636,23 +4633,23 @@ export default function ChatConversation() {
 
             <div className="min-w-0 flex-1">
               <h2
-                className="truncate text-[16.5px] font-bold tracking-tight text-white leading-none mb-1"
+                className="truncate text-[14.5px] font-bold tracking-tight text-white leading-none mb-1"
               >
                 {activeConversationDisplayName}
               </h2>
 
               <p
-                className={`truncate text-[12px] font-bold tracking-wide leading-none ${
+                className={`truncate text-[11px] font-semibold tracking-wide leading-none ${
                   !isConnected && isConnecting
-                    ? "text-[#7C4FF0]"
+                    ? "text-emerald-400"
                     : !isConnected
                       ? "text-white/40"
                       : isConversationBlocked
                     ? "text-white/40"
                     : remoteTypingUsers.length
-                    ? "text-[#7C4FF0]"
+                    ? "text-emerald-400"
                     : isOnline
-                      ? "text-[#7C4FF0]/80"
+                      ? "text-emerald-400"
                       : "text-white/20"
                 }`}
               >
