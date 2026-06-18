@@ -124,15 +124,8 @@ function MobileNavigation({
   }
 
   return (
-    <nav className="fixed inset-x-0 bottom-8 z-[190] flex justify-center lg:hidden pointer-events-none pb-[env(safe-area-inset-bottom)] px-6">
-      <div
-        className="pointer-events-auto flex h-[72px] w-full max-w-[420px] items-center justify-around gap-1 rounded-full border border-white/[0.05] px-2 shadow-[0_40px_100px_rgba(0,0,0,1)]"
-        style={{
-          background: "rgba(0, 0, 0, 0.45)",
-          backdropFilter: "blur(40px)",
-          WebkitBackdropFilter: "blur(40px)",
-        }}
-      >
+    <nav className="fixed inset-x-0 bottom-0 z-[190] flex h-[calc(60px+env(safe-area-inset-bottom))] w-full bg-[#0C0C10] pb-[env(safe-area-inset-bottom)] lg:hidden border-t border-white/[0.03]">
+      <div className="flex h-full w-full items-center justify-around px-2">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = isActivePath(pathname, item.href);
@@ -141,31 +134,23 @@ function MobileNavigation({
             <Link
               key={item.href}
               href={item.href}
-              onClick={() => triggerHaptic(15)}
+              onClick={() => triggerHaptic(10)}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "relative flex h-full flex-1 flex-col items-center justify-center transition-all duration-300",
-                active ? "text-[#7C4FF0]" : "text-white/30 hover:text-white/60",
+                "relative flex h-full flex-1 flex-col items-center justify-center transition-colors duration-200",
+                active ? "text-[#7C4FF0]" : "text-white/40 hover:text-white/70",
               )}
             >
-              <div className={cn(
-                "flex h-[44px] w-[44px] items-center justify-center rounded-2xl transition-all duration-300",
-                active && "bg-[#7C4FF0]/10"
-              )}>
-                <Icon
-                  size={24}
-                  className={cn(
-                    "transition-all duration-300",
-                    active && "scale-110",
-                  )}
-                />
-              </div>
-              {active && (
-                <motion.div
-                  layoutId="mobile-nav-indicator"
-                  className="absolute bottom-2 h-1 w-1 rounded-full bg-[#7C4FF0] shadow-[0_0_8px_#7C4FF0]"
-                />
-              )}
+              <Icon
+                size={22}
+                className={cn(
+                  "mb-1 transition-transform duration-200",
+                  active && "scale-110",
+                )}
+              />
+              <span className="text-[10px] font-bold tracking-wide">
+                {item.label}
+              </span>
             </Link>
           );
         })}
