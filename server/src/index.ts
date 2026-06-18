@@ -6,10 +6,7 @@ import * as Sentry from "@sentry/node";
 
 import { env } from "./config/env.js";
 import { buildApp } from "./app.js";
-import {
-  closeDb,
-  getDatabaseStartupStatus,
-} from "./db/index.js";
+import { closeDb } from "./db/index.js";
 import { startMediaCleanup } from "./services/media.service.js";
 import { setupSocket } from "./socket/index.js";
 
@@ -199,39 +196,6 @@ function logRuntimeDiagnostics() {
   );
 }
 
-function logDependencyDiagnostics() {
-  const databaseStatus = getDatabaseStartupStatus();
-  const cloudinaryConfigured = Boolean(
-    env.CLOUDINARY_CLOUD_NAME &&
-      env.CLOUDINARY_API_KEY &&
-      env.CLOUDINARY_API_SECRET,
-  );
-
-  startupLog(
-    "info",
-    "dependencies:config",
-    "FlexChat dependency configuration loaded",
-    {
-      databaseConfigured: databaseStatus.configured,
-      databaseInitialized: databaseStatus.initialized,
-      databaseStartupError: databaseStatus.startupError
-        ? serializeError(databaseStatus.startupError)
-        : undefined,
-      redisConfigured: false,
-      redisStatus: "not used by this service",
-      cloudinaryConfigured,
-      firebaseProjectConfigured: Boolean(env.FIREBASE_PROJECT_ID),
-      firebaseServiceAccountConfigured: Boolean(
-        env.FIREBASE_SERVICE_ACCOUNT_JSON,
-      ),
-      sentryConfigured: Boolean(env.SENTRY_DSN),
-      turnRelayConfigured: Boolean(
-        env.TURN_SERVER_URLS && env.TURN_AUTH_SECRET,
-      ),
-    },
-  );
-}
-
 function getPort() {
   if (!process.env.PORT) {
     return DEFAULT_PORT;
@@ -359,7 +323,6 @@ process.on("SIGINT", () => {
 
 async function main() {
   logRuntimeDiagnostics();
-  logDependencyDiagnostics();
 
   runOptionalStartupStage("sentry:init", initializeSentry);
 
