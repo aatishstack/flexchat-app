@@ -6,6 +6,7 @@ import {
   PhoneMissed,
   PhoneOutgoing,
   Video,
+  Plus,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useShallow } from "zustand/react/shallow";
@@ -40,6 +41,7 @@ function getCallAvatar(conversation: Conversation, currentUserId?: string) {
 
 export default function CallsPage() {
   const [now, setNow] = useState(() => Date.now());
+  const [tab, setTab] = useState<"All" | "Missed">("All");
 
   const currentUserId = useAuthStore((state) => state.user?.id);
   const { currentCall, phase, startCall } = useCallStore(
@@ -78,6 +80,13 @@ export default function CallsPage() {
       );
   }, [notifications]);
 
+  const filteredHistory = useMemo(() => {
+    if (tab === "Missed") {
+      return callHistory.filter((n) => n.kind === "missed_call");
+    }
+    return callHistory;
+  }, [callHistory, tab]);
+
   const groupedHistory = useMemo(() => {
     const groups: Record<string, NotificationItem[]> = {
       Today: [],
@@ -91,7 +100,7 @@ export default function CallsPage() {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    callHistory.forEach((item) => {
+    filteredHistory.forEach((item) => {
       const date = new Date(item.createdAt);
       if (date >= today) {
         groups.Today.push(item);
@@ -103,7 +112,7 @@ export default function CallsPage() {
     });
 
     return groups;
-  }, [callHistory, now]);
+  }, [filteredHistory, now]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
@@ -141,10 +150,32 @@ export default function CallsPage() {
 
   return (
     <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(0.5rem+env(safe-area-inset-top))]">
-      <div className="px-5 mb-6">
-        <h1 className="text-[28px] font-extrabold tracking-tight text-white">
-          Calls
-        </h1>
+      <div className="flex items-center justify-between px-5 pt-2 pb-3 mb-1">
+        <h1 className="text-[22px] font-extrabold text-white">Calls</h1>
+        <button
+          className="w-8 h-8 flex items-center justify-center rounded-full bg-white/[0.06] text-white"
+          onClick={() => {
+            // Trigger quick call options selector if needed
+          }}
+        >
+          <Plus size={18} className="text-white/60" />
+        </button>
+      </div>
+
+      <div className="flex gap-1 mx-5 mb-4 p-1 rounded-xl bg-white/[0.05]">
+        {(["All", "Missed"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className="flex-1 py-2 rounded-lg text-[13px] font-bold transition-colors"
+            style={{
+              background: tab === t ? "#7C4FF0" : "transparent",
+              color: tab === t ? "white" : "rgba(255,255,255,0.38)",
+            }}
+          >
+            {t}
+          </button>
+        ))}
       </div>
 
       <div className="space-y-6">
@@ -196,37 +227,37 @@ export default function CallsPage() {
 
         {/* Recents Section */}
         <div>
-          <div className="px-5 mb-3 flex items-center justify-between">
-            <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/28">Recent History</span>
+          <div className="px-5 mb-2 flex items-center justify-between">
+            <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-white/28">Recent History</span>
           </div>
-          <div className="px-3 space-y-6">
+          <div className="space-y-4">
             {["Today", "Yesterday", "Earlier"].map((group) => {
               const items = groupedHistory[group] ?? [];
               if (!items.length) return null;
 
               return (
-                <div key={group} className="space-y-1">
-                  <div className="px-3 py-2">
-                    <span className="text-[11px] font-bold text-white/20 uppercase tracking-widest">{group}</span>
+                <div key={group} className="space-y-0.5">
+                  <div className="px-5 py-1.5">
+                    <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">{group}</span>
                   </div>
-                  <div className="space-y-1">
+                  <div className="flex flex-col">
                     {items.map((notification) => {
                       const meta = getHistoryMeta(notification);
                       const Icon = meta.icon;
 
                       return (
-                        <div key={notification.id} className="flex items-center gap-4 px-3 py-3 rounded-2xl hover:bg-white/[0.03] transition-colors">
+                        <div key={notification.id} className="flex items-center gap-3.5 px-5 py-3 hover:bg-white/[0.03] transition-colors">
                           <div className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center bg-white/[0.04]">
                             <Icon size={18} className={meta.tone} />
                           </div>
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 text-left">
                             <div className="flex items-center justify-between gap-2 mb-0.5">
-                              <h3 className="text-[15px] font-bold text-white truncate">{meta.label}</h3>
-                              <span className="shrink-0 text-[10.5px] font-bold text-white/20 uppercase">
+                              <h3 className="text-[14.5px] font-semibold text-white truncate">{meta.label}</h3>
+                              <span className="shrink-0 text-[12px] text-white/32 font-medium">
                                 {formatRelativeTime(notification.createdAt, now)}
                               </span>
                             </div>
-                            <p className="text-[13px] text-white/30 font-medium truncate leading-relaxed">
+                            <p className="text-[12px] text-white/40 font-medium truncate">
                               {notification.message || notification.title}
                             </p>
                           </div>
@@ -241,7 +272,7 @@ export default function CallsPage() {
         </div>
       </div>
       
-      {!callHistory.length && (
+      {!filteredHistory.length && (
         <div className="flex flex-col items-center justify-center py-32 text-center px-10">
           <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-6">
             <Phone size={28} className="text-white/10" />

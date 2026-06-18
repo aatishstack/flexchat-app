@@ -11,6 +11,8 @@ import {
   PhoneIncoming,
   PhoneMissed,
   UserX,
+  ArrowLeft,
+  MoreVertical,
 } from "lucide-react";
 import {
   AnimatePresence,
@@ -112,19 +114,29 @@ export default function NotificationsPage() {
 
   return (
     <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(0.5rem+env(safe-area-inset-top))]">
-      <div className="mx-auto w-full max-w-2xl px-4 sm:px-6">
-        <header className="px-1 mb-8 flex items-center justify-between">
-          <h1 className="text-[32px] font-black tracking-tight text-white">
-            Notifications
-          </h1>
-          {notifications.length > 0 && (
-            <button
-              onClick={markAllRead}
-              className="text-[12px] font-bold text-[#7C4FF0] hover:opacity-80 transition-opacity"
-            >
-              Mark all as read
+      <div className="mx-auto w-full max-w-2xl">
+        <header className="flex items-center justify-between px-3 py-2 border-b border-white/[0.05] mb-4">
+          <div className="flex items-center gap-2">
+            <button onClick={() => router.back()} className="p-2">
+              <ArrowLeft size={21} className="text-white/65" />
             </button>
-          )}
+            <h1 className="text-[20px] font-extrabold text-white">
+              Notifications
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            {notifications.length > 0 && (
+              <button
+                onClick={markAllRead}
+                className="text-[12px] font-bold text-[#7C4FF0] hover:opacity-80 transition-opacity mr-2"
+              >
+                Mark all
+              </button>
+            )}
+            <button className="w-8 h-8 flex items-center justify-center rounded-full bg-white/[0.06] text-white">
+              <MoreVertical size={17} className="text-white/55" />
+            </button>
+          </div>
         </header>
 
         {notifications.length === 0 ? (
@@ -138,15 +150,15 @@ export default function NotificationsPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-4">
             {["Today", "Yesterday", "Earlier"].map((group) => {
               const items = groupedNotifications[group];
               if (!items.length) return null;
 
               return (
-                <div key={group} className="space-y-4">
-                  <div className="px-1">
-                    <span className="text-[10.5px] font-bold tracking-[0.15em] uppercase text-white/25">{group}</span>
+                <div key={group} className="space-y-1">
+                  <div className="px-5 py-2">
+                    <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/28">{group}</span>
                   </div>
                   <div className="space-y-3">
                     <AnimatePresence initial={false}>
@@ -163,40 +175,36 @@ export default function NotificationsPage() {
                             exit={{ opacity: 0, x: -10 }}
                             onClick={() => handleAction(notification)}
                             className={cn(
-                              "relative flex items-start gap-4 p-5 rounded-[28px] cursor-pointer hover:bg-white/[0.04] transition-all active:scale-[0.99] border border-white/[0.02]",
-                              notification.read ? "bg-[#16161D]/50" : "bg-[#16161D] shadow-sm"
+                              "relative flex items-start gap-3.5 px-5 py-3 cursor-pointer hover:bg-white/[0.03] transition-colors w-full border-none bg-transparent"
                             )}
                           >
-                            {!notification.read && (
-                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-1.5 h-8 rounded-full bg-[#7C4FF0]" />
-                            )}
-                            
-                            <div className={cn(
-                              "w-11 h-11 shrink-0 rounded-[14px] flex items-center justify-center",
-                              meta.bg,
-                              meta.color
-                            )}>
-                              <Icon size={20} />
+                            <div className="relative shrink-0 mt-0.5">
+                              <div className={cn(
+                                "w-11 h-11 rounded-full flex items-center justify-center bg-white/[0.04]",
+                                meta.color
+                              )}>
+                                <Icon size={18} />
+                              </div>
                             </div>
 
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center justify-between gap-2 mb-0.5">
+                            <div className="min-w-0 flex-1 text-left">
+                              <div className="flex items-center gap-2 mb-0.5">
                                 <h3 className={cn(
-                                  "text-[15.5px] font-bold truncate tracking-tight",
-                                  notification.read ? "text-white/70" : "text-white"
+                                  "text-[14px] font-semibold truncate",
+                                  notification.read ? "text-white/60" : "text-white"
                                 )}>
                                   {notification.title}
                                 </h3>
-                                <span className="shrink-0 text-[10.5px] font-bold text-white/20 uppercase tracking-tighter">
-                                  {formatRelativeTime(notification.createdAt, now)}
-                                </span>
+                                {!notification.read && (
+                                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-[#7C4FF0]" />
+                                )}
                               </div>
-                              <p className={cn(
-                                "text-[13.5px] leading-relaxed line-clamp-2 font-medium",
-                                notification.read ? "text-white/30" : "text-white/50"
-                              )}>
+                              <p className="text-[12.5px] text-white/40 leading-snug line-clamp-2">
                                 {notification.message}
                               </p>
+                              <span className="text-[11px] text-white/20 mt-0.5 block">
+                                {formatRelativeTime(notification.createdAt, now)}
+                              </span>
                             </div>
                           </motion.div>
                         );
@@ -208,7 +216,7 @@ export default function NotificationsPage() {
             })}
             
             {notifications.length > 0 && (
-              <div className="pt-4 pb-10">
+              <div className="px-5 pt-4 pb-10">
                 <button
                   onClick={clearNotifications}
                   className="w-full py-4 rounded-2xl border border-white/[0.03] text-[13px] font-bold text-white/20 hover:text-red-400/50 hover:bg-red-500/[0.02] transition-all"

@@ -370,22 +370,23 @@ export default function SettingsPage() {
   return (
     <>
       <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(0.5rem+env(safe-area-inset-top))]">
-        <div className="mx-auto flex min-w-0 w-full max-w-2xl flex-col gap-6">
-          <header className="px-5 mb-2">
-            <h1 className="text-[28px] font-extrabold tracking-tight text-white">
+        <div className="mx-auto flex min-w-0 w-full max-w-2xl flex-col gap-5">
+          <header className="px-5 pt-2 pb-3 mb-1">
+            <h1 className="text-[22px] font-extrabold text-white">
               Settings
             </h1>
           </header>
 
-          <div className="grid min-w-0 gap-8 px-4">
+          <div className="flex flex-col min-w-0 gap-5 px-4">
             <button
               onClick={() => router.push("/profile")}
-              className="group flex min-w-0 w-full items-center gap-5 rounded-[32px] bg-[#16161D] p-5 border border-white/[0.03] transition-all hover:bg-[#1E1E27] active:scale-[0.99] shadow-sm"
+              className="group flex min-w-0 items-center gap-4 p-4 rounded-2xl hover:bg-white/[0.06] transition-colors"
+              style={{ background: "rgba(255,255,255,0.05)" }}
             >
               <div className="relative shrink-0">
                 <div
-                  className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[24px] text-xl font-black text-white"
-                  style={{ background: "linear-gradient(135deg, #7C4FF0, #A78BFA)" }}
+                  className="w-14 h-14 rounded-full flex items-center justify-center text-[18px] font-black text-white overflow-hidden"
+                  style={{ background: "#7C4FF0" }}
                 >
                   {user.avatar ? (
                     <img src={user.avatar} alt="" className="h-full w-full object-cover transition-transform group-hover:scale-110" />
@@ -393,26 +394,16 @@ export default function SettingsPage() {
                     getAvatarInitial(user.username)
                   )}
                 </div>
-                <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#0C0C10] p-1">
-                  <div className={cn(
-                    "h-full w-full rounded-full shadow-[0_0_8px_rgba(34,197,94,0.4)]",
-                    isConnected ? "bg-[#22C55E]" : "bg-zinc-600"
-                  )} />
-                </div>
               </div>
               
               <div className="flex-1 min-w-0 text-left">
-                <h2 className="truncate text-[17px] font-bold text-white tracking-tight">
-                  {user.username}
-                </h2>
-                <p className="mt-0.5 truncate text-[13px] font-medium text-white/30">
-                  {formatHandle(user.username)} · {isConnected ? "Active" : "Syncing"}
-                </p>
+                <div className="text-[15.5px] font-bold text-white tracking-tight">{user.username}</div>
+                <div className="text-[12.5px] text-white/38 font-medium mt-0.5 truncate leading-tight">
+                  {formatHandle(user.username)} · {isConnected ? "Online" : "Syncing"}
+                </div>
               </div>
               
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.03] text-white/20 transition group-hover:bg-white/5 group-hover:text-white">
-                <ChevronRight size={20} />
-              </div>
+              <ChevronRight size={17} className="text-white/28 flex-shrink-0" />
             </button>
 
             <Section title="Privacy & Security">
@@ -447,10 +438,11 @@ export default function SettingsPage() {
             <div className="flex min-w-0 flex-col gap-3">
               <button 
                 onClick={() => setLogoutConfirmOpen(true)}
-                className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/15 active:scale-[0.99]"
+                className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl hover:bg-red-500/[0.12] transition-colors"
+                style={{ background: "rgba(239,68,68,0.08)" }}
               >
-                <LogOut size={18} />
-                <span className="text-[14px] font-bold">Sign Out</span>
+                <LogOut size={17} className="text-red-400" />
+                <span className="text-[13.5px] font-bold text-red-400">Sign Out</span>
               </button>
               
               <button 
@@ -458,18 +450,14 @@ export default function SettingsPage() {
                   setDeleteConfirmation("");
                   setDeleteConfirmOpen(true);
                 }}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-red-400/40 transition-colors hover:text-red-400/60"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-red-400/30 transition-colors hover:text-red-400/50"
               >
-                <Trash2 size={16} />
-                <span className="text-[12px] font-bold">Delete Account</span>
+                <Trash2 size={15} />
+                <span className="text-[12.5px] font-bold">Delete Account</span>
               </button>
             </div>
             
-            <footer className="min-w-0 py-6 text-center">
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/10">
-                FlexChat
-              </p>
-            </footer>
+            <p className="text-center text-[10.5px] text-white/18 pb-5">FlexChat 3.0.0 · © 2026 FlexCorp Ltd.</p>
           </div>
         </div>
       </main>

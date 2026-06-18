@@ -1,17 +1,7 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-
-import {
-  QrCode,
-  Search,
-  UserPlus,
-  X,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { QrCode, Search, UserPlus, X, Compass } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -47,11 +37,11 @@ function DiscoverSection({
   className?: string;
 }) {
   return (
-    <section className={cn("grid gap-4", className)}>
-      <div className="px-1">
-        <h2 className="text-[13px] font-black uppercase tracking-[0.15em] text-[var(--fc-text-subtle)]">
+    <section className={cn("grid gap-2", className)}>
+      <div className="px-1 mb-1">
+        <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-white/28 block">
           {title}
-        </h2>
+        </span>
       </div>
       <div className="grid gap-2">{children}</div>
     </section>
@@ -140,25 +130,22 @@ export default function DiscoverPage() {
     <main className="fc-no-scrollbar h-dvh w-full overflow-x-hidden overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(0.5rem+env(safe-area-inset-top))]">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
         <header className="px-5 mb-2">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-[28px] font-extrabold tracking-tight text-white">
+          <div className="flex items-center justify-between px-1 pt-2 pb-3 mb-1">
+            <h1 className="text-[22px] font-extrabold text-white">
               Discover
             </h1>
-            <div className="hidden rounded-full bg-white/[0.05] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/30 sm:block">
-              People
-            </div>
+            <button className="w-8 h-8 flex items-center justify-center rounded-full bg-white/[0.06] text-white">
+              <Compass size={18} className="text-white/60" />
+            </button>
           </div>
 
-          <div className="relative">
-            <Search
-              size={18}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30"
-            />
+          <div className="flex items-center gap-2 bg-white/[0.07] rounded-xl px-3 py-2.5">
+            <Search size={16} className="text-white/40 flex-shrink-0" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search people"
-              className="h-11 w-full rounded-[18px] bg-white/[0.04] pl-11 pr-4 text-[15px] font-medium text-white outline-none transition-all placeholder:text-white/30 focus:bg-white/[0.06] border border-transparent focus:border-[#7C4FF0]/30"
+              placeholder="Search channels, people, topics"
+              className="flex-1 bg-transparent text-[13.5px] text-white placeholder-white/40 outline-none"
             />
           </div>
         </header>
@@ -201,19 +188,19 @@ export default function DiscoverPage() {
                     {newlyJoinedUsers.map((user) => (
                       <div
                         key={user.id}
-                        className="group flex items-center justify-between gap-4 rounded-[22px] bg-[#16161D] p-3.5 transition-all hover:bg-[#1E1E27] border border-white/[0.03]"
+                        className="group flex items-center justify-between gap-3.5 p-3 rounded-2xl hover:bg-white/[0.04] transition-colors"
                       >
-                        <div className="flex min-w-0 items-center gap-4">
+                        <div className="flex min-w-0 items-center gap-3.5">
                           <FlexAvatar
                             src={user.avatar}
                             name={user.username}
-                            className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#7C4FF0] to-[#A78BFA] text-lg font-black text-white shadow-lg"
+                            className="flex h-[46px] w-[46px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#7C4FF0] to-[#A78BFA] text-lg font-black text-white shadow-lg"
                           />
-                          <div className="min-w-0">
-                            <h3 className="truncate text-[15.5px] font-bold text-white tracking-tight">
+                          <div className="min-w-0 text-left">
+                            <h3 className="truncate text-[14.5px] font-semibold text-white">
                               {formatDisplayName(user.username)}
                             </h3>
-                            <p className="truncate text-[12.5px] font-medium text-white/30">
+                            <p className="truncate text-[12.5px] font-medium text-white/50 mt-0.5">
                               {formatHandle(user.username)}
                             </p>
                           </div>
@@ -223,16 +210,16 @@ export default function DiscoverPage() {
                           <button
                             onClick={() => startConversation.mutate(user.id)}
                             disabled={startConversation.isPending}
-                            className="flex h-9 px-4 items-center justify-center rounded-xl bg-[#7C4FF0] text-[12px] font-bold text-white transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-[#7C4FF0]/20"
+                            className="px-3.5 py-1.5 rounded-full text-[11.5px] font-bold bg-[#7C4FF0] text-white hover:bg-[#8B5CF6] transition-colors active:scale-95 disabled:opacity-50"
                           >
                             Message
                           </button>
                           <button
                             onClick={() => dismissUser.mutate(user.id)}
-                            className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.04] text-white/20 transition-colors hover:text-red-400"
+                            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.05] text-white/30 transition-colors hover:text-red-400"
                             aria-label="Dismiss"
                           >
-                            <X size={16} />
+                            <X size={15} />
                           </button>
                         </div>
                       </div>

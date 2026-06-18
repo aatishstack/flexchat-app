@@ -18,6 +18,7 @@ import {
   VideoOff,
   Bell,
   MessageCircle,
+  Volume2,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useShallow } from "zustand/react/shallow";
@@ -489,13 +490,36 @@ function CallScreen({
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[9998] bg-black text-white"
     >
+      {/* Top Header Overlay */}
+      {isVideoCall && (
+        <div className="fixed inset-x-0 top-0 z-30 flex items-center justify-between px-5 pt-[calc(16px+env(safe-area-inset-top))] pb-3 bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-none">
+          <div className="w-10" />
+          <div className="flex flex-col items-center">
+            <span className="text-[14px] font-bold text-white shadow-black drop-shadow-md">{name}</span>
+            <span className="text-[11px] text-white/55 font-medium mt-0.5 shadow-black drop-shadow-md">
+              {phase === "outgoing" ? "Calling..." : formatElapsed(elapsedSeconds)}
+            </span>
+          </div>
+          <button className="w-10 h-10 flex items-center justify-end pointer-events-auto">
+            <Volume2 size={20} className="text-white drop-shadow-md" />
+          </button>
+        </div>
+      )}
+
       {hasRemoteVideo ? (
         <StreamVideo
           stream={remoteStream}
           className="fixed inset-0 h-full w-full bg-black object-cover"
         />
       ) : (
-        <div className="fixed inset-0 flex flex-col items-center justify-center bg-[#08060F]">
+        <div 
+          className="fixed inset-0 flex flex-col items-center justify-center bg-[#0A0614]"
+          style={{
+            background: isVideoCall 
+              ? "radial-gradient(ellipse 70% 60% at 30% 40%, #1B0B38 0%, #0A0614 65%)"
+              : "#08060F"
+          }}
+        >
           <div className="relative mb-10">
              <motion.div
                animate={{ scale: [1, 1.3], opacity: [0.15, 0] }}
@@ -510,10 +534,14 @@ function CallScreen({
               />
              </div>
           </div>
-          <h2 className="text-[32px] font-extrabold text-white mb-2">{name}</h2>
-          <p className="text-[14px] text-[#7C4FF0] font-bold tracking-widest uppercase">
-            {phase === "outgoing" ? "Calling..." : formatElapsed(elapsedSeconds)}
-          </p>
+          {!isVideoCall && (
+            <>
+              <h2 className="text-[32px] font-extrabold text-white mb-2">{name}</h2>
+              <p className="text-[14px] text-[#7C4FF0] font-bold tracking-widest uppercase">
+                {phase === "outgoing" ? "Calling..." : formatElapsed(elapsedSeconds)}
+              </p>
+            </>
+          )}
         </div>
       )}
 
@@ -528,13 +556,13 @@ function CallScreen({
           onPointerMove={moveDrag}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
-          className="fixed z-20 overflow-hidden border border-white/10 bg-black shadow-2xl touch-none"
+          className="fixed z-20 overflow-hidden border border-white/10 bg-[#1E1E27] shadow-2xl touch-none animate-fade-in"
           style={{
             left: selfPosition.x,
             top: selfPosition.y,
-            width: 110,
-            height: 180,
-            borderRadius: 20,
+            width: 100,
+            height: 150,
+            borderRadius: 16,
           }}
         >
           <StreamVideo
@@ -546,14 +574,16 @@ function CallScreen({
       ) : null}
 
       {/* Dynamic Call Controls */}
-      <div className="fixed inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black via-black/40 to-transparent px-6 pb-12 pt-24">
-        <div className="mx-auto flex items-center justify-center gap-6">
+      <div className="fixed inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black via-black/40 to-transparent px-6 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-20">
+        <div className="mx-auto flex items-center justify-center gap-5 max-w-[280px]">
           <button
             type="button"
             onClick={toggleMute}
-            className={`w-15 h-15 rounded-full flex items-center justify-center backdrop-blur-xl transition-all active:scale-90 ${isMuted ? "bg-[#EF4444] text-white" : "bg-white/10 text-white hover:bg-white/20"}`}
+            className={`w-13 h-13 rounded-full flex items-center justify-center backdrop-blur-md transition-all active:scale-90 ${
+              isMuted ? "bg-white text-black" : "bg-white/15 text-white hover:bg-white/20"
+            }`}
           >
-            {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
+            {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
           </button>
 
           {isVideoCall ? (
@@ -561,16 +591,18 @@ function CallScreen({
               <button
                 type="button"
                 onClick={toggleVideo}
-                className={`w-15 h-15 rounded-full flex items-center justify-center backdrop-blur-xl transition-all active:scale-90 ${isVideoEnabled ? "bg-white/10 text-white hover:bg-white/20" : "bg-[#EF4444] text-white"}`}
+                className={`w-13 h-13 rounded-full flex items-center justify-center backdrop-blur-md transition-all active:scale-90 ${
+                  !isVideoEnabled ? "bg-white text-black" : "bg-white/15 text-white hover:bg-white/20"
+                }`}
               >
-                {isVideoEnabled ? <Video size={24} /> : <VideoOff size={24} />}
+                {!isVideoEnabled ? <VideoOff size={22} /> : <Video size={22} />}
               </button>
               <button
                 type="button"
                 onClick={() => { void switchCamera(); }}
-                className="w-15 h-15 rounded-full flex items-center justify-center bg-white/10 text-white backdrop-blur-xl hover:bg-white/20 transition-all active:scale-90"
+                className="w-13 h-13 rounded-full flex items-center justify-center bg-white/15 text-white backdrop-blur-md hover:bg-white/20 transition-all active:scale-90"
               >
-                <SwitchCamera size={24} />
+                <SwitchCamera size={22} />
               </button>
             </>
           ) : null}
@@ -578,9 +610,9 @@ function CallScreen({
           <button
             type="button"
             onClick={phase === "outgoing" ? cancelOutgoingCall : endCall}
-            className="w-18 h-18 rounded-full flex items-center justify-center bg-[#EF4444] text-white shadow-[0_0_30px_rgba(239,68,68,0.4)] hover:bg-[#F87171] transition-all active:scale-90"
+            className="w-13 h-13 rounded-full flex items-center justify-center bg-[#EF4444] text-white shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:bg-[#F87171] transition-all active:scale-90"
           >
-            <PhoneOff size={30} />
+            <PhoneOff size={22} />
           </button>
         </div>
       </div>

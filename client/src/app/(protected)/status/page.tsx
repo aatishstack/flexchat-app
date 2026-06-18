@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Search, MoreHorizontal, Camera } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Camera, MoreVertical } from "lucide-react";
 import { useStoriesQuery } from "@/hooks/queries/use-stories-query";
 import { useAuthStore } from "@/stores/auth.store";
 import { groupActiveStories } from "@/components/chat/stories/story-logic";
@@ -46,13 +46,13 @@ export default function StatusPage() {
 
   return (
     <main className="min-h-dvh bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(0.5rem+env(safe-area-inset-top))]">
-      <div className="px-5 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-[28px] font-extrabold tracking-tight text-white">
-            Status
+      <div className="px-5 mb-4 pt-2">
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="text-[22px] font-extrabold tracking-tight text-white">
+            Stories
           </h1>
-          <button className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.05] text-white">
-            <MoreHorizontal size={20} />
+          <button className="w-8 h-8 flex items-center justify-center rounded-full bg-white/[0.06] text-white">
+            <MoreVertical size={16} className="text-white/60" />
           </button>
         </div>
 
@@ -114,32 +114,32 @@ export default function StatusPage() {
         {/* Recent Updates */}
         {recentUpdates.length > 0 && (
           <section>
-            <div className="px-5 mb-3">
-              <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/28">Recent Updates</span>
+            <div className="px-5 py-2">
+              <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-white/28">Recent Updates</span>
             </div>
-            <div className="px-2">
+            <div className="flex flex-col">
               {recentUpdates.map((group) => {
                 const groupIndex = storyGroups.findIndex(g => g.userId === group.userId);
                 return (
                   <button
                     key={group.userId}
                     onClick={() => setViewerGroupIndex(groupIndex)}
-                    className="flex items-center gap-4 w-full px-3 py-2.5 rounded-2xl hover:bg-white/[0.04] transition-colors"
+                    className="flex items-center gap-3.5 px-5 py-3 w-full hover:bg-white/[0.03] transition-colors"
                   >
-                    <div className="shrink-0 flex h-[58px] w-[58px] items-center justify-center rounded-full p-[2.5px] bg-gradient-to-tr from-[#7C4FF0] to-[#A78BFA]">
+                    <div className="shrink-0 flex h-[50px] w-[50px] items-center justify-center rounded-full p-[2px] bg-gradient-to-tr from-[#7C4FF0] to-[#A78BFA]">
                       <div className="h-full w-full rounded-full ring-2 ring-[#0C0C10] overflow-hidden bg-[#16161D]">
                         <FlexAvatar
                           src={group.user.avatar}
                           name={group.user.username}
-                          className="h-full w-full text-[16px] font-bold"
+                          className="h-full w-full text-[14px] font-bold"
                         />
                       </div>
                     </div>
                     <div className="flex-1 text-left min-w-0">
-                      <h3 className="text-[15.5px] font-bold text-white truncate">
+                      <h3 className="text-[14.5px] font-semibold text-white truncate mb-0.5">
                         {formatDisplayName(group.user.username)}
                       </h3>
-                      <p className="text-[12.5px] text-white/40 font-medium">
+                      <p className="text-[12px] text-white/40 font-medium">
                         Just now
                       </p>
                     </div>
@@ -153,32 +153,32 @@ export default function StatusPage() {
         {/* Viewed Updates */}
         {viewedUpdates.length > 0 && (
           <section>
-            <div className="px-5 mb-3">
-              <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/28">Viewed Updates</span>
+            <div className="px-5 py-2">
+              <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-white/28">Viewed Updates</span>
             </div>
-            <div className="px-2">
+            <div className="flex flex-col">
               {viewedUpdates.map((group) => {
                 const groupIndex = storyGroups.findIndex(g => g.userId === group.userId);
                 return (
                   <button
                     key={group.userId}
                     onClick={() => setViewerGroupIndex(groupIndex)}
-                    className="flex items-center gap-4 w-full px-3 py-2.5 rounded-2xl hover:bg-white/[0.04] transition-colors"
+                    className="flex items-center gap-3.5 px-5 py-3 w-full hover:bg-white/[0.03] transition-colors"
                   >
-                    <div className="shrink-0 flex h-[58px] w-[58px] items-center justify-center rounded-full p-[2.5px] bg-white/10">
+                    <div className="shrink-0 flex h-[50px] w-[50px] items-center justify-center rounded-full p-[2px] bg-white/10">
                       <div className="h-full w-full rounded-full ring-2 ring-[#0C0C10] overflow-hidden bg-[#16161D]">
                         <FlexAvatar
                           src={group.user.avatar}
                           name={group.user.username}
-                          className="h-full w-full text-[16px] font-bold opacity-60"
+                          className="h-full w-full text-[14px] font-bold opacity-60"
                         />
                       </div>
                     </div>
                     <div className="flex-1 text-left min-w-0">
-                      <h3 className="text-[15.5px] font-bold text-white/60 truncate">
+                      <h3 className="text-[14.5px] font-semibold text-white/60 truncate mb-0.5">
                         {formatDisplayName(group.user.username)}
                       </h3>
-                      <p className="text-[12.5px] text-white/30 font-medium">
+                      <p className="text-[12px] text-white/30 font-medium">
                         Yesterday
                       </p>
                     </div>

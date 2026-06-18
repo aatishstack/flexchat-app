@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -17,6 +18,7 @@ import {
   Settings,
   ShieldCheck,
   User,
+  Video,
   X,
 } from "lucide-react";
 import {
@@ -395,6 +397,18 @@ export default function ProfilePage() {
     );
   }
 
+  const memberSince = useMemo(() => {
+    if (!user.createdAt) return "January 2026";
+    try {
+      return new Date(user.createdAt).toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      });
+    } catch {
+      return "January 2026";
+    }
+  }, [user.createdAt]);
+
   const avatar =
     profile.avatar ?? user.avatar;
 
@@ -403,121 +417,100 @@ export default function ProfilePage() {
       <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
         <div className="mx-auto w-full max-w-2xl px-4 sm:px-6">
           {/* Header with Back Button */}
-          <div className="flex items-center justify-between py-2 mb-4">
+          <div className="flex items-center justify-between px-3 py-2 mb-4">
             <button
               onClick={() => router.replace("/settings")}
-              className="p-2 -ml-2 rounded-full hover:bg-white/5 transition-colors"
+              className="p-2"
             >
-              <ArrowLeft size={24} className="text-white" />
+              <ArrowLeft size={21} className="text-white/65" />
             </button>
-            <div className="flex items-center gap-1">
-              <button onClick={openEditModal} className="p-2 rounded-full hover:bg-white/5 transition-colors">
-                <PenLine size={20} className="text-white" />
-              </button>
-            </div>
+            <h2 className="flex-1 text-center text-[16px] font-bold text-white">Profile</h2>
+            <button
+              onClick={openEditModal}
+              className="p-2"
+            >
+              <PenLine size={20} className="text-white/65" />
+            </button>
           </div>
 
           {/* Identity Presentation */}
-          <div className="flex flex-col items-center pt-2 pb-10">
-            <div className="relative mb-6">
-              <button
-                onClick={() => setPhotoPreviewOpen(true)}
-                className="w-[124px] h-[124px] rounded-[42px] overflow-hidden border border-white/[0.08] shadow-2xl relative group"
-              >
-                {avatar ? (
-                  <img src={avatar} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                ) : (
-                  <div 
-                    className="w-full h-full flex items-center justify-center text-[44px] font-black text-white"
-                    style={{ background: "linear-gradient(135deg, #7C4FF0, #A78BFA)" }}
-                  >
-                    {getAvatarInitial(profile.displayName)}
-                  </div>
-                )}
-              </button>
-              <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-2xl bg-[#0C0C10] flex items-center justify-center border border-white/5">
-                 <div className="w-4 h-4 rounded-full bg-[#22C55E] shadow-[0_0_12px_rgba(34,197,94,0.4)]" />
-              </div>
-            </div>
-            
-            <h2 className="text-[32px] font-extrabold text-white mb-1.5 tracking-tight">
+          <div className="flex flex-col items-center px-5 pt-4 pb-6">
+            <button
+              onClick={() => setPhotoPreviewOpen(true)}
+              className="w-[90px] h-[90px] rounded-full flex items-center justify-center overflow-hidden mb-3 relative group"
+              style={{
+                boxShadow: "0 0 0 4px rgba(124,79,240,0.25), 0 0 0 8px rgba(124,79,240,0.08)"
+              }}
+            >
+              {avatar ? (
+                <img src={avatar} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+              ) : (
+                <div 
+                  className="w-full h-full flex items-center justify-center text-[32px] font-black text-white"
+                  style={{ background: "linear-gradient(135deg, #7C4FF0, #A78BFA)" }}
+                >
+                  {getAvatarInitial(profile.displayName)}
+                </div>
+              )}
+            </button>
+            <h2 className="text-[22px] font-extrabold text-white">
               {formatDisplayName(profile.displayName)}
             </h2>
-            <div className="flex items-center gap-2">
-              <span className="text-[14px] text-[#7C4FF0] font-bold">
-                {formatHandle(user.username)}
+            <p className="text-[13px] text-white/42 mt-1 font-medium text-center px-4 max-w-sm">
+              {profile.about || "Hey there! I am using FlexChat."}
+            </p>
+            <div className="flex items-center gap-1.5 mt-2">
+              <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-emerald-400" : "bg-zinc-500"}`} />
+              <span className={`text-[12px] font-semibold ${isConnected ? "text-emerald-400" : "text-zinc-500"}`}>
+                {isConnected ? "Online now" : "Offline"}
               </span>
-              <span className="text-white/20 text-[12px] font-bold uppercase tracking-widest">•</span>
-              <span className="text-[13px] text-white/40 font-bold uppercase tracking-widest">
-                {isConnected ? "Active Now" : "Syncing"}
-              </span>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center justify-center gap-8 mb-10">
-            <div className="flex flex-col items-center gap-2.5 flex-1 max-w-[80px]">
-              <button className="w-14 h-14 rounded-2xl flex items-center justify-center bg-[#16161D] text-white border border-white/[0.05] shadow-sm active:scale-95 transition-all hover:bg-[#1E1E27]">
-                <Phone size={22} className="text-[#7C4FF0]" />
+          {/* Actions */}
+          <div className="flex gap-3 mx-5 mb-6">
+            {[
+              { icon: Phone, label: "Call", fn: () => {} },
+              { icon: Video, label: "Video", fn: () => {} },
+              { icon: ShieldCheck, label: "Secure", fn: () => {} }
+            ].map(({ icon: Icon, label, fn }) => (
+              <button
+                key={label}
+                onClick={fn}
+                className="flex-1 flex flex-col items-center gap-2 py-3.5 rounded-2xl hover:bg-white/[0.07] transition-colors"
+                style={{ background: "rgba(255,255,255,0.05)" }}
+              >
+                <Icon size={19} style={{ color: "#7C4FF0" }} />
+                <span className="text-[11.5px] text-white/55 font-semibold">{label}</span>
               </button>
-              <span className="text-[11px] font-bold text-white/25 uppercase tracking-widest">Call</span>
-            </div>
-            <div className="flex flex-col items-center gap-2.5 flex-1 max-w-[80px]">
-              <button className="w-14 h-14 rounded-2xl flex items-center justify-center bg-[#16161D] text-white border border-white/[0.05] shadow-sm active:scale-95 transition-all hover:bg-[#1E1E27]">
-                <Camera size={22} className="text-[#7C4FF0]" />
-              </button>
-              <span className="text-[11px] font-bold text-white/25 uppercase tracking-widest">Video</span>
-            </div>
-            <div className="flex flex-col items-center gap-2.5 flex-1 max-w-[80px]">
-              <button className="w-14 h-14 rounded-2xl flex items-center justify-center bg-[#16161D] text-white border border-white/[0.05] shadow-sm active:scale-95 transition-all hover:bg-[#1E1E27]">
-                <ShieldCheck size={22} className="text-[#7C4FF0]" />
-              </button>
-              <span className="text-[11px] font-bold text-white/25 uppercase tracking-widest">Secure</span>
-            </div>
+            ))}
           </div>
 
-          {/* Bio & Details Section */}
-          <div className="mb-6 p-6 rounded-[32px] bg-[#16161D] border border-white/[0.03] shadow-sm">
-            <div className="mb-6">
-              <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/25 block mb-2 px-1">Biography</span>
-              <p className="text-[15px] text-white/90 leading-relaxed px-1">
-                {profile.about || "Hey there! I am using FlexChat."}
-              </p>
-            </div>
-            <div className="space-y-5">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#7C4FF0]/10 shrink-0">
-                  <Mail size={18} className="text-[#7C4FF0]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[11px] text-white/20 font-bold uppercase tracking-wider">Email Address</div>
-                  <div className="text-[14.5px] font-bold text-white truncate tracking-tight">{user.email}</div>
-                </div>
+          {/* Info rows */}
+          <div className="mx-5 rounded-2xl overflow-hidden mb-5" style={{ background: "rgba(255,255,255,0.04)" }}>
+            {[
+              { label: "Email", value: user.email },
+              { label: "Phone", value: user.phoneNumber || profile.phone || "Not configured" },
+              { label: "Username", value: formatHandle(user.username) },
+              { label: "Member since", value: memberSince },
+            ].map(({ label, value }, i) => (
+              <div key={label} className={`flex items-center justify-between px-4 py-3.5 ${i > 0 ? "border-t border-white/[0.05]" : ""}`}>
+                <span className="text-[12.5px] text-white/38 font-semibold">{label}</span>
+                <span className="text-[13.5px] text-white font-medium">{value}</span>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#7C4FF0]/10 shrink-0">
-                  <Phone size={18} className="text-[#7C4FF0]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[11px] text-white/20 font-bold uppercase tracking-wider">Mobile Number</div>
-                  <div className="text-[14.5px] font-bold text-white truncate tracking-tight">
-                    {user.phoneNumber || profile.phone || "Not configured"}
-                  </div>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
 
-          {/* Shared Assets Section */}
-          <div className="mb-10">
-            <div className="mb-3 px-1">
-              <span className="text-[10.5px] font-bold tracking-[0.14em] uppercase text-white/25">Shared Content</span>
+          {/* Shared Content */}
+          <div className="mx-5 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[13.5px] font-bold text-white">Shared Media</span>
+              <button className="text-[12.5px] font-semibold" style={{ color: "#7C4FF0" }}>See all</button>
             </div>
-            <div className="flex flex-col items-center justify-center py-20 rounded-[32px] bg-[#16161D] border border-white/[0.02] shadow-inner">
-              <div className="w-16 h-16 rounded-3xl bg-white/[0.03] flex items-center justify-center mb-5">
-                <User size={32} className="text-white/10" />
-              </div>
-              <p className="text-[14px] font-bold text-white/20 tracking-tight">Media assets will appear here</p>
+            <div className="grid grid-cols-3 gap-1.5">
+              {["#7C4FF0", "#C8376A", "#2563EB", "#059669", "#D97706", "#7C3AED"].map((col, i) => (
+                <div key={i} className="aspect-square rounded-xl" style={{ background: col, opacity: 0.65 + i * 0.05 }} />
+              ))}
             </div>
           </div>
         </div>
