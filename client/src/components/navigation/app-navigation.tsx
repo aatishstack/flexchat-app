@@ -124,7 +124,7 @@ function MobileNavigation({
   }
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-[190] flex h-[calc(60px+env(safe-area-inset-bottom))] w-full bg-[#0C0C10] pb-[env(safe-area-inset-bottom)] lg:hidden border-t border-white/[0.03]">
+    <nav className="fixed inset-x-0 bottom-0 z-[190] flex h-[calc(60px+env(safe-area-inset-bottom))] w-full bg-[#0C0C10] pb-[env(safe-area-inset-bottom)] lg:hidden border-t border-white/[0.06]">
       <div className="flex h-full w-full items-center justify-around px-2">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
@@ -138,17 +138,23 @@ function MobileNavigation({
               aria-current={active ? "page" : undefined}
               className={cn(
                 "relative flex h-full flex-1 flex-col items-center justify-center transition-colors duration-200",
-                active ? "text-[#7C4FF0]" : "text-white/40 hover:text-white/70",
+                active ? "text-[#7C4FF0]" : "text-white/32 hover:text-white/70",
               )}
             >
-              <Icon
-                size={22}
-                className={cn(
-                  "mb-1 transition-transform duration-200",
-                  active && "scale-110",
-                )}
-              />
-              <span className="text-[10px] font-bold tracking-wide">
+              <div className={cn(
+                "p-1.5 rounded-xl transition-colors mb-0.5",
+                active ? "bg-[#7C4FF0]/[0.14]" : ""
+              )}>
+                <Icon
+                  size={21}
+                  strokeWidth={active ? 2.5 : 1.8}
+                  className={cn(
+                    "transition-transform duration-200",
+                    active && "scale-110",
+                  )}
+                />
+              </div>
+              <span className="text-[10px] font-semibold tracking-wide">
                 {item.label}
               </span>
             </Link>

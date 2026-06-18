@@ -1,333 +1,252 @@
-# FlexChat Master Engineering Context v2
+# FlexChat Master Engineering Context v3
 
 ## Project Overview
 
-FlexChat is a production-grade realtime messaging platform currently in its final UI migration and launch preparation phase.
+Project: FlexChat
 
-Core infrastructure is considered stable.
+FlexChat is a production-grade realtime messaging platform.
 
-The application already contains:
+Current phase:
 
-- Authentication
-- JWT Refresh Flow
-- Route Protection
-- Socket.IO Messaging
-- Presence System
-- Typing System
-- Notification Persistence
-- Notification Realtime Sync
-- Firebase FCM
-- Cloudinary Media Pipeline
-- Cloudflare Turnstile
-- Error Boundaries
-- Health Checks
-- Readiness Checks
-- Environment Validation
-- Message Virtualization
-- Conversation Virtualization
-- Mobile Safe Areas
-- APK Preparation
-- Story System
-- Call Signaling
-- Dynamic TURN Integration
+VISUAL PARITY PASS
 
-Infrastructure is NOT the current focus.
+The application is already functional.
 
-Visual parity and launch readiness are the current focus.
+The goal is NOT to rebuild the application.
+
+The goal is NOT to redesign the application.
+
+The goal is to make the existing production application visually match the approved Figma designs while preserving all existing functionality.
+
+---
+
+# Primary Sources Of Truth
+
+Visual Source Of Truth:
+
+1. Connected Figma MCP Project
+   - Design FlexChat Messaging App
+
+Secondary Visual Sources:
+
+2. F:\projects\flexchat\Refrence images
+3. F:\projects\flexchat\current state
+
+Functional Source Of Truth:
+
+4. Existing FlexChat codebase
+
+If sources conflict:
+
+Functionality wins.
 
 ---
 
 # Instruction Priority
 
-If instructions conflict:
-
 1. Runtime Stability
-2. Production Functionality
+2. Existing Functionality
 3. Existing Architecture
-4. Reference Screenshots
-5. Approved Prototype
-6. Visual Improvements
+4. Figma MCP Designs
+5. Reference Images
+6. UI Polish
+7. New Ideas
 
 Higher priorities always win.
 
 ---
 
-# Current Phase
+# Core Rule
 
-Current Phase:
+DO NOT BREAK THE APP.
 
-Visual Parity Pass
+DO NOT REWRITE THE APP.
 
-Bug fixing is temporarily paused.
+DO NOT REPLACE WORKING SYSTEMS.
 
-Feature development is temporarily paused.
+DO NOT IMPORT PROTOTYPE LOGIC.
 
-The immediate objective is:
+DO NOT REPLACE REAL DATA WITH MOCK DATA.
 
-Match the approved reference screenshots as closely as possible.
+DO NOT REBUILD FEATURES FROM FIGMA.
 
-Only after visual parity is achieved should bug fixing begin.
+FIGMA = VISUAL REFERENCE
 
----
-
-# Visual Source Of Truth
-
-Primary Reference:
-
-F:\projects\flexchat\Refrence images
-
-Current Application Screens:
-
-F:\projects\flexchat\current state
-
-Before modifying UI:
-
-1. Review reference screenshots.
-2. Review current state screenshots.
-3. Compare side-by-side.
-4. Identify differences.
-5. Apply only necessary UI changes.
-
-Never redesign from imagination.
-
-Never invent layouts.
-
-Never modernize without reference support.
-
-Goal:
-
-Visual parity.
-
-Not redesign.
+FLEXCHAT = FUNCTIONAL SOURCE OF TRUTH
 
 ---
 
-# Functional Source Of Truth
+# Existing Systems
 
-The existing FlexChat application is the functional source of truth.
+Already Implemented:
 
-Preserve:
+- Authentication
+- JWT Refresh Flow
+- Route Protection
+- Socket.IO Messaging
+- Presence
+- Typing
+- Notifications
+- Firebase FCM
+- Cloudinary
+- Stories
+- Calls
+- TURN Integration
+- Media Uploads
+- Conversation Virtualization
+- Message Virtualization
+- Mobile Safe Areas
 
-- Socket.IO lifecycle
-- Zustand ownership
-- Existing APIs
-- Existing routes
-- Existing services
-- Existing stores
-- Existing business logic
-- Existing notification pipeline
-- Existing media pipeline
-- Existing story pipeline
-- Existing WebRTC pipeline
-
-Replace presentation only.
+These systems must be preserved.
 
 ---
 
 # Protected Systems
 
-Do NOT rewrite:
+Never rewrite:
 
 - Auth
 - JWT
+- Refresh Tokens
 - Socket.IO
 - Presence
 - Typing
-- Notifications backend
+- Notifications
 - Firebase
 - Cloudinary
-- Stories backend
-- Calls backend
-- TURN integration
-- Database logic
+- Stories Backend
+- Calls Backend
+- TURN
+- Database Layer
+- Zustand Stores
 - Providers
-- Zustand stores
+- Services
+- API Contracts
 
-These systems are already integrated and production-tested.
+UI may change.
 
----
-
-# Approved Visual Identity
-
-Primary Accent:
-
-#7C4FF0
-
-Background:
-
-#0C0C10
-
-Primary Surface:
-
-#16161D
-
-Secondary Surface:
-
-#1E1E27
-
-Typography:
-
-Plus Jakarta Sans
-
-Spacing Scale:
-
-4
-8
-12
-16
-20
-24
-32
-40
-48
-
-Radius Scale:
-
-10
-14
-18
-
-Motion:
-
-150ms–300ms
+Behavior must remain unchanged.
 
 ---
 
-# Brand Rules
+# Protected Files
 
-Official Brand:
+Do NOT modify without explicit approval:
 
-FlexChat
+- client/src/app/globals.css
+- client/src/components/chat/conversation/chat-conversation.tsx
 
-Brand Styling:
+These files previously caused build regressions.
 
-Flex = White
+If modification appears necessary:
 
-Chat = #7C4FF0
+STOP.
 
-Official Logo:
+Explain why.
 
-F:\projects\flexchat\assets\logo\FlexChatLogo.jpeg
-
-Use the official logo only.
-
-Do NOT create:
-
-- alternate logos
-- generated logos
-- placeholder icons
-- replacement F marks
-
-Use the official asset whenever branding is required.
-
-Branding Areas:
-
-- Splash
-- Authentication
-- Session Restore
-- Onboarding
-- Empty States
-- Branding Headers
+Wait for approval.
 
 ---
 
-# Anti-Telegram Rule
+# Figma MCP Rules
 
-Telegram usability is allowed.
+Use the connected Figma MCP project:
 
-Telegram visuals are not.
+Design FlexChat Messaging App
 
-Remove:
+Before any UI change:
 
-- Telegram blue gradients
-- Telegram blue surfaces
-- Telegram blue message bubbles
-- Telegram blue hierarchy
+1. Read Figma frame.
+2. Read current implementation.
+3. Compare.
+4. Produce audit.
+5. Wait for approval.
+6. Produce blueprint.
+7. Wait for approval.
+8. Implement.
+9. Verify build.
+10. Report git diff.
 
-Allowed:
-
-- Responsiveness
-- Message density
-- Scroll performance
-- Conversation usability
-
-FlexChat must maintain:
-
-Black + Purple identity.
+Never skip steps.
 
 ---
 
-# Messaging Vision
+# Audit Rules
 
-Priorities:
+When asked to audit:
 
-1. Readability
-2. Density
-3. Speed
-4. One-Handed Use
+STOP after audit.
 
-Requirements:
+Do not implement.
 
-- Clean grouping
-- Visible typing indicators
-- Premium composer
-- Lightweight reactions
-- Smooth scrolling
-- Comfortable touch targets
+Do not create code.
 
-Never sacrifice reliability for appearance.
+Output:
 
----
+# SCREEN ANALYZED
 
-# Stories Vision
+# VISUAL DIFFERENCES
 
-Stories are a flagship feature.
+# TYPOGRAPHY DIFFERENCES
 
-Requirements:
+# SPACING DIFFERENCES
 
-- Immersive viewer
-- Premium transitions
-- Viewer lists
-- Reactions
-- Replies
-- Analytics
+# COMPONENT DIFFERENCES
 
-Story close must always return to the previous route.
+# MOBILE ISSUES
 
-Never redirect unexpectedly.
+# RECOMMENDED CHANGES
+
+# RISK LEVEL
+
+STOP.
 
 ---
 
-# Calls Vision
+# Blueprint Rules
 
-Requirements:
+When asked to create blueprint:
 
-- Premium incoming call screen
-- Premium voice call screen
-- Premium video call screen
-- Connection indicators
-- Network indicators
+STOP after blueprint.
 
-The UI should inspire confidence.
+For every change report:
 
----
+- File
+- Component
+- Exact visual change
+- Estimated lines changed
+- Risk level
+- Regression risk
 
-# Settings Vision
+Do not implement.
 
-Settings should feel like a premium operating system.
-
-Focus:
-
-- Hierarchy
-- Grouping
-- Discoverability
-- Accessibility
-
-Avoid endless flat lists.
+STOP.
 
 ---
 
-# Mobile Rules
+# Implementation Rules
+
+Only implement approved scope.
+
+No bonus work.
+
+No hidden work.
+
+No future phase work.
+
+Only modify approved files.
+
+If more files are needed:
+
+STOP.
+
+Explain.
+
+Wait for approval.
+
+---
+
+# Mobile First Rules
 
 Primary Platform:
 
@@ -335,78 +254,82 @@ Android
 
 Target Widths:
 
-360
-390
-412
-430
-
-Support:
-
-- Browser
-- PWA
-- Android WebView
-- Capacitor
-- Trusted Web Activity
+- 360
+- 390
+- 412
+- 430
 
 Desktop is secondary.
 
+All visual decisions must prioritize Android.
+
 ---
 
-# Loading Experience Rules
+# FlexChat Visual Identity
 
-Loading screens are part of the product.
+Brand:
+
+FlexChat
+
+Primary Accent:
+#7C4FF0
+
+Background:
+#0C0C10
+
+Primary Surface:
+#16161D
+
+Secondary Surface:
+#1E1E27
+
+Typography:
+Plus Jakarta Sans
+
+Identity:
+
+- Premium
+- Fast
+- Clean
+- Mobile-first
+- Native-feeling
 
 Avoid:
 
-- Generic spinners
-- Default loaders
-- Blue loading indicators
-
-Prefer:
-
-- Official logo
-- Purple accent motion
-- Brand-consistent loading states
-
-Priority:
-
-1. Splash
-2. Session Restore
-3. Auth Loading
-4. Story Loading
-5. Call Connecting
+- Telegram cloning
+- Excessive glassmorphism
+- Heavy gradients
+- Dashboard layouts
+- Unnecessary cards
 
 ---
 
-# Performance Rules
+# Stories
 
-Never optimize blindly.
+Stories are a flagship feature.
 
-Before optimization:
+Preserve:
 
-1. Identify bottleneck.
-2. Measure impact.
-3. Verify improvement.
+- Story upload
+- Story viewing
+- Story analytics
+- Story navigation
+- Story interactions
 
-Prefer:
-
-- Fewer rerenders
-- Lower memory usage
-- Smoother scrolling
-- Lower network traffic
+Only adjust presentation.
 
 ---
 
-# Security Rules
+# Calls
 
-Always:
+Preserve:
 
-- Validate server-side
-- Authorize server-side
-- Sanitize inputs
-- Rate-limit sensitive actions
+- Signaling
+- TURN
+- WebRTC
+- Presence
 
-Never trust client state.
+Only adjust presentation.
 
 ---
 
@@ -416,63 +339,47 @@ Nothing is complete until verified.
 
 Required:
 
-- Build passes
-- Typecheck passes
-- Runtime path verified
-- Mobile viewport verified
+- Build
+- Typecheck (if available)
+- Runtime validation
+- Mobile viewport review
 
 If not tested:
 
-Status = UNVERIFIED
+Mark UNVERIFIED.
 
-Never report:
+Never claim:
 
-- COMPLETE
-- VERIFIED
-- PASSED
-- WORKING
+- Complete
+- Verified
+- Working
+- No regressions
 
-unless actually confirmed.
-
-Never report:
-
-100% parity
-
-without side-by-side comparison.
-
-Never report:
-
-No regressions
-
-without validating affected flows.
+without actual verification.
 
 ---
 
-# Mandatory Regression Verification
+# Git Verification
 
-After every major change verify:
+Before reporting completion:
 
-- Login
-- Register
-- Refresh Token
-- Messaging
-- Typing Indicator
-- Presence
-- Notifications
-- Stories
-- Media Uploads
-- Calls
-- Push Notifications
+Run:
 
-If not checked:
+git diff --name-only
 
-Mark as UNVERIFIED.
+Report exact output.
+
+Never estimate.
+
+Never assume.
 
 ---
 
-# Reporting Rules
+# Reporting Format
 
 Always report:
+
+# FILES MODIFIED
 
 # VERIFIED CHANGES
 
@@ -482,53 +389,34 @@ Always report:
 
 # REGRESSIONS
 
-# READINESS PERCENTAGE
+# BUILD STATUS
 
-# NEXT RECOMMENDED STEP
-
-Do not exaggerate progress.
-
-Do not assume success.
-
-Be precise.
+# GIT DIFF
 
 ---
 
-# Current Priority Order
+# Safety Rule
 
-1. Visual Parity Pass
-2. UI Polish
-3. Bug Fixing
-4. Story Experience
-5. Call Experience
-6. Notification Experience
-7. APK Validation
-8. Coturn Deployment
-9. Real Device Testing
-10. Production Launch
+If uncertain:
+
+STOP.
+
+ASK.
+
+DO NOT GUESS.
 
 ---
 
-# Final Product Goal
+# Mission
 
-FlexChat should launch as:
+Make FlexChat visually match the Figma project while preserving production functionality, realtime reliability, architecture stability, and launch readiness.
 
-- Production-grade
-- Premium
-- Mobile-first
-- Reliable
-- Secure
-- Scalable
+Reliability > Visuals
 
-Combining:
+Functionality > Redesign
 
-- Telegram usability
-- Telegram responsiveness
-- Black & Purple FlexChat identity
-- Native Android feel
-- Modern minimalist design
-- Production-grade reliability
+Figma > Assumptions
 
-Mission:
+Audit → Blueprint → Approval → Implementation
 
-Make FlexChat feel like a flagship messaging product while preserving the stability of the existing realtime architecture.
+Never skip the workflow.
