@@ -439,7 +439,7 @@ const ConversationListButton = memo(
           <FlexAvatar
             src={avatar}
             name={conversation.name}
-            className={`flex h-[44px] w-[44px] items-center justify-center overflow-hidden rounded-full text-[14.5px] font-bold ${active ? "bg-white/20" : "bg-[#16161D] border border-white/5 shadow-sm"}`}
+            className={`flex h-[46px] w-[46px] items-center justify-center overflow-hidden rounded-full text-[15px] font-bold ${active ? "bg-white/20" : "bg-[#16161D] border border-white/5 shadow-sm"}`}
           />
 
           {isOnline ? (
@@ -450,7 +450,7 @@ const ConversationListButton = memo(
         <div className="min-w-0 flex-1 py-0.5">
           <div className="flex items-center justify-between mb-[3px]">
             <div className="flex min-w-0 items-center gap-1.5">
-              <h3 className={`truncate text-[14.5px] font-semibold tracking-tight text-white`}>
+              <h3 className={`truncate text-[15.5px] font-bold tracking-tight text-white`}>
                 {displayName}
               </h3>
 
@@ -469,19 +469,19 @@ const ConversationListButton = memo(
               ) : null}
             </div>
 
-            <span suppressHydrationWarning className={`shrink-0 text-[11px] font-medium ${active ? "text-white/70" : conversation.unreadCount ? "text-[#7C4FF0]" : "text-white/28"}`}>
+            <span suppressHydrationWarning className={`shrink-0 text-[11.5px] font-medium ${active ? "text-white/70" : conversation.unreadCount ? "text-[#7C4FF0]" : "text-white/28"}`}>
               {lastActivityLabel}
             </span>
           </div>
 
           <div className="flex items-center justify-between">
-            <p className={`truncate text-[13px] ${active ? "text-white/85 font-medium pr-2" : conversation.unreadCount ? "text-white/90 font-semibold pr-2" : "text-white/38 font-medium pr-2"}`}>
+            <p className={`truncate text-[13.5px] ${active ? "text-white/85 font-medium pr-2" : conversation.unreadCount ? "text-white/90 font-semibold pr-2" : "text-white/38 font-medium pr-2"}`}>
               {conversation.latestMessage ||
                 "No messages yet"}
             </p>
 
             {conversation.unreadCount ? (
-              <div className={`flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-bold leading-none shrink-0 ${active ? "bg-white text-[#7C4FF0]" : "bg-[#7C4FF0] text-white shadow-lg shadow-[#7C4FF0]/20"}`}>
+              <div className={`flex h-[21px] min-w-[21px] items-center justify-center rounded-full px-1.5 text-[11.5px] font-bold leading-none shrink-0 ${active ? "bg-white text-[#7C4FF0]" : "bg-[#7C4FF0] text-white shadow-lg shadow-[#7C4FF0]/20"}`}>
                 {conversation.unreadCount}
               </div>
             ) : null}
@@ -1358,7 +1358,7 @@ export default function ChatSidebar() {
         <div className="px-5 pb-2 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center">
-              <span className="text-[20px] font-extrabold text-white tracking-tight">FlexChat</span>
+              <span className="text-[22px] font-black text-white tracking-tight">FlexChat</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -1368,10 +1368,10 @@ export default function ChatSidebar() {
                   triggerHaptic(10);
                   router.push("/contacts");
                 }}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-white/[0.06] text-white/60 hover:bg-white/[0.1] hover:text-white transition-all"
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-white/[0.06] text-white/60 hover:bg-white/[0.1] hover:text-white transition-all"
                 aria-label="New Chat"
               >
-                <SquarePen size={16} strokeWidth={2.5} />
+                <SquarePen size={18} strokeWidth={2.5} />
               </button>
             </div>
           </div>
@@ -1428,7 +1428,7 @@ export default function ChatSidebar() {
                 length: 12,
               }).map((_, index) => (
                 <div key={index} className="flex items-center gap-3.5 px-5 py-3">
-                  <div className="h-[44px] w-[44px] animate-pulse rounded-full bg-white/5 shrink-0" />
+                  <div className="h-[46px] w-[46px] animate-pulse rounded-full bg-white/5 shrink-0" />
                   <div className="flex-1 space-y-2">
                     <div className="h-3.5 w-1/3 animate-pulse rounded-full bg-white/5" />
                     <div className="h-3 w-3/4 animate-pulse rounded-full bg-white/5" />

@@ -137,7 +137,7 @@ export default function DiscoverPage() {
   );
 
   return (
-    <main className="fc-no-scrollbar h-dvh overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(0.5rem+env(safe-area-inset-top))]">
+    <main className="fc-no-scrollbar h-dvh w-full overflow-x-hidden overflow-y-auto bg-[#0C0C10] pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(0.5rem+env(safe-area-inset-top))]">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
         <header className="px-5 mb-2">
           <div className="flex items-center justify-between mb-6">
@@ -168,7 +168,7 @@ export default function DiscoverPage() {
             <>
               <DiscoverSection title="Add People">
                 <div className="grid grid-cols-2 gap-4">
-                  <button className="group flex flex-col items-center justify-center gap-3 rounded-[28px] bg-[#16161D] p-6 text-center shadow-sm transition-all hover:bg-[#1E1E27] active:scale-[0.98] border border-white/[0.03]">
+                  <button className="group flex flex-col items-center justify-center gap-3 rounded-[28px] bg-[#16161D] py-6 px-4 text-center shadow-sm transition-all hover:bg-[#1E1E27] active:scale-[0.98] border border-white/[0.03]">
                     <div className="flex h-13 w-13 items-center justify-center rounded-2xl bg-[#7C4FF0]/10 text-[#7C4FF0] shadow-sm transition-transform group-hover:scale-110">
                       <QrCode size={26} />
                     </div>
@@ -177,7 +177,7 @@ export default function DiscoverPage() {
                       <p className="mt-0.5 text-[11px] font-medium text-white/30 uppercase">Scan to add</p>
                     </div>
                   </button>
-                  <button className="group flex flex-col items-center justify-center gap-3 rounded-[28px] bg-[#16161D] p-6 text-center shadow-sm transition-all hover:bg-[#1E1E27] active:scale-[0.98] border border-white/[0.03]">
+                  <button className="group flex flex-col items-center justify-center gap-3 rounded-[28px] bg-[#16161D] py-6 px-4 text-center shadow-sm transition-all hover:bg-[#1E1E27] active:scale-[0.98] border border-white/[0.03]">
                     <div className="flex h-13 w-13 items-center justify-center rounded-2xl bg-white/[0.04] text-white/90 shadow-sm transition-transform group-hover:scale-110">
                       <UserPlus size={26} />
                     </div>
