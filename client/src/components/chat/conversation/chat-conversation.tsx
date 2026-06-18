@@ -4631,7 +4631,6 @@ export default function ChatConversation() {
             <FlexAvatar
               src={activeConversationAvatar}
               name={activeConversation.name}
-              presence={isOnline ? "online" : null}
               className="h-10 w-10 shrink-0"
             />
 
@@ -4797,9 +4796,6 @@ export default function ChatConversation() {
             <MoreVertical size={20} />
           </button>
         </div>
-      </div>
-
-
       <AnimatePresence initial={false}>
         {messageSearchOpen ? (
           <motion.div
