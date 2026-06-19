@@ -24,6 +24,14 @@ type MessageReceipt = {
   status?: MessageStatus;
 };
 
+const STATUS_RANK: Record<MessageStatus, number> = {
+  sending: 0,
+  failed: 0,
+  sent: 1,
+  delivered: 2,
+  read: 3,
+};
+
 function isInfiniteMessageCache(
   cache: MessageQueryCache
 ): cache is InfiniteData<
@@ -83,15 +91,21 @@ export function mergeMessageList(
   }
 
   return sortMessageList(
-    currentMessages.map((message, index) =>
-      index === existingIndex
-        ? {
-            ...message,
-            ...incoming,
-            optimistic: false,
-          }
-        : message
-    )
+    currentMessages.map((message, index) => {
+      if (index !== existingIndex) {
+        return message;
+      }
+      const nextStatus =
+        STATUS_RANK[incoming.status] >= STATUS_RANK[message.status]
+          ? incoming.status
+          : message.status;
+      return {
+        ...message,
+        ...incoming,
+        status: nextStatus,
+        optimistic: false,
+      };
+    })
   );
 }
 
@@ -115,6 +129,12 @@ export function updateMessageStatusInList(
       return message;
     }
 
+    const nextStatus = receipt.status ?? fallbackStatus;
+
+    if (STATUS_RANK[nextStatus] < STATUS_RANK[message.status]) {
+      return message;
+    }
+
     changed = true;
 
     return {
@@ -122,9 +142,7 @@ export function updateMessageStatusInList(
       id:
         receipt.serverId ??
         message.id,
-      status:
-        receipt.status ??
-        fallbackStatus,
+      status: nextStatus,
       optimistic: false,
     };
   });

@@ -24,6 +24,14 @@ export type MessageStatus =
   | "read"
   | "failed";
 
+export const STATUS_RANK: Record<MessageStatus, number> = {
+  sending: 0,
+  failed: 0,
+  sent: 1,
+  delivered: 2,
+  read: 3,
+};
+
 export interface Message {
   id: string;
   text: string;
@@ -238,10 +246,10 @@ const normalizeMessages = (
               ...message,
               ...incomingMessage,
               optimistic: false,
-              status:
-                incomingMessage.status === "sending"
-                  ? "sent"
-                  : incomingMessage.status,
+              status: (() => {
+                const nextStatus = incomingMessage.status === "sending" ? "sent" : incomingMessage.status;
+                return STATUS_RANK[nextStatus] >= STATUS_RANK[message.status] ? nextStatus : message.status;
+              })(),
             }
           : message,
       ),
@@ -279,6 +287,10 @@ function updateMessageStatusInList(
       message.id === id || message.id === serverId || message.tempId === id;
 
     if (!matches) {
+      return message;
+    }
+
+    if (STATUS_RANK[status] < STATUS_RANK[message.status]) {
       return message;
     }
 

@@ -6,6 +6,7 @@ import {
 import { z } from "zod";
 
 import { isConversationMember } from "../../lib/conversation-access.js";
+import { isConversationBlocked } from "../../lib/blocking.js";
 import { SOCKET_EVENTS } from "../socket-events.js";
 
 type TypingPayload = {
@@ -293,6 +294,11 @@ export function registerTypingHandlers(
         );
 
       if (!allowed) {
+        return;
+      }
+
+      const blocked = await isConversationBlocked(userId, conversationId);
+      if (blocked) {
         return;
       }
 

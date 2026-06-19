@@ -2572,6 +2572,14 @@ export default function ChatConversation() {
   const pendingMobileBackSwipeXRef =
     useRef(0);
   const [virtualScrollMargin, setVirtualScrollMargin] = useState(0);
+  const [isWindowFocused, setIsWindowFocused] = useState(
+    () =>
+      typeof document !== "undefined" &&
+      document.visibilityState === "visible" &&
+      document.hasFocus(),
+  );
+  const [firstUnreadMessageId, setFirstUnreadMessageId] = useState<string | null>(null);
+  const checkedUnreadInitRef = useRef<string | null>(null);
   const reducedMotion = useReducedMotion();
   const now = useServerNow();
   const pushToast = useToastStore((state) => state.pushToast);
@@ -2995,6 +3003,14 @@ export default function ChatConversation() {
       return;
     }
 
+    // Phase 1 focus guard:
+    if (
+      typeof document !== "undefined" &&
+      (document.visibilityState !== "visible" || !document.hasFocus())
+    ) {
+      return;
+    }
+
     pendingSeenMessageIdsRef.current.clear();
     pendingSeenConversationIdRef.current = null;
     messageIds.forEach((messageId) => {
@@ -3069,31 +3085,101 @@ export default function ChatConversation() {
     scrollMargin: virtualScrollMargin,
   });
   const virtualRows = messageVirtualizer.getVirtualItems();
-  const messagesInViewport = useMemo(
-    () =>
-      virtualRows
-        .map((virtualRow) => visibleMessages[virtualRow.index])
-        .filter((message): message is Message => Boolean(message)),
-    [virtualRows, visibleMessages],
-  );
-  const unreadRemoteViewportMessageIds = useMemo(
-    () =>
-      messagesInViewport.reduce<string[]>((messageIds, message) => {
+  const [unreadRemoteViewportMessageIds, setUnreadRemoteViewportMessageIds] = useState<string[]>([]);
+
+  const visibleMessagesRef = useRef(visibleMessages);
+  useEffect(() => {
+    visibleMessagesRef.current = visibleMessages;
+    updateVisibleUnreadRef.current?.();
+  }, [visibleMessages]);
+
+  const currentUserIdRef = useRef(currentUserId);
+  useEffect(() => {
+    currentUserIdRef.current = currentUserId;
+    updateVisibleUnreadRef.current?.();
+  }, [currentUserId]);
+
+  const isWindowFocusedRef = useRef(isWindowFocused);
+  useEffect(() => {
+    isWindowFocusedRef.current = isWindowFocused;
+    updateVisibleUnreadRef.current?.();
+  }, [isWindowFocused]);
+
+  const updateVisibleUnreadRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !conversationId) {
+      setUnreadRemoteViewportMessageIds([]);
+      updateVisibleUnreadRef.current = null;
+      return;
+    }
+
+    const updateVisibleUnread = () => {
+      const viewportRect = container.getBoundingClientRect();
+      const ids: string[] = [];
+
+      const messageElements = container.querySelectorAll("[data-index]");
+      
+      messageElements.forEach((el) => {
+        const indexAttr = el.getAttribute("data-index");
+        if (indexAttr === null) return;
+        const index = parseInt(indexAttr, 10);
+        const message = visibleMessagesRef.current[index];
+        if (!message) return;
+
         if (
-          message.senderId === currentUserId ||
+          message.senderId === currentUserIdRef.current ||
           message.senderId === "me" ||
           message.status === "read" ||
           seenMessageIdsRef.current.has(message.id) ||
           pendingSeenMessageIdsRef.current.has(message.id)
         ) {
-          return messageIds;
+          return;
         }
 
-        messageIds.push(message.id);
-        return messageIds;
-      }, []),
-    [currentUserId, messagesInViewport],
-  );
+        const itemRect = el.getBoundingClientRect();
+        const isVisible =
+          itemRect.top < viewportRect.bottom &&
+          itemRect.bottom > viewportRect.top;
+
+        if (isVisible) {
+          ids.push(message.id);
+        }
+      });
+
+      setUnreadRemoteViewportMessageIds((prev) => {
+        if (prev.length === ids.length && prev.every((val, i) => val === ids[i])) {
+          return prev;
+        }
+        return ids;
+      });
+    };
+
+    updateVisibleUnreadRef.current = updateVisibleUnread;
+    updateVisibleUnread();
+
+    let frameId: number | null = null;
+    const handleScrollEvent = () => {
+      if (frameId !== null) return;
+      frameId = window.requestAnimationFrame(() => {
+        updateVisibleUnread();
+        frameId = null;
+      });
+    };
+
+    container.addEventListener("scroll", handleScrollEvent, { passive: true });
+    window.addEventListener("resize", handleScrollEvent);
+
+    return () => {
+      updateVisibleUnreadRef.current = null;
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+      container.removeEventListener("scroll", handleScrollEvent);
+      window.removeEventListener("resize", handleScrollEvent);
+    };
+  }, [conversationId]);
 
   const activeUnreadCount = activeConversation?.unreadCount ?? 0;
   const showInitialMessageSkeleton =
@@ -3206,6 +3292,63 @@ export default function ChatConversation() {
   useEffect(() => {
     messageVirtualizer.measure();
   }, [messageVirtualizer, visibleMessages.length]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleFocusOrVisibility = () => {
+      const active =
+        document.visibilityState === "visible" && document.hasFocus();
+      setIsWindowFocused(active);
+    };
+
+    window.addEventListener("focus", handleFocusOrVisibility);
+    window.addEventListener("blur", handleFocusOrVisibility);
+    document.addEventListener("visibilitychange", handleFocusOrVisibility);
+
+    // Initial check
+    handleFocusOrVisibility();
+
+    return () => {
+      window.removeEventListener("focus", handleFocusOrVisibility);
+      window.removeEventListener("blur", handleFocusOrVisibility);
+      document.removeEventListener("visibilitychange", handleFocusOrVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (checkedUnreadInitRef.current !== conversationId) {
+      setFirstUnreadMessageId(null);
+      checkedUnreadInitRef.current = null;
+    }
+
+    if (!conversationId || !currentUserId) {
+      return;
+    }
+
+    if (checkedUnreadInitRef.current === conversationId) {
+      return;
+    }
+
+    if (messagesQuery.isLoading) {
+      return;
+    }
+
+    const firstUnread = visibleMessages.find((msg) => {
+      return (
+        msg.senderId !== currentUserId &&
+        msg.senderId !== "me" &&
+        msg.status !== "read"
+      );
+    });
+
+    if (firstUnread) {
+      setFirstUnreadMessageId(firstUnread.id);
+    }
+    checkedUnreadInitRef.current = conversationId;
+  }, [conversationId, visibleMessages, currentUserId, messagesQuery.isLoading]);
 
   useEffect(() => {
     setActiveSearchIndex(0);
@@ -3643,6 +3786,14 @@ export default function ChatConversation() {
     }
 
     if (!unreadRemoteViewportMessageIds.length) {
+      return;
+    }
+
+    // Phase 1 focus guard:
+    if (
+      typeof document !== "undefined" &&
+      (document.visibilityState !== "visible" || !document.hasFocus())
+    ) {
       return;
     }
 
@@ -4818,15 +4969,7 @@ export default function ChatConversation() {
               </div>
             ) : null}
 
-            {activeConversation.unreadCount ? (
-              <div className="mb-5 flex items-center gap-3">
-                <div className="h-px flex-1 bg-[rgba(var(--fc-primary-rgb),0.3)]" />
-                <span className="fc-button-soft rounded-full border px-3 py-1 text-xs">
-                  Unread messages
-                </span>
-                <div className="h-px flex-1 bg-[rgba(var(--fc-primary-rgb),0.3)]" />
-              </div>
-            ) : null}
+
 
             {blockEvent ? (
               <div className="mb-5 flex justify-center">
@@ -4917,6 +5060,15 @@ export default function ChatConversation() {
                       }px)`,
                     }}
                   >
+                    {message.id === firstUnreadMessageId ? (
+                      <div className="mb-5 mt-2 flex items-center gap-3 px-4">
+                        <div className="h-px flex-1 bg-[rgba(var(--fc-primary-rgb),0.3)]" />
+                        <span className="fc-button-soft rounded-full border px-3 py-1 text-xs">
+                          Unread messages
+                        </span>
+                        <div className="h-px flex-1 bg-[rgba(var(--fc-primary-rgb),0.3)]" />
+                      </div>
+                    ) : null}
                     <ChatMessageRow
                       message={message}
                       previous={previous}

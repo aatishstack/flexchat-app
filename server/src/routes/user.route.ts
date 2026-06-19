@@ -8,6 +8,7 @@ import { z } from "zod";
 import { db } from "../db/index.js";
 
 import { users } from "../db/schema/users.js";
+import { blocks } from "../db/schema/blocks.js";
 
 import { clearConversationAccessCacheForUser } from "../lib/conversation-access.js";
 import { generateId } from "../lib/uuid.js";
@@ -778,6 +779,11 @@ export async function userRoutes(app: FastifyInstance) {
           from users
           where id <> ${userId}
             and is_deleted = false
+            and not exists (
+              select 1 from blocks
+              where (blocker_id = ${userId} and blocked_id = users.id)
+                 or (blocker_id = users.id and blocked_id = ${userId})
+            )
           ${discoverVisibilityFilter}
           ${searchFilter}
           order by
@@ -911,5 +917,119 @@ export async function userRoutes(app: FastifyInstance) {
 
       return foundUsers.map(publicUser);
     },
+  );
+
+  const blockActionBodySchema = z.object({
+    blockedId: z.string().trim().min(1).max(128),
+  });
+
+  app.post(
+    "/users/block",
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const userId = (request.user as any)?.id;
+      if (!userId) {
+        return reply.status(401).send({ message: "Unauthorized" });
+      }
+
+      const parsed = blockActionBodySchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({ message: "Invalid request body" });
+      }
+
+      const { blockedId } = parsed.data;
+
+      if (blockedId === userId) {
+        return reply.status(400).send({ message: "Cannot block yourself" });
+      }
+
+      const targetUsers = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.id, blockedId), eq(users.isDeleted, false)))
+        .limit(1);
+
+      if (!targetUsers.length) {
+        return reply.status(404).send({ message: "User not found" });
+      }
+
+      const blockId = generateId();
+      await db.execute(sql`
+        insert into blocks (id, blocker_id, blocked_id)
+        values (${blockId}, ${userId}, ${blockedId})
+        on conflict (blocker_id, blocked_id) do nothing
+      `);
+
+      return { ok: true };
+    }
+  );
+
+  app.post(
+    "/users/unblock",
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const userId = (request.user as any)?.id;
+      if (!userId) {
+        return reply.status(401).send({ message: "Unauthorized" });
+      }
+
+      const parsed = blockActionBodySchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({ message: "Invalid request body" });
+      }
+
+      const { blockedId } = parsed.data;
+
+      await db.execute(sql`
+        delete from blocks
+        where blocker_id = ${userId}
+          and blocked_id = ${blockedId}
+      `);
+
+      return { ok: true };
+    }
+  );
+
+  app.get(
+    "/users/blocked",
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const userId = (request.user as any)?.id;
+      if (!userId) {
+        return reply.status(401).send({ message: "Unauthorized" });
+      }
+
+      const blockedList = await db.execute<{
+        id: string;
+        username: string;
+        avatar: string | null;
+        createdAt: string;
+      }>(sql`
+        select
+          u.id,
+          u.username,
+          u.avatar,
+          b.created_at as "createdAt"
+        from blocks b
+        inner join users u
+          on u.id = b.blocked_id
+          and u.is_deleted = false
+        where b.blocker_id = ${userId}
+        order by b.created_at desc
+      `);
+
+      return blockedList.map((row) => ({
+        id: row.id,
+        username: row.username,
+        avatar: row.avatar,
+        createdAt: row.createdAt,
+      }));
+    }
   );
 }

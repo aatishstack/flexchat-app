@@ -9,6 +9,7 @@ import {
   getConversationMembers,
   isConversationMember,
 } from "../../lib/conversation-access.js";
+import { isConversationBlocked } from "../../lib/blocking.js";
 import { debugLog } from "../../lib/debug-log.js";
 import {
   claimOwnedMediaAsset,
@@ -294,16 +295,31 @@ async function persistMessageStatuses(
     return;
   }
 
-  await db.execute(sql`
-    update messages
-    set status = ${status}
-    where conversation_id = ${conversationId}
-      and sender_id <> ${actorUserId}
-      and id in (${sql.join(
-        messageIds.map((messageId) => sql`${messageId}`),
-        sql`, `,
-      )})
-  `);
+  if (status === "read") {
+    await db.execute(sql`
+      update messages
+      set status = 'read'
+      where conversation_id = ${conversationId}
+        and sender_id <> ${actorUserId}
+        and status <> 'read'
+        and id in (${sql.join(
+          messageIds.map((messageId) => sql`${messageId}`),
+          sql`, `,
+        )})
+    `);
+  } else if (status === "delivered") {
+    await db.execute(sql`
+      update messages
+      set status = 'delivered'
+      where conversation_id = ${conversationId}
+        and sender_id <> ${actorUserId}
+        and status = 'sent'
+        and id in (${sql.join(
+          messageIds.map((messageId) => sql`${messageId}`),
+          sql`, `,
+        )})
+    `);
+  }
 }
 
 async function getReplyTargetPreview(
@@ -709,6 +725,16 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
       );
 
       if (!allowed) {
+        acknowledge({
+          ok: false,
+          error: "Conversation unavailable",
+        });
+
+        return;
+      }
+
+      const blocked = await isConversationBlocked(userId, messageData.conversationId);
+      if (blocked) {
         acknowledge({
           ok: false,
           error: "Conversation unavailable",

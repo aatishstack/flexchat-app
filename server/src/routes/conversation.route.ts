@@ -10,6 +10,7 @@ import {
   isConversationMember,
 } from "../lib/conversation-access.js";
 import { generateId } from "../lib/uuid.js";
+import { isBlocked } from "../lib/blocking.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { SOCKET_EVENTS } from "../socket/socket-events.js";
 import { getSocketServer } from "../socket/socket-hub.js";
@@ -1064,6 +1065,13 @@ export async function conversationRoutes(app: FastifyInstance) {
         if (!targetUsers.length) {
           return reply.status(404).send({
             message: "User not found",
+          });
+        }
+
+        const blocked = await isBlocked(userId, targetUserId);
+        if (blocked) {
+          return reply.status(400).send({
+            message: "User unavailable",
           });
         }
 

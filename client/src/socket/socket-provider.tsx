@@ -468,13 +468,15 @@ export default function SocketProvider({
     );
   }, [queryClient]);
 
-  const typingUpdateBuffer = useRef<string[]>([]);
+  const typingUpdateBuffer = useRef<string[] | null>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flushTyping = useCallback(() => {
-    if (typingUpdateBuffer.current.length === 0) return;
-    const users = [...typingUpdateBuffer.current];
-    typingUpdateBuffer.current = [];
+    const users = typingUpdateBuffer.current;
+
+    if (users === null) return;
+
+    typingUpdateBuffer.current = null;
     setTypingUsers(users);
   }, [setTypingUsers]);
 
@@ -814,6 +816,13 @@ export default function SocketProvider({
 
       if (typingTimer.current) {
         clearTimeout(typingTimer.current);
+        typingTimer.current = null;
+      }
+
+      if (users.length === 0) {
+        typingUpdateBuffer.current = null;
+        setTypingUsers([]);
+        return;
       }
 
       typingTimer.current = setTimeout(() => {

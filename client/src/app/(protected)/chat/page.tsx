@@ -9,7 +9,6 @@ import ChatSidebar from "../../../components/chat/sidebar/chat-sidebar";
 import ChatConversation from "../../../components/chat/conversation/chat-conversation";
 import GlobalSearch from "../../../components/chat/sidebar/global-search";
 import { useGlobalSearchStore } from "../../../store/global-search-store";
-import ActivityBar from "../../../components/chat/sidebar/activity-bar";
 import { useConversationStore } from "../../../stores/conversation.store";
 import { cn } from "@/lib/utils";
 
@@ -105,8 +104,6 @@ export default function ChatPage() {
       )}
     >
       <GlobalSearch />
-      <ActivityBar />
-
       <div className="flex h-full w-full overflow-hidden">
         <motion.div
           transition={{

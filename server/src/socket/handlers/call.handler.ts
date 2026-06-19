@@ -9,6 +9,7 @@ import {
 import { debugLog } from "../../lib/debug-log.js";
 import { generateId } from "../../lib/uuid.js";
 import { getOnlineUserIds } from "../socket-store.js";
+import { isBlocked } from "../../lib/blocking.js";
 import { SOCKET_EVENTS } from "../socket-events.js";
 
 type CallKind = "voice" | "video";
@@ -260,6 +261,11 @@ async function canCallTarget(
   targetUserId: string,
 ) {
   if (callerId === targetUserId) {
+    return false;
+  }
+
+  const blocked = await isBlocked(callerId, targetUserId);
+  if (blocked) {
     return false;
   }
 

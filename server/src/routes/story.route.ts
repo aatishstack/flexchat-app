@@ -236,6 +236,11 @@ async function getStoryById(storyId: string, viewerId: string) {
         from story_views viewer_count
         where viewer_count.story_id = s.id
           and viewer_count.user_id <> s.user_id
+          and not exists (
+            select 1 from blocks
+            where (blocker_id = s.user_id and blocked_id = viewer_count.user_id)
+               or (blocker_id = viewer_count.user_id and blocked_id = s.user_id)
+          )
       ) as "viewCount",
       jsonb_build_object(
         'id', u.id,
@@ -258,6 +263,11 @@ async function getStoryById(storyId: string, viewerId: string) {
             select user_id from visible_users
           )
         )
+      )
+      and not exists (
+        select 1 from blocks
+        where (blocker_id = ${viewerId} and blocked_id = s.user_id)
+           or (blocker_id = s.user_id and blocked_id = ${viewerId})
       )
       and s.deleted_at is null
       and s.expires_at > now()
@@ -381,6 +391,11 @@ export async function storyRoutes(app: FastifyInstance) {
               from story_views viewer_count
               where viewer_count.story_id = s.id
                 and viewer_count.user_id <> s.user_id
+                and not exists (
+                  select 1 from blocks
+                  where (blocker_id = s.user_id and blocked_id = viewer_count.user_id)
+                     or (blocker_id = viewer_count.user_id and blocked_id = s.user_id)
+                )
             ) as "viewCount",
             jsonb_build_object(
               'id', u.id,
@@ -403,6 +418,11 @@ export async function storyRoutes(app: FastifyInstance) {
               )
             )
           )
+            and not exists (
+              select 1 from blocks
+              where (blocker_id = ${userId} and blocked_id = s.user_id)
+                 or (blocker_id = s.user_id and blocked_id = ${userId})
+            )
             and s.deleted_at is null
             and s.expires_at > now()
           order by s.created_at desc
@@ -424,7 +444,6 @@ export async function storyRoutes(app: FastifyInstance) {
       }
     },
   );
-
   app.get(
     "/stories/:userId",
     {
@@ -478,6 +497,11 @@ export async function storyRoutes(app: FastifyInstance) {
             from story_views viewer_count
             where viewer_count.story_id = s.id
               and viewer_count.user_id <> s.user_id
+              and not exists (
+                select 1 from blocks
+                where (blocker_id = s.user_id and blocked_id = viewer_count.user_id)
+                   or (blocker_id = viewer_count.user_id and blocked_id = s.user_id)
+              )
           ) as "viewCount",
           jsonb_build_object(
             'id', u.id,
@@ -500,6 +524,11 @@ export async function storyRoutes(app: FastifyInstance) {
                 select user_id from visible_users
               )
             )
+          )
+          and not exists (
+            select 1 from blocks
+            where (blocker_id = ${viewerId} and blocked_id = s.user_id)
+               or (blocker_id = s.user_id and blocked_id = ${viewerId})
           )
           and s.deleted_at is null
           and s.expires_at > now()
@@ -912,6 +941,11 @@ export async function storyRoutes(app: FastifyInstance) {
           and u.is_deleted = false
         where sv.story_id = ${parsedParams.data.storyId}
           and sv.user_id <> ${userId}
+          and not exists (
+            select 1 from blocks
+            where (blocker_id = ${userId} and blocked_id = u.id)
+               or (blocker_id = u.id and blocked_id = ${userId})
+          )
         order by sv.viewed_at desc
         limit 200
       `);
