@@ -13,3 +13,4 @@ export {
   storyViews,
 } from "./schema/stories.js";
 export { refreshTokens } from "./schema/refresh-tokens.js";
+export { blocks } from "./schema/blocks.js";
