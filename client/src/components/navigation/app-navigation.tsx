@@ -72,7 +72,7 @@ function DesktopNavigation({ pathname }: { pathname: string }) {
       </Link>
 
       <nav className="flex flex-1 flex-col items-center gap-5">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => item.href !== "/settings").map((item) => {
           const Icon = item.icon;
           const active = isActivePath(pathname, item.href);
 

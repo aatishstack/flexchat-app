@@ -3230,13 +3230,7 @@ export default function ChatConversation() {
         : isOnline
           ? "Online"
           : formatLastSeen(remoteMember?.lastSeenAt);
-  const connectionStatusLabel = isConnected
-    ? `Connected - ${presenceLabel}`
-    : isConnecting
-      ? "Connecting..."
-      : connectionError
-        ? "Offline"
-        : "Offline";
+  const connectionStatusLabel = presenceLabel;
   const deleteTargetCanDeleteForEveryone =
     deleteTargetMessage
       ? canMutateForEveryone(

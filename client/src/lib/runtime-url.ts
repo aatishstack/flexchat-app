@@ -10,6 +10,13 @@ export function resolveLocalRuntimeUrl(
 ): string {
   const resolvedUrl = configuredUrl ?? fallbackUrl;
   if (typeof window === "undefined") return resolvedUrl;
+  
+  const isMobileApp = typeof window !== "undefined" &&
+    ((window as any).Capacitor || (window as any).webkit?.messageHandlers?.cordova);
+  if (isMobileApp) {
+    return resolvedUrl;
+  }
+
   const currentHost = window.location.hostname;
   if (!LOCAL_HOSTS.has(currentHost)) return resolvedUrl;
   try {

@@ -75,6 +75,10 @@ export default function ActivityBar() {
     onlineCount,
   ]);
 
+  if (!isConnected) {
+    return null;
+  }
+
   const statusKey = [
     connectionError,
     connectionVersion,

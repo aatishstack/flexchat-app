@@ -33,7 +33,10 @@ function resolveSocketUrl(): string {
     const { hostname } = window.location;
     const localFallback = `http://${hostname}:5000`;
 
-    if (isLocalHost(hostname)) {
+    const isMobileApp = typeof window !== "undefined" &&
+      ((window as any).Capacitor || (window as any).webkit?.messageHandlers?.cordova);
+
+    if (isLocalHost(hostname) && !isMobileApp) {
       if (isLocalUrl(configuredBackendUrl)) {
         return resolveLocalRuntimeUrl(
           configuredBackendUrl,

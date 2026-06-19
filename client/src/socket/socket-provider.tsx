@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useCallback, useRef } from "react";
+import { isAxiosError } from "axios";
 
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -598,8 +599,18 @@ export default function SocketProvider({
             console.info("[SOCKET] Coordinated token refresh succeeded, reconnecting socket...");
             useSocketStore.getState().connectSocket(newToken);
           }).catch((refreshError) => {
-            console.error("[SOCKET] Coordinated token refresh failed during reconnect, clearing session", refreshError);
-            clearClientSession();
+            console.error("[SOCKET] Coordinated token refresh failed during reconnect", refreshError);
+            const isAuthError =
+              isAxiosError(refreshError) &&
+              refreshError.response &&
+              [400, 401, 403].includes(refreshError.response.status);
+
+            if (isAuthError) {
+              console.warn("[SOCKET] Coordinated token refresh failed with auth error, clearing session...");
+              clearClientSession();
+            } else {
+              console.warn("[SOCKET] Coordinated token refresh failed due to network or server issue, preserving session.");
+            }
           });
         } else {
           clearClientSession();
