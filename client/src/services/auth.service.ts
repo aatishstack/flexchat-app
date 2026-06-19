@@ -8,6 +8,8 @@ export { getOAuthApiBaseUrl };
 export interface AuthResponse {
   token: string;
 
+  refreshToken?: string;
+
   user: {
     id: string;
 
@@ -91,6 +93,25 @@ export async function getCurrentUser(
       },
     );
 
+  return response.data;
+}
+
+export async function logout(refreshToken: string) {
+  const response = await api.post(
+    "/auth/logout",
+    { refreshToken },
+    {
+      headers: {
+        Authorization: `Bearer ${refreshToken}`,
+        "x-refresh-token": refreshToken,
+      },
+    }
+  );
+  return response.data;
+}
+
+export async function logoutAll() {
+  const response = await api.post("/auth/logout-all");
   return response.data;
 }
 

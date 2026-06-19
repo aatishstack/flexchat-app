@@ -18,7 +18,7 @@ export function clearClientSession({
   removeToken = true,
 }: ClearSessionOptions = {}) {
   if (removeToken) {
-    tokenStorage.remove();
+    tokenStorage.clear();
   }
 
   queryClient.clear();

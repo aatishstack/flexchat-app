@@ -12,3 +12,4 @@ export {
   stories,
   storyViews,
 } from "./schema/stories.js";
+export { refreshTokens } from "./schema/refresh-tokens.js";

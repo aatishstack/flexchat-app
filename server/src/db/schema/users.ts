@@ -1,5 +1,6 @@
 import {
   boolean,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -78,6 +79,13 @@ export const users =
         timestamp(
           "last_seen_at"
         ),
+
+      tokenVersion:
+        integer(
+          "token_version"
+        )
+          .default(0)
+          .notNull(),
 
       createdAt:
         timestamp(

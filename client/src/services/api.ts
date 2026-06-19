@@ -79,9 +79,120 @@ export const api = axios.create({
 
 type RefreshResponse = {
   token: string;
+  refreshToken: string;
 };
 
 let refreshPromise: Promise<string> | null = null;
+let broadcastChannel: BroadcastChannel | null = null;
+
+if (typeof window !== "undefined") {
+  try {
+    broadcastChannel = new BroadcastChannel("flexchat_auth_refresh");
+  } catch (err) {
+    console.error("Failed to initialize BroadcastChannel", err);
+  }
+}
+
+export async function getFreshToken(): Promise<string> {
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
+  const storedRefreshToken = tokenStorage.getRefreshToken();
+  if (!storedRefreshToken) {
+    throw new Error("No refresh token stored");
+  }
+
+  const lockKey = "flexchat_refresh_lock";
+  const lockTime = typeof window !== "undefined" ? localStorage.getItem(lockKey) : null;
+  const now = Date.now();
+
+  if (lockTime && now - parseInt(lockTime, 10) < 8000) {
+    console.info("[AUTH] Another tab is currently refreshing. Waiting for broadcast...");
+
+    refreshPromise = new Promise<string>((resolve, reject) => {
+      let resolved = false;
+
+      const handleMessage = (event: MessageEvent) => {
+        if (!event.data || resolved) return;
+        if (event.data.type === "refresh_success") {
+          resolved = true;
+          cleanup();
+          resolve(event.data.token);
+        } else if (event.data.type === "refresh_failure") {
+          resolved = true;
+          cleanup();
+          reject(new Error("Refresh failed in other tab"));
+        }
+      };
+
+      const timeout = setTimeout(() => {
+        if (resolved) return;
+        resolved = true;
+        cleanup();
+        console.warn("[AUTH] Refresh broadcast timed out. Attempting refresh locally.");
+        refreshPromise = null;
+        getFreshToken().then(resolve).catch(reject);
+      }, 5000);
+
+      const cleanup = () => {
+        clearTimeout(timeout);
+        broadcastChannel?.removeEventListener("message", handleMessage);
+      };
+
+      broadcastChannel?.addEventListener("message", handleMessage);
+    });
+
+    return refreshPromise;
+  }
+
+  if (typeof window !== "undefined") {
+    localStorage.setItem(lockKey, now.toString());
+  }
+
+  refreshPromise = api
+    .post<RefreshResponse>(
+      "/auth/refresh",
+      { refreshToken: storedRefreshToken },
+      {
+        headers: {
+          Authorization: `Bearer ${storedRefreshToken}`,
+          "x-refresh-token": storedRefreshToken,
+        },
+      }
+    )
+    .then((response) => {
+      const newToken = response.data.token;
+      const newRefreshToken = response.data.refreshToken;
+
+      tokenStorage.set(newToken);
+      if (newRefreshToken) {
+        tokenStorage.setRefreshToken(newRefreshToken);
+      }
+
+      broadcastChannel?.postMessage({
+        type: "refresh_success",
+        token: newToken,
+      });
+
+      return newToken;
+    })
+    .catch((error) => {
+      broadcastChannel?.postMessage({
+        type: "refresh_failure",
+        error: error.message,
+      });
+      throw error;
+    })
+    .finally(() => {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(lockKey);
+      }
+      refreshPromise = null;
+    });
+
+  return refreshPromise;
+}
 
 function emitSessionEvent(
   eventName: string,
@@ -169,18 +280,7 @@ api.interceptors.response.use(
     originalRequest._retry = true;
 
     try {
-      refreshPromise ??= api
-        .post<RefreshResponse>("/auth/refresh")
-        .then((response) => {
-          tokenStorage.set(response.data.token);
-
-          return response.data.token;
-        })
-        .finally(() => {
-          refreshPromise = null;
-        });
-
-      const token = await refreshPromise;
+      const token = await getFreshToken();
 
       originalRequest.headers = originalRequest.headers ?? {};
 
@@ -194,7 +294,7 @@ api.interceptors.response.use(
       emitSessionEvent(API_AUTH_INVALID_EVENT, {
         reason: "refresh_failed",
       });
-      tokenStorage.remove();
+      tokenStorage.clear();
 
       return Promise.reject(refreshError);
     }

@@ -36,16 +36,35 @@ export async function authenticateSocket(socket: Socket): Promise<boolean> {
   }
 
   const activeUsers = await db
-    .select({ id: users.id })
+    .select({
+      id: users.id,
+      tokenVersion: users.tokenVersion,
+    })
     .from(users)
     .where(and(eq(users.id, decoded.id), eq(users.isDeleted, false)))
     .limit(1);
 
-  if (!activeUsers.length) {
+  const userRecord = activeUsers[0];
+
+  if (!userRecord) {
     console.warn("[SOCKET] connection rejected reason", {
       socketId: socket.id,
       userId: decoded.id,
       reason: "user_not_found",
+    });
+    return false;
+  }
+
+  if (
+    decoded.tokenVersion !== undefined &&
+    decoded.tokenVersion !== userRecord.tokenVersion
+  ) {
+    console.warn("[SOCKET] connection rejected reason", {
+      socketId: socket.id,
+      userId: decoded.id,
+      reason: "token_version_mismatch",
+      tokenVersionInToken: decoded.tokenVersion,
+      tokenVersionInDb: userRecord.tokenVersion,
     });
     return false;
   }

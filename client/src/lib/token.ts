@@ -1,6 +1,9 @@
 export const TOKEN_KEY =
   "flexchat_token";
 
+export const REFRESH_TOKEN_KEY =
+  "flexchat_refresh_token";
+
 export const TOKEN_CHANGE_EVENT =
   "flexchat:token-change";
 
@@ -86,8 +89,56 @@ export const tokenStorage =
         return false;
       }
 
-      return !!localStorage.getItem(
-        TOKEN_KEY
+      return !!(
+        localStorage.getItem(TOKEN_KEY) ||
+        localStorage.getItem(REFRESH_TOKEN_KEY)
       );
+    },
+
+    getRefreshToken() {
+      if (
+        typeof window ===
+        "undefined"
+      ) {
+        return null;
+      }
+
+      return localStorage.getItem(
+        REFRESH_TOKEN_KEY
+      );
+    },
+
+    setRefreshToken(
+      token: string
+    ) {
+      if (
+        typeof window ===
+        "undefined"
+      ) {
+        return;
+      }
+
+      localStorage.setItem(
+        REFRESH_TOKEN_KEY,
+        token
+      );
+    },
+
+    removeRefreshToken() {
+      if (
+        typeof window ===
+        "undefined"
+      ) {
+        return;
+      }
+
+      localStorage.removeItem(
+        REFRESH_TOKEN_KEY
+      );
+    },
+
+    clear() {
+      this.remove();
+      this.removeRefreshToken();
     },
   };

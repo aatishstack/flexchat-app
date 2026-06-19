@@ -97,6 +97,7 @@ export async function authMiddleware(
       await db
         .select({
           id: users.id,
+          tokenVersion: users.tokenVersion,
         })
         .from(users)
         .where(
@@ -107,7 +108,9 @@ export async function authMiddleware(
         )
         .limit(1);
 
-    if (!activeUsers.length) {
+    const userRecord = activeUsers[0];
+
+    if (!userRecord) {
       request.log.warn(
         {
           method: request.method,
@@ -115,6 +118,29 @@ export async function authMiddleware(
           userId: decoded.id,
         },
         "Auth rejected: token user is unavailable",
+      );
+
+      return reply
+        .status(401)
+        .send({
+          message:
+            "Invalid token",
+        });
+    }
+
+    if (
+      decoded.tokenVersion !== undefined &&
+      decoded.tokenVersion !== userRecord.tokenVersion
+    ) {
+      request.log.warn(
+        {
+          method: request.method,
+          path: requestPath,
+          userId: decoded.id,
+          tokenVersionInToken: decoded.tokenVersion,
+          tokenVersionInDb: userRecord.tokenVersion,
+        },
+        "Auth rejected: token version mismatch",
       );
 
       return reply

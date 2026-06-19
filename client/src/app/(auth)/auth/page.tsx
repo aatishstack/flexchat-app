@@ -85,6 +85,7 @@ const googleOAuthMessageSchema = z.discriminatedUnion("type", [
     source: z.literal("flexchat-google-oauth"),
     type: z.literal("flexchat:google-auth:success"),
     token: z.string().min(1),
+    refreshToken: z.string().optional(),
     user: googleOAuthUserSchema,
   }),
   z.object({
@@ -208,11 +209,15 @@ export default function AuthPage() {
     console.info("[AUTH] token extracted", {
       source,
       hasToken: Boolean(response.token),
+      hasRefreshToken: Boolean(response.refreshToken),
       userId: response.user.id,
     });
 
     tokenStorage.set(response.token);
-    console.info("[AUTH] token stored", {
+    if (response.refreshToken) {
+      tokenStorage.setRefreshToken(response.refreshToken);
+    }
+    console.info("[AUTH] tokens stored", {
       source,
       storage: "localStorage",
       currentPathname:
@@ -224,6 +229,7 @@ export default function AuthPage() {
     setAuth({
       user: response.user,
       token: response.token,
+      refreshToken: response.refreshToken,
     });
     console.info("[AUTH] auth store updated", {
       source,
@@ -391,9 +397,11 @@ export default function AuthPage() {
           console.info("[OAUTH] popup callback success", {
             userId: message.user.id,
             hasToken: Boolean(message.token),
+            hasRefreshToken: Boolean(message.refreshToken),
           });
           settleWithSuccess({
             token: message.token,
+            refreshToken: message.refreshToken,
             user: message.user,
           });
         }

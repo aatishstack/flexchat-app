@@ -44,6 +44,9 @@ import {
 } from "@/lib/user-display";
 import { clearClientSession } from "@/lib/session-cleanup";
 import { deleteCurrentUser } from "@/services/user.service";
+import { logout as apiLogout, logoutAll as apiLogoutAll } from "@/services/auth.service";
+import { tokenStorage } from "@/lib/token";
+import { ShieldAlert } from "lucide-react";
 import { useSocketStore } from "@/store/socket-store";
 import { useThemeStore } from "@/store/theme-store";
 import { useToastStore } from "@/store/toast-store";
@@ -322,9 +325,32 @@ export default function SettingsPage() {
     ]);
 
   const confirmLogout =
-    useCallback(() => {
-      clearClientSession();
-      router.replace("/auth");
+    useCallback(async () => {
+      try {
+        const rt = tokenStorage.getRefreshToken();
+        if (rt) {
+          await apiLogout(rt);
+        }
+      } catch (err) {
+        console.error("[AUTH] logout api error", err);
+      } finally {
+        clearClientSession();
+        router.replace("/auth");
+      }
+    }, [router]);
+
+  const [logoutAllConfirmOpen, setLogoutAllConfirmOpen] = useState(false);
+
+  const confirmLogoutAll =
+    useCallback(async () => {
+      try {
+        await apiLogoutAll();
+      } catch (err) {
+        console.error("[AUTH] logout all api error", err);
+      } finally {
+        clearClientSession();
+        router.replace("/auth");
+      }
     }, [router]);
 
   const confirmDeleteAccount =
@@ -444,6 +470,15 @@ export default function SettingsPage() {
                 <LogOut size={17} className="text-red-400" />
                 <span className="text-[13.5px] font-bold text-red-400">Sign Out</span>
               </button>
+
+              <button 
+                onClick={() => setLogoutAllConfirmOpen(true)}
+                className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl hover:bg-red-500/[0.12] transition-colors"
+                style={{ background: "rgba(239,68,68,0.08)" }}
+              >
+                <ShieldAlert size={17} className="text-red-400" />
+                <span className="text-[13.5px] font-bold text-red-400">Sign Out of All Devices</span>
+              </button>
               
               <button 
                 onClick={() => {
@@ -503,6 +538,56 @@ export default function SettingsPage() {
                   type="button"
                   onClick={confirmLogout}
                   className="h-13 rounded-[18px] bg-[var(--fc-primary)] text-[15px] font-black uppercase tracking-widest text-white shadow-xl shadow-[rgba(var(--fc-primary-rgb),0.3)] transition hover:bg-[var(--fc-primary-hover)] active:scale-95"
+                >
+                  Confirm
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {logoutAllConfirmOpen ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[280] flex items-center justify-center bg-black/90 p-6 backdrop-blur-3xl"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 32, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 32, scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 340, damping: 34 }}
+              className="w-full max-w-sm rounded-[28px] border border-white/10 bg-[var(--fc-modal)] p-8 text-white shadow-[0_64px_160px_rgba(0,0,0,1)]"
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-[20px] border border-red-500/20 bg-red-500/5 text-red-400">
+                  <ShieldAlert size={28} />
+                </div>
+
+                <div className="mt-6">
+                  <h2 className="text-2xl font-bold tracking-tight">Sign Out Everywhere?</h2>
+                  <p className="fc-muted mt-2 text-[15px] leading-relaxed">
+                    This will end your sessions on all devices, including this one.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-10 grid grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => setLogoutAllConfirmOpen(false)}
+                  className="h-13 rounded-[18px] border border-white/5 bg-white/[0.03] text-[15px] font-black uppercase tracking-widest text-zinc-300 transition hover:bg-white/[0.06] active:scale-95"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={confirmLogoutAll}
+                  className="h-13 rounded-[18px] bg-red-500 text-[15px] font-black uppercase tracking-widest text-white shadow-xl shadow-[rgba(239,68,68,0.3)] transition hover:bg-red-600 active:scale-95"
                 >
                   Confirm
                 </button>

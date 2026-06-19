@@ -313,6 +313,33 @@ await db.execute(sql`
       created_at
     )
 `);
+
+await db.execute(sql`
+  alter table users
+    add column if not exists token_version integer default 0 not null
+`);
+
+await db.execute(sql`
+  create table if not exists refresh_tokens (
+    id text primary key not null,
+    user_id text not null,
+    token_hash text not null,
+    device_id text,
+    expires_at timestamp not null,
+    created_at timestamp default now() not null,
+    constraint refresh_tokens_token_hash_unique unique(token_hash)
+  )
+`);
+
+await db.execute(sql`
+  create index if not exists refresh_tokens_token_hash_idx
+    on refresh_tokens (token_hash)
+`);
+
+await db.execute(sql`
+  create index if not exists refresh_tokens_user_id_idx
+    on refresh_tokens (user_id)
+`);
 } finally {
   await closeDb();
 }

@@ -1,4 +1,4 @@
-# FlexChat Master Engineering Context v3
+# FlexChat Master Engineering Context v4
 
 ## Project Overview
 
@@ -6,51 +6,105 @@ Project: FlexChat
 
 FlexChat is a production-grade realtime messaging platform.
 
-Current phase:
-
-VISUAL PARITY PASS
-
 The application is already functional.
 
-The goal is NOT to rebuild the application.
+Core systems are implemented and integrated.
 
-The goal is NOT to redesign the application.
+Current objective is NOT rebuilding.
 
-The goal is to make the existing production application visually match the approved Figma designs while preserving all existing functionality.
+Current objective is NOT redesigning.
 
----
+Current objective is:
 
-# Primary Sources Of Truth
+PRODUCTION READINESS
 
-Visual Source Of Truth:
-
-1. Connected Figma MCP Project
-   - Design FlexChat Messaging App
-
-Secondary Visual Sources:
-
-2. F:\projects\flexchat\Refrence images
-3. F:\projects\flexchat\current state
-
-Functional Source Of Truth:
-
-4. Existing FlexChat codebase
-
-If sources conflict:
-
-Functionality wins.
+The mission is to transform FlexChat from a working application into a reliable, secure, scalable, mobile-first production product.
 
 ---
 
-# Instruction Priority
+# Current Phase
 
-1. Runtime Stability
-2. Existing Functionality
-3. Existing Architecture
-4. Figma MCP Designs
-5. Reference Images
-6. UI Polish
-7. New Ideas
+Current Phase:
+
+PRODUCTION READINESS PHASE
+
+Visual parity phase is substantially complete.
+
+New feature development is secondary.
+
+Current priorities:
+
+1. Security Audit
+2. JWT & Session Architecture
+3. Blocking System Validation
+4. Redis / Presence Architecture
+5. TURN Validation
+6. Production Bug Hunting
+7. Android Device Testing
+8. Interaction Layer Improvements
+9. Performance Hardening
+10. Launch Preparation
+
+---
+
+# Project Goal
+
+FlexChat should become:
+
+- Reliable
+- Fast
+- Mobile-first
+- Secure
+- Production-grade
+- Low-cost
+- Free-stack friendly
+
+Target:
+
+- 100+ active users comfortably
+- Hundreds of conversations daily
+- Stable realtime messaging
+- Reliable notifications
+- Reliable media uploads
+- Reliable calls
+- Smooth Android experience
+
+---
+
+# Product Philosophy
+
+FlexChat is NOT trying to become Telegram.
+
+FlexChat is NOT trying to become WhatsApp.
+
+FlexChat should borrow proven patterns from industry leaders while maintaining its own identity.
+
+Use:
+
+- WhatsApp interaction quality
+- Telegram responsiveness
+- Signal reliability
+
+Avoid:
+
+- Feature bloat
+- Enterprise complexity
+- Premature scaling
+
+---
+
+# Priority Order
+
+If priorities conflict:
+
+1. Reliability
+2. Security
+3. Existing Functionality
+4. Performance
+5. Existing Architecture
+6. UX
+7. New Features
+8. Visual Polish
 
 Higher priorities always win.
 
@@ -68,11 +122,9 @@ DO NOT IMPORT PROTOTYPE LOGIC.
 
 DO NOT REPLACE REAL DATA WITH MOCK DATA.
 
-DO NOT REBUILD FEATURES FROM FIGMA.
+DO NOT REBUILD FEATURES FROM SCRATCH.
 
-FIGMA = VISUAL REFERENCE
-
-FLEXCHAT = FUNCTIONAL SOURCE OF TRUTH
+Improve existing systems first.
 
 ---
 
@@ -81,7 +133,7 @@ FLEXCHAT = FUNCTIONAL SOURCE OF TRUTH
 Already Implemented:
 
 - Authentication
-- JWT Refresh Flow
+- JWT
 - Route Protection
 - Socket.IO Messaging
 - Presence
@@ -96,18 +148,21 @@ Already Implemented:
 - Conversation Virtualization
 - Message Virtualization
 - Mobile Safe Areas
+- Google OAuth
 
-These systems must be preserved.
+Assume these systems exist.
+
+Verify implementation before claiming issues.
 
 ---
 
 # Protected Systems
 
-Never rewrite:
+Never rewrite without explicit approval:
 
 - Auth
 - JWT
-- Refresh Tokens
+- Refresh Flow
 - Socket.IO
 - Presence
 - Typing
@@ -123,130 +178,174 @@ Never rewrite:
 - Services
 - API Contracts
 
-UI may change.
+Refactor only when necessary.
 
-Behavior must remain unchanged.
-
----
-
-# Protected Files
-
-Do NOT modify without explicit approval:
-
-- client/src/app/globals.css
-- client/src/components/chat/conversation/chat-conversation.tsx
-
-These files previously caused build regressions.
-
-If modification appears necessary:
-
-STOP.
-
-Explain why.
-
-Wait for approval.
+Preserve behavior.
 
 ---
 
-# Figma MCP Rules
+# Audit Philosophy
 
-Use the connected Figma MCP project:
+Never assume.
 
-Design FlexChat Messaging App
+Never guess.
 
-Before any UI change:
+Never infer missing functionality without evidence.
 
-1. Read Figma frame.
-2. Read current implementation.
-3. Compare.
-4. Produce audit.
-5. Wait for approval.
-6. Produce blueprint.
-7. Wait for approval.
-8. Implement.
-9. Verify build.
-10. Report git diff.
+Before reporting:
 
-Never skip steps.
+1. Search codebase
+2. Verify implementation
+3. Collect evidence
+4. Produce findings
 
----
+Every finding must be marked:
 
-# Audit Rules
+VERIFIED
+PARTIALLY VERIFIED
+UNVERIFIED
 
-When asked to audit:
+Evidence wins.
 
-STOP after audit.
-
-Do not implement.
-
-Do not create code.
-
-Output:
-
-# SCREEN ANALYZED
-
-# VISUAL DIFFERENCES
-
-# TYPOGRAPHY DIFFERENCES
-
-# SPACING DIFFERENCES
-
-# COMPONENT DIFFERENCES
-
-# MOBILE ISSUES
-
-# RECOMMENDED CHANGES
-
-# RISK LEVEL
-
-STOP.
+Assumptions lose.
 
 ---
 
-# Blueprint Rules
+# Security Rules
 
-When asked to create blueprint:
+Security is a launch blocker.
 
-STOP after blueprint.
+Always inspect:
 
-For every change report:
+- JWT storage
+- JWT refresh flow
+- Session management
+- Logout flow
+- Token revocation
+- Authorization
+- Upload validation
+- Blocking enforcement
+- Rate limiting
+- Abuse prevention
 
-- File
-- Component
-- Exact visual change
-- Estimated lines changed
-- Risk level
-- Regression risk
-
-Do not implement.
-
-STOP.
-
----
-
-# Implementation Rules
-
-Only implement approved scope.
-
-No bonus work.
-
-No hidden work.
-
-No future phase work.
-
-Only modify approved files.
-
-If more files are needed:
-
-STOP.
-
-Explain.
-
-Wait for approval.
+Security findings take priority over UI findings.
 
 ---
 
-# Mobile First Rules
+# Performance Rules
+
+Never optimize blindly.
+
+Before optimization:
+
+1. Identify bottleneck
+2. Measure bottleneck
+3. Validate bottleneck
+4. Implement fix
+5. Measure improvement
+
+Avoid:
+
+- Premature optimization
+- Complexity without benefit
+- Heavy animation libraries
+
+Prefer:
+
+- Lower rerenders
+- Lower memory usage
+- Lower network traffic
+- Better perceived performance
+
+---
+
+# Architecture Rules
+
+FlexChat is intentionally simple.
+
+Avoid recommending:
+
+- Kubernetes
+- Kafka
+- ElasticSearch
+- Microservices
+- Service Meshes
+- Enterprise Infrastructure
+
+Unless a real bottleneck exists.
+
+Target scale:
+
+100–500 active users.
+
+Keep infrastructure lightweight.
+
+---
+
+# Redis Rules
+
+Before recommending Redis:
+
+Identify:
+
+- Presence usage
+- Typing usage
+- Rate limiting
+- Conversation caching
+- Session storage
+
+Explain:
+
+- Why Redis is needed
+- Expected gain
+- Cost
+- Complexity
+
+Do not add Redis because "everyone uses Redis."
+
+---
+
+# TURN Rules
+
+Before call-related recommendations:
+
+Verify:
+
+- STUN configuration
+- TURN configuration
+- Cross-network testing
+- Android testing
+- Reconnection behavior
+
+Call reliability is more important than call features.
+
+---
+
+# Interaction Layer
+
+Future UX work should focus on:
+
+- Long Press Context Menus
+- Message Actions
+- Chat Actions
+- Swipe Reply
+- Double Tap Reactions
+- Multi Select
+- Story Gestures
+- Haptic Feedback
+- Press States
+- Native Android Feel
+
+Avoid:
+
+- Heavy animation systems
+- Over-engineered gesture libraries
+
+Performance always wins.
+
+---
+
+# Mobile Rules
 
 Primary Platform:
 
@@ -259,77 +358,75 @@ Target Widths:
 - 412
 - 430
 
+Support:
+
+- Browser
+- PWA
+- Android WebView
+- Capacitor
+- TWA
+
 Desktop is secondary.
 
-All visual decisions must prioritize Android.
+Every change should be reviewed through a mobile-first lens.
 
 ---
 
-# FlexChat Visual Identity
+# Bug Hunting Rules
 
-Brand:
+When performing bug hunts:
 
-FlexChat
+Do not propose fixes immediately.
 
-Primary Accent:
-#7C4FF0
+First:
 
-Background:
-#0C0C10
+1. Reproduce
+2. Locate root cause
+3. Identify affected files
+4. Estimate risk
+5. Report findings
 
-Primary Surface:
-#16161D
+Output:
 
-Secondary Surface:
-#1E1E27
+# BUG
 
-Typography:
-Plus Jakarta Sans
+# ROOT CAUSE
 
-Identity:
+# FILES AFFECTED
 
-- Premium
-- Fast
-- Clean
-- Mobile-first
-- Native-feeling
+# RISK LEVEL
 
-Avoid:
+# RECOMMENDED FIX
 
-- Telegram cloning
-- Excessive glassmorphism
-- Heavy gradients
-- Dashboard layouts
-- Unnecessary cards
+STOP.
 
 ---
 
-# Stories
+# Audit Output Format
 
-Stories are a flagship feature.
+Always report:
 
-Preserve:
+# VERIFIED FINDINGS
 
-- Story upload
-- Story viewing
-- Story analytics
-- Story navigation
-- Story interactions
+# PARTIALLY VERIFIED FINDINGS
 
-Only adjust presentation.
+# UNVERIFIED FINDINGS
 
----
+# CRITICAL RISKS
 
-# Calls
+# HIGH RISKS
 
-Preserve:
+# MEDIUM RISKS
 
-- Signaling
-- TURN
-- WebRTC
-- Presence
+# LOW RISKS
 
-Only adjust presentation.
+# REMAINING RISKS
+
+# RECOMMENDED NEXT STEP
+
+Never exaggerate progress.
+
+Never claim success without evidence.
 
 ---
 
@@ -340,22 +437,22 @@ Nothing is complete until verified.
 Required:
 
 - Build
-- Typecheck (if available)
+- Typecheck
 - Runtime validation
-- Mobile viewport review
+- Mobile validation
 
 If not tested:
 
-Mark UNVERIFIED.
+Status = UNVERIFIED
 
 Never claim:
 
-- Complete
-- Verified
-- Working
-- No regressions
+- COMPLETE
+- VERIFIED
+- WORKING
+- NO REGRESSIONS
 
-without actual verification.
+without evidence.
 
 ---
 
@@ -395,28 +492,45 @@ Always report:
 
 ---
 
-# Safety Rule
+# Launch Philosophy
 
-If uncertain:
+Launch blockers:
 
-STOP.
+- Security vulnerabilities
+- Session flaws
+- Authorization flaws
+- Message delivery failures
+- Call reliability failures
+- Notification failures
 
-ASK.
+Non-blockers:
 
-DO NOT GUESS.
+- Minor UI polish
+- Animation tweaks
+- Cosmetic differences
+
+Reliability > Features
+
+Security > Features
+
+Performance > Features
 
 ---
 
 # Mission
 
-Make FlexChat visually match the Figma project while preserving production functionality, realtime reliability, architecture stability, and launch readiness.
+Make FlexChat:
 
-Reliability > Visuals
+Reliable.
+Secure.
+Fast.
+Mobile-first.
+Production-grade.
 
-Functionality > Redesign
+Preserve the existing architecture.
 
-Figma > Assumptions
+Preserve realtime reliability.
 
-Audit → Blueprint → Approval → Implementation
+Preserve launch velocity.
 
-Never skip the workflow.
+Build the best possible messaging experience on a lightweight, affordable stack.

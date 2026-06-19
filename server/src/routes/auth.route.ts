@@ -19,9 +19,16 @@ import { env } from "../config/env.js";
 import { db } from "../db/index.js";
 
 import { users } from "../db/schema/users.js";
+import { refreshTokens } from "../db/schema/refresh-tokens.js";
 
 import { generateId } from "../lib/uuid.js";
-import { signToken, verifyTokenIgnoringExpiration } from "../lib/jwt.js";
+import {
+  signToken,
+  signRefreshToken,
+  verifyRefreshToken,
+  hashRefreshToken,
+  verifyTokenIgnoringExpiration,
+} from "../lib/jwt.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import { verifyTurnstileToken } from "../utils/turnstile.js";
 import { generateTurnCredentials } from "../utils/webrtc.js";
@@ -430,6 +437,38 @@ async function findOrCreateGoogleUser(profile: z.infer<typeof googleUserInfoSche
   return createdUsers[0];
 }
 
+async function issueTokens(userId: string, deviceId?: string | string[] | null) {
+  const userRows = await db
+    .select({ tokenVersion: users.tokenVersion })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  const tokenVersion = userRows[0]?.tokenVersion ?? 0;
+
+  const accessToken = signToken({
+    id: userId,
+    tokenVersion,
+  });
+
+  const refreshToken = signRefreshToken({
+    id: userId,
+    tokenVersion,
+  });
+
+  const hashed = hashRefreshToken(refreshToken);
+  const userAgentStr = Array.isArray(deviceId) ? deviceId.join(", ") : (deviceId ?? null);
+
+  await db.insert(refreshTokens).values({
+    id: generateId(),
+    userId,
+    tokenHash: hashed,
+    deviceId: userAgentStr,
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+  });
+
+  return { accessToken, refreshToken };
+}
+
 export async function authRoutes(app: FastifyInstance) {
   // REGISTER
   app.post(
@@ -551,13 +590,14 @@ export async function authRoutes(app: FastifyInstance) {
       }
       const createdUser = insertedUsers[0] ?? newUser;
 
-      const token = signToken({
-        id: createdUser.id,
-      });
+      const { accessToken, refreshToken } = await issueTokens(
+        createdUser.id,
+        request.headers["user-agent"]
+      );
 
       return {
-        token,
-
+        token: accessToken,
+        refreshToken,
         user: publicUser(createdUser),
       };
     },
@@ -904,9 +944,10 @@ export async function authRoutes(app: FastifyInstance) {
         );
       }
 
-      const token = signToken({
-        id: user.id,
-      });
+      const { accessToken, refreshToken } = await issueTokens(
+        user.id,
+        request.headers["user-agent"]
+      );
 
       request.log.info(
         {
@@ -922,7 +963,8 @@ export async function authRoutes(app: FastifyInstance) {
         {
           source: "flexchat-google-oauth",
           type: "flexchat:google-auth:success",
-          token,
+          token: accessToken,
+          refreshToken,
           user: publicUser(user),
         },
         state.frontendOrigin,
@@ -1006,13 +1048,14 @@ export async function authRoutes(app: FastifyInstance) {
         });
       }
 
-      const token = signToken({
-        id: user.id,
-      });
+      const { accessToken, refreshToken } = await issueTokens(
+        user.id,
+        request.headers["user-agent"]
+      );
 
       return {
-        token,
-
+        token: accessToken,
+        refreshToken,
         user: publicUser(user),
       };
     },
@@ -1029,26 +1072,31 @@ export async function authRoutes(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
+      let refreshToken: string | undefined;
+
       const authHeader = request.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        refreshToken = authHeader.slice("Bearer ".length).trim();
+      }
 
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      if (!refreshToken && request.headers["x-refresh-token"]) {
+        const headerVal = request.headers["x-refresh-token"];
+        refreshToken = Array.isArray(headerVal) ? headerVal[0] : headerVal;
+      }
+
+      if (!refreshToken && request.body && typeof request.body === "object") {
+        refreshToken = (request.body as any).refreshToken;
+      }
+
+      if (!refreshToken) {
         return reply.status(401).send({
-          message: "Unauthorized",
+          message: "Refresh token is required",
         });
       }
 
-      const token = authHeader.slice("Bearer ".length).trim();
-
-      if (!token) {
-        return reply.status(401).send({
-          message: "Unauthorized",
-        });
-      }
-
-      let decoded: ReturnType<typeof verifyTokenIgnoringExpiration>;
-
+      let decoded: ReturnType<typeof verifyRefreshToken>;
       try {
-        decoded = verifyTokenIgnoringExpiration(token);
+        decoded = verifyRefreshToken(refreshToken);
       } catch (error) {
         request.log.warn(
           {
@@ -1060,36 +1108,168 @@ export async function authRoutes(app: FastifyInstance) {
                   }
                 : "Unknown token verification error",
           },
-          "Refresh rejected: token verification failed",
+          "Refresh rejected: refresh token verification failed",
         );
 
         return reply.status(401).send({
-          message: "Invalid token",
+          message: "Invalid refresh token",
         });
       }
 
-      const userId = decoded.id;
+      const hashed = hashRefreshToken(refreshToken);
 
-      const foundUser = await db
+      const matchedTokens = await db
+        .select()
+        .from(refreshTokens)
+        .where(eq(refreshTokens.tokenHash, hashed))
+        .limit(1);
+
+      const tokenRecord = matchedTokens[0];
+
+      if (!tokenRecord) {
+        request.log.warn(
+          { userId: decoded.id },
+          "Replay attack detected: valid refresh token signature but token not in database. Revoking all sessions.",
+        );
+
+        await db.transaction(async (tx) => {
+          await tx
+            .update(users)
+            .set({ tokenVersion: sql`${users.tokenVersion} + 1` })
+            .where(eq(users.id, decoded.id));
+
+          await tx
+            .delete(refreshTokens)
+            .where(eq(refreshTokens.userId, decoded.id));
+        });
+
+        return reply.status(401).send({
+          message: "Session expired or invalid",
+        });
+      }
+
+      const foundUsers = await db
         .select()
         .from(users)
-        .where(and(eq(users.id, userId), eq(users.isDeleted, false)));
+        .where(and(eq(users.id, tokenRecord.userId), eq(users.isDeleted, false)))
+        .limit(1);
 
-      const user = foundUser[0];
+      const user = foundUsers[0];
 
       if (!user) {
-        return reply.status(404).send({
-          message: "User not found",
+        await db
+          .delete(refreshTokens)
+          .where(eq(refreshTokens.id, tokenRecord.id));
+
+        return reply.status(401).send({
+          message: "User not found or disabled",
         });
       }
 
+      if (decoded.tokenVersion !== user.tokenVersion) {
+        request.log.warn(
+          {
+            userId: user.id,
+            tokenVersionInToken: decoded.tokenVersion,
+            tokenVersionInDb: user.tokenVersion,
+          },
+          "Refresh rejected: token version mismatch",
+        );
+
+        await db
+          .delete(refreshTokens)
+          .where(eq(refreshTokens.id, tokenRecord.id));
+
+        return reply.status(401).send({
+          message: "Session expired",
+        });
+      }
+
+      await db
+        .delete(refreshTokens)
+        .where(eq(refreshTokens.id, tokenRecord.id));
+
+      const { accessToken, refreshToken: newRefreshToken } = await issueTokens(
+        user.id,
+        request.headers["user-agent"]
+      );
+
       return {
-        token: signToken({
-          id: user.id,
-        }),
+        token: accessToken,
+        refreshToken: newRefreshToken,
         user: publicUser(user),
       };
     },
+  );
+
+  app.post(
+    "/auth/logout",
+    async (request, reply) => {
+      let refreshToken: string | undefined;
+
+      const authHeader = request.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        refreshToken = authHeader.slice("Bearer ".length).trim();
+      }
+
+      if (!refreshToken && request.headers["x-refresh-token"]) {
+        const headerVal = request.headers["x-refresh-token"];
+        refreshToken = Array.isArray(headerVal) ? headerVal[0] : headerVal;
+      }
+
+      if (!refreshToken && request.body && typeof request.body === "object") {
+        refreshToken = (request.body as any).refreshToken;
+      }
+
+      if (!refreshToken) {
+        return reply.status(400).send({
+          message: "Refresh token is required",
+        });
+      }
+
+      const hashed = hashRefreshToken(refreshToken);
+
+      await db
+        .delete(refreshTokens)
+        .where(eq(refreshTokens.tokenHash, hashed));
+
+      return reply.status(200).send({
+        success: true,
+        message: "Logged out successfully",
+      });
+    }
+  );
+
+  app.post(
+    "/auth/logout-all",
+    {
+      preHandler: authMiddleware,
+    },
+    async (request, reply) => {
+      const userId = (request.user as any)?.id;
+
+      if (!userId) {
+        return reply.status(401).send({
+          message: "Unauthorized",
+        });
+      }
+
+      await db.transaction(async (tx) => {
+        await tx
+          .update(users)
+          .set({ tokenVersion: sql`${users.tokenVersion} + 1` })
+          .where(eq(users.id, userId));
+
+        await tx
+          .delete(refreshTokens)
+          .where(eq(refreshTokens.userId, userId));
+      });
+
+      return reply.status(200).send({
+        success: true,
+        message: "Logged out from all devices successfully",
+      });
+    }
   );
 
   app.get(

@@ -30,6 +30,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { clearClientSession } from "@/lib/session-cleanup";
 import { getServerNow } from "@/lib/server-time";
 import { tokenStorage } from "@/lib/token";
+import { api, getFreshToken } from "@/services/api";
 import { 
   useNotificationStore,
   type NotificationItem 
@@ -588,7 +589,19 @@ export default function SocketProvider({
 
       const msg = error.message.toLowerCase();
       if (msg.includes("unauthorized") && !msg.includes("unavailable")) {
-        clearClientSession();
+        const storedRefreshToken = tokenStorage.getRefreshToken();
+        if (storedRefreshToken) {
+          console.info("[SOCKET] Unauthorized connection, attempting coordinated token refresh...");
+          getFreshToken().then((newToken) => {
+            console.info("[SOCKET] Coordinated token refresh succeeded, reconnecting socket...");
+            useSocketStore.getState().connectSocket(newToken);
+          }).catch((refreshError) => {
+            console.error("[SOCKET] Coordinated token refresh failed during reconnect, clearing session", refreshError);
+            clearClientSession();
+          });
+        } else {
+          clearClientSession();
+        }
       }
     }
 

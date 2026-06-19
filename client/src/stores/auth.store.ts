@@ -21,6 +21,8 @@ interface AuthState {
 
   token: string | null;
 
+  refreshToken: string | null;
+
   isAuthenticated: boolean;
 
   isHydrated: boolean;
@@ -40,6 +42,8 @@ interface AuthState {
       user: User;
 
       token: string;
+
+      refreshToken?: string | null;
     }
   ) => void;
 
@@ -56,6 +60,8 @@ export const useAuthStore =
       user: null,
 
       token: null,
+
+      refreshToken: null,
 
       isAuthenticated:
         false,
@@ -89,6 +95,7 @@ export const useAuthStore =
         console.info("[AUTH] auth store updated", {
           userId: data.user.id,
           hasToken: Boolean(data.token),
+          hasRefreshToken: Boolean(data.refreshToken),
         });
 
         set({
@@ -96,6 +103,9 @@ export const useAuthStore =
 
           token:
             data.token,
+
+          refreshToken:
+            data.refreshToken ?? null,
 
           isAuthenticated:
             true,
@@ -132,6 +142,8 @@ export const useAuthStore =
           user: null,
 
           token: null,
+
+          refreshToken: null,
 
           isAuthenticated:
             false,

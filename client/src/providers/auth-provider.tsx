@@ -173,6 +173,7 @@ export default function AuthProvider({
         setAuth({
           user,
           token: activeToken,
+          refreshToken: tokenStorage.getRefreshToken(),
         });
         setHydrated(true);
         connectSocket(activeToken);
@@ -203,7 +204,7 @@ export default function AuthProvider({
           );
           clearRetry();
           setSessionRecovering(false);
-          tokenStorage.remove();
+          tokenStorage.clear();
           resetClientSessionState();
           setHydrated(true);
           return;
@@ -279,7 +280,7 @@ export default function AuthProvider({
         (event as CustomEvent).detail,
       );
       clearRetry();
-      tokenStorage.remove();
+      tokenStorage.clear();
       resetClientSessionState();
     }
 
