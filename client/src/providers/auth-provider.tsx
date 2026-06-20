@@ -63,6 +63,9 @@ export default function AuthProvider({
   const setSessionRecovering = useAuthStore(
     (state) => state.setSessionRecovering,
   );
+  const setApiUnavailable = useAuthStore(
+    (state) => state.setApiUnavailable,
+  );
   const connectSocket = useSocketStore(
     (state) => state.connectSocket,
   );
@@ -72,6 +75,8 @@ export default function AuthProvider({
     });
   }, []);
   const hydrateVersionRef = useRef(0);
+  const watchdogTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const activeAbortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -84,6 +89,64 @@ export default function AuthProvider({
       }
     }
 
+    function clearWatchdog() {
+      if (watchdogTimerRef.current) {
+        console.info("[AUTH] WATCHDOG_CLEAR", {
+          version: hydrateVersionRef.current,
+          timestamp: Date.now(),
+        });
+        clearTimeout(watchdogTimerRef.current);
+        watchdogTimerRef.current = undefined;
+      }
+    }
+
+    function triggerWatchdog(version: number, triggerSource: string) {
+      console.warn("[AUTH] WATCHDOG_FIRE", {
+        version,
+        timestamp: Date.now(),
+        triggerSource,
+      });
+
+      if (disposed) return;
+
+      const isRequestActive = activeAbortControllerRef.current !== null;
+      const isCurrentVersion = hydrateVersionRef.current === version;
+      const isAuthenticated = useAuthStore.getState().isAuthenticated;
+
+      if (!isCurrentVersion || !isRequestActive || isAuthenticated) {
+        console.info("[AUTH] Watchdog ignored safety validation checks", {
+          isCurrentVersion,
+          isRequestActive,
+          isAuthenticated,
+        });
+        return;
+      }
+
+      if (tokenStorage.exists()) {
+        useSocketStore
+          .getState()
+          .disconnectSocket();
+        setApiUnavailable(true);
+        setSessionRecovering(true);
+        scheduleRetry();
+      }
+
+      setHydrated(true);
+    }
+
+    function armWatchdog(version: number, triggerSource: string) {
+      clearWatchdog();
+      console.info("[AUTH] WATCHDOG_ARM", {
+        version,
+        timestamp: Date.now(),
+        triggerSource,
+      });
+      watchdogTimerRef.current = setTimeout(() => {
+        watchdogTimerRef.current = undefined;
+        triggerWatchdog(version, triggerSource);
+      }, AUTH_SAFETY_TIMEOUT_MS);
+    }
+
     function scheduleRetry() {
       clearRetry();
       console.info(
@@ -94,18 +157,17 @@ export default function AuthProvider({
       );
       retryTimer = setTimeout(() => {
         retryTimer = undefined;
-        void hydrate();
+        void hydrate(undefined, "scheduled_retry");
       }, AUTH_RETRY_DELAY_MS);
     }
 
     async function hydrate(
       tokenOverride?: string | null,
+      triggerSource: string = "mount",
     ) {
-      const hydrateVersion =
-        hydrateVersionRef.current + 1;
-
-      hydrateVersionRef.current =
-        hydrateVersion;
+      const previousVersion = hydrateVersionRef.current;
+      const hydrateVersion = previousVersion + 1;
+      hydrateVersionRef.current = hydrateVersion;
 
       const isCurrentHydration = () =>
         !disposed &&
@@ -116,13 +178,26 @@ export default function AuthProvider({
           ? tokenStorage.get()
           : tokenOverride;
 
-      console.info(
-        "[AUTH] hydrating session",
-        {
-          hasToken: Boolean(token),
-          version: hydrateVersion,
-        },
-      );
+      console.info("[AUTH] HYDRATE_START", {
+        version: hydrateVersion,
+        timestamp: Date.now(),
+        triggerSource,
+        hasToken: Boolean(token),
+      });
+
+      // Abort previous GET /me request if any
+      if (activeAbortControllerRef.current) {
+        console.info("[AUTH] HYDRATE_ABORT", {
+          version: previousVersion,
+          timestamp: Date.now(),
+          triggerSource: `superseded_by_${triggerSource}`,
+        });
+        activeAbortControllerRef.current.abort();
+        activeAbortControllerRef.current = null;
+      }
+
+      // Reset safety timer for this hydration invocation
+      armWatchdog(hydrateVersion, triggerSource);
 
       if (!token) {
         if (!isCurrentHydration()) {
@@ -130,9 +205,14 @@ export default function AuthProvider({
         }
 
         clearRetry();
-        console.info("[AUTH] auth rejected reason", {
+        clearWatchdog();
+        console.info("[AUTH] HYDRATE_SUCCESS", {
+          version: hydrateVersion,
+          timestamp: Date.now(),
+          triggerSource,
           reason: "missing_token",
         });
+        setApiUnavailable(false);
         setSessionRecovering(false);
         resetClientSessionState();
         setHydrated(true);
@@ -140,12 +220,28 @@ export default function AuthProvider({
       }
 
       try {
-        const user = await getCurrentUserWithTimeout();
+        const abortController = new AbortController();
+        activeAbortControllerRef.current = abortController;
+
+        const user = await Promise.race([
+          getCurrentUser(abortController.signal),
+          new Promise<never>((_, reject) => {
+            const timeoutId = setTimeout(() => {
+              reject(new Error(AUTH_TIMEOUT_ERROR));
+              abortController.abort();
+            }, AUTH_TIMEOUT_MS);
+
+            abortController.signal.addEventListener("abort", () => {
+              clearTimeout(timeoutId);
+            });
+          }),
+        ]);
 
         if (!isCurrentHydration()) {
           return;
         }
 
+        activeAbortControllerRef.current = null;
         const activeToken = tokenStorage.get();
 
         if (!activeToken) {
@@ -164,12 +260,13 @@ export default function AuthProvider({
         }
 
         clearRetry();
-        console.info(
-          "[AUTH] user hydrated",
-          {
-            userId: user.id,
-          },
-        );
+        clearWatchdog();
+        console.info("[AUTH] HYDRATE_SUCCESS", {
+          version: hydrateVersion,
+          timestamp: Date.now(),
+          triggerSource,
+          userId: user.id,
+        });
         setAuth({
           user,
           token: activeToken,
@@ -187,22 +284,25 @@ export default function AuthProvider({
           return;
         }
 
+        activeAbortControllerRef.current = null;
         const status = isAxiosError(error)
           ? error.response?.status
           : undefined;
         const tokenIsInvalid =
           status === 401 ||
-          status === 403 ||
-          status === 404;
+          status === 403;
 
         if (tokenIsInvalid) {
-          console.warn(
-          "[AUTH] stored token was rejected; resetting session",
-            {
-              status,
-            },
-          );
+          console.warn("[AUTH] HYDRATE_FAIL", {
+            version: hydrateVersion,
+            timestamp: Date.now(),
+            triggerSource,
+            reason: "invalid_token",
+            status,
+          });
           clearRetry();
+          clearWatchdog();
+          setApiUnavailable(false);
           setSessionRecovering(false);
           tokenStorage.clear();
           resetClientSessionState();
@@ -210,27 +310,27 @@ export default function AuthProvider({
           return;
         }
 
-        console.warn(
-          "[AUTH] session endpoint unavailable; entering recovery",
-          {
-            status: status ?? "network_or_timeout",
-            reason:
-              error instanceof Error
-                ? error.message
-                : "Unknown hydration failure",
-          },
-        );
+        console.warn("[AUTH] HYDRATE_FAIL", {
+          version: hydrateVersion,
+          timestamp: Date.now(),
+          triggerSource,
+          reason: "unavailable_or_timeout",
+          status: status ?? "network_or_timeout",
+          error: error instanceof Error ? error.message : "Unknown hydration failure",
+        });
 
         useSocketStore
           .getState()
           .disconnectSocket();
-        setSessionRecovering(true);
+        setApiUnavailable(true);
+        const isCurrentlyAuthenticated = useAuthStore.getState().isAuthenticated;
+        setSessionRecovering(!isCurrentlyAuthenticated);
         setHydrated(true);
         scheduleRetry();
       }
     }
 
-    void hydrate();
+    void hydrate(undefined, "mount");
 
     function handleStorage(
       event: StorageEvent,
@@ -240,7 +340,7 @@ export default function AuthProvider({
       }
 
       clearRetry();
-      void hydrate(event.newValue);
+      void hydrate(event.newValue, "storage_event");
     }
 
     function handleTokenChange(
@@ -251,11 +351,8 @@ export default function AuthProvider({
           token: string | null;
         }>).detail?.token ?? null;
 
-      console.info("[AUTH] token change observed", {
-        hasToken: Boolean(token),
-      });
       clearRetry();
-      void hydrate(token);
+      void hydrate(token, "token_change_event");
     }
 
     function handleApiUnavailable(event: Event) {
@@ -263,13 +360,38 @@ export default function AuthProvider({
         return;
       }
 
+      const detail =
+        (event as CustomEvent<Record<string, unknown>>).detail ?? {};
+      const diagnostic = {
+        url:
+          typeof detail.url === "string"
+            ? detail.url
+            : "unknown",
+        status:
+          typeof detail.status === "number" ||
+          typeof detail.status === "string"
+            ? detail.status
+            : "network_error",
+        method:
+          typeof detail.method === "string"
+            ? detail.method
+            : "UNKNOWN",
+        timestamp:
+          typeof detail.timestamp === "string"
+            ? detail.timestamp
+            : new Date().toISOString(),
+      };
+
       console.warn(
-        "[AUTH] authenticated API became unavailable; suspending live session",
-        (event as CustomEvent).detail,
+        "[AUTH] authenticated API became unavailable; recovering in background",
+        diagnostic,
       );
       clearRetry();
-      resetClientSessionState();
-      setSessionRecovering(true);
+      useSocketStore
+        .getState()
+        .disconnectSocket();
+      setApiUnavailable(true);
+      setSessionRecovering(false);
       setHydrated(true);
       scheduleRetry();
     }
@@ -280,36 +402,16 @@ export default function AuthProvider({
         (event as CustomEvent).detail,
       );
       clearRetry();
+      clearWatchdog();
+      setApiUnavailable(false);
       tokenStorage.clear();
       resetClientSessionState();
     }
 
     function handleSessionRetry() {
-      console.info(
-        "[AUTH] user requested session retry",
-      );
       clearRetry();
-      void hydrate();
+      void hydrate(undefined, "manual_retry");
     }
-
-    const safetyTimer = setTimeout(() => {
-      if (
-        disposed ||
-        useAuthStore.getState().isHydrated
-      ) {
-        return;
-      }
-
-      if (tokenStorage.exists()) {
-        useSocketStore
-          .getState()
-          .disconnectSocket();
-        setSessionRecovering(true);
-        scheduleRetry();
-      }
-
-      setHydrated(true);
-    }, AUTH_SAFETY_TIMEOUT_MS);
 
     window.addEventListener(
       "storage",
@@ -335,7 +437,16 @@ export default function AuthProvider({
     return () => {
       disposed = true;
       clearRetry();
-      clearTimeout(safetyTimer);
+      clearWatchdog();
+      if (activeAbortControllerRef.current) {
+        console.info("[AUTH] HYDRATE_ABORT", {
+          version: hydrateVersionRef.current,
+          timestamp: Date.now(),
+          triggerSource: "unmount",
+        });
+        activeAbortControllerRef.current.abort();
+        activeAbortControllerRef.current = null;
+      }
 
       window.removeEventListener(
         "storage",
@@ -362,6 +473,7 @@ export default function AuthProvider({
     connectSocket,
     resetClientSessionState,
     setAuth,
+    setApiUnavailable,
     setHydrated,
     setSessionRecovering,
   ]);
