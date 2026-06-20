@@ -1,6 +1,10 @@
 import { api } from "./api";
+import { tokenStorage } from "@/lib/token";
+import { useAuthStore } from "@/stores/auth.store";
 
 import type { NotificationItem } from "@/store/notification-store";
+
+let isClearingNotifications = false;
 
 export async function fetchNotifications() {
   const response =
@@ -36,7 +40,40 @@ export async function deleteNotificationRequest(
 }
 
 export async function clearNotificationsRequest() {
-  await api.delete("/notifications");
+  if (isClearingNotifications) {
+    console.info("[NOTIFICATIONS] cleanup_requested ignored: already clearing", {
+      timestamp: Date.now(),
+    });
+    return;
+  }
+
+  const tokenPresent = tokenStorage.exists();
+  const authenticated = useAuthStore.getState().isAuthenticated;
+
+  console.info("[NOTIFICATIONS] cleanup_requested", {
+    authenticated,
+    token_present: tokenPresent,
+    timestamp: Date.now(),
+  });
+
+  if (!tokenPresent && !authenticated) {
+    console.info("[NOTIFICATIONS] request_skipped", {
+      reason: "no_valid_auth_state",
+      timestamp: Date.now(),
+    });
+    return;
+  }
+
+  isClearingNotifications = true;
+  console.info("[NOTIFICATIONS] request_sent", {
+    timestamp: Date.now(),
+  });
+
+  try {
+    await api.delete("/notifications");
+  } finally {
+    isClearingNotifications = false;
+  }
 }
 
 export async function registerFcmToken(token: string) {
