@@ -23,7 +23,7 @@ import { clearClientSession } from "@/lib/session-cleanup";
 import { syncServerTime } from "@/lib/server-time";
 import { getCurrentUser } from "@/services/auth.service";
 import { useSocketStore } from "@/store/socket-store";
-import { useAuthStore } from "@/stores/auth.store";
+import { useAuthStore, readPersistedUser } from "@/stores/auth.store";
 
 const AUTH_TIMEOUT_ERROR = "auth_timeout";
 const AUTH_TIMEOUT_MS = 8_000;
@@ -196,6 +196,35 @@ export default function AuthProvider({
         isAuthenticated: useAuthStore.getState().isAuthenticated,
         isSessionRecovering: useAuthStore.getState().isSessionRecovering,
       });
+      console.info("[AUTH] BOOT_STEP_1 hydrate_invoked", {
+        triggerSource,
+        tokenPresent: Boolean(token),
+      });
+
+      // Optimistic rehydration: if a token + a persisted user exist and we are
+      // not yet authenticated, restore the session immediately so a refresh /
+      // deployment / backend restart never blocks app entry on /me. The token
+      // is still validated below and on every subsequent request, so this is a
+      // UX rehydration aid (WhatsApp/Telegram behavior), not a trust boundary.
+      if (token && !useAuthStore.getState().isAuthenticated) {
+        const persistedUser = readPersistedUser();
+
+        if (persistedUser) {
+          console.info("[AUTH] BOOT_STEP_2 optimistic_rehydrate", {
+            userId: persistedUser.id,
+          });
+          setAuth({
+            user: persistedUser,
+            token,
+            refreshToken: tokenStorage.getRefreshToken(),
+          });
+          connectSocket(token);
+        } else {
+          console.info("[AUTH] BOOT_STEP_2 optimistic_rehydrate_skipped", {
+            reason: "no_persisted_user",
+          });
+        }
+      }
 
       // Abort previous GET /me request if any
       if (activeAbortControllerRef.current) {
@@ -292,6 +321,9 @@ export default function AuthProvider({
           token: activeToken,
           refreshToken: tokenStorage.getRefreshToken(),
         });
+        console.info("[AUTH] BOOT_STEP_3 me_validated_ok", {
+          userId: user.id,
+        });
         apiUnavailableCountRef.current = 0;
         setApiUnavailable(false);
         setHydrated(true);
@@ -318,6 +350,9 @@ export default function AuthProvider({
           status === 403;
 
         if (tokenIsInvalid) {
+          console.warn("[AUTH] BOOT_STEP_3 me_permanently_invalid", {
+            statusCode: status,
+          });
           console.warn("[AUTH] HYDRATE_FAIL", {
             timestamp: Date.now(),
             version: hydrateVersion,
@@ -350,13 +385,21 @@ export default function AuthProvider({
           isSessionRecovering: useAuthStore.getState().isSessionRecovering,
         });
 
-        useSocketStore
-          .getState()
-          .disconnectSocket();
         // Transient failure (timeout / network / 502-504 / cold start / deploy /
         // DB or Redis wakeup). The token is still valid, so NEVER show the
         // session recovery screen — recover silently in the background. A
         // throttled, auto-dismissing "connection" banner is the only signal.
+        // Keep the socket alive when already authenticated (it has its own
+        // reconnect loop); only tear it down if we never established a session.
+        if (!useAuthStore.getState().isAuthenticated) {
+          useSocketStore
+            .getState()
+            .disconnectSocket();
+        }
+        console.warn("[AUTH] BOOT_STEP_3 me_transient_retry", {
+          statusCode: status ?? "network_or_timeout",
+          stillAuthenticated: useAuthStore.getState().isAuthenticated,
+        });
         apiUnavailableCountRef.current += 1;
         setApiUnavailable(
           apiUnavailableCountRef.current >= API_UNAVAILABLE_THRESHOLD,
@@ -432,9 +475,13 @@ export default function AuthProvider({
         diagnostic,
       );
       clearRetry();
-      useSocketStore
-        .getState()
-        .disconnectSocket();
+      // Keep the socket connected for an authenticated user (it auto-reconnects
+      // on its own); only disconnect if we never established a session.
+      if (!useAuthStore.getState().isAuthenticated) {
+        useSocketStore
+          .getState()
+          .disconnectSocket();
+      }
       apiUnavailableCountRef.current += 1;
       // Silent recovery first: only raise the banner once failures persist.
       setApiUnavailable(

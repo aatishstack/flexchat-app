@@ -86,7 +86,21 @@ type RefreshResponse = {
 let refreshPromise: Promise<string> | null = null;
 let broadcastChannel: BroadcastChannel | null = null;
 
+const REFRESH_LOCK_KEY = "flexchat_refresh_lock";
+
 if (typeof window !== "undefined") {
+  // A fresh page load (e.g. after a Vercel deploy or a manual refresh) cannot
+  // be inside another tab's in-flight refresh. Any lock present now is stale
+  // (left behind when a tab was reloaded/closed mid-refresh before its
+  // `finally` ran). Clearing it on boot prevents a 5s wait for a broadcast
+  // that will never arrive and the rotated-refresh-token reuse that can
+  // otherwise force-log-out a valid session.
+  try {
+    localStorage.removeItem(REFRESH_LOCK_KEY);
+  } catch {
+    // localStorage may be unavailable (private mode); ignore.
+  }
+
   try {
     broadcastChannel = new BroadcastChannel("flexchat_auth_refresh");
   } catch (err) {
