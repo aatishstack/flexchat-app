@@ -305,7 +305,19 @@ export async function buildApp() {
       origin: corsOrigin,
       credentials: false,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization"],
+      // Must include every custom request header the client actually sends, or
+      // the browser's preflight (OPTIONS) blocks the request:
+      //  - x-refresh-token: sent on POST /auth/refresh and /auth/logout
+      //  - Cache-Control:  sent on GET /time (server-time sync fallback)
+      allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "x-refresh-token",
+        "Cache-Control",
+      ],
+      // x-next-cursor is a response header the client reads for pagination;
+      // it must be exposed for cross-origin reads to succeed.
+      exposedHeaders: ["x-next-cursor"],
     }),
   );
 
