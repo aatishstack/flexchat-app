@@ -2583,6 +2583,33 @@ export default function ChatConversation() {
   const reducedMotion = useReducedMotion();
   const now = useServerNow();
   const pushToast = useToastStore((state) => state.pushToast);
+  const composerRef = useRef<HTMLDivElement>(null);
+  const [composerHeight, setComposerHeight] = useState(96);
+
+  useEffect(() => {
+    const element = composerRef.current;
+    if (!element) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setComposerHeight(entry.target.getBoundingClientRect().height);
+      }
+    });
+
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isNearBottomRef.current) {
+      bottomRef.current?.scrollIntoView({
+        behavior: "auto",
+        block: "end",
+      });
+    }
+  }, [composerHeight]);
   const {
     bookmarks,
     addBookmark,
@@ -4744,7 +4771,7 @@ export default function ChatConversation() {
       onTouchCancel={handleConversationTouchEnd}
     >
       <div
-        className="relative z-20 flex h-[64px] shrink-0 items-center justify-between gap-3 border-b border-white/[0.03] bg-black/40 px-3 backdrop-blur-3xl pt-[env(safe-area-inset-top)] sm:h-[72px] sm:px-5"
+        className="relative z-20 flex min-h-[64px] shrink-0 items-center justify-between gap-3 border-b border-white/[0.03] bg-black/40 px-3 backdrop-blur-3xl py-2 pt-[calc(8px+env(safe-area-inset-top))] sm:min-h-[72px] sm:px-5"
       >
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <button
@@ -4932,7 +4959,8 @@ export default function ChatConversation() {
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="chat-safe-scroll relative z-10 min-h-0 flex-1 touch-pan-y overscroll-contain overflow-y-auto px-2.5 py-3 pb-32 sm:px-5 sm:pt-5 sm:pb-32"
+        className="chat-safe-scroll relative z-10 min-h-0 flex-1 touch-pan-y overscroll-contain overflow-y-auto px-2.5 py-3 sm:px-5 sm:pt-5"
+        style={{ paddingBottom: `${composerHeight}px` }}
       >
         {showInitialMessageSkeleton ? (
           <MessageSkeleton />
@@ -5116,6 +5144,7 @@ export default function ChatConversation() {
       </div>
 
       <div
+        ref={composerRef}
         style={{
           paddingBottom:
             "calc(8px + env(safe-area-inset-bottom) + env(keyboard-inset-height, 0px))",
@@ -5438,7 +5467,7 @@ export default function ChatConversation() {
                   emojiStyle={EmojiStyle.NATIVE}
                   lazyLoadEmojis
                   width="100%"
-                  height={320}
+                  height="100%"
                   previewConfig={{
                     showPreview: false,
                   }}

@@ -179,10 +179,14 @@ export default function AuthProvider({
           : tokenOverride;
 
       console.info("[AUTH] HYDRATE_START", {
-        version: hydrateVersion,
         timestamp: Date.now(),
-        triggerSource,
-        hasToken: Boolean(token),
+        version: hydrateVersion,
+        endpoint: "/auth/me",
+        statusCode: null,
+        tokenPresent: Boolean(token),
+        refreshTokenPresent: Boolean(tokenStorage.getRefreshToken()),
+        isAuthenticated: useAuthStore.getState().isAuthenticated,
+        isSessionRecovering: useAuthStore.getState().isSessionRecovering,
       });
 
       // Abort previous GET /me request if any
@@ -207,10 +211,14 @@ export default function AuthProvider({
         clearRetry();
         clearWatchdog();
         console.info("[AUTH] HYDRATE_SUCCESS", {
-          version: hydrateVersion,
           timestamp: Date.now(),
-          triggerSource,
-          reason: "missing_token",
+          version: hydrateVersion,
+          endpoint: null,
+          statusCode: null,
+          tokenPresent: false,
+          refreshTokenPresent: Boolean(tokenStorage.getRefreshToken()),
+          isAuthenticated: useAuthStore.getState().isAuthenticated,
+          isSessionRecovering: useAuthStore.getState().isSessionRecovering,
         });
         setApiUnavailable(false);
         setSessionRecovering(false);
@@ -262,10 +270,14 @@ export default function AuthProvider({
         clearRetry();
         clearWatchdog();
         console.info("[AUTH] HYDRATE_SUCCESS", {
-          version: hydrateVersion,
           timestamp: Date.now(),
-          triggerSource,
-          userId: user.id,
+          version: hydrateVersion,
+          endpoint: "/auth/me",
+          statusCode: 200,
+          tokenPresent: true,
+          refreshTokenPresent: Boolean(tokenStorage.getRefreshToken()),
+          isAuthenticated: useAuthStore.getState().isAuthenticated,
+          isSessionRecovering: useAuthStore.getState().isSessionRecovering,
         });
         setAuth({
           user,
@@ -294,11 +306,14 @@ export default function AuthProvider({
 
         if (tokenIsInvalid) {
           console.warn("[AUTH] HYDRATE_FAIL", {
-            version: hydrateVersion,
             timestamp: Date.now(),
-            triggerSource,
-            reason: "invalid_token",
-            status,
+            version: hydrateVersion,
+            endpoint: "/auth/me",
+            statusCode: status,
+            tokenPresent: true,
+            refreshTokenPresent: Boolean(tokenStorage.getRefreshToken()),
+            isAuthenticated: useAuthStore.getState().isAuthenticated,
+            isSessionRecovering: useAuthStore.getState().isSessionRecovering,
           });
           clearRetry();
           clearWatchdog();
@@ -311,12 +326,14 @@ export default function AuthProvider({
         }
 
         console.warn("[AUTH] HYDRATE_FAIL", {
-          version: hydrateVersion,
           timestamp: Date.now(),
-          triggerSource,
-          reason: "unavailable_or_timeout",
-          status: status ?? "network_or_timeout",
-          error: error instanceof Error ? error.message : "Unknown hydration failure",
+          version: hydrateVersion,
+          endpoint: "/auth/me",
+          statusCode: status ?? "network_or_timeout",
+          tokenPresent: true,
+          refreshTokenPresent: Boolean(tokenStorage.getRefreshToken()),
+          isAuthenticated: useAuthStore.getState().isAuthenticated,
+          isSessionRecovering: useAuthStore.getState().isSessionRecovering,
         });
 
         useSocketStore
@@ -346,6 +363,10 @@ export default function AuthProvider({
     function handleTokenChange(
       event: Event,
     ) {
+      console.info("[AUTH] TOKEN_CHANGE_EVENT received", {
+        timestamp: Date.now(),
+        detail: (event as CustomEvent).detail,
+      });
       const token =
         (event as CustomEvent<{
           token: string | null;
@@ -356,6 +377,10 @@ export default function AuthProvider({
     }
 
     function handleApiUnavailable(event: Event) {
+      console.warn("[AUTH] API_UNAVAILABLE_EVENT received", {
+        timestamp: Date.now(),
+        detail: (event as CustomEvent).detail,
+      });
       if (!tokenStorage.exists()) {
         return;
       }
@@ -397,6 +422,10 @@ export default function AuthProvider({
     }
 
     function handleInvalidApiSession(event: Event) {
+      console.warn(
+        "[AUTH] API_AUTH_INVALID_EVENT received",
+        (event as CustomEvent).detail,
+      );
       console.warn(
         "[AUTH] API invalidated the session",
         (event as CustomEvent).detail,

@@ -372,6 +372,13 @@ export default function AuthRouteGate({
     !isAuthenticated;
 
   if (isRecoveringStoredSession) {
+    console.warn("[AUTH] RouteGate rendering SessionRecoveryScreen", {
+      isHydrated,
+      isAuthenticated,
+      isSessionRecovering,
+      hasStoredToken,
+      apiUnavailable: isApiUnavailable,
+    });
     return <SessionRecoveryScreen />;
   }
 

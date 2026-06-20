@@ -475,6 +475,7 @@ textarea:focus-visible {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: var(--fc-scrollbar) transparent;
+  overflow-anchor: none;
 }
 
 .fc-no-scrollbar {
