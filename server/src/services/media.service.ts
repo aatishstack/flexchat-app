@@ -14,7 +14,7 @@ import {
   buildR2Key,
   deleteR2Object,
   getR2DownloadUrl,
-  isR2Enabled,
+  isR2PersistentStorageReady,
   isR2Key,
   putR2Object,
 } from "../lib/r2.js";
@@ -279,7 +279,7 @@ async function storeUploadedFile(input: {
   resourceType: MediaResourceType;
   fallbackBytes: number;
 }): Promise<StoredUploadResult> {
-  if (isR2Enabled()) {
+  if (isR2PersistentStorageReady()) {
     try {
       const body = await fs.readFile(input.tempFilepath);
       const key = buildR2Key([

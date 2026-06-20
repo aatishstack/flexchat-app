@@ -1,4 +1,4 @@
-import { getRedis, isRedisEnabled } from "../lib/redis.js";
+import { getRedis } from "../lib/redis.js";
 
 
 export interface PresenceAdapter {
@@ -134,140 +134,14 @@ class InMemoryPresenceAdapter
 }
 
 /**
- * Redis-backed presence adapter.
- *
- * Design goals (Railway restart-safe, multi-tab, multi-device):
- *  - Synchronous reads: keeps a local in-memory mirror so getOnlineUserIds()
- *    stays synchronous (no change to existing call sites) and remains correct
- *    even if Redis is briefly unavailable.
- *  - Durable write-through to Redis using the agreed key shape:
- *      presence:user:{userId}  -> SET of active socketIds (multi-tab/device)
- *      lastSeen:user:{userId}  -> last-seen epoch ms (survives restarts)
- *  - All Redis operations are best-effort: a failure logs and degrades to the
- *    in-memory mirror; it never throws into the socket lifecycle.
- *
- * Online status is rebuilt from live reconnections after a restart, and the
- * existing 30s removeMissingSockets sweep reconciles any sockets that died
- * while the process was down.
+ * Local per-instance presence mirror. The Redis-backed global functions below
+ * are the cross-instance source of truth; this mirror provides synchronous
+ * reads and a fallback when Redis is unavailable.
  */
-class RedisPresenceAdapter implements PresenceAdapter {
-  private readonly mirror = new InMemoryPresenceAdapter();
+const presenceAdapter = new InMemoryPresenceAdapter();
 
-  private static presenceKey(userId: string) {
-    return `presence:user:${userId}`;
-  }
-
-  private static lastSeenKey(userId: string) {
-    return `lastSeen:user:${userId}`;
-  }
-
-  private safeRedis() {
-    try {
-      return getRedis();
-    } catch {
-      return null;
-    }
-  }
-
-  addSocket(userId: string, socketId: string) {
-    this.mirror.addSocket(userId, socketId);
-
-    const redis = this.safeRedis();
-
-    if (!redis) {
-      return;
-    }
-
-    void redis
-      .sadd(RedisPresenceAdapter.presenceKey(userId), socketId)
-      .catch((error: unknown) => {
-        console.error("[REDIS] addSocket failed", {
-          userId,
-          message: error instanceof Error ? error.message : String(error),
-        });
-      });
-  }
-
-  touchSocket(socketId: string) {
-    this.mirror.touchSocket(socketId);
-  }
-
-  removeSocket(socketId: string) {
-    const userId = this.mirror.removeSocket(socketId);
-
-    if (!userId) {
-      return null;
-    }
-
-    const redis = this.safeRedis();
-
-    if (!redis) {
-      return userId;
-    }
-
-    const stillOnline = this.mirror
-      .getOnlineUserIds()
-      .includes(userId);
-    const lastSeenAt = Date.now();
-
-    void (async () => {
-      try {
-        await redis.srem(
-          RedisPresenceAdapter.presenceKey(userId),
-          socketId,
-        );
-
-        if (!stillOnline) {
-          await redis.set(
-            RedisPresenceAdapter.lastSeenKey(userId),
-            String(lastSeenAt),
-          );
-        }
-      } catch (error) {
-        console.error("[REDIS] removeSocket failed", {
-          userId,
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
-    })();
-
-    return userId;
-  }
-
-  removeMissingSockets(activeSocketIds: Set<string>) {
-    // The mirror knows every socket this instance is tracking; reconcile
-    // against the live socket set, mirroring the removals into Redis.
-    const changedUserIds = this.mirror.getTrackedSocketIds();
-    const removedUsers = new Set<string>();
-
-    changedUserIds.forEach((socketId) => {
-      if (activeSocketIds.has(socketId)) {
-        return;
-      }
-
-      const userId = this.removeSocket(socketId);
-
-      if (userId) {
-        removedUsers.add(userId);
-      }
-    });
-
-    return Array.from(removedUsers);
-  }
-
-  getOnlineUserIds() {
-    return this.mirror.getOnlineUserIds();
-  }
-
-  getLastSeenByUserId(userId: string) {
-    return this.mirror.getLastSeenByUserId(userId);
-  }
-}
-
-const presenceAdapter: PresenceAdapter =
-  isRedisEnabled()
-    ? new RedisPresenceAdapter()
-    : new InMemoryPresenceAdapter();
+// --- Local (per-instance) presence mirror -------------------------------
+// Synchronous reads used internally and as the fallback when Redis is off.
 
 export function addOnlineSocket(
   userId: string,
@@ -302,4 +176,172 @@ export function getOnlineUserIds() {
 
 export function getLastSeenByUserId(userId: string) {
   return presenceAdapter.getLastSeenByUserId(userId);
+}
+
+// --- Global (cross-instance) presence via Redis -------------------------
+// Redis is the source of truth across Railway replicas:
+//   presence:user:{userId}  -> SET of active socketIds (all instances)
+//   presence:online         -> SET of currently-online userIds
+//   lastSeen:user:{userId}   -> last-seen epoch ms
+// All Redis ops are best-effort; on failure we degrade to the local mirror.
+
+function presenceUserKey(userId: string) {
+  return `presence:user:${userId}`;
+}
+
+const PRESENCE_ONLINE_KEY = "presence:online";
+
+function lastSeenKey(userId: string) {
+  return `lastSeen:user:${userId}`;
+}
+
+export type PresenceDisconnectResult = {
+  userId: string;
+  online: boolean;
+};
+
+/** Register a socket as online (local mirror + global Redis sets). */
+export async function presenceConnect(
+  userId: string,
+  socketId: string,
+): Promise<void> {
+  presenceAdapter.addSocket(userId, socketId);
+
+  const redis = getRedis();
+
+  if (!redis) {
+    return;
+  }
+
+  try {
+    await redis
+      .multi()
+      .sadd(presenceUserKey(userId), socketId)
+      .sadd(PRESENCE_ONLINE_KEY, userId)
+      .exec();
+  } catch (error) {
+    console.error("[REDIS] presenceConnect failed", {
+      userId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * Remove a socket and report whether the user is still online GLOBALLY (i.e.
+ * has sockets on any instance). When the user becomes fully offline, their
+ * Redis online flag is cleared and last-seen recorded.
+ */
+export async function presenceDisconnect(
+  socketId: string,
+): Promise<PresenceDisconnectResult | null> {
+  const userId = presenceAdapter.removeSocket(socketId);
+
+  if (!userId) {
+    return null;
+  }
+
+  const redis = getRedis();
+
+  if (!redis) {
+    return {
+      userId,
+      online: presenceAdapter.getOnlineUserIds().includes(userId),
+    };
+  }
+
+  try {
+    await redis.srem(presenceUserKey(userId), socketId);
+    const remaining = await redis.scard(presenceUserKey(userId));
+    const online = remaining > 0;
+
+    if (!online) {
+      await redis
+        .multi()
+        .srem(PRESENCE_ONLINE_KEY, userId)
+        .set(lastSeenKey(userId), String(Date.now()))
+        .exec();
+    }
+
+    return { userId, online };
+  } catch (error) {
+    console.error("[REDIS] presenceDisconnect failed", {
+      userId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+
+    return {
+      userId,
+      online: presenceAdapter.getOnlineUserIds().includes(userId),
+    };
+  }
+}
+
+/**
+ * Reconcile this instance's tracked sockets against the live socket set
+ * (backstop sweep). Returns the users whose presence changed and their final
+ * global online state.
+ */
+export async function presenceReconcile(
+  activeSocketIds: Set<string>,
+): Promise<PresenceDisconnectResult[]> {
+  const staleSocketIds = presenceAdapter
+    .getTrackedSocketIds()
+    .filter((socketId) => !activeSocketIds.has(socketId));
+
+  const byUser = new Map<string, boolean>();
+
+  for (const socketId of staleSocketIds) {
+    const result = await presenceDisconnect(socketId);
+
+    if (!result) {
+      continue;
+    }
+
+    // Offline (false) wins over any earlier online reading for the same user.
+    const previous = byUser.get(result.userId);
+    byUser.set(
+      result.userId,
+      previous === undefined ? result.online : previous && result.online,
+    );
+  }
+
+  return Array.from(byUser.entries()).map(([userId, online]) => ({
+    userId,
+    online,
+  }));
+}
+
+/** Globally online user ids (Redis when available, else local mirror). */
+export async function getOnlineUserIdsAsync(): Promise<string[]> {
+  const redis = getRedis();
+
+  if (redis) {
+    try {
+      return await redis.smembers(PRESENCE_ONLINE_KEY);
+    } catch (error) {
+      console.error("[REDIS] getOnlineUserIdsAsync failed", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return presenceAdapter.getOnlineUserIds();
+}
+
+/** Whether a user has any active socket on any instance. */
+export async function isUserOnlineAsync(userId: string): Promise<boolean> {
+  const redis = getRedis();
+
+  if (redis) {
+    try {
+      return (await redis.scard(presenceUserKey(userId))) > 0;
+    } catch (error) {
+      console.error("[REDIS] isUserOnlineAsync failed", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return presenceAdapter.getOnlineUserIds().includes(userId);
 }

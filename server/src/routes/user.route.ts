@@ -21,7 +21,7 @@ import {
 } from "../services/media.service.js";
 import { getSocketServer } from "../socket/socket-hub.js";
 import { SOCKET_EVENTS } from "../socket/socket-events.js";
-import { getOnlineUserIds } from "../socket/socket-store.js";
+import { getOnlineUserIdsAsync } from "../socket/socket-store.js";
 
 const discoverUsersQuerySchema = z.object({
   q: z.string().trim().max(80).optional(),
@@ -791,7 +791,7 @@ export async function userRoutes(app: FastifyInstance) {
           limit ${limit}
         `);
 
-      const onlineUserIds = new Set(getOnlineUserIds());
+      const onlineUserIds = new Set(await getOnlineUserIdsAsync());
 
       return discoveredUsers.map((user) =>
         publicUser({

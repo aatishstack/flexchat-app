@@ -394,7 +394,18 @@ if (process.env.TESTING === "true") {
 
   client = queryFn;
 } else {
-  client = postgres(env.DATABASE_URL);
+  client = postgres(env.DATABASE_URL, {
+    // Bounded pool per instance so multiple Railway replicas don't exhaust the
+    // Neon connection limit. Pair with Neon's pooled (-pooler) endpoint.
+    max: env.DATABASE_POOL_MAX,
+    // Release idle connections so Neon can reclaim them (serverless autosuspend).
+    idle_timeout: 30,
+    // Fail fast instead of hanging if the DB is unreachable.
+    connect_timeout: 10,
+    // Required when DATABASE_URL points at Neon's PgBouncer (-pooler) endpoint:
+    // transaction-mode pooling does not support prepared statements.
+    prepare: false,
+  });
 }
 
 export const db = drizzle(client as ReturnType<typeof postgres>);

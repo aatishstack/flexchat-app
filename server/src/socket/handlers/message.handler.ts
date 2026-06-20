@@ -17,7 +17,7 @@ import {
 } from "../../services/media.service.js";
 import { FcmService } from "../../services/fcm.service.js";
 import { clearUserTyping } from "./typing.handler.js";
-import { getOnlineUserIds } from "../socket-store.js";
+import { getOnlineUserIdsAsync } from "../socket-store.js";
 import { users } from "../../db/schema/users.js";
 import { eq } from "drizzle-orm";
 import { SOCKET_EVENTS } from "../socket-events.js";
@@ -599,7 +599,7 @@ async function sendPushToOfflineMembers(
 ) {
   try {
     const members = await getConversationMembers([conversationId]);
-    const onlineUserIds = new Set(getOnlineUserIds());
+    const onlineUserIds = new Set(await getOnlineUserIdsAsync());
     
     // Fetch sender info for better notification
     const senderRows = await db
@@ -612,7 +612,7 @@ async function sendPushToOfflineMembers(
     
     const targetUserIds = members
       .map(m => m.userId)
-      .filter(id => id !== senderId);
+      .filter(id => id !== senderId && !onlineUserIds.has(id));
 
     if (targetUserIds.length === 0) return;
 

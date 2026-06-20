@@ -62,6 +62,36 @@ export function isRedisEnabled(): boolean {
   return Boolean(env.REDIS_URL);
 }
 
+/**
+ * Build the dedicated pub/sub client pair required by the Socket.IO Redis
+ * adapter (the subscriber connection cannot also issue normal commands, so it
+ * must be separate from the shared presence client). Returns null when Redis
+ * is not configured, in which case the server runs single-instance.
+ */
+export function createAdapterClients(): { pub: Redis; sub: Redis } | null {
+  const base = getRedis();
+
+  if (!base) {
+    return null;
+  }
+
+  const pub = base.duplicate();
+  const sub = base.duplicate();
+
+  pub.on("error", (error) => {
+    console.error("[REDIS] adapter pub error", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+  });
+  sub.on("error", (error) => {
+    console.error("[REDIS] adapter sub error", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+  });
+
+  return { pub, sub };
+}
+
 export async function closeRedis(): Promise<void> {
   if (!redisClient) {
     return;

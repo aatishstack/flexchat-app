@@ -38,6 +38,18 @@ export function isR2Enabled(): boolean {
   );
 }
 
+/**
+ * R2 may only be used as the durable media backend when it can produce stable,
+ * non-expiring URLs (i.e. a public/CDN base URL is configured). Without it,
+ * stored objects would only be reachable via time-limited signed URLs that
+ * expire (max 7 days) and break already-sent messages — so we keep Cloudinary
+ * as the backend in that case. Presigned direct upload/download endpoints stay
+ * available regardless (they are inherently short-lived by design).
+ */
+export function isR2PersistentStorageReady(): boolean {
+  return isR2Enabled() && Boolean(env.R2_PUBLIC_BASE_URL);
+}
+
 export function isR2Key(key: string | null | undefined): boolean {
   return Boolean(key && key.startsWith(R2_KEY_PREFIX));
 }

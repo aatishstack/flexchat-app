@@ -11,6 +11,11 @@ const envSchema = z.object({
   ),
   REDIS_URL:
     z.string().trim().optional(),
+  // Max Postgres connections per server instance. Keep low for Neon: with
+  // multiple Railway replicas, (DATABASE_POOL_MAX * replicas) must stay under
+  // the Neon connection limit. Use Neon's pooled (-pooler) connection string.
+  DATABASE_POOL_MAX:
+    z.coerce.number().int().min(1).max(100).default(10),
   R2_BUCKET_NAME:
     z.string().trim().optional(),
   R2_ACCOUNT_ID:

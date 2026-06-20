@@ -1,19 +1,22 @@
 import type { Server as HttpServer } from "http";
 
 import { Server } from "socket.io";
+import { createAdapter } from "@socket.io/redis-adapter";
 import { sql } from "drizzle-orm";
 
 import { env } from "../config/env.js";
 import { db } from "../db/index.js";
 import { debugLog } from "../lib/debug-log.js";
+import { createAdapterClients } from "../lib/redis.js";
 import { deleteMediaAsset } from "../services/media.service.js";
 import { authenticateSocket } from "./socket-auth.js";
 import { SOCKET_EVENTS } from "./socket-events.js";
 import {
-  addOnlineSocket,
   getOnlineUserIds,
-  removeMissingOnlineSockets,
-  removeOnlineSocket,
+  getOnlineUserIdsAsync,
+  presenceConnect,
+  presenceDisconnect,
+  presenceReconcile,
   touchOnlineSocket,
 } from "./socket-store.js";
 import { registerMessageHandlers } from "./handlers/message.handler.js";
@@ -147,52 +150,72 @@ export function setupSocket(server: HttpServer) {
   prioritizeNewListeners(server, "request", previousRequestListeners);
   prioritizeNewListeners(server, "upgrade", previousUpgradeListeners);
 
+  // Multi-instance fan-out: when Redis is configured, attach the Socket.IO
+  // Redis adapter so room emits (messages, typing) and broadcasts (presence
+  // deltas) propagate across all Railway replicas. Without Redis the server
+  // runs single-instance with identical behavior.
+  const adapterClients = createAdapterClients();
+  const multiInstance = Boolean(adapterClients);
+
+  if (adapterClients) {
+    io.adapter(createAdapter(adapterClients.pub, adapterClients.sub));
+    console.info("[SOCKET] Redis adapter enabled (multi-instance mode)");
+  }
+
   setSocketServer(io);
 
   const presenceCleanupTimer = setInterval(() => {
-    const previousOnlineUsers = getOnlineUserIds().join(",");
+    void (async () => {
+      const previousOnlineUsers = getOnlineUserIds().join(",");
 
-    const changedUserIds = removeMissingOnlineSockets(
-      new Set(io.sockets.sockets.keys()),
-    );
+      const changed = await presenceReconcile(
+        new Set(io.sockets.sockets.keys()),
+      );
 
-    if (!changedUserIds.length) {
-      return;
-    }
-
-    const nextOnlineUsers = getOnlineUserIds();
-
-    if (previousOnlineUsers !== nextOnlineUsers.join(",")) {
-      io.emit(SOCKET_EVENTS.ONLINE_USERS, nextOnlineUsers);
-    }
-
-    changedUserIds.forEach((changedUserId) => {
-      if (nextOnlineUsers.includes(changedUserId)) {
+      if (!changed.length) {
         return;
       }
 
-      const lastSeenAt = Date.now();
+      // Single-instance: keep the legacy full-list broadcast as a self-heal.
+      // Multi-instance: the per-connect snapshot + presence deltas keep every
+      // client accurate (a full-list broadcast would only reflect one node).
+      if (!multiInstance) {
+        const nextOnlineUsers = getOnlineUserIds();
 
-      const lastSeenIso = new Date(lastSeenAt).toISOString();
+        if (previousOnlineUsers !== nextOnlineUsers.join(",")) {
+          io.emit(SOCKET_EVENTS.ONLINE_USERS, nextOnlineUsers);
+        }
+      }
 
-      void db
-        .execute(
-          sql`
-          update users
-          set last_seen_at = ${lastSeenIso}
-          where id = ${changedUserId}
-            and is_deleted = false
-        `,
-        )
-        .catch((error) => {
-          console.error("Failed to persist cleaned-up last seen", error);
+      changed.forEach(({ userId, online }) => {
+        if (online) {
+          return;
+        }
+
+        const lastSeenAt = Date.now();
+        const lastSeenIso = new Date(lastSeenAt).toISOString();
+
+        void db
+          .execute(
+            sql`
+            update users
+            set last_seen_at = ${lastSeenIso}
+            where id = ${userId}
+              and is_deleted = false
+          `,
+          )
+          .catch((error) => {
+            console.error("Failed to persist cleaned-up last seen", error);
+          });
+
+        io.emit(SOCKET_EVENTS.PRESENCE_UPDATED, {
+          userId,
+          status: "offline",
+          lastSeenAt,
         });
-
-      io.emit(SOCKET_EVENTS.PRESENCE_UPDATED, {
-        userId: changedUserId,
-        status: "offline",
-        lastSeenAt,
       });
+    })().catch((error) => {
+      console.error("Presence cleanup sweep failed", error);
     });
   }, 30_000);
 
@@ -223,32 +246,43 @@ export function setupSocket(server: HttpServer) {
       transport: socket.conn.transport.name,
     });
 
-    const previousOnlineUsers = getOnlineUserIds().join(",");
-
-    addOnlineSocket(userId, socket.id);
-
     socket.join(`user:${userId}`);
 
     socket.onAny(() => {
       touchOnlineSocket(socket.id);
     });
 
-    const nextOnlineUsers = getOnlineUserIds();
+    void (async () => {
+      const previousOnlineUsers = getOnlineUserIds().join(",");
 
-    // Always send the current online snapshot to the connecting socket, even
-    // when the global set did not change (e.g. multi-tab, refresh, reconnect).
-    // Otherwise a second tab / reconnect would never receive the list and
-    // would render everyone as offline until the next change broadcast.
-    socket.emit(SOCKET_EVENTS.ONLINE_USERS, nextOnlineUsers);
+      await presenceConnect(userId, socket.id);
 
-    if (previousOnlineUsers !== nextOnlineUsers.join(",")) {
-      io.emit(SOCKET_EVENTS.ONLINE_USERS, nextOnlineUsers);
-    }
+      // Always bootstrap the connecting socket with the authoritative (global
+      // when Redis is on) online snapshot — covers multi-tab, refresh and
+      // reconnect where the global set did not otherwise change.
+      socket.emit(
+        SOCKET_EVENTS.ONLINE_USERS,
+        await getOnlineUserIdsAsync(),
+      );
 
-    io.emit(SOCKET_EVENTS.PRESENCE_UPDATED, {
-      userId,
-      status: "online",
-      lastSeenAt: Date.now(),
+      // Single-instance self-heal broadcast (skipped in multi-instance mode,
+      // where presence deltas + per-connect snapshots are authoritative).
+      if (!multiInstance) {
+        const nextOnlineUsers = getOnlineUserIds();
+
+        if (previousOnlineUsers !== nextOnlineUsers.join(",")) {
+          io.emit(SOCKET_EVENTS.ONLINE_USERS, nextOnlineUsers);
+        }
+      }
+
+      // Presence delta — propagated to all instances by the Redis adapter.
+      io.emit(SOCKET_EVENTS.PRESENCE_UPDATED, {
+        userId,
+        status: "online",
+        lastSeenAt: Date.now(),
+      });
+    })().catch((error) => {
+      console.error("Presence connect failed", error);
     });
 
     registerMessageHandlers(io, socket);
@@ -263,44 +297,46 @@ export function setupSocket(server: HttpServer) {
         userId,
         reason,
       });
-      const previousOnlineUsers = getOnlineUserIds().join(",");
 
-      const removedUserId = removeOnlineSocket(socket.id);
+      void (async () => {
+        const previousOnlineUsers = getOnlineUserIds().join(",");
 
-      const nextOnlineUsers = getOnlineUserIds();
+        const result = await presenceDisconnect(socket.id);
 
-      const isStillOnline = removedUserId
-        ? nextOnlineUsers.includes(removedUserId)
-        : false;
+        if (!multiInstance) {
+          const nextOnlineUsers = getOnlineUserIds();
 
-      const lastSeenAt = Date.now();
+          if (previousOnlineUsers !== nextOnlineUsers.join(",")) {
+            io.emit(SOCKET_EVENTS.ONLINE_USERS, nextOnlineUsers);
+          }
+        }
 
-      const lastSeenIso = new Date(lastSeenAt).toISOString();
+        if (result && !result.online) {
+          const lastSeenAt = Date.now();
+          const lastSeenIso = new Date(lastSeenAt).toISOString();
 
-      if (previousOnlineUsers !== nextOnlineUsers.join(",")) {
-        io.emit(SOCKET_EVENTS.ONLINE_USERS, nextOnlineUsers);
-      }
-
-      if (removedUserId && !isStillOnline) {
-        void db
-          .execute(
-            sql`
+          void db
+            .execute(
+              sql`
                 update users
                 set last_seen_at = ${lastSeenIso}
-                where id = ${removedUserId}
+                where id = ${result.userId}
                   and is_deleted = false
               `,
-          )
-          .catch((error) => {
-            console.error("Failed to persist last seen", error);
-          });
+            )
+            .catch((error) => {
+              console.error("Failed to persist last seen", error);
+            });
 
-        io.emit(SOCKET_EVENTS.PRESENCE_UPDATED, {
-          userId: removedUserId,
-          status: "offline",
-          lastSeenAt,
-        });
-      }
+          io.emit(SOCKET_EVENTS.PRESENCE_UPDATED, {
+            userId: result.userId,
+            status: "offline",
+            lastSeenAt,
+          });
+        }
+      })().catch((error) => {
+        console.error("Presence disconnect failed", error);
+      });
     });
   });
 

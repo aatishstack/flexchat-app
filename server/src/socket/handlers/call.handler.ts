@@ -8,7 +8,7 @@ import {
 } from "../../lib/conversation-access.js";
 import { debugLog } from "../../lib/debug-log.js";
 import { generateId } from "../../lib/uuid.js";
-import { getOnlineUserIds } from "../socket-store.js";
+import { isUserOnlineAsync } from "../socket-store.js";
 import { isBlocked } from "../../lib/blocking.js";
 import { SOCKET_EVENTS } from "../socket-events.js";
 
@@ -361,7 +361,7 @@ export function registerCallHandlers(io: Server, socket: Socket) {
         return;
       }
 
-      const targetOnline = getOnlineUserIds().includes(targetUserId);
+      const targetOnline = await isUserOnlineAsync(targetUserId);
       const call: CallSession = {
         id: generateId(),
         conversationId,

@@ -23,8 +23,6 @@ import {
   Volume2,
   VolumeX,
   X,
-  Heart,
-  Send,
 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -623,21 +621,8 @@ export default function StoryViewer({
           />
         </div>
 
-        {/* Footer actions */}
-        <div className="flex items-center gap-3 px-4 pb-8 pt-4 pointer-events-auto">
-          <div className="flex-1 flex items-center gap-2 bg-black/40 backdrop-blur-md rounded-full px-4 py-3 border border-white/20">
-            <input
-              className="flex-1 bg-transparent text-[14px] text-white placeholder-white/60 outline-none"
-              placeholder="Send message"
-            />
-          </div>
-          <button className="w-11 h-11 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/20 active:scale-95 transition-transform">
-            <Heart size={20} className="text-white" />
-          </button>
-          <button className="w-11 h-11 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/20 active:scale-95 transition-transform">
-            <Send size={18} className="text-white" />
-          </button>
-        </div>
+        {/* Footer reply/react controls intentionally omitted until wired to a
+            real backend action — no dead/non-functional controls are shown. */}
 
         {/* Privacy Popover */}
         {privacyOpen && isOwnStory && (
