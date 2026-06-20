@@ -29,10 +29,6 @@ const AUTH_TIMEOUT_ERROR = "auth_timeout";
 const AUTH_TIMEOUT_MS = 8_000;
 const AUTH_RETRY_DELAY_MS = 3_000;
 const AUTH_SAFETY_TIMEOUT_MS = 12_000;
-// A single transient /auth/me failure (timeout, network, 502/503/504) must NOT
-// surface the full "Restoring your session" recovery screen. Only show it once
-// transient failures have been retried this many times without success.
-const AUTH_RECOVERY_FAILURE_THRESHOLD = 3;
 // The "Connection interrupted" banner must not flash for a single failed
 // background request. Only surface it after this many consecutive failures.
 const API_UNAVAILABLE_THRESHOLD = 2;
@@ -86,7 +82,6 @@ export default function AuthProvider({
   const hydrateVersionRef = useRef(0);
   const watchdogTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const activeAbortControllerRef = useRef<AbortController | null>(null);
-  const transientFailureCountRef = useRef(0);
   const apiUnavailableCountRef = useRef(0);
 
   useEffect(() => {
@@ -137,11 +132,10 @@ export default function AuthProvider({
         useSocketStore
           .getState()
           .disconnectSocket();
-        setApiUnavailable(true);
-        transientFailureCountRef.current += 1;
-        setSessionRecovering(
-          transientFailureCountRef.current >= AUTH_RECOVERY_FAILURE_THRESHOLD,
-        );
+        // A valid token exists and the backend is simply slow/unreachable
+        // (cold start, deploy, DB/Redis wakeup). Recover silently — never
+        // surface the session recovery screen for a transient condition.
+        setSessionRecovering(false);
         scheduleRetry();
       }
 
@@ -298,7 +292,6 @@ export default function AuthProvider({
           token: activeToken,
           refreshToken: tokenStorage.getRefreshToken(),
         });
-        transientFailureCountRef.current = 0;
         apiUnavailableCountRef.current = 0;
         setApiUnavailable(false);
         setHydrated(true);
@@ -339,7 +332,7 @@ export default function AuthProvider({
           clearWatchdog();
           setApiUnavailable(false);
           setSessionRecovering(false);
-          transientFailureCountRef.current = 0;
+          apiUnavailableCountRef.current = 0;
           tokenStorage.clear();
           resetClientSessionState();
           setHydrated(true);
@@ -360,15 +353,15 @@ export default function AuthProvider({
         useSocketStore
           .getState()
           .disconnectSocket();
-        setApiUnavailable(true);
-        const isCurrentlyAuthenticated = useAuthStore.getState().isAuthenticated;
-        transientFailureCountRef.current += 1;
-        // Only escalate to the full "Restoring your session" screen once the
-        // transient failure has survived several retries. A single timeout /
-        // network blip / 502-504 keeps the lightweight loader instead.
-        const retriesExhausted =
-          transientFailureCountRef.current >= AUTH_RECOVERY_FAILURE_THRESHOLD;
-        setSessionRecovering(!isCurrentlyAuthenticated && retriesExhausted);
+        // Transient failure (timeout / network / 502-504 / cold start / deploy /
+        // DB or Redis wakeup). The token is still valid, so NEVER show the
+        // session recovery screen — recover silently in the background. A
+        // throttled, auto-dismissing "connection" banner is the only signal.
+        apiUnavailableCountRef.current += 1;
+        setApiUnavailable(
+          apiUnavailableCountRef.current >= API_UNAVAILABLE_THRESHOLD,
+        );
+        setSessionRecovering(false);
         setHydrated(true);
         scheduleRetry();
       }
@@ -477,7 +470,6 @@ export default function AuthProvider({
       // A request succeeded again: silently clear any warning state and reset
       // the failure counters so brief blips never accumulate into a banner.
       apiUnavailableCountRef.current = 0;
-      transientFailureCountRef.current = 0;
       if (useAuthStore.getState().isApiUnavailable) {
         setApiUnavailable(false);
       }

@@ -115,9 +115,6 @@ function RouteGateLoader() {
             <span className="text-[#7C4FF0]">Chat</span>
           </h1>
           <div className="mt-4 flex flex-col items-center gap-2">
-            <p className="text-[15px] font-bold tracking-wide text-[#7C4FF0]/70 uppercase">
-              Restoring session
-            </p>
             <div className="flex gap-1">
               {[0, 1, 2].map((i) => (
                 <motion.div
