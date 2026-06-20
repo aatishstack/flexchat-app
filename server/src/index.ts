@@ -2,22 +2,28 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import * as Sentry from "@sentry/node";
+import {
+  logFatalStartupError,
+  logStartupStep,
+} from "./lib/startup-diagnostics.js";
 
-import { env } from "./config/env.js";
-import { buildApp } from "./app.js";
-import { closeDb } from "./db/index.js";
-import { startMediaCleanup } from "./services/media.service.js";
-import { setupSocket } from "./socket/index.js";
+type ServerApp = Awaited<
+  ReturnType<typeof import("./app.js")["buildApp"]>
+>;
+type SocketServer = ReturnType<
+  typeof import("./socket/index.js")["setupSocket"]
+>;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DEFAULT_PORT = 8080;
 const HOST = "0.0.0.0";
-let app: Awaited<ReturnType<typeof buildApp>> | undefined;
-let io: ReturnType<typeof setupSocket> | undefined;
+let app: ServerApp | undefined;
+let io: SocketServer | undefined;
+let closeDatabase: (() => Promise<void>) | undefined;
 let mediaCleanupTimer: ReturnType<typeof setInterval> | undefined;
 let shuttingDown = false;
+let currentStartupStage = "startup:bootstrap";
 
 type StartupLogLevel = "info" | "warn" | "error";
 
@@ -116,16 +122,16 @@ async function runRequiredStartupStage<T>(
   }
 }
 
-function runOptionalStartupStage<T>(
+async function runOptionalStartupStage<T>(
   stage: string,
-  action: () => T,
+  action: () => Promise<T> | T,
 ) {
   const startedAt = Date.now();
 
   startupLog("info", stage, "FlexChat optional startup stage started");
 
   try {
-    const result = action();
+    const result = await action();
 
     startupLog(
       "info",
@@ -155,6 +161,7 @@ function runOptionalStartupStage<T>(
 process.on(
   "unhandledRejection",
   (reason) => {
+    logFatalStartupError("runtime:unhandledRejection", reason);
     console.error(
       "Unhandled promise rejection",
       reason,
@@ -167,6 +174,7 @@ process.on(
 process.on(
   "uncaughtException",
   (error) => {
+    logFatalStartupError("runtime:uncaughtException", error);
     console.error(
       "Uncaught exception",
       error,
@@ -216,7 +224,9 @@ function getPort() {
   return port;
 }
 
-function initializeSentry() {
+async function initializeSentry(
+  env: typeof import("./config/env.js")["env"],
+) {
   if (!env.SENTRY_DSN) {
     startupLog(
       "info",
@@ -229,6 +239,8 @@ function initializeSentry() {
     return;
   }
 
+  const Sentry = await import("@sentry/node");
+
   Sentry.init({
     dsn: env.SENTRY_DSN,
     environment: env.SENTRY_ENVIRONMENT,
@@ -237,7 +249,7 @@ function initializeSentry() {
 }
 
 function configureHttpServer(
-  serverApp: Awaited<ReturnType<typeof buildApp>>,
+  serverApp: ServerApp,
 ) {
   serverApp.server.on("connection", (socket) => {
     socket.setKeepAlive(true, 15_000);
@@ -290,7 +302,9 @@ async function shutdown(signal: string) {
       await app.close();
     }
 
-    await closeDb();
+    if (closeDatabase) {
+      await closeDatabase();
+    }
 
     clearTimeout(forceExitTimer);
 
@@ -322,19 +336,47 @@ process.on("SIGINT", () => {
 });
 
 async function main() {
+  logStartupStep("startup:banner", "FlexChat server startup beginning");
+
+  currentStartupStage = "runtime:diagnostics";
   logRuntimeDiagnostics();
 
-  runOptionalStartupStage("sentry:init", initializeSentry);
+  currentStartupStage = "env:parse";
+  logStartupStep("env:parse", "Parsing startup environment");
+  const { env } = await import("./config/env.js");
+  logStartupStep("env:parse", "Startup environment parsed successfully");
 
+  currentStartupStage = "database:init";
+  logStartupStep("database:init", "Initializing database client");
+  const databaseModule = await import("./db/index.js");
+  closeDatabase = databaseModule.closeDb;
+  logStartupStep("database:init", "Database client initialized successfully");
+
+  currentStartupStage = "application:imports";
+  const [appModule, mediaModule, socketModule] = await Promise.all([
+    import("./app.js"),
+    import("./services/media.service.js"),
+    import("./socket/index.js"),
+  ]);
+
+  await runOptionalStartupStage(
+    "sentry:init",
+    () => initializeSentry(env),
+  );
+
+  currentStartupStage = "runtime:port";
   const PORT = getPort();
 
+  currentStartupStage = "fastify:buildApp";
+  logStartupStep("fastify:buildApp", "Building Fastify application");
   const serverApp = await runRequiredStartupStage(
     "fastify:buildApp",
-    buildApp,
+    appModule.buildApp,
   );
 
   app = serverApp;
 
+  currentStartupStage = "http:configure";
   await runRequiredStartupStage(
     "http:configure",
     () => configureHttpServer(serverApp),
@@ -348,28 +390,36 @@ async function main() {
     "FlexChat server starting",
   );
 
+  currentStartupStage = "fastify:listen";
+  logStartupStep("fastify:listen", "Starting HTTP listener");
   const address = await runRequiredStartupStage(
     "fastify:listen",
     () => serverApp.listen({ port: PORT, host: HOST }),
   );
 
+  logStartupStep("fastify:listen", "HTTP listener started successfully");
   serverApp.log.info(
     { address, host: HOST, port: PORT },
     `FlexChat server running on port ${PORT}`,
   );
 
-  io = runOptionalStartupStage(
+  currentStartupStage = "socket:init";
+  io = await runOptionalStartupStage(
     "socket:init",
-    () => setupSocket(serverApp.server),
+    () => socketModule.setupSocket(serverApp.server),
   );
 
-  mediaCleanupTimer = runOptionalStartupStage(
+  currentStartupStage = "mediaCleanup:start";
+  mediaCleanupTimer = await runOptionalStartupStage(
     "mediaCleanup:start",
-    startMediaCleanup,
+    mediaModule.startMediaCleanup,
   );
+
+  currentStartupStage = "startup:complete";
 }
 
 void main().catch((error) => {
+  logFatalStartupError(currentStartupStage, error);
   startupLog(
     "error",
     "startup:fatal",

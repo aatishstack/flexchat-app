@@ -124,8 +124,21 @@ function publicUser(user: {
   };
 }
 
-function normalizeOrigin(value: string) {
-  return new URL(value).origin;
+const SAFE_FALLBACK_ORIGIN = "http://localhost:3000";
+
+function normalizeOrigin(
+  value: string | undefined,
+  fallback = SAFE_FALLBACK_ORIGIN,
+) {
+  if (!value) {
+    return fallback;
+  }
+
+  try {
+    return new URL(value).origin;
+  } catch {
+    return fallback;
+  }
 }
 
 function getConfiguredFrontendOrigins() {
