@@ -1,9 +1,12 @@
 "use client";
 
 import {
+  keepPreviousData,
   useInfiniteQuery,
 } from "@tanstack/react-query";
 import { useMemo } from "react";
+
+import axios from "axios";
 
 import { queryKeys } from "@/lib/query-keys";
 import { getConversationPage } from "@/services/conversation.service";
@@ -28,6 +31,25 @@ export function useConversationsQuery() {
       20 * 1000,
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
+    // Keep previously loaded conversations visible across refetches so a
+    // transient outage never blanks the list.
+    placeholderData: keepPreviousData,
+    // Retry transient/server failures several times with backoff before the
+    // query is allowed to surface a hard error. Client errors (<500) are not
+    // retried (they are not transient).
+    retry: (failureCount, error) => {
+      if (
+        axios.isAxiosError(error) &&
+        error.response?.status &&
+        error.response.status < 500
+      ) {
+        return false;
+      }
+
+      return failureCount < 5;
+    },
+    retryDelay: (attemptIndex) =>
+      Math.min(1000 * 2 ** attemptIndex, 15_000),
   });
 
   const queryData = query.data;

@@ -1439,7 +1439,7 @@ export default function ChatSidebar() {
           ) : null}
 
 
-          {conversationsQuery.isError ? (
+          {conversationsQuery.isError && filteredConversations.length === 0 ? (
             <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100 mx-4 mt-4">
               Unable to load conversations
             </div>

@@ -27,7 +27,6 @@ const NOTIFICATION_TIME_FORMATTER =
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-    timeZone: "UTC",
   });
 
 function formatNotificationTime(

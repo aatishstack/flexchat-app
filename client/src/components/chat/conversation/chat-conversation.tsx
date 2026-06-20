@@ -3371,6 +3371,15 @@ export default function ChatConversation() {
     checkedUnreadInitRef.current = conversationId;
   }, [conversationId, visibleMessages, currentUserId, messagesQuery.isLoading]);
 
+  // Remove the unread divider immediately once the conversation's unread
+  // count reaches zero, instead of leaving it pinned until the conversation
+  // is switched.
+  useEffect(() => {
+    if (activeUnreadCount <= 0 && firstUnreadMessageId) {
+      setFirstUnreadMessageId(null);
+    }
+  }, [activeUnreadCount, firstUnreadMessageId]);
+
   useEffect(() => {
     setActiveSearchIndex(0);
   }, [conversationId, normalizedMessageSearch]);

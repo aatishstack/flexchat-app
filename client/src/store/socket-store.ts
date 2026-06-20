@@ -137,11 +137,16 @@ const MAX_EPHEMERAL_MESSAGES_PER_CONVERSATION = 160;
 const MAX_PENDING_MESSAGES = 80;
 const PENDING_MESSAGE_TTL_MS = 5 * 60 * 1000;
 const TYPING_THROTTLE_MS = 3500;
+// Hard upper bound for a message that is queued while the socket is offline.
+// If connectivity is not restored within this window the message is failed
+// (and becomes retryable) so it can never spin in "sending" indefinitely.
+const QUEUED_MESSAGE_TIMEOUT_MS = 12_000;
 
 const pendingMessages = new Map<string, PendingMessage>();
 const lastTypingSentAt = new Map<string, number>();
 
 const retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const queuedWatchdogs = new Map<string, ReturnType<typeof setTimeout>>();
 
 function clearRetryTimer(tempId: string) {
   const timer = retryTimers.get(tempId);
@@ -152,12 +157,59 @@ function clearRetryTimer(tempId: string) {
   }
 }
 
+function clearQueuedWatchdog(tempId: string) {
+  const timer = queuedWatchdogs.get(tempId);
+
+  if (timer) {
+    clearTimeout(timer);
+    queuedWatchdogs.delete(tempId);
+  }
+}
+
+/**
+ * Guarantees a queued (offline) message reaches a terminal state. When the
+ * timer fires: if the message already resolved -> no-op; if the socket is back
+ * -> flush it through the normal ack/retry path; if still offline -> mark it
+ * failed so the user sees a retryable state instead of an endless spinner.
+ */
+function armQueuedWatchdog(
+  tempId: string,
+  flush: () => void,
+  fail: (id: string) => void,
+) {
+  if (queuedWatchdogs.has(tempId)) {
+    return;
+  }
+
+  const timer = setTimeout(() => {
+    queuedWatchdogs.delete(tempId);
+
+    const pending = pendingMessages.get(tempId);
+
+    if (!pending) {
+      return;
+    }
+
+    if (socket.connected) {
+      flush();
+      return;
+    }
+
+    pendingMessages.delete(tempId);
+    clearRetryTimer(tempId);
+    fail(tempId);
+  }, QUEUED_MESSAGE_TIMEOUT_MS);
+
+  queuedWatchdogs.set(tempId, timer);
+}
+
 function failPendingMessage(
   tempId: string,
   updateMessageStatus: (id: string, status: MessageStatus) => void,
 ) {
   pendingMessages.delete(tempId);
   clearRetryTimer(tempId);
+  clearQueuedWatchdog(tempId);
   updateMessageStatus(tempId, "failed");
 }
 
@@ -446,6 +498,8 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     pendingMessages.clear();
     retryTimers.forEach((timer) => clearTimeout(timer));
     retryTimers.clear();
+    queuedWatchdogs.forEach((timer) => clearTimeout(timer));
+    queuedWatchdogs.clear();
 
     set({
       token: null,
@@ -467,6 +521,21 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
     retryTimers.forEach((timer) => clearTimeout(timer));
     retryTimers.clear();
+
+    // The socket just dropped; make sure every still-pending message is bounded
+    // by a watchdog so it cannot remain stuck in "sending" forever.
+    pendingMessages.forEach((pending) => {
+      armQueuedWatchdog(
+        pending.tempId,
+        () => get().flushPendingMessages(),
+        (id) => {
+          get().updateMessageStatus(id, "failed");
+          set({
+            connectionError: "Message failed to send",
+          });
+        },
+      );
+    });
   },
 
   setOnlineUsers: (users) => {
@@ -528,6 +597,20 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     prunePendingMessages(get().updateMessageStatus);
 
     if (!socket.connected) {
+      // Still offline: ensure each queued message is bounded by a watchdog so
+      // it resolves to failed (retryable) rather than spinning indefinitely.
+      pendingMessages.forEach((pending) => {
+        armQueuedWatchdog(
+          pending.tempId,
+          () => get().flushPendingMessages(),
+          (id) => {
+            get().updateMessageStatus(id, "failed");
+            set({
+              connectionError: "Message failed to send",
+            });
+          },
+        );
+      });
       return;
     }
 
@@ -540,6 +623,9 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       pending.attempts += 1;
 
       clearRetryTimer(pending.tempId);
+      // Connected: the ack/timeout path below now governs this message, so the
+      // offline watchdog is no longer needed.
+      clearQueuedWatchdog(pending.tempId);
 
       socket.timeout(ACK_TIMEOUT_MS).emit(
         SOCKET_EVENTS.SEND_MESSAGE,
@@ -572,6 +658,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
             pendingMessages.delete(pending.tempId);
             clearRetryTimer(pending.tempId);
+            clearQueuedWatchdog(pending.tempId);
             get().updateMessageStatus(pending.tempId, "failed");
             set({
               connectionError:
@@ -583,6 +670,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
           pendingMessages.delete(pending.tempId);
           clearRetryTimer(pending.tempId);
+          clearQueuedWatchdog(pending.tempId);
 
           if (ack.message) {
             setCachedConversationMessage(pending.conversationId, {

@@ -27,6 +27,10 @@ const AUTH_TIMEOUT_ERROR = "auth_timeout";
 const AUTH_TIMEOUT_MS = 8_000;
 const AUTH_RETRY_DELAY_MS = 3_000;
 const AUTH_SAFETY_TIMEOUT_MS = 12_000;
+// A single transient /auth/me failure (timeout, network, 502/503/504) must NOT
+// surface the full "Restoring your session" recovery screen. Only show it once
+// transient failures have been retried this many times without success.
+const AUTH_RECOVERY_FAILURE_THRESHOLD = 3;
 
 async function getCurrentUserWithTimeout() {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -77,6 +81,7 @@ export default function AuthProvider({
   const hydrateVersionRef = useRef(0);
   const watchdogTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const activeAbortControllerRef = useRef<AbortController | null>(null);
+  const transientFailureCountRef = useRef(0);
 
   useEffect(() => {
     let disposed = false;
@@ -127,7 +132,10 @@ export default function AuthProvider({
           .getState()
           .disconnectSocket();
         setApiUnavailable(true);
-        setSessionRecovering(true);
+        transientFailureCountRef.current += 1;
+        setSessionRecovering(
+          transientFailureCountRef.current >= AUTH_RECOVERY_FAILURE_THRESHOLD,
+        );
         scheduleRetry();
       }
 
@@ -284,6 +292,8 @@ export default function AuthProvider({
           token: activeToken,
           refreshToken: tokenStorage.getRefreshToken(),
         });
+        transientFailureCountRef.current = 0;
+        setApiUnavailable(false);
         setHydrated(true);
         connectSocket(activeToken);
         console.info("[SOCKET] socket auth token attached", {
@@ -319,6 +329,7 @@ export default function AuthProvider({
           clearWatchdog();
           setApiUnavailable(false);
           setSessionRecovering(false);
+          transientFailureCountRef.current = 0;
           tokenStorage.clear();
           resetClientSessionState();
           setHydrated(true);
@@ -341,7 +352,13 @@ export default function AuthProvider({
           .disconnectSocket();
         setApiUnavailable(true);
         const isCurrentlyAuthenticated = useAuthStore.getState().isAuthenticated;
-        setSessionRecovering(!isCurrentlyAuthenticated);
+        transientFailureCountRef.current += 1;
+        // Only escalate to the full "Restoring your session" screen once the
+        // transient failure has survived several retries. A single timeout /
+        // network blip / 502-504 keeps the lightweight loader instead.
+        const retriesExhausted =
+          transientFailureCountRef.current >= AUTH_RECOVERY_FAILURE_THRESHOLD;
+        setSessionRecovering(!isCurrentlyAuthenticated && retriesExhausted);
         setHydrated(true);
         scheduleRetry();
       }

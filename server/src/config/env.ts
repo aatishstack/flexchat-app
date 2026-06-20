@@ -9,6 +9,8 @@ const envSchema = z.object({
       message: "DATABASE_URL contains placeholder '@host:'. Please provide a valid database host.",
     }
   ),
+  REDIS_URL:
+    z.string().trim().optional(),
   JWT_SECRET:
     z.string()
       .min(1)

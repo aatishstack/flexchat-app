@@ -161,13 +161,18 @@ async function runOptionalStartupStage<T>(
 process.on(
   "unhandledRejection",
   (reason) => {
-    logFatalStartupError("runtime:unhandledRejection", reason);
-    console.error(
-      "Unhandled promise rejection",
-      reason,
+    // A single unhandled promise rejection must NOT terminate the process.
+    // Terminating here caused Railway restart cascades (dropped sockets,
+    // 502s, stuck message sends). Log and isolate the transient failure
+    // instead; only genuinely fatal uncaught exceptions trigger shutdown.
+    startupLog(
+      "error",
+      "runtime:unhandledRejection",
+      "Unhandled promise rejection (isolated, process continuing)",
+      {
+        err: serializeError(reason),
+      },
     );
-
-    void shutdown("unhandledRejection");
   }
 );
 
@@ -304,6 +309,13 @@ async function shutdown(signal: string) {
 
     if (closeDatabase) {
       await closeDatabase();
+    }
+
+    try {
+      const { closeRedis } = await import("./lib/redis.js");
+      await closeRedis();
+    } catch (error) {
+      logger.warn?.({ err: error }, "FlexChat redis shutdown failed");
     }
 
     clearTimeout(forceExitTimer);
