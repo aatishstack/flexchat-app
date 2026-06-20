@@ -20,6 +20,8 @@ import {
   ShieldCheck,
   Trash2,
   Users,
+  Volume2,
+  VolumeX,
   X,
   Heart,
   Send,
@@ -59,6 +61,7 @@ type Props = {
 type StoryMediaProps = {
   story: Story;
   videoRef: React.RefObject<HTMLVideoElement | null>;
+  muted: boolean;
   onLoaded: (storyId: string) => void;
   onError: () => void;
   onVideoMetadata: (durationMs: number) => void;
@@ -68,6 +71,7 @@ type StoryMediaProps = {
 const StoryMedia = memo(function StoryMedia({
   story,
   videoRef,
+  muted,
   onLoaded,
   onError,
   onVideoMetadata,
@@ -93,7 +97,7 @@ const StoryMedia = memo(function StoryMedia({
         key={story.id}
         src={story.mediaUrl}
         autoPlay
-        muted
+        muted={muted}
         playsInline
         preload="metadata"
         onLoadedMetadata={(event) => {
@@ -144,6 +148,10 @@ export default function StoryViewer({
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [loadedMediaStoryId, setLoadedMediaStoryId] = useState<string>();
   const [documentVisible, setDocumentVisible] = useState(true);
+  // Video stories play with sound by default (the viewer only opens via a tap,
+  // which satisfies autoplay gesture requirements). Users can mute/unmute, and
+  // if a browser blocks unmuted autoplay we fall back to muted playback.
+  const [isVideoMuted, setIsVideoMuted] = useState(false);
   const [videoDuration, setVideoDuration] = useState({
     storyId: "",
     durationMs: 0,
@@ -419,13 +427,22 @@ export default function StoryViewer({
       return;
     }
 
+    const video = videoRef.current;
+
     if (timerPaused) {
-      videoRef.current.pause();
+      video.pause();
       return;
     }
 
-    void videoRef.current.play().catch(() => undefined);
-  }, [currentStory, timerPaused]);
+    video.muted = isVideoMuted;
+    void video.play().catch(() => {
+      // Some browsers block unmuted autoplay; fall back to muted playback so
+      // the story still plays, and reflect the muted state in the UI.
+      video.muted = true;
+      setIsVideoMuted(true);
+      void video.play().catch(() => undefined);
+    });
+  }, [currentStory, timerPaused, isVideoMuted]);
 
   useEffect(() => {
     const nextStory = group?.stories[effectiveStoryIndex + 1];
@@ -516,6 +533,7 @@ export default function StoryViewer({
         <StoryMedia
           story={currentStory}
           videoRef={videoRef}
+          muted={isVideoMuted}
           onLoaded={setLoadedMediaStoryId}
           onError={advanceOnce}
           onVideoEnded={advanceOnce}
@@ -559,6 +577,22 @@ export default function StoryViewer({
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {currentStory.mediaType === "video" && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsVideoMuted((value) => !value);
+                }}
+                className="p-2"
+                aria-label={isVideoMuted ? "Unmute video" : "Mute video"}
+              >
+                {isVideoMuted ? (
+                  <VolumeX size={20} className="text-white drop-shadow-md" />
+                ) : (
+                  <Volume2 size={20} className="text-white drop-shadow-md" />
+                )}
+              </button>
+            )}
             {isOwnStory && (
               <button 
                 onClick={(e) => { e.stopPropagation(); setPrivacyOpen(!privacyOpen); }}

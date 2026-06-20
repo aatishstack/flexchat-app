@@ -149,6 +149,10 @@ const EmojiPicker = dynamic<PickerProps>(
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const LARGE_FILE_CARD_BYTES = 15 * 1024 * 1024;
+// How long after the last keystroke we tell peers the user stopped typing.
+// Kept comfortably under the server typing TTL (6s) so the indicator stays
+// alive while typing but clears promptly on a real pause (WhatsApp-like).
+const TYPING_STOP_IDLE_MS = 2_500;
 
 function getConversationAvatar(
   conversation: {
@@ -3982,16 +3986,18 @@ export default function ChatConversation() {
       return;
     }
 
-    if (!typingActiveRef.current) {
-      startTyping(conversationId);
-      typingActiveRef.current = true;
-    }
+    // Emit on every keystroke. The socket store throttles the actual
+    // START_TYPING emit (~3.5s), which keeps the server's 6s typing TTL
+    // refreshed so the remote "typing…" indicator does not disappear during
+    // continuous typing.
+    startTyping(conversationId);
+    typingActiveRef.current = true;
 
     clearTypingTimeout();
 
     typingTimeoutRef.current = setTimeout(() => {
       stopActiveTyping(conversationId);
-    }, 760);
+    }, TYPING_STOP_IDLE_MS);
   }
 
   function handleEmojiSelect(emoji: EmojiClickData) {
@@ -4802,7 +4808,7 @@ export default function ChatConversation() {
 
               setProfileOpen(true);
             }}
-            className="flex min-w-0 items-center gap-3 text-left outline-none transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex min-w-0 flex-1 items-center gap-3 text-left outline-none transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isConversationBlocked}
             aria-label="Open profile"
           >
@@ -4841,13 +4847,13 @@ export default function ChatConversation() {
         </div>
 
         <div
-          className="flex shrink-0 items-center gap-1 sm:gap-2"
+          className="flex shrink-0 items-center gap-0.5 sm:gap-2"
         >
           <button
             type="button"
             onClick={() => handleStartCall("voice")}
             disabled={!callTargetUserId || isConversationBlocked}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40 disabled:hover:bg-transparent"
+            className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40 disabled:hover:bg-transparent"
             aria-label="Start voice call"
           >
             <Phone size={20} />
@@ -4857,7 +4863,7 @@ export default function ChatConversation() {
             type="button"
             onClick={() => handleStartCall("video")}
             disabled={!callTargetUserId || isConversationBlocked}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40 disabled:hover:bg-transparent"
+            className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40 disabled:hover:bg-transparent"
             aria-label="Start video call"
           >
             <Video size={20} />
@@ -4866,7 +4872,7 @@ export default function ChatConversation() {
           <button
             type="button"
             onClick={() => setMessageSearchOpen(true)}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/[0.06] hover:text-white"
+            className="hidden h-10 w-10 sm:h-11 sm:w-11 shrink-0 sm:flex items-center justify-center rounded-full text-white/50 transition hover:bg-white/[0.06] hover:text-white"
             aria-label="Search messages"
           >
             <Search size={20} />
@@ -4875,7 +4881,7 @@ export default function ChatConversation() {
           <button
             type="button"
             onClick={() => setChatSettingsOpen(true)}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/[0.06] hover:text-white"
+            className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/[0.06] hover:text-white"
             aria-label="Open chat settings"
           >
             <MoreVertical size={20} />
@@ -5555,6 +5561,20 @@ export default function ChatConversation() {
               </div>
 
               <div className="grid gap-2 p-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setChatSettingsOpen(false);
+                    setMessageSearchOpen(true);
+                  }}
+                  className="fc-hover flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--fc-theme-text)] transition"
+                >
+                  <Search
+                    size={18}
+                    className="text-[var(--fc-accent-text)]"
+                  />
+                  Search messages
+                </button>
                 <button
                   type="button"
                   onClick={handleToggleBlock}
