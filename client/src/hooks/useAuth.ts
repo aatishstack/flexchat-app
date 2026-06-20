@@ -31,6 +31,12 @@ export function useAuth() {
         state.isSessionRecovering
     );
 
+  const isApiUnavailable =
+    useAuthStore(
+      (state) =>
+        state.isApiUnavailable
+    );
+
   return {
     user,
 
@@ -41,6 +47,8 @@ export function useAuth() {
     isHydrated,
 
     isSessionRecovering,
+
+    isApiUnavailable,
 
     status: isHydrated
       ? isAuthenticated

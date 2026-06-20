@@ -186,6 +186,19 @@ function SessionRecoveryScreen() {
   );
 }
 
+function ApiUnavailableNotice() {
+  return (
+    <div
+      role="status"
+      className="pointer-events-none fixed inset-x-0 top-3 z-[100] flex justify-center px-4"
+    >
+      <div className="rounded-full border border-amber-300/20 bg-[#16161D]/95 px-4 py-2 text-xs font-semibold text-amber-100 shadow-xl backdrop-blur">
+        Connection interrupted. Reconnecting in the background…
+      </div>
+    </div>
+  );
+}
+
 export default function AuthRouteGate({
   children,
 }: {
@@ -197,6 +210,7 @@ export default function AuthRouteGate({
     isAuthenticated,
     isHydrated,
     isSessionRecovering,
+    isApiUnavailable,
   } = useAuth();
   const [hasStoredToken, setHasStoredToken] =
     useState(() => tokenStorage.exists());
@@ -277,6 +291,7 @@ export default function AuthRouteGate({
       authPath,
       hasStoredToken,
       isSessionRecovering,
+      isApiUnavailable,
       rejectedReason,
     });
 
@@ -292,6 +307,7 @@ export default function AuthRouteGate({
       authPath,
       hasStoredToken,
       isSessionRecovering,
+      isApiUnavailable,
       rejectedReason,
     });
   }, [
@@ -300,6 +316,7 @@ export default function AuthRouteGate({
     isAuthenticated,
     isHydrated,
     isSessionRecovering,
+    isApiUnavailable,
     pathname,
     protectedPath,
   ]);
@@ -378,5 +395,10 @@ export default function AuthRouteGate({
     return null;
   }
 
-  return children;
+  return (
+    <>
+      {isApiUnavailable ? <ApiUnavailableNotice /> : null}
+      {children}
+    </>
+  );
 }

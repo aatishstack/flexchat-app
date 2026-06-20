@@ -29,11 +29,17 @@ interface AuthState {
 
   isSessionRecovering: boolean;
 
+  isApiUnavailable: boolean;
+
   setHydrated: (
     value: boolean
   ) => void;
 
   setSessionRecovering: (
+    value: boolean
+  ) => void;
+
+  setApiUnavailable: (
     value: boolean
   ) => void;
 
@@ -71,6 +77,9 @@ export const useAuthStore =
       isSessionRecovering:
         false,
 
+      isApiUnavailable:
+        false,
+
       setHydrated:
         (
           value
@@ -86,6 +95,15 @@ export const useAuthStore =
         ) =>
           set({
             isSessionRecovering:
+              value,
+          }),
+
+      setApiUnavailable:
+        (
+          value
+        ) =>
+          set({
+            isApiUnavailable:
               value,
           }),
 
@@ -114,6 +132,9 @@ export const useAuthStore =
           true,
 
           isSessionRecovering:
+            false,
+
+          isApiUnavailable:
             false,
         });
       },
@@ -152,6 +173,9 @@ export const useAuthStore =
             true,
 
           isSessionRecovering:
+            false,
+
+          isApiUnavailable:
             false,
         });
       },

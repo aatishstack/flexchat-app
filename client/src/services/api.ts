@@ -259,6 +259,8 @@ api.interceptors.response.use(
       emitSessionEvent(API_UNAVAILABLE_EVENT, {
         status: status ?? "network_error",
         url,
+        method,
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -288,13 +290,25 @@ api.interceptors.response.use(
 
       return api(originalRequest);
     } catch (refreshError) {
-      console.warn(
-        "[AUTH] refresh rejected; clearing invalid session",
-      );
-      emitSessionEvent(API_AUTH_INVALID_EVENT, {
-        reason: "refresh_failed",
-      });
-      tokenStorage.clear();
+      const status = axios.isAxiosError(refreshError)
+        ? refreshError.response?.status
+        : undefined;
+      const isAuthFailure = status === 401 || status === 403;
+
+      if (isAuthFailure) {
+        console.warn(
+          "[AUTH] refresh rejected; clearing invalid session",
+        );
+        emitSessionEvent(API_AUTH_INVALID_EVENT, {
+          reason: "refresh_failed",
+        });
+        tokenStorage.clear();
+      } else {
+        console.warn(
+          "[AUTH] refresh failed due to transient API outage; preserving session",
+          { status }
+        );
+      }
 
       return Promise.reject(refreshError);
     }
