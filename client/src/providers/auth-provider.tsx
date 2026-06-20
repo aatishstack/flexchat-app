@@ -31,6 +31,9 @@ const AUTH_SAFETY_TIMEOUT_MS = 12_000;
 // surface the full "Restoring your session" recovery screen. Only show it once
 // transient failures have been retried this many times without success.
 const AUTH_RECOVERY_FAILURE_THRESHOLD = 3;
+// The "Connection interrupted" banner must not flash for a single failed
+// background request. Only surface it after this many consecutive failures.
+const API_UNAVAILABLE_THRESHOLD = 2;
 
 async function getCurrentUserWithTimeout() {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -82,6 +85,7 @@ export default function AuthProvider({
   const watchdogTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const activeAbortControllerRef = useRef<AbortController | null>(null);
   const transientFailureCountRef = useRef(0);
+  const apiUnavailableCountRef = useRef(0);
 
   useEffect(() => {
     let disposed = false;
@@ -293,6 +297,7 @@ export default function AuthProvider({
           refreshToken: tokenStorage.getRefreshToken(),
         });
         transientFailureCountRef.current = 0;
+        apiUnavailableCountRef.current = 0;
         setApiUnavailable(false);
         setHydrated(true);
         connectSocket(activeToken);
@@ -432,7 +437,11 @@ export default function AuthProvider({
       useSocketStore
         .getState()
         .disconnectSocket();
-      setApiUnavailable(true);
+      apiUnavailableCountRef.current += 1;
+      // Silent recovery first: only raise the banner once failures persist.
+      setApiUnavailable(
+        apiUnavailableCountRef.current >= API_UNAVAILABLE_THRESHOLD,
+      );
       setSessionRecovering(false);
       setHydrated(true);
       scheduleRetry();

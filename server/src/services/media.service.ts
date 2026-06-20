@@ -11,6 +11,14 @@ import { env } from "../config/env.js";
 import { db } from "../db/index.js";
 import { getCloudinary } from "../lib/cloudinary.js";
 import {
+  buildR2Key,
+  deleteR2Object,
+  getR2DownloadUrl,
+  isR2Enabled,
+  isR2Key,
+  putR2Object,
+} from "../lib/r2.js";
+import {
   isFileSignatureAllowed,
   readFileHeader,
 } from "../lib/upload-signature.js";
@@ -220,6 +228,120 @@ async function destroyCloudinaryAsset(
   }
 }
 
+function isCloudinaryConfigured() {
+  return Boolean(
+    env.CLOUDINARY_CLOUD_NAME &&
+      env.CLOUDINARY_API_KEY &&
+      env.CLOUDINARY_API_SECRET,
+  );
+}
+
+/**
+ * Provider-aware asset deletion. R2-backed assets are identified by their key
+ * prefix; everything else is treated as a Cloudinary public id. This lets R2
+ * and Cloudinary assets coexist (e.g. historical media) without schema changes.
+ */
+async function destroyStoredAsset(
+  publicId: string,
+  resourceType: MediaResourceType,
+) {
+  if (isR2Key(publicId)) {
+    await deleteR2Object(publicId);
+    return;
+  }
+
+  await destroyCloudinaryAsset(publicId, resourceType);
+}
+
+type StoredUploadResult = {
+  publicId: string;
+  secureUrl: string;
+  deliveryUrl: string;
+  bytes: number;
+  format: string | null;
+};
+
+/**
+ * Persist an uploaded temp file to object storage.
+ *
+ * Prefers Cloudflare R2 when configured (profile photos, story media, image /
+ * video / document / attachment uploads), and falls back to Cloudinary when R2
+ * is unavailable or a transient R2 error occurs. When R2 is not configured at
+ * all, Cloudinary remains the default exactly as before.
+ */
+async function storeUploadedFile(input: {
+  tempFilepath: string;
+  ownerUserId: string;
+  purpose: MediaPurpose;
+  kind: MediaKind;
+  mimeType: string;
+  normalizedExtension: string;
+  resourceType: MediaResourceType;
+  fallbackBytes: number;
+}): Promise<StoredUploadResult> {
+  if (isR2Enabled()) {
+    try {
+      const body = await fs.readFile(input.tempFilepath);
+      const key = buildR2Key([
+        safeFolderSegment(input.ownerUserId),
+        input.purpose,
+        `${generateId()}${input.normalizedExtension}`,
+      ]);
+
+      await putR2Object({
+        key,
+        body,
+        contentType: input.mimeType,
+      });
+
+      const url = await getR2DownloadUrl({ key });
+
+      return {
+        publicId: key,
+        secureUrl: url,
+        deliveryUrl: url,
+        bytes: body.byteLength || input.fallbackBytes,
+        format:
+          input.normalizedExtension.replace(/^\./, "").toLowerCase() || null,
+      };
+    } catch (error) {
+      if (!isCloudinaryConfigured()) {
+        throw error;
+      }
+
+      console.error(
+        "[R2] upload failed; falling back to Cloudinary",
+        {
+          message: error instanceof Error ? error.message : String(error),
+        },
+      );
+    }
+  }
+
+  const cloudinary = getCloudinary();
+  const uploadResult = await cloudinary.uploader.upload(input.tempFilepath, {
+    resource_type: input.resourceType,
+    folder: `flexchat/${safeFolderSegment(input.ownerUserId)}/${input.purpose}`,
+    public_id: generateId(),
+    overwrite: false,
+    unique_filename: false,
+    use_filename: false,
+    tags: ["flexchat", input.purpose],
+    context: {
+      owner_id: input.ownerUserId,
+      purpose: input.purpose,
+    },
+  });
+
+  return {
+    publicId: uploadResult.public_id,
+    secureUrl: uploadResult.secure_url,
+    deliveryUrl: buildDeliveryUrl(uploadResult.secure_url, input.kind),
+    bytes: uploadResult.bytes || input.fallbackBytes,
+    format: uploadResult.format ?? null,
+  };
+}
+
 async function recordMediaAsset(
   asset: StoredMediaAsset,
   clientUploadId: string,
@@ -416,38 +538,28 @@ export async function uploadRequestMedia(
     }
 
     const resourceType = getResourceType(mediaType.kind);
-    const cloudinary = getCloudinary();
-    const uploadResult = await cloudinary.uploader.upload(
+    const stored = await storeUploadedFile({
       tempFilepath,
-      {
-        resource_type: resourceType,
-        folder: `flexchat/${safeFolderSegment(ownerUserId)}/${purpose}`,
-        public_id: generateId(),
-        overwrite: false,
-        unique_filename: false,
-        use_filename: false,
-        tags: ["flexchat", purpose],
-        context: {
-          owner_id: ownerUserId,
-          purpose,
-        },
-      },
-    );
-    const asset: StoredMediaAsset = {
-      publicId: uploadResult.public_id,
       ownerUserId,
       purpose,
-      secureUrl: uploadResult.secure_url,
-      deliveryUrl: buildDeliveryUrl(
-        uploadResult.secure_url,
-        mediaType.kind,
-      ),
+      kind: mediaType.kind,
+      mimeType: mediaType.mimeType,
+      normalizedExtension,
+      resourceType,
+      fallbackBytes: stats.size,
+    });
+    const asset: StoredMediaAsset = {
+      publicId: stored.publicId,
+      ownerUserId,
+      purpose,
+      secureUrl: stored.secureUrl,
+      deliveryUrl: stored.deliveryUrl,
       resourceType,
       kind: mediaType.kind,
       mimeType: mediaType.mimeType,
       fileName: path.basename(data.filename).slice(0, 255),
-      bytes: uploadResult.bytes || stats.size,
-      format: uploadResult.format ?? null,
+      bytes: stored.bytes,
+      format: stored.format,
     };
 
     try {
@@ -458,7 +570,7 @@ export async function uploadRequestMedia(
         clientUploadId,
       );
 
-      await destroyCloudinaryAsset(
+      await destroyStoredAsset(
         asset.publicId,
         asset.resourceType,
       ).catch(() => undefined);
@@ -568,7 +680,7 @@ export async function deleteMediaAsset(
       and deleted_at is null
   `);
 
-  await destroyCloudinaryAsset(
+  await destroyStoredAsset(
     publicId,
     normalizedResourceType,
   );
@@ -609,7 +721,7 @@ async function cleanupPendingMediaAssets() {
 
   for (const asset of assets) {
     try {
-      await destroyCloudinaryAsset(
+      await destroyStoredAsset(
         asset.publicId,
         asset.resourceType,
       );
@@ -621,7 +733,7 @@ async function cleanupPendingMediaAssets() {
       `);
       removedAssets += 1;
     } catch (error) {
-      console.error("Failed to clean Cloudinary media asset", {
+      console.error("Failed to clean media asset", {
         publicId: asset.publicId,
         error,
       });

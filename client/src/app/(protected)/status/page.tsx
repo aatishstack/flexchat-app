@@ -6,11 +6,18 @@ import { useStoriesQuery } from "@/hooks/queries/use-stories-query";
 import { useAuthStore } from "@/stores/auth.store";
 import { groupActiveStories } from "@/components/chat/stories/story-logic";
 import { getServerNow } from "@/lib/server-time";
+import { formatRelativeTime } from "@/lib/server-time";
 import { formatDisplayName } from "@/lib/user-display";
 import FlexAvatar from "@/components/chat/flex-avatar";
 import StoryViewer from "@/components/chat/stories/story-viewer";
 import { StoryCreator } from "@/components/chat/stories/story-creator";
 import { cn } from "@/lib/utils";
+import type { StoryGroup } from "@/types/story";
+
+function latestStoryCreatedAt(group: StoryGroup): string | undefined {
+  return group.stories[group.stories.length - 1]?.createdAt;
+}
+
 
 export default function StatusPage() {
   const [viewerGroupIndex, setViewerGroupIndex] = useState<number | null>(null);
@@ -140,7 +147,7 @@ export default function StatusPage() {
                         {formatDisplayName(group.user.username)}
                       </h3>
                       <p className="text-[12px] text-white/40 font-medium">
-                        Just now
+                        {formatRelativeTime(latestStoryCreatedAt(group)) || "Recently"}
                       </p>
                     </div>
                   </button>
@@ -179,7 +186,7 @@ export default function StatusPage() {
                         {formatDisplayName(group.user.username)}
                       </h3>
                       <p className="text-[12px] text-white/30 font-medium">
-                        Yesterday
+                        {formatRelativeTime(latestStoryCreatedAt(group)) || "Recently"}
                       </p>
                     </div>
                   </button>

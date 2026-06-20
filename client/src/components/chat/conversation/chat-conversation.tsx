@@ -4975,7 +4975,7 @@ export default function ChatConversation() {
           <MessageSkeleton />
         ) : (
           <>
-            {messagesQuery.isError ? (
+            {messagesQuery.isError && visibleMessages.length === 0 ? (
               <button
                 type="button"
                 onClick={() => {

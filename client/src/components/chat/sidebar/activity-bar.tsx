@@ -14,20 +14,10 @@ export default function ActivityBar() {
       (state) =>
         state.isConnected
     );
-  const isConnecting =
-    useSocketStore(
-      (state) =>
-        state.isConnecting
-    );
   const connectionVersion =
     useSocketStore(
       (state) =>
         state.connectionVersion
-    );
-  const connectionError =
-    useSocketStore(
-      (state) =>
-        state.connectionError
     );
   const onlineCount =
     useSocketStore(
@@ -35,55 +25,27 @@ export default function ActivityBar() {
         state.onlineUsers.length
     );
 
+  // Presence-only surface. We deliberately never render connection-status
+  // verbiage (Connected / Connecting / Reconnecting / Syncing / Live Updates):
+  // transient socket state must stay invisible to normal users.
   const status = useMemo(() => {
-    if (connectionError) {
-      return {
-        dot: "bg-red-400 shadow-red-500/50",
-        label:
-          "Connection issue",
-        detail:
-          connectionError,
-      };
-    }
-
-    if (
-      isConnecting &&
-      !isConnected
-    ) {
-      return {
-        dot: "bg-amber-300 shadow-amber-500/50",
-        label:
-          "Reconnecting",
-        detail:
-          "Syncing updates",
-      };
-    }
-
     return {
       dot: "bg-green-500 shadow-green-500/50",
       label:
         onlineCount === 1
-          ? "1 user online"
-          : `${onlineCount} users online`,
-      detail:
-        "Live updates connected",
+          ? "1 person online"
+          : `${onlineCount} people online`,
     };
   }, [
-    connectionError,
-    isConnected,
-    isConnecting,
     onlineCount,
   ]);
 
-  if (!isConnected) {
+  if (!isConnected || onlineCount <= 0) {
     return null;
   }
 
   const statusKey = [
-    connectionError,
     connectionVersion,
-    isConnected,
-    isConnecting,
     onlineCount,
   ].join(":");
 
@@ -125,12 +87,6 @@ export default function ActivityBar() {
 
       <p className="text-sm font-medium text-[var(--fc-theme-text)]">
         {status.label}
-      </p>
-
-      <div className="hidden h-5 w-px bg-[var(--fc-divider)] sm:block" />
-
-      <p className="fc-muted hidden max-w-[320px] truncate text-sm sm:block">
-        {status.detail}
       </p>
     </motion.div>
   );

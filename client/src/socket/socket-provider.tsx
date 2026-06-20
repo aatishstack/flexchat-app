@@ -482,9 +482,6 @@ export default function SocketProvider({
   }, [setTypingUsers]);
 
   useEffect(() => {
-    let diagnosticReconnectAttempts = 0;
-    let diagnosticRefreshRequests = 0;
-
     function onConnect() {
       const latestToken = refreshSocketAuth("connect");
 
@@ -516,11 +513,6 @@ export default function SocketProvider({
           error: null,
         });
       }
-
-      console.info("[DIAGNOSTIC] onConnect triggers queryClient.refetchQueries", {
-        socketId: socket.id,
-        activeConversationId: socketState.activeConversationId,
-      });
 
       void queryClient.refetchQueries({
         queryKey:
@@ -602,39 +594,19 @@ export default function SocketProvider({
       if (msg.includes("unauthorized") && !msg.includes("unavailable")) {
         const storedRefreshToken = tokenStorage.getRefreshToken();
         if (storedRefreshToken) {
-          diagnosticRefreshRequests++;
-          console.info("[DIAGNOSTIC] Unauthorized connection, attempting coordinated token refresh...", {
-            socketId: socket.id || "none",
-            reconnectAttemptCount: diagnosticReconnectAttempts,
-            connectErrorMessage: error.message,
-            refreshRequestCount: diagnosticRefreshRequests,
-          });
           getFreshToken().then((newToken) => {
-            console.info("[SOCKET] Coordinated token refresh succeeded, reconnecting socket...", {
-              socketId: socket.id || "none",
-              refreshRequestCount: diagnosticRefreshRequests,
-            });
             useSocketStore.getState().connectSocket(newToken);
           }).catch((refreshError) => {
-            const statusCode = isAxiosError(refreshError) ? refreshError.response?.status : undefined;
-            console.error("[DIAGNOSTIC] Coordinated token refresh failed during reconnect", {
-              socketId: socket.id || "none",
-              reconnectAttemptCount: diagnosticReconnectAttempts,
-              connectErrorMessage: error.message,
-              refreshRequestCount: diagnosticRefreshRequests,
-              refreshStatusCode: statusCode,
-              error: refreshError.message,
-            });
             const isAuthError =
               isAxiosError(refreshError) &&
               refreshError.response &&
               [400, 401, 403].includes(refreshError.response.status);
 
             if (isAuthError) {
-              console.warn("[SOCKET] Coordinated token refresh failed with auth error, clearing session...");
+              console.warn("[SOCKET] token refresh failed with auth error, clearing session");
               clearClientSession();
             } else {
-              console.warn("[SOCKET] Coordinated token refresh failed due to network or server issue, preserving session.");
+              console.warn("[SOCKET] token refresh failed due to network/server issue, preserving session");
             }
           });
         } else {
@@ -1557,11 +1529,6 @@ export default function SocketProvider({
     }
 
     function onReconnectAttempt() {
-      diagnosticReconnectAttempts++;
-      console.info("[DIAGNOSTIC] onReconnectAttempt", {
-        socketId: socket.id || "none",
-        reconnectAttemptCount: diagnosticReconnectAttempts,
-      });
       useSocketStore.setState({
         isConnected: false,
         isConnecting: true,

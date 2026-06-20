@@ -2,7 +2,6 @@
 
 import {
   useEffect,
-  useRef,
   useState,
 } from "react";
 
@@ -214,7 +213,6 @@ export default function AuthRouteGate({
   } = useAuth();
   const [hasStoredToken, setHasStoredToken] =
     useState(() => tokenStorage.exists());
-  const lastGuardLogRef = useRef("");
 
   const protectedPath =
     isProtectedPath(pathname);
@@ -261,65 +259,6 @@ export default function AuthRouteGate({
       );
     };
   }, []);
-
-  useEffect(() => {
-    const status = !isHydrated
-      ? "loading"
-      : isAuthenticated
-        ? "authenticated"
-        : "unauthenticated";
-    const rejectedReason =
-      protectedPath &&
-      isHydrated &&
-      !isAuthenticated &&
-      !hasStoredToken
-        ? "missing_token"
-        : protectedPath &&
-            isHydrated &&
-            !isAuthenticated &&
-            hasStoredToken
-          ? "validating_stored_token"
-          : authPath &&
-              hasStoredToken &&
-              !isAuthenticated
-            ? "validating_stored_token"
-            : null;
-    const signature = JSON.stringify({
-      pathname,
-      status,
-      protectedPath,
-      authPath,
-      hasStoredToken,
-      isSessionRecovering,
-      isApiUnavailable,
-      rejectedReason,
-    });
-
-    if (lastGuardLogRef.current === signature) {
-      return;
-    }
-
-    lastGuardLogRef.current = signature;
-    console.info("[AUTH] guard state", {
-      pathname,
-      status,
-      protectedPath,
-      authPath,
-      hasStoredToken,
-      isSessionRecovering,
-      isApiUnavailable,
-      rejectedReason,
-    });
-  }, [
-    authPath,
-    hasStoredToken,
-    isAuthenticated,
-    isHydrated,
-    isSessionRecovering,
-    isApiUnavailable,
-    pathname,
-    protectedPath,
-  ]);
 
   useEffect(() => {
     if (

@@ -11,6 +11,21 @@ const envSchema = z.object({
   ),
   REDIS_URL:
     z.string().trim().optional(),
+  R2_BUCKET_NAME:
+    z.string().trim().optional(),
+  R2_ACCOUNT_ID:
+    z.string().trim().optional(),
+  R2_ENDPOINT:
+    z.string().trim().optional(),
+  R2_ACCESS_KEY_ID:
+    z.string().trim().optional(),
+  R2_SECRET_ACCESS_KEY:
+    z.string().trim().optional(),
+  // Optional public/CDN base URL for R2 objects (e.g. a bound custom domain or
+  // the bucket's public r2.dev domain). When set, media is served from here
+  // with no expiry; otherwise time-limited signed GET URLs are generated.
+  R2_PUBLIC_BASE_URL:
+    z.string().trim().url().optional(),
   JWT_SECRET:
     z.string()
       .min(1)
@@ -227,6 +242,23 @@ const envSchema = z.object({
       path: ["TURN_SERVER_URLS"],
       message:
         "TURN server URLs and auth secret are required in production for reliable calls",
+    });
+  }
+
+  const r2Values = [
+    env.R2_BUCKET_NAME,
+    env.R2_ENDPOINT,
+    env.R2_ACCESS_KEY_ID,
+    env.R2_SECRET_ACCESS_KEY,
+  ];
+  const configuredR2Values = r2Values.filter(Boolean).length;
+
+  if (configuredR2Values > 0 && configuredR2Values < r2Values.length) {
+    context.addIssue({
+      code: "custom",
+      path: ["R2_BUCKET_NAME"],
+      message:
+        "R2 bucket name, endpoint, access key id and secret must be configured together",
     });
   }
 });

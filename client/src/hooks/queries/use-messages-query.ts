@@ -1,9 +1,12 @@
 "use client";
 
 import {
+  keepPreviousData,
   useInfiniteQuery,
 } from "@tanstack/react-query";
 import { useMemo } from "react";
+
+import axios from "axios";
 
 import { queryKeys } from "@/lib/query-keys";
 import { getMessagePage } from "@/services/message.service";
@@ -34,6 +37,22 @@ export function useMessagesQuery(
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
     gcTime: 5 * 60 * 1000,
+    // Keep the existing thread on screen across refetches so a transient
+    // outage never blanks the conversation.
+    placeholderData: keepPreviousData,
+    retry: (failureCount, error) => {
+      if (
+        axios.isAxiosError(error) &&
+        error.response?.status &&
+        error.response.status < 500
+      ) {
+        return false;
+      }
+
+      return failureCount < 5;
+    },
+    retryDelay: (attemptIndex) =>
+      Math.min(1000 * 2 ** attemptIndex, 15_000),
   });
 
   const queryData = query.data;
