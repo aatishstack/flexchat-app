@@ -10,6 +10,7 @@ import { isAxiosError } from "axios";
 
 import {
   API_AUTH_INVALID_EVENT,
+  API_RECOVERED_EVENT,
   API_UNAVAILABLE_EVENT,
   SESSION_RETRY_EVENT,
 } from "@/lib/session-events";
@@ -19,6 +20,7 @@ import {
   tokenStorage,
 } from "@/lib/token";
 import { clearClientSession } from "@/lib/session-cleanup";
+import { syncServerTime } from "@/lib/server-time";
 import { getCurrentUser } from "@/services/auth.service";
 import { useSocketStore } from "@/store/socket-store";
 import { useAuthStore } from "@/stores/auth.store";
@@ -301,6 +303,9 @@ export default function AuthProvider({
         setApiUnavailable(false);
         setHydrated(true);
         connectSocket(activeToken);
+        // Refresh the server-time offset on each successful login so relative
+        // and last-seen timestamps are correct after logout/login cycles.
+        void syncServerTime().catch(() => undefined);
         console.info("[SOCKET] socket auth token attached", {
           source: "auth_hydration",
           hasToken: Boolean(activeToken),
@@ -468,6 +473,22 @@ export default function AuthProvider({
       void hydrate(undefined, "manual_retry");
     }
 
+    function handleApiRecovered() {
+      // A request succeeded again: silently clear any warning state and reset
+      // the failure counters so brief blips never accumulate into a banner.
+      apiUnavailableCountRef.current = 0;
+      transientFailureCountRef.current = 0;
+      if (useAuthStore.getState().isApiUnavailable) {
+        setApiUnavailable(false);
+      }
+      if (
+        useAuthStore.getState().isSessionRecovering &&
+        useAuthStore.getState().isAuthenticated
+      ) {
+        setSessionRecovering(false);
+      }
+    }
+
     window.addEventListener(
       "storage",
       handleStorage,
@@ -479,6 +500,10 @@ export default function AuthProvider({
     window.addEventListener(
       API_UNAVAILABLE_EVENT,
       handleApiUnavailable,
+    );
+    window.addEventListener(
+      API_RECOVERED_EVENT,
+      handleApiRecovered,
     );
     window.addEventListener(
       API_AUTH_INVALID_EVENT,
@@ -514,6 +539,10 @@ export default function AuthProvider({
       window.removeEventListener(
         API_UNAVAILABLE_EVENT,
         handleApiUnavailable,
+      );
+      window.removeEventListener(
+        API_RECOVERED_EVENT,
+        handleApiRecovered,
       );
       window.removeEventListener(
         API_AUTH_INVALID_EVENT,

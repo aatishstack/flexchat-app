@@ -54,7 +54,15 @@ export default function FlexAvatar({
   const fallbackColor = getAvatarColorClass(name);
 
   return (
-    <div className={cn(className, !canUseImage && fallbackColor)}>
+    <div
+      className={cn(
+        // Always render as a clean, perfectly circular avatar with the
+        // fallback initial centered, regardless of the caller's classes.
+        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-full",
+        className,
+        !canUseImage && fallbackColor,
+      )}
+    >
       {canUseImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -68,7 +76,7 @@ export default function FlexAvatar({
           }
         />
       ) : (
-        <span className="text-white drop-shadow-sm">
+        <span className="select-none font-semibold leading-none text-white drop-shadow-sm">
           {getAvatarInitial(name)}
         </span>
       )}

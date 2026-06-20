@@ -235,6 +235,12 @@ export function setupSocket(server: HttpServer) {
 
     const nextOnlineUsers = getOnlineUserIds();
 
+    // Always send the current online snapshot to the connecting socket, even
+    // when the global set did not change (e.g. multi-tab, refresh, reconnect).
+    // Otherwise a second tab / reconnect would never receive the list and
+    // would render everyone as offline until the next change broadcast.
+    socket.emit(SOCKET_EVENTS.ONLINE_USERS, nextOnlineUsers);
+
     if (previousOnlineUsers !== nextOnlineUsers.join(",")) {
       io.emit(SOCKET_EVENTS.ONLINE_USERS, nextOnlineUsers);
     }

@@ -3802,6 +3802,11 @@ export default function ChatConversation() {
     pendingSeenConversationIdRef.current = null;
     seenMessageIdsRef.current.clear();
     hasAnchoredInitialMessagesRef.current = false;
+    // Opening a conversation should always restore to the bottom, regardless
+    // of how far the user had scrolled up in the previously open chat. Without
+    // this reset the near-bottom flag leaks across conversations and the new
+    // chat can open at an unexpected scroll position.
+    isNearBottomRef.current = true;
     setMessageSearchOpen(false);
     setMessageSearch("");
 
@@ -4826,7 +4831,7 @@ export default function ChatConversation() {
               </h2>
 
               <p
-                className={`truncate text-[11px] font-semibold tracking-wide leading-none ${
+                className={`text-[11px] font-semibold tracking-wide leading-tight ${
                   !isConnected && isConnecting
                     ? "text-emerald-400"
                     : !isConnected

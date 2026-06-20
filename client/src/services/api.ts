@@ -3,6 +3,7 @@ import axios from "axios";
 import { resolveLocalRuntimeUrl } from "@/lib/runtime-url";
 import {
   API_AUTH_INVALID_EVENT,
+  API_RECOVERED_EVENT,
   API_UNAVAILABLE_EVENT,
 } from "@/lib/session-events";
 import { tokenStorage } from "@/lib/token";
@@ -225,8 +226,21 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+let apiMarkedUnavailable = false;
+
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // First successful response after an outage clears the warning state so
+    // the "Connection interrupted" banner auto-dismisses.
+    if (apiMarkedUnavailable) {
+      apiMarkedUnavailable = false;
+      emitSessionEvent(API_RECOVERED_EVENT, {
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    return response;
+  },
   async (error) => {
     const status = error.response?.status;
     const method =
@@ -256,6 +270,7 @@ api.interceptors.response.use(
         status === 503 ||
         status === 504)
     ) {
+      apiMarkedUnavailable = true;
       emitSessionEvent(API_UNAVAILABLE_EVENT, {
         status: status ?? "network_error",
         url,
