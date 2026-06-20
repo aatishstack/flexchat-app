@@ -13,18 +13,23 @@ export async function isBlocked(userA: string, userB: string): Promise<boolean> 
     return false;
   }
 
-  const result = await db
-    .select({ id: blocks.id })
-    .from(blocks)
-    .where(
-      or(
-        and(eq(blocks.blockerId, userA), eq(blocks.blockedId, userB)),
-        and(eq(blocks.blockerId, userB), eq(blocks.blockedId, userA))
+  try {
+    const result = await db
+      .select({ id: blocks.id })
+      .from(blocks)
+      .where(
+        or(
+          and(eq(blocks.blockerId, userA), eq(blocks.blockedId, userB)),
+          and(eq(blocks.blockerId, userB), eq(blocks.blockedId, userA))
+        )
       )
-    )
-    .limit(1);
+      .limit(1);
 
-  return result.length > 0;
+    return result.length > 0;
+  } catch (error) {
+    console.error("[BLOCKS] table unavailable", error);
+    return false;
+  }
 }
 
 /**
